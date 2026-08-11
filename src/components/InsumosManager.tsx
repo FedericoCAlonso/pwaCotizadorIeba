@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Package, Plus, Search, TrendingUp, History, FileSpreadsheet,
-  Edit2, Trash2, X, Save, Percent, Calendar, AlertCircle
+  Edit2, Trash2, X, Save, Percent, Calendar, AlertCircle, Camera
 } from 'lucide-react';
 import { db, importInsumosCSV } from '../db/database';
 import { Insumo, Proveedor, OfertaProveedor } from '../core/types';
 import { formatARS } from '../core/calculations';
+import { AutocompleteInput } from './AutocompleteInput';
+import { BarcodeScannerModal } from './BarcodeScannerModal';
 
 export const InsumosManager: React.FC = () => {
   const insumos = useLiveQuery(() => db.insumos.toArray()) || [];
@@ -22,6 +24,7 @@ export const InsumosManager: React.FC = () => {
   const [massPercentage, setMassPercentage] = useState<number>(10);
   const [showCSVModal, setShowCSVModal] = useState(false);
   const [csvContent, setCsvContent] = useState('');
+  const [showScanner, setShowScanner] = useState(false);
 
   const [formData, setFormData] = useState<Partial<Insumo>>({
     nombre: '', marca: '', modelo: '', unidad: 'm', categoria: 'cableado',
@@ -31,12 +34,19 @@ export const InsumosManager: React.FC = () => {
   const [newOferta, setNewOferta] = useState<Partial<OfertaProveedor>>({
     nombreProveedor: '', precio: 0, notas: ''
   });
+  const [saveProviderToDB, setSaveProviderToDB] = useState(false);
 
   const categories = Array.from(new Set(insumos.map((i) => i.categoria).filter(Boolean)));
   const BASE_CATEGORIES = ['cableado', 'protecciones', 'cajas', 'canalizaciones', 'accesorios', 'iluminacion', 'insumos', 'tableros', 'medicion'];
   for (const c of BASE_CATEGORIES) { if (!categories.includes(c)) categories.push(c); }
   categories.sort();
   const BASE_UNITS = ['m', 'u', 'kg', 'rollo', 'caja', 'par', 'juego', 'litro', 'ml', 'tramo'];
+
+  const proveedorOptions = proveedores.map(p => ({
+    id: p.id,
+    label: p.nombre,
+    subLabel: p.cuit ? `CUIT: ${p.cuit}` : undefined
+  }));
 
   const filteredInsumos = insumos.filter((item) => {
     const matchesSearch =
@@ -47,8 +57,8 @@ export const InsumosManager: React.FC = () => {
     return matchesSearch && matchesCat;
   });
 
-  const handleOpenCreate = () => {
-    setFormData({ nombre: '', marca: '', modelo: '', unidad: 'm', categoria: 'cableado', proveedorPreferido: '', codigoProveedor: '', precioActual: 0, ofertas: [] });
+  const handleOpenCreate = (prefill?: Partial<Insumo>) => {
+    setFormData({ nombre: '', marca: '', modelo: '', unidad: 'm', categoria: 'cableado', proveedorPreferido: '', codigoProveedor: '', precioActual: 0, ofertas: [], ...prefill });
     setNewOferta({ nombreProveedor: '', precio: 0, notas: '' });
     setIsCreating(true);
   };
@@ -57,6 +67,17 @@ export const InsumosManager: React.FC = () => {
     setEditingInsumo(item); 
     setFormData({ ...item, ofertas: item.ofertas || [] }); 
     setNewOferta({ nombreProveedor: '', precio: 0, notas: '' });
+    setIsCreating(false);
+  };
+
+  const handleScan = (scannedCode: string) => {
+    setShowScanner(false);
+    const existing = insumos.find(i => i.codigoProveedor === scannedCode);
+    if (existing) {
+      handleOpenEdit(existing);
+    } else {
+      handleOpenCreate({ codigoProveedor: scannedCode });
+    }
   };
 
   const handleSaveInsumo = async (e: React.FormEvent) => {
@@ -149,8 +170,21 @@ export const InsumosManager: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  const handleAddOferta = () => {
+  const handleAddOferta = async () => {
     if (!newOferta.nombreProveedor || !newOferta.precio) return;
+    
+    if (saveProviderToDB) {
+      const exists = proveedores.find(p => p.nombre.toLowerCase() === newOferta.nombreProveedor!.toLowerCase());
+      if (!exists) {
+        await db.proveedores.add({
+          id: `prov-${crypto.randomUUID()}`,
+          nombre: newOferta.nombreProveedor,
+          cuit: '', telefono: '', email: '', contacto: '', direccion: '', notas: 'Creado desde Insumos'
+        });
+      }
+      setSaveProviderToDB(false);
+    }
+
     const of: OfertaProveedor = {
       id: `oferta-${crypto.randomUUID()}`,
       nombreProveedor: newOferta.nombreProveedor,
@@ -213,20 +247,25 @@ export const InsumosManager: React.FC = () => {
             className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 text-on-surface-variant hover:bg-surface-variant rounded-full text-sm font-medium transition-colors border border-outline-variant/30">
             <FileSpreadsheet className="w-4 h-4" /><span>Importar</span>
           </button>
-          <button onClick={handleOpenCreate}
+          <button onClick={() => handleOpenCreate()}
             className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-sm hover:shadow-md">
             <Plus className="w-4 h-4" /><span>Nuevo Insumo</span>
           </button>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters & Search */}
       <div className="flex flex-col md:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-on-surface-variant absolute left-4 top-3" />
-          <input type="text" placeholder="Buscar por nombre, código o proveedor..."
-            value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-surface-container-highest border-none rounded-full pl-10 pr-4 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-on-surface-variant/70 transition-shadow" />
+        <div className="flex flex-1 gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-on-surface-variant absolute left-4 top-3" />
+            <input type="text" placeholder="Buscar por nombre, código o proveedor..."
+              value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-surface-container-highest border-none rounded-full pl-10 pr-4 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-on-surface-variant/70 transition-shadow" />
+          </div>
+          <button onClick={() => setShowScanner(true)} className="p-2.5 bg-surface-variant hover:bg-surface-container-highest rounded-full text-on-surface transition-colors flex-shrink-0 flex items-center justify-center border border-outline-variant/30" title="Escanear Código (SKU/EAN)">
+            <Camera className="w-5 h-5 text-amber-500" />
+          </button>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
           <button onClick={() => setSelectedCategory('todas')}
@@ -242,8 +281,8 @@ export const InsumosManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-surface-container-low border border-outline-variant/20 rounded-3xl overflow-hidden shadow-sm">
+      {/* Table (Desktop) */}
+      <div className="hidden md:block bg-surface-container-low border border-outline-variant/20 rounded-3xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-on-surface">
             <thead className="bg-surface-container text-xs text-on-surface-variant border-b border-outline-variant/30">
@@ -303,6 +342,26 @@ export const InsumosManager: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile List View */}
+      <div className="block md:hidden flex flex-col gap-2">
+        {filteredInsumos.length === 0 ? (
+          <div className="text-center text-on-surface-variant text-sm py-8">No se encontraron insumos.</div>
+        ) : (
+          filteredInsumos.map((item) => (
+            <div key={item.id} onClick={() => handleOpenEdit(item)} className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 active:bg-surface-variant transition-colors flex justify-between items-center shadow-sm cursor-pointer">
+              <div className="flex-1 pr-3">
+                <div className="font-bold text-on-surface text-sm leading-tight">{item.nombre}</div>
+                <div className="text-xs text-on-surface-variant mt-1 capitalize">{item.categoria} • {item.proveedorPreferido || 'Sin prov.'}</div>
+              </div>
+              <div className="text-right">
+                <div className="font-mono font-bold text-primary text-base">{formatARS(item.precioActual)}</div>
+                <div className="text-[10px] text-on-surface-variant mt-0.5">/{item.unidad}</div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {(isCreating || editingInsumo) && (
         <div className={modalCls}>
           <div className={`${modalBoxCls} max-w-2xl max-h-[90vh] overflow-y-auto no-scrollbar`}>
@@ -339,27 +398,34 @@ export const InsumosManager: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Proveedor <span className="text-slate-600">(opcional)</span></label>
-                  <input id="form-proveedor" type="text" list="lista-proveedores" value={formData.proveedorPreferido || ''} onChange={(e) => setFormData({ ...formData, proveedorPreferido: e.target.value })} className={inputCls} placeholder="Buscar o escribir..." />
-                  <datalist id="lista-proveedores">{proveedores.map((p) => <option key={p.id} value={p.nombre}>{p.cuit ? `CUIT: ${p.cuit}` : ''}</option>)}</datalist>
+                  <label className="block text-xs text-slate-400 mb-1">Categoría</label>
+                  <input id="form-categoria" type="text" list="lista-categorias" value={formData.categoria} onChange={(e) => setFormData({ ...formData, categoria: e.target.value })} className={inputCls} required />
+                  <datalist id="lista-categorias">{categories.map((c) => <option key={c} value={c} />)}</datalist>
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Código <span className="text-slate-600">(opcional)</span></label>
-                  <input id="form-codigo" type="text" value={formData.codigoProveedor || ''} onChange={(e) => setFormData({ ...formData, codigoProveedor: e.target.value })} className={`${inputCls} font-mono`} placeholder="SKU, ref..." />
+                  <label className="block text-xs text-slate-400 mb-1">Unidad</label>
+                  <input id="form-unidad" type="text" list="lista-unidades" value={formData.unidad} onChange={(e) => setFormData({ ...formData, unidad: e.target.value })} className={inputCls} required />
+                  <datalist id="lista-unidades">{BASE_UNITS.map((u) => <option key={u} value={u} />)}</datalist>
                 </div>
               </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Precio Actual / Base (ARS)</label>
-                <div className="relative">
-                  <span className="text-xs text-slate-500 absolute left-3 top-2.5 font-mono">$</span>
-                  <input id="form-precio" type="number" step="0.01" min="0" value={formData.precioActual} onChange={(e) => setFormData({ ...formData, precioActual: parseFloat(e.target.value) || 0 })} className={`${inputCls} pl-7 font-mono text-amber-400 font-bold`} required />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Código / SKU <span className="text-slate-600">(opcional)</span></label>
+                  <input id="form-codigo" type="text" value={formData.codigoProveedor || ''} onChange={(e) => setFormData({ ...formData, codigoProveedor: e.target.value })} className={`${inputCls} font-mono`} placeholder="Ref, EAN, UPC..." />
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1">Este es el precio que se usará por defecto al cotizar tareas.</p>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Precio Actual / Base (ARS)</label>
+                  <div className="relative">
+                    <span className="text-xs text-slate-500 absolute left-3 top-2.5 font-mono">$</span>
+                    <input id="form-precio" type="number" step="0.01" min="0" value={formData.precioActual} onChange={(e) => setFormData({ ...formData, precioActual: parseFloat(e.target.value) || 0 })} className={`${inputCls} pl-7 font-mono text-amber-400 font-bold`} required />
+                  </div>
+                </div>
               </div>
+              <p className="text-[10px] text-slate-500 mt-1">El precio base se usa por defecto. Puedes fijarlo usando la lista de proveedores abajo.</p>
 
               {/* Ofertas Multi-Proveedor */}
               <div className="pt-4 border-t border-slate-700/40 space-y-3">
-                <h4 className="text-sm font-semibold text-slate-300">Ofertas de Proveedores <span className="text-xs text-slate-500 font-normal">({formData.ofertas?.length || 0})</span></h4>
+                <h4 className="text-sm font-semibold text-slate-300">Lista de Precios por Proveedor <span className="text-xs text-slate-500 font-normal">({formData.ofertas?.length || 0})</span></h4>
                 
                 {formData.ofertas && formData.ofertas.length > 0 && (
                   <div className="space-y-2">
@@ -371,35 +437,55 @@ export const InsumosManager: React.FC = () => {
                         </div>
                         <div className="font-mono text-sm text-emerald-400 font-bold">{formatARS(of.precio)}</div>
                         <div className="flex items-center gap-1">
-                          <button type="button" onClick={() => setFormData({ ...formData, precioActual: of.precio })} className="p-1 text-xs text-amber-500 hover:bg-slate-800 rounded px-2 transition-colors" title="Usar este precio como Base">Fijar Base</button>
-                          <button type="button" onClick={() => handleRemoveOferta(of.id)} className="p-1 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors" title="Eliminar oferta"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <button type="button" onClick={() => setFormData({ ...formData, precioActual: of.precio, proveedorPreferido: of.nombreProveedor })} className="p-1 text-xs text-amber-500 hover:bg-slate-800 rounded px-2 transition-colors" title="Usar este precio como Base">Fijar Base</button>
+                          <button type="button" onClick={() => handleRemoveOferta(of.id)} className="p-1 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors" title="Eliminar precio"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
 
-                <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50 flex flex-wrap gap-2 items-end">
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] text-slate-400 mb-1">Proveedor (Oferta)</label>
-                    <input type="text" list="lista-proveedores" value={newOferta.nombreProveedor || ''} onChange={e => setNewOferta({ ...newOferta, nombreProveedor: e.target.value })} className={inputCls} placeholder="Nombre..." />
+                <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50 flex flex-col gap-3">
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="block text-[10px] text-slate-400 mb-1">Proveedor</label>
+                      <AutocompleteInput
+                        value={newOferta.nombreProveedor || ''}
+                        onChange={val => setNewOferta({ ...newOferta, nombreProveedor: val })}
+                        options={proveedorOptions}
+                        placeholder="Seleccionar o escribir..."
+                        className={inputCls}
+                      />
+                    </div>
+                    <div className="w-28">
+                      <label className="block text-[10px] text-slate-400 mb-1">Precio</label>
+                      <input type="number" value={newOferta.precio || ''} onChange={e => setNewOferta({ ...newOferta, precio: parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono`} placeholder="$" />
+                    </div>
+                    <div className="flex-1 min-w-[100px]">
+                      <label className="block text-[10px] text-slate-400 mb-1">Notas</label>
+                      <input type="text" value={newOferta.notas || ''} onChange={e => setNewOferta({ ...newOferta, notas: e.target.value })} className={inputCls} placeholder="Ej: Solo efvo" />
+                    </div>
+                    <button type="button" onClick={handleAddOferta} className="h-9 px-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
+                      <Plus className="w-3.5 h-3.5" /> Agregar
+                    </button>
                   </div>
-                  <div className="w-28">
-                    <label className="block text-[10px] text-slate-400 mb-1">Precio</label>
-                    <input type="number" value={newOferta.precio || ''} onChange={e => setNewOferta({ ...newOferta, precio: parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono`} placeholder="$" />
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="save-prov-cb" checked={saveProviderToDB} onChange={(e) => setSaveProviderToDB(e.target.checked)} className="w-3.5 h-3.5 accent-amber-500" />
+                    <label htmlFor="save-prov-cb" className="text-xs text-slate-400 cursor-pointer">Guardar este proveedor en la base de datos (si no existe)</label>
                   </div>
-                  <div className="flex-1 min-w-[100px]">
-                    <label className="block text-[10px] text-slate-400 mb-1">Notas</label>
-                    <input type="text" value={newOferta.notas || ''} onChange={e => setNewOferta({ ...newOferta, notas: e.target.value })} className={inputCls} placeholder="Ej: Solo efvo" />
-                  </div>
-                  <button type="button" onClick={handleAddOferta} className="h-9 px-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
-                    <Plus className="w-3.5 h-3.5" /> Agregar
-                  </button>
                 </div>
               </div>
-              <div className="pt-3 border-t border-slate-700/40 flex justify-end gap-2">
-                <button type="button" onClick={() => { setIsCreating(false); setEditingInsumo(null); }} className="px-4 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700/50">Cancelar</button>
-                <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-sm"><Save className="w-3.5 h-3.5" />Guardar</button>
+              <div className="pt-4 border-t border-slate-700/40 flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
+                {editingInsumo ? (
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <button type="button" onClick={() => { setHistoryInsumo(editingInsumo); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors border border-slate-600"><History className="w-4 h-4"/> Historial</button>
+                    <button type="button" onClick={() => { handleDelete(editingInsumo.id).then(() => setEditingInsumo(null)); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-rose-400 hover:bg-rose-400/10 transition-colors border border-rose-400/30"><Trash2 className="w-4 h-4"/> Eliminar</button>
+                  </div>
+                ) : <div />}
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <button type="button" onClick={() => { setIsCreating(false); setEditingInsumo(null); }} className="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700/50">Cancelar</button>
+                  <button type="submit" className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-sm"><Save className="w-3.5 h-3.5" />Guardar</button>
+                </div>
               </div>
             </form>
           </div>
@@ -489,6 +575,14 @@ export const InsumosManager: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal: Escáner de Código de Barras */}
+      {showScanner && (
+        <BarcodeScannerModal
+          onScan={handleScan}
+          onClose={() => setShowScanner(false)}
+        />
       )}
     </div>
   );
