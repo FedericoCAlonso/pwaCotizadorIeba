@@ -65,11 +65,11 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
       {/* Top Action Bar (hidden when printing) */}
-      <div className="no-print flex flex-wrap justify-between items-center gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800 backdrop-blur-md">
+      <div className="no-print flex flex-wrap justify-between items-center gap-3 bg-slate-800/40 border border-slate-700/30 p-4 rounded-xl">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+            className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-700/50 rounded-lg transition"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -91,7 +91,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
           <select
             value={presupuesto.estado}
             onChange={(e) => handleUpdateStatus(e.target.value as EstadoPresupuesto)}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500 capitalize"
+            className="bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500/70 capitalize"
           >
             <option value="borrador">Borrador</option>
             <option value="enviado">Enviado</option>
@@ -102,7 +102,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
 
           <button
             onClick={() => onDuplicate(presupuesto)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-medium transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700/50 border border-slate-700/40 rounded-lg text-xs font-medium transition"
           >
             <Copy className="w-4 h-4" />
             <span>Duplicar</span>
@@ -110,14 +110,14 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
 
           <button
             onClick={onEdit}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-medium transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700/50 border border-slate-700/40 rounded-lg text-xs font-medium transition"
           >
             <span>Editar</span>
           </button>
 
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs transition shadow-md shadow-amber-500/10"
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-xs transition"
           >
             <Printer className="w-4 h-4" />
             <span>Imprimir / Descargar PDF</span>

@@ -14,7 +14,8 @@ import {
   Layers,
   Users,
   HardHat,
-  Truck
+  Truck,
+  ChevronDown
 } from 'lucide-react';
 import { db, exportDatabaseJSON, importDatabaseJSON } from '../db/database';
 import { AppConfig } from '../core/types';
@@ -36,6 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showExportSuccess, setShowExportSuccess] = useState(false);
+  const [showUtilsMenu, setShowUtilsMenu] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -58,6 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
     a.click();
     URL.revokeObjectURL(url);
     setShowExportSuccess(true);
+    setShowUtilsMenu(false);
     setTimeout(() => setShowExportSuccess(false), 3000);
   };
 
@@ -80,94 +83,28 @@ export const Header: React.FC<HeaderProps> = ({
 
   const navItems = [
     { id: 'presupuestos', label: 'Presupuestos', icon: FileText },
-    { id: 'insumos', label: 'Materiales e Insumos', icon: Package },
-    { id: 'manoObra', label: 'Mano de Obra & Indirectos', icon: Clock },
+    { id: 'insumos', label: 'Materiales', icon: Package },
+    { id: 'manoObra', label: 'Mano de Obra', icon: Clock },
     { id: 'tareasTipo', label: 'Tareas Tipo', icon: Layers },
     { id: 'clientes', label: 'Clientes', icon: Users },
     { id: 'proveedores', label: 'Proveedores', icon: Truck },
-    { id: 'registroTrabajo', label: 'Registro de Trabajo', icon: HardHat }
+    { id: 'registroTrabajo', label: 'Registro', icon: HardHat }
   ];
 
   return (
-    <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 shadow-xl">
-      {/* Top Utility Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap items-center justify-between gap-3 text-xs border-b border-slate-800/60">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 font-bold text-amber-400 tracking-wider">
-            <Zap className="w-4 h-4 fill-amber-400 text-amber-500 animate-pulse" />
-            <span>IEBA COTIZADOR</span>
-            <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono">
-              v1.0 PWA
-            </span>
-          </div>
-
-          <div className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
-            {isOnline ? (
-              <>
-                <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-400 font-medium">Online</span>
-              </>
-            ) : (
-              <>
-                <WifiOff className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-amber-400 font-medium">Offline (IndexedDB Activo)</span>
-              </>
-            )}
-          </div>
+    <header className="bg-slate-800/70 border-b border-slate-700/40 sticky top-0 z-30 backdrop-blur-md">
+      {/* Single unified header row */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
+        {/* Brand */}
+        <div className="flex items-center gap-2 font-bold text-amber-400 tracking-wider shrink-0">
+          <Zap className="w-4 h-4 fill-amber-400 text-amber-500" />
+          <span className="text-sm">IEBA</span>
+          <span className="hidden sm:inline text-slate-500 font-normal text-xs">Cotizador</span>
         </div>
 
-        {/* Currency ticker & Backup Actions */}
-        <div className="flex items-center gap-3">
-          {config?.mostrarDolarPorDefecto && (
-            <div
-              onClick={onOpenConfig}
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded border border-slate-700 cursor-pointer text-slate-200 transition"
-              title="Haz clic para ajustar la cotización de referencia"
-            >
-              <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-slate-400">{config.dolarReferenciaNombre}:</span>
-              <span className="font-mono font-bold text-emerald-400">${config.dolarReferenciaValor} ARS</span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={handleExportJSON}
-              className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
-              title="Descargar copia de seguridad en JSON"
-              aria-label="Respaldar base de datos en JSON"
-            >
-              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-              <span className="hidden sm:inline">Respaldar</span>
-            </button>
-
-            <label
-              className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer"
-              title="Restaurar copia de seguridad en JSON"
-              aria-label="Restaurar base de datos desde JSON"
-            >
-              <Upload className="w-3.5 h-3.5" aria-hidden="true" />
-              <span className="hidden sm:inline">Restaurar</span>
-              <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" aria-label="Seleccionar archivo de respaldo JSON" />
-            </label>
-
-            <button
-              onClick={onOpenConfig}
-              className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
-              title="Configuración de Empresa y Cotizador"
-              aria-label="Abrir configuración de empresa y cotizador"
-            >
-              <Settings className="w-4 h-4 text-slate-300" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Navigation Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
-        {/* Nav Tabs */}
+        {/* Nav Tabs — scrollable */}
         <nav
-          className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1"
+          className="flex items-end gap-0.5 overflow-x-auto no-scrollbar flex-1 h-full"
           role="tablist"
           aria-label="Navegación principal"
         >
@@ -182,32 +119,96 @@ export const Header: React.FC<HeaderProps> = ({
                 aria-controls={`panel-${item.id}`}
                 id={`tab-${item.id}`}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-3 h-full text-xs font-medium whitespace-nowrap border-b-2 transition-all ${
                   isActive
-                    ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 font-semibold'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'border-amber-400 text-amber-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-slate-950' : 'text-slate-400'}`} aria-hidden="true" />
-                <span>{item.label}</span>
+                <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="hidden md:inline">{item.label}</span>
               </button>
             );
           })}
         </nav>
 
-        {/* Quick Create Quote Button */}
-        <button
-          onClick={onNewPresupuesto}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-lg shadow-md shadow-amber-500/20 transition transform active:scale-95 whitespace-nowrap text-sm"
-        >
-          <PlusCircle className="w-4 h-4 fill-slate-950 text-amber-500" />
-          <span>Nueva Cotización</span>
-        </button>
+        {/* Right side controls */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Online status — discrete */}
+          <div className={`hidden md:flex items-center gap-1 text-[11px] ${isOnline ? 'text-emerald-500' : 'text-amber-500'}`}>
+            {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+          </div>
+
+          {/* USD reference — clickable */}
+          {config?.mostrarDolarPorDefecto && (
+            <button
+              onClick={onOpenConfig}
+              className="hidden sm:flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 px-2 py-1 rounded hover:bg-slate-700/50"
+              title="Ajustar cotización de referencia"
+            >
+              <DollarSign className="w-3 h-3 text-emerald-400" />
+              <span className="font-mono text-emerald-400">${config.dolarReferenciaValor}</span>
+            </button>
+          )}
+
+          {/* Utils dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowUtilsMenu((v) => !v)}
+              className="p-1.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+              title="Respaldo y Configuración"
+              aria-label="Menú de utilidades"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+
+            {showUtilsMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowUtilsMenu(false)}
+                />
+                <div className="absolute right-0 top-full mt-1 z-20 bg-slate-800 border border-slate-700/60 rounded-xl shadow-lg py-1 min-w-[180px]">
+                  <button
+                    onClick={handleExportJSON}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700/60 hover:text-white"
+                  >
+                    <Download className="w-3.5 h-3.5 text-slate-400" />
+                    Respaldar datos
+                  </button>
+                  <label className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700/60 hover:text-white cursor-pointer">
+                    <Upload className="w-3.5 h-3.5 text-slate-400" />
+                    Restaurar datos
+                    <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" aria-label="Seleccionar archivo de respaldo JSON" />
+                  </label>
+                  <hr className="border-slate-700/50 my-1" />
+                  <button
+                    onClick={() => { onOpenConfig(); setShowUtilsMenu(false); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700/60 hover:text-white"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-slate-400" />
+                    Configuración
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* CTA */}
+          <button
+            onClick={onNewPresupuesto}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-xs transition active:scale-95 whitespace-nowrap"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Nueva Cotización</span>
+            <span className="sm:hidden">+</span>
+          </button>
+        </div>
       </div>
 
       {showExportSuccess && (
-        <div className="bg-emerald-500/20 border-b border-emerald-500/40 text-emerald-300 text-xs px-4 py-1 text-center font-medium">
-          ✓ Copia de seguridad guardada en descargas correctamente.
+        <div className="bg-emerald-500/10 border-t border-emerald-500/20 text-emerald-400 text-xs px-4 py-1.5 text-center">
+          ✓ Copia de seguridad guardada en descargas.
         </div>
       )}
     </header>

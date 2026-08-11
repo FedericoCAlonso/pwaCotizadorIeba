@@ -22,6 +22,11 @@ export default {
           dark: '#0f172a',
           card: '#1e293b',
           border: '#334155'
+        },
+        surface: {
+          DEFAULT: 'rgba(30, 41, 59, 0.5)',
+          light: 'rgba(51, 65, 85, 0.3)',
+          deep: 'rgba(15, 23, 42, 0.6)',
         }
       }
     },

@@ -332,18 +332,18 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-5 max-w-7xl mx-auto pb-12">
       {/* Top Action Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800 backdrop-blur-md">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-800/40 border border-slate-700/30 p-4 rounded-xl">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+            className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-700/50 rounded-lg transition"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <h2 className="text-base font-semibold text-white flex items-center gap-2">
               <FileText className="w-5 h-5 text-amber-400" />
               <span>
                 {existingPresupuesto ? `Editar Cotización ${existingPresupuesto.numero}` : 'Nueva Cotización Eléctrica'}
@@ -358,14 +358,14 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => handleSavePresupuesto('borrador')}
-            className="flex-1 sm:flex-initial px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition"
+            className="flex-1 sm:flex-initial px-4 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700/50 border border-slate-700/40 rounded-lg text-xs font-medium transition"
           >
             Guardar Borrador
           </button>
 
           <button
             onClick={() => handleSavePresupuesto('enviado')}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs transition shadow-lg shadow-amber-500/20"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-xs transition"
           >
             <Lock className="w-4 h-4" />
             <span>Emitir & Congelar Precios</span>
@@ -378,8 +378,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         {/* Left Column: Header Info & Items List (2 Cols) */}
         <div className="lg:col-span-2 space-y-6">
           {/* Header Metadata Card */}
-          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
-            <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider">
+          <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 space-y-4">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
               Datos Generales & Tipo de Comprobante
             </h3>
 
@@ -389,7 +389,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 <select
                   value={clienteId}
                   onChange={(e) => setClienteId(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/70"
                 >
                   <option value="">Selecciona un cliente...</option>
                   {clientes.map((c) => (
@@ -405,7 +405,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 <select
                   value={tipoFactura}
                   onChange={(e) => handleTipoFacturaChange(e.target.value as TipoFactura)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm font-bold text-amber-400 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-2 text-sm font-medium text-amber-400 focus:outline-none focus:border-amber-500/70"
                 >
                   <option value="Factura A">Factura A (Discrimina IVA e IIBB)</option>
                   <option value="Factura B">Factura B (Consumidor Final / Exento)</option>
@@ -421,7 +421,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                     type="number"
                     value={validezDias}
                     onChange={(e) => setValidezDias(parseInt(e.target.value) || 15)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-amber-500"
+                    className="w-full bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-amber-500/70"
                   />
                   <Calendar className="w-4 h-4 text-slate-500 absolute right-3 top-2.5" />
                 </div>
@@ -462,9 +462,9 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </div>
 
           {/* Items / Partidas Section */}
-          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
+          <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider">
+              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 Partidas & Tareas a Ejecutar ({items.length})
               </h3>
               <div className="flex items-center gap-2">
@@ -504,7 +504,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                   return (
                     <div
                       key={item.id}
-                      className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 space-y-3 hover:border-slate-700 transition"
+                      className="bg-slate-900/50 border border-slate-700/20 rounded-xl p-4 space-y-3 hover:border-slate-600/40 transition"
                     >
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div className="flex-1">
@@ -614,8 +614,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </div>
 
           {/* Payment Conditions & Milestones */}
-          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3">
-            <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider">
+          <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 space-y-3">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
               Condiciones de Pago & Esquema de Cobro
             </h3>
             <textarea
@@ -629,15 +629,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
         {/* Right Column: Live Financial Summary Panel */}
         <div className="space-y-6">
-          <div className="bg-slate-900 border border-amber-500/30 rounded-xl p-6 space-y-6 shadow-2xl sticky top-20">
+          <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 space-y-5 sticky top-16">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <Calculator className="w-5 h-5 text-amber-400" />
                 <span>Desglose de Costos & Margen</span>
               </h3>
-              <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded font-mono font-bold">
-                EN TIEMPO REAL
-              </span>
+              <span className="text-[10px] text-slate-500 font-mono">EN TIEMPO REAL</span>
             </div>
 
             {/* Direct Costs Breakdown */}
@@ -678,7 +676,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             </div>
 
             {/* Total Cost of Job */}
-            <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center text-sm font-bold text-white">
+            <div className="bg-slate-900/60 p-3 rounded-lg flex justify-between items-center text-xs font-semibold text-white">
               <span>COSTO TOTAL REAL OBRA:</span>
               <span className="font-mono text-amber-400">{formatARS(totales.costoTotalObra)}</span>
             </div>
@@ -777,11 +775,11 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             </div>
 
             {/* Final Grand Total ARS & Foreign Currency */}
-            <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/20 border border-amber-500/40 p-4 rounded-xl space-y-2 text-center">
+            <div className="bg-amber-500/10 border border-amber-500/25 p-4 rounded-xl space-y-1.5 text-center">
               <span className="text-xs uppercase tracking-wider font-bold text-amber-400 block">
                 PRECIO TOTAL FINAL COTIZADO
               </span>
-              <div className="font-mono text-2xl font-black text-white">{formatARS(totales.totalARS)}</div>
+              <div className="font-mono text-xl font-bold text-white">{formatARS(totales.totalARS)}</div>
 
               {mostrarDolar && totales.totalMonedaExtranjera && (
                 <div className="text-xs text-emerald-400 font-mono font-semibold pt-1 border-t border-amber-500/20">
@@ -792,7 +790,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
             <button
               onClick={() => handleSavePresupuesto('enviado')}
-              className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold rounded-xl transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 text-sm"
+              className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 text-sm"
             >
               <CheckCircle className="w-5 h-5 fill-slate-950 text-amber-400" />
               <span>Emitir & Congelar Presupuesto</span>
@@ -804,7 +802,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       {/* Modal: Item Picker from TareasTipo */}
       {showItemPickerModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-2xl shadow-2xl p-6 overflow-hidden flex flex-col max-h-[85vh]">
+          <div className="bg-slate-800 border border-slate-700/50 rounded-xl w-full max-w-2xl shadow-2xl p-6 overflow-hidden flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <Layers className="w-5 h-5 text-amber-400" />

@@ -71,7 +71,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
       {/* Header */}
       <Header
         activeTab={activeTab}
@@ -124,8 +124,8 @@ export function App() {
       </main>
 
       {/* Footer */}
-      <footer className="no-print border-t border-slate-800/80 py-4 text-center text-xs text-slate-500">
-        Cotizador Eléctrico IEBA — Aplicación Standalone Offline-First (IndexedDB & PWA)
+      <footer className="no-print py-3 text-center text-xs text-slate-600">
+        Cotizador Eléctrico IEBA — Standalone · Offline-First · PWA
       </footer>
 
       {/* Config Modal */}
