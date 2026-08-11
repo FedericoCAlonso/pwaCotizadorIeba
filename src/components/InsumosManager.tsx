@@ -7,6 +7,7 @@ import {
 import { db, importInsumosCSV } from '../db/database';
 import { Insumo, Proveedor, OfertaProveedor } from '../core/types';
 import { formatARS } from '../core/calculations';
+import { BASE_CATEGORIES, BASE_UNITS } from '../core/sampleData';
 import { AutocompleteInput } from './AutocompleteInput';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
 
@@ -219,9 +220,9 @@ export const InsumosManager: React.FC = () => {
     }
   };
 
-  const inputCls = "w-full bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/70";
+  const inputCls = "w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-on-surface-variant/70 transition-shadow";
   const modalCls = "fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4";
-  const modalBoxCls = "bg-slate-800 border border-slate-700/50 rounded-xl w-full shadow-2xl p-6";
+  const modalBoxCls = "bg-surface-container border border-outline-variant/30 rounded-3xl w-full shadow-2xl p-6 text-on-surface";
 
   return (
     <div className="space-y-6">
@@ -365,90 +366,78 @@ export const InsumosManager: React.FC = () => {
       {(isCreating || editingInsumo) && (
         <div className={modalCls}>
           <div className={`${modalBoxCls} max-w-2xl max-h-[90vh] overflow-y-auto no-scrollbar`}>
-            <div className="flex items-center justify-between mb-5 sticky top-0 bg-slate-800 py-2 z-10 border-b border-slate-700/50">
-              <h3 className="text-base font-semibold text-white">{isCreating ? 'Agregar Material / Insumo' : 'Editar Material / Insumo'}</h3>
-              <button onClick={() => { setIsCreating(false); setEditingInsumo(null); }} className="text-slate-500 hover:text-white p-1" aria-label="Cerrar"><X className="w-4 h-4" /></button>
+            <div className="flex items-center justify-between mb-5 sticky top-0 bg-surface-container py-2 z-10 border-b border-outline-variant/30">
+              <h3 className="text-base font-semibold text-on-surface">{isCreating ? 'Agregar Material / Insumo' : 'Editar Material / Insumo'}</h3>
+              <button onClick={() => { setIsCreating(false); setEditingInsumo(null); }} className="text-on-surface-variant hover:text-on-surface p-1" aria-label="Cerrar"><X className="w-4 h-4" /></button>
             </div>
             <form onSubmit={handleSaveInsumo} onKeyDown={handleKeyDownSequential} className="space-y-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Nombre / Descripción</label>
+                <label className="block text-xs text-on-surface-variant mb-1">Nombre / Descripción</label>
                 <input id="form-nombre" type="text" value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} className={inputCls} placeholder="Ej: Cable unipolar 2.5mm²" required />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Marca <span className="text-slate-600">(opc)</span></label>
+                  <label className="block text-xs text-on-surface-variant mb-1">Marca <span className="opacity-70">(opc)</span></label>
                   <input id="form-marca" type="text" value={formData.marca || ''} onChange={(e) => setFormData({ ...formData, marca: e.target.value })} className={inputCls} placeholder="Prysmian, Schneider..." />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Modelo <span className="text-slate-600">(opc)</span></label>
+                  <label className="block text-xs text-on-surface-variant mb-1">Modelo <span className="opacity-70">(opc)</span></label>
                   <input id="form-modelo" type="text" value={formData.modelo || ''} onChange={(e) => setFormData({ ...formData, modelo: e.target.value })} className={inputCls} placeholder="Acti9, Afumex..." />
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Categoría</label>
+                  <label className="block text-xs text-on-surface-variant mb-1">Categoría</label>
                   <input id="form-categoria" type="text" list="lista-categorias" value={formData.categoria} onChange={(e) => setFormData({ ...formData, categoria: e.target.value })} className={inputCls} required />
                   <datalist id="lista-categorias">{categories.map((c) => <option key={c} value={c} />)}</datalist>
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Unidad</label>
+                  <label className="block text-xs text-on-surface-variant mb-1">Unidad</label>
                   <input id="form-unidad" type="text" list="lista-unidades" value={formData.unidad} onChange={(e) => setFormData({ ...formData, unidad: e.target.value })} className={inputCls} required />
                   <datalist id="lista-unidades">{BASE_UNITS.map((u) => <option key={u} value={u} />)}</datalist>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Categoría</label>
-                  <input id="form-categoria" type="text" list="lista-categorias" value={formData.categoria} onChange={(e) => setFormData({ ...formData, categoria: e.target.value })} className={inputCls} required />
-                  <datalist id="lista-categorias">{categories.map((c) => <option key={c} value={c} />)}</datalist>
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">Unidad</label>
-                  <input id="form-unidad" type="text" list="lista-unidades" value={formData.unidad} onChange={(e) => setFormData({ ...formData, unidad: e.target.value })} className={inputCls} required />
-                  <datalist id="lista-unidades">{BASE_UNITS.map((u) => <option key={u} value={u} />)}</datalist>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">Código / SKU <span className="text-slate-600">(opcional)</span></label>
+                  <label className="block text-xs text-on-surface-variant mb-1">Código / SKU <span className="opacity-70">(opcional)</span></label>
                   <input id="form-codigo" type="text" value={formData.codigoProveedor || ''} onChange={(e) => setFormData({ ...formData, codigoProveedor: e.target.value })} className={`${inputCls} font-mono`} placeholder="Ref, EAN, UPC..." />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Precio Actual / Base (ARS)</label>
+                  <label className="block text-xs text-on-surface-variant mb-1">Precio Actual / Base (ARS)</label>
                   <div className="relative">
-                    <span className="text-xs text-slate-500 absolute left-3 top-2.5 font-mono">$</span>
-                    <input id="form-precio" type="number" step="0.01" min="0" value={formData.precioActual} onChange={(e) => setFormData({ ...formData, precioActual: parseFloat(e.target.value) || 0 })} className={`${inputCls} pl-7 font-mono text-amber-400 font-bold`} required />
+                    <span className="text-xs text-on-surface-variant absolute left-3 top-2.5 font-mono">$</span>
+                    <input id="form-precio" type="number" step="0.01" min="0" value={formData.precioActual} onChange={(e) => setFormData({ ...formData, precioActual: parseFloat(e.target.value) || 0 })} className={`${inputCls} pl-7 font-mono text-primary font-bold`} required />
                   </div>
                 </div>
               </div>
-              <p className="text-[10px] text-slate-500 mt-1">El precio base se usa por defecto. Puedes fijarlo usando la lista de proveedores abajo.</p>
+              <p className="text-[10px] text-on-surface-variant/80 mt-1">El precio base se usa por defecto. Puedes fijarlo usando la lista de proveedores abajo.</p>
 
               {/* Ofertas Multi-Proveedor */}
-              <div className="pt-4 border-t border-slate-700/40 space-y-3">
-                <h4 className="text-sm font-semibold text-slate-300">Lista de Precios por Proveedor <span className="text-xs text-slate-500 font-normal">({formData.ofertas?.length || 0})</span></h4>
+              <div className="pt-4 border-t border-outline-variant/30 space-y-3">
+                <h4 className="text-sm font-semibold text-on-surface">Lista de Precios por Proveedor <span className="text-xs text-on-surface-variant font-normal">({formData.ofertas?.length || 0})</span></h4>
                 
                 {formData.ofertas && formData.ofertas.length > 0 && (
                   <div className="space-y-2">
                     {formData.ofertas.map(of => (
-                      <div key={of.id} className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50 flex flex-wrap items-center justify-between gap-2">
+                      <div key={of.id} className="bg-surface-container-low p-2.5 rounded-xl border border-outline-variant/20 flex flex-wrap items-center justify-between gap-2">
                         <div className="flex-1 min-w-[120px]">
-                          <div className="text-xs font-semibold text-slate-200">{of.nombreProveedor}</div>
-                          {of.notas && <div className="text-[10px] text-slate-500 truncate">{of.notas}</div>}
+                          <div className="text-xs font-semibold text-on-surface">{of.nombreProveedor}</div>
+                          {of.notas && <div className="text-[10px] text-on-surface-variant truncate">{of.notas}</div>}
                         </div>
-                        <div className="font-mono text-sm text-emerald-400 font-bold">{formatARS(of.precio)}</div>
+                        <div className="font-mono text-sm text-primary font-bold">{formatARS(of.precio)}</div>
                         <div className="flex items-center gap-1">
-                          <button type="button" onClick={() => setFormData({ ...formData, precioActual: of.precio, proveedorPreferido: of.nombreProveedor })} className="p-1 text-xs text-amber-500 hover:bg-slate-800 rounded px-2 transition-colors" title="Usar este precio como Base">Fijar Base</button>
-                          <button type="button" onClick={() => handleRemoveOferta(of.id)} className="p-1 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors" title="Eliminar precio"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <button type="button" onClick={() => setFormData({ ...formData, precioActual: of.precio, proveedorPreferido: of.nombreProveedor })} className="p-1 text-xs text-primary hover:bg-surface-variant rounded-full px-2.5 transition-colors font-medium" title="Usar este precio como Base">Fijar Base</button>
+                          <button type="button" onClick={() => handleRemoveOferta(of.id)} className="p-1 text-on-surface-variant hover:text-error hover:bg-error-container/30 rounded-full transition-colors" title="Eliminar precio"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
 
-                <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50 flex flex-col gap-3">
+                <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20 flex flex-col gap-3">
                   <div className="flex flex-wrap items-end gap-2">
                     <div className="flex-1 min-w-[150px]">
-                      <label className="block text-[10px] text-slate-400 mb-1">Proveedor</label>
+                      <label className="block text-[10px] text-on-surface-variant mb-1">Proveedor</label>
                       <AutocompleteInput
                         value={newOferta.nombreProveedor || ''}
                         onChange={val => setNewOferta({ ...newOferta, nombreProveedor: val })}
@@ -458,33 +447,33 @@ export const InsumosManager: React.FC = () => {
                       />
                     </div>
                     <div className="w-28">
-                      <label className="block text-[10px] text-slate-400 mb-1">Precio</label>
+                      <label className="block text-[10px] text-on-surface-variant mb-1">Precio</label>
                       <input type="number" value={newOferta.precio || ''} onChange={e => setNewOferta({ ...newOferta, precio: parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono`} placeholder="$" />
                     </div>
                     <div className="flex-1 min-w-[100px]">
-                      <label className="block text-[10px] text-slate-400 mb-1">Notas</label>
+                      <label className="block text-[10px] text-on-surface-variant mb-1">Notas</label>
                       <input type="text" value={newOferta.notas || ''} onChange={e => setNewOferta({ ...newOferta, notas: e.target.value })} className={inputCls} placeholder="Ej: Solo efvo" />
                     </div>
-                    <button type="button" onClick={handleAddOferta} className="h-9 px-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
+                    <button type="button" onClick={handleAddOferta} className="h-9 px-3.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-full text-xs font-semibold transition-colors flex items-center gap-1">
                       <Plus className="w-3.5 h-3.5" /> Agregar
                     </button>
                   </div>
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" id="save-prov-cb" checked={saveProviderToDB} onChange={(e) => setSaveProviderToDB(e.target.checked)} className="w-3.5 h-3.5 accent-amber-500" />
-                    <label htmlFor="save-prov-cb" className="text-xs text-slate-400 cursor-pointer">Guardar este proveedor en la base de datos (si no existe)</label>
+                    <input type="checkbox" id="save-prov-cb" checked={saveProviderToDB} onChange={(e) => setSaveProviderToDB(e.target.checked)} className="w-3.5 h-3.5 accent-primary" />
+                    <label htmlFor="save-prov-cb" className="text-xs text-on-surface-variant cursor-pointer">Guardar este proveedor en la base de datos (si no existe)</label>
                   </div>
                 </div>
               </div>
-              <div className="pt-4 border-t border-slate-700/40 flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
+              <div className="pt-4 border-t border-outline-variant/30 flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
                 {editingInsumo ? (
                   <div className="flex gap-2 w-full sm:w-auto">
-                    <button type="button" onClick={() => { setHistoryInsumo(editingInsumo); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors border border-slate-600"><History className="w-4 h-4"/> Historial</button>
-                    <button type="button" onClick={() => { handleDelete(editingInsumo.id).then(() => setEditingInsumo(null)); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-rose-400 hover:bg-rose-400/10 transition-colors border border-rose-400/30"><Trash2 className="w-4 h-4"/> Eliminar</button>
+                    <button type="button" onClick={() => { setHistoryInsumo(editingInsumo); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium text-on-surface-variant hover:bg-surface-variant transition-colors border border-outline-variant/30"><History className="w-4 h-4"/> Historial</button>
+                    <button type="button" onClick={() => { handleDelete(editingInsumo.id).then(() => setEditingInsumo(null)); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium text-error hover:bg-error-container/30 transition-colors border border-error/30"><Trash2 className="w-4 h-4"/> Eliminar</button>
                   </div>
                 ) : <div />}
                 <div className="flex gap-2 w-full sm:w-auto">
-                  <button type="button" onClick={() => { setIsCreating(false); setEditingInsumo(null); }} className="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700/50">Cancelar</button>
-                  <button type="submit" className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-sm"><Save className="w-3.5 h-3.5" />Guardar</button>
+                  <button type="button" onClick={() => { setIsCreating(false); setEditingInsumo(null); }} className="flex-1 sm:flex-none px-4 py-2 rounded-full text-sm text-on-surface-variant hover:bg-surface-variant">Cancelar</button>
+                  <button type="submit" className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-sm shadow-sm"><Save className="w-3.5 h-3.5" />Guardar</button>
                 </div>
               </div>
             </form>
@@ -496,25 +485,25 @@ export const InsumosManager: React.FC = () => {
       {historyInsumo && (
         <div className={modalCls}>
           <div className={`${modalBoxCls} max-w-md`}>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 border-b border-outline-variant/30 pb-3">
               <div>
-                <h3 className="text-sm font-semibold text-white">{historyInsumo.nombre}</h3>
-                <p className="text-xs text-slate-500">Historial de precios</p>
+                <h3 className="text-sm font-semibold text-on-surface">{historyInsumo.nombre}</h3>
+                <p className="text-xs text-on-surface-variant">Historial de precios</p>
               </div>
-              <button onClick={() => setHistoryInsumo(null)} className="text-slate-500 hover:text-white p-1"><X className="w-4 h-4" /></button>
+              <button onClick={() => setHistoryInsumo(null)} className="text-on-surface-variant hover:text-on-surface p-1"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {historyInsumo.historialPrecios && historyInsumo.historialPrecios.length > 0 ? (
                 historyInsumo.historialPrecios.map((h, idx) => (
-                  <div key={idx} className="bg-slate-900/60 p-3 rounded-lg flex justify-between items-center">
+                  <div key={idx} className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20 flex justify-between items-center">
                     <div>
-                      <div className="text-xs text-slate-500 flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(h.fecha).toLocaleString('es-AR')}</div>
-                      <div className="text-[11px] text-amber-400/70 mt-0.5">{h.fuente}</div>
+                      <div className="text-xs text-on-surface-variant flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(h.fecha).toLocaleString('es-AR')}</div>
+                      <div className="text-[11px] text-primary/80 mt-0.5">{h.fuente}</div>
                     </div>
-                    <div className="font-mono font-semibold text-emerald-400 text-sm">{formatARS(h.precio)}</div>
+                    <div className="font-mono font-semibold text-primary text-sm">{formatARS(h.precio)}</div>
                   </div>
                 ))
-              ) : <p className="text-xs text-slate-600 text-center py-4">Sin historial.</p>}
+              ) : <p className="text-xs text-on-surface-variant text-center py-4">Sin historial.</p>}
             </div>
           </div>
         </div>
@@ -524,29 +513,29 @@ export const InsumosManager: React.FC = () => {
       {showMassUpdateModal && (
         <div className={modalCls}>
           <div className={`${modalBoxCls} max-w-md`}>
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm"><TrendingUp className="w-4 h-4" />Actualización Masiva Porcentual</div>
-              <button onClick={() => setShowMassUpdateModal(false)} className="text-slate-500 hover:text-white p-1"><X className="w-4 h-4" /></button>
+            <div className="flex items-center justify-between mb-5 border-b border-outline-variant/30 pb-3">
+              <div className="flex items-center gap-2 text-primary font-semibold text-sm"><TrendingUp className="w-4 h-4" />Actualización Masiva Porcentual</div>
+              <button onClick={() => setShowMassUpdateModal(false)} className="text-on-surface-variant hover:text-on-surface p-1"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-3.5">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Categoría</label>
+                <label className="block text-xs text-on-surface-variant mb-1">Categoría</label>
                 <select value={massCategory} onChange={(e) => setMassCategory(e.target.value)} className={`${inputCls} capitalize`}>
                   <option value="todas">Todas las categorías</option>
                   {categories.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Porcentaje (%)</label>
+                <label className="block text-xs text-on-surface-variant mb-1">Porcentaje (%)</label>
                 <div className="relative">
                   <input type="number" step="0.1" value={massPercentage} onChange={(e) => setMassPercentage(parseFloat(e.target.value) || 0)} className={`${inputCls} font-mono pr-8`} />
-                  <Percent className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-2.5" />
+                  <Percent className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" />
                 </div>
-                <p className="text-[11px] text-slate-600 mt-1">Positivo para aumento, negativo para descuento.</p>
+                <p className="text-[11px] text-on-surface-variant/80 mt-1">Positivo para aumento, negativo para descuento.</p>
               </div>
-              <div className="pt-3 border-t border-slate-700/40 flex justify-end gap-2">
-                <button onClick={() => setShowMassUpdateModal(false)} className="px-4 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700/50">Cancelar</button>
-                <button onClick={handleApplyMassUpdate} className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-sm">Aplicar</button>
+              <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
+                <button onClick={() => setShowMassUpdateModal(false)} className="px-4 py-2 rounded-full text-sm text-on-surface-variant hover:bg-surface-variant">Cancelar</button>
+                <button onClick={handleApplyMassUpdate} className="px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-sm">Aplicar</button>
               </div>
             </div>
           </div>
@@ -557,20 +546,20 @@ export const InsumosManager: React.FC = () => {
       {showCSVModal && (
         <div className={modalCls}>
           <div className={`${modalBoxCls} max-w-lg`}>
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm"><FileSpreadsheet className="w-4 h-4" />Importar CSV de Precios</div>
-              <button onClick={() => setShowCSVModal(false)} className="text-slate-500 hover:text-white p-1"><X className="w-4 h-4" /></button>
+            <div className="flex items-center justify-between mb-5 border-b border-outline-variant/30 pb-3">
+              <div className="flex items-center gap-2 text-tertiary font-semibold text-sm"><FileSpreadsheet className="w-4 h-4" />Importar CSV de Precios</div>
+              <button onClick={() => setShowCSVModal(false)} className="text-on-surface-variant hover:text-on-surface p-1"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-3.5">
-              <p className="text-xs text-slate-400">Pegá el contenido CSV. Formato:<br />
-                <code className="text-amber-400 bg-slate-900/60 px-1.5 py-0.5 rounded font-mono text-[11px] block mt-1">Nombre, Marca, Modelo, Unidad, Categoria, PrecioActual, CodigoProveedor</code>
+              <p className="text-xs text-on-surface-variant">Pegá el contenido CSV. Formato:<br />
+                <code className="text-primary bg-surface-container-highest px-1.5 py-0.5 rounded font-mono text-[11px] block mt-1">Nombre, Marca, Modelo, Unidad, Categoria, PrecioActual, CodigoProveedor</code>
               </p>
               <textarea rows={5} value={csvContent} onChange={(e) => setCsvContent(e.target.value)}
                 placeholder={`nombre,marca,modelo,unidad,categoria,precioActual,codigoProveedor\nCable Unipolar 2.5mm2,Prysmian,,m,cableado,750,CAB-25`}
                 className={`${inputCls} font-mono text-xs`} />
-              <div className="pt-3 border-t border-slate-700/40 flex justify-end gap-2">
-                <button onClick={() => setShowCSVModal(false)} className="px-4 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700/50">Cancelar</button>
-                <button onClick={handleImportCSV} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold rounded-lg text-sm">Importar</button>
+              <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
+                <button onClick={() => setShowCSVModal(false)} className="px-4 py-2 rounded-full text-sm text-on-surface-variant hover:bg-surface-variant">Cancelar</button>
+                <button onClick={handleImportCSV} className="px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-sm">Importar</button>
               </div>
             </div>
           </div>

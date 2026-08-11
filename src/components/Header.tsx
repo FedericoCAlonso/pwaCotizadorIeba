@@ -7,7 +7,6 @@ import {
   Download,
   Upload,
   Settings,
-  PlusCircle,
   FileText,
   Package,
   Clock,
@@ -15,23 +14,29 @@ import {
   Users,
   HardHat,
   Truck,
-  ChevronDown
+  Sun,
+  Moon,
+  Monitor
 } from 'lucide-react';
-import { db, exportDatabaseJSON, importDatabaseJSON } from '../db/database';
-import { AppConfig } from '../core/types';
+import { exportDatabaseJSON, importDatabaseJSON } from '../db/database';
+import { AppConfig, ThemeMode } from '../core/types';
 
 interface HeaderProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   config: AppConfig | undefined;
   onOpenConfig: () => void;
+  themeMode: ThemeMode;
+  onThemeModeChange: (mode: ThemeMode) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
   config,
-  onOpenConfig
+  onOpenConfig,
+  themeMode,
+  onThemeModeChange
 }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showExportSuccess, setShowExportSuccess] = useState(false);
@@ -89,8 +94,26 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'registroTrabajo', label: 'Registro', icon: HardHat }
   ];
 
+  const cycleTheme = () => {
+    if (themeMode === 'system') onThemeModeChange('dark');
+    else if (themeMode === 'dark') onThemeModeChange('light');
+    else onThemeModeChange('system');
+  };
+
+  const getThemeIcon = () => {
+    if (themeMode === 'dark') return <Moon className="w-5 h-5 text-primary" />;
+    if (themeMode === 'light') return <Sun className="w-5 h-5 text-primary" />;
+    return <Monitor className="w-5 h-5 text-primary" />;
+  };
+
+  const getThemeTitle = () => {
+    if (themeMode === 'dark') return 'Tema Oscuro (Clic para cambiar a Claro)';
+    if (themeMode === 'light') return 'Tema Claro (Clic para cambiar a Automático)';
+    return 'Tema Automático / Sistema (Clic para cambiar a Oscuro)';
+  };
+
   return (
-    <header className="bg-surface sticky top-0 z-30 transition-colors shadow-sm">
+    <header className="bg-surface sticky top-0 z-30 transition-colors shadow-sm border-b border-outline-variant/20">
       {/* Top App Bar area */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Brand */}
@@ -103,9 +126,9 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Right side controls */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Online status — discrete */}
-          <div className={`hidden md:flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full ${isOnline ? 'bg-tertiary-container text-on-tertiary-container' : 'bg-error-container text-on-error-container'}`}>
+          <div className={`hidden md:flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${isOnline ? 'bg-tertiary-container text-on-tertiary-container' : 'bg-error-container text-on-error-container'}`}>
             {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
             <span className="hidden lg:inline">{isOnline ? 'Online' : 'Offline'}</span>
           </div>
@@ -121,6 +144,16 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="font-mono">${config.dolarReferenciaValor}</span>
             </button>
           )}
+
+          {/* Theme Quick Toggle */}
+          <button
+            onClick={cycleTheme}
+            className="p-2 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors"
+            title={getThemeTitle()}
+            aria-label="Cambiar tema de color"
+          >
+            {getThemeIcon()}
+          </button>
 
           {/* Utils dropdown */}
           <div className="relative">
@@ -139,26 +172,56 @@ export const Header: React.FC<HeaderProps> = ({
                   className="fixed inset-0 z-10"
                   onClick={() => setShowUtilsMenu(false)}
                 />
-                <div className="absolute right-0 top-full mt-2 z-20 bg-surface-container-high rounded-2xl shadow-md py-2 min-w-[200px] border border-outline-variant/30">
+                <div className="absolute right-0 top-full mt-2 z-20 bg-surface-container-high rounded-2xl shadow-md py-2 min-w-[220px] border border-outline-variant/30 text-on-surface">
+                  <div className="px-4 py-2 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
+                    Apariencia (Tema)
+                  </div>
+                  <div className="flex items-center justify-around px-3 py-1.5 border-b border-outline-variant/30 mb-1">
+                    <button
+                      onClick={() => { onThemeModeChange('system'); setShowUtilsMenu(false); }}
+                      className={`p-2 rounded-xl flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${themeMode === 'system' ? 'bg-primary-container text-on-primary-container' : 'hover:bg-surface-variant text-on-surface-variant'}`}
+                      title="Automático según preferencia del dispositivo"
+                    >
+                      <Monitor className="w-4 h-4" />
+                      <span>Auto</span>
+                    </button>
+                    <button
+                      onClick={() => { onThemeModeChange('dark'); setShowUtilsMenu(false); }}
+                      className={`p-2 rounded-xl flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${themeMode === 'dark' ? 'bg-primary-container text-on-primary-container' : 'hover:bg-surface-variant text-on-surface-variant'}`}
+                      title="Forzar modo oscuro"
+                    >
+                      <Moon className="w-4 h-4" />
+                      <span>Oscuro</span>
+                    </button>
+                    <button
+                      onClick={() => { onThemeModeChange('light'); setShowUtilsMenu(false); }}
+                      className={`p-2 rounded-xl flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${themeMode === 'light' ? 'bg-primary-container text-on-primary-container' : 'hover:bg-surface-variant text-on-surface-variant'}`}
+                      title="Forzar modo claro"
+                    >
+                      <Sun className="w-4 h-4" />
+                      <span>Claro</span>
+                    </button>
+                  </div>
+
                   <button
                     onClick={handleExportJSON}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-container-highest transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container-highest transition-colors"
                   >
                     <Download className="w-4 h-4 text-on-surface-variant" />
-                    Respaldar datos
+                    Respaldar datos (JSON)
                   </button>
-                  <label className="w-full flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-container-highest transition-colors cursor-pointer">
+                  <label className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container-highest transition-colors cursor-pointer">
                     <Upload className="w-4 h-4 text-on-surface-variant" />
-                    Restaurar datos
+                    Restaurar datos (JSON)
                     <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" aria-label="Seleccionar archivo de respaldo JSON" />
                   </label>
                   <hr className="border-outline-variant/50 my-1" />
                   <button
                     onClick={() => { onOpenConfig(); setShowUtilsMenu(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-container-highest transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container-highest transition-colors"
                   >
                     <Settings className="w-4 h-4 text-on-surface-variant" />
-                    Configuración
+                    Configuración General
                   </button>
                 </div>
               </>

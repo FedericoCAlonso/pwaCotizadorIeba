@@ -221,6 +221,14 @@ export interface Proyecto {
   descripcion?: string;
 }
 
+export interface CostoIndirectoItemConfig {
+  id: string;
+  nombre: string;
+  tipo: TipoCostoIndirecto;
+  valor: number;
+  aplica: boolean;
+}
+
 export interface Presupuesto {
   id: string;
   numero: string; // Correlativo ej "IEBA-2026-0001"
@@ -232,6 +240,7 @@ export interface Presupuesto {
   tipoFactura: TipoFactura;
   
   items: ItemPresupuesto[];
+  costosIndirectosConfig?: CostoIndirectoItemConfig[];
   costosIndirectosAplicados: CostoIndirectoSnapshot[];
   
   subtotalInsumos: number;
@@ -279,6 +288,8 @@ export interface RegistroTrabajo {
   notas?: string;
 }
 
+export type ThemeMode = 'dark' | 'light' | 'system';
+
 export interface AppConfig {
   id: string;
   nombreEmpresa: string;
@@ -298,4 +309,5 @@ export interface AppConfig {
   validezDiasPorDefecto: number;
   prefijoPresupuesto: string; // "IEBA"
   siguienteNumeroCorrelativo: number;
+  themeMode?: ThemeMode;
 }

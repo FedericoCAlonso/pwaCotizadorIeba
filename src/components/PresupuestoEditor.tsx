@@ -17,7 +17,8 @@ import {
   Lock,
   ArrowLeft,
   Info,
-  X
+  X,
+  RotateCcw
 } from 'lucide-react';
 import { db } from '../db/database';
 import {
@@ -30,9 +31,11 @@ import {
   Insumo,
   CategoriaManoDeObra,
   CostoIndirecto,
+  CostoIndirectoItemConfig,
   EstadoPresupuesto,
   TipoFactura,
-  ImpuestoItem
+  ImpuestoItem,
+  TipoCostoIndirecto
 } from '../core/types';
 import {
   calcularCostoTareaTipo,
@@ -94,12 +97,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   );
 
   const [items, setItems] = useState<ItemPresupuesto[]>([]);
+  const [costosIndirectosConfig, setCostosIndirectosConfig] = useState<CostoIndirectoItemConfig[]>([]);
   const [estado, setEstado] = useState<EstadoPresupuesto>('borrador');
 
   // Modal selector TareaTipo
   const [showItemPickerModal, setShowItemPickerModal] = useState(false);
 
-  // Initial load if editing
+  // Initial load if editing or creating
   useEffect(() => {
     if (existingPresupuesto) {
       setTipoFactura(existingPresupuesto.tipoFactura || 'Factura B');
@@ -121,10 +125,50 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       setCondicionesPagoTexto(existingPresupuesto.condicionesPagoTexto);
       setItems(existingPresupuesto.items);
       setEstado(existingPresupuesto.estado);
+
+      // Cargar configuración de costos indirectos del presupuesto
+      if (existingPresupuesto.costosIndirectosConfig && existingPresupuesto.costosIndirectosConfig.length > 0) {
+        setCostosIndirectosConfig(existingPresupuesto.costosIndirectosConfig);
+      } else if (existingPresupuesto.costosIndirectosAplicados && existingPresupuesto.costosIndirectosAplicados.length > 0) {
+        setCostosIndirectosConfig(
+          existingPresupuesto.costosIndirectosAplicados.map(ci => ({
+            id: ci.costoIndirectoId,
+            nombre: ci.nombre,
+            tipo: ci.tipo,
+            valor: ci.valorAplicado,
+            aplica: true
+          }))
+        );
+      } else if (costosIndirectos.length > 0) {
+        setCostosIndirectosConfig(
+          costosIndirectos.map(ci => ({
+            id: ci.id,
+            nombre: ci.nombre,
+            tipo: ci.tipo,
+            valor: ci.valor,
+            aplica: true
+          }))
+        );
+      }
     } else if (clientes.length > 0 && !clienteId) {
       setClienteId(clientes[0].id);
     }
   }, [existingPresupuesto, clientes]);
+
+  // Cargar costos fijos de plantilla global para nuevo presupuesto si aún no están inicializados
+  useEffect(() => {
+    if (!existingPresupuesto && costosIndirectos.length > 0 && costosIndirectosConfig.length === 0) {
+      setCostosIndirectosConfig(
+        costosIndirectos.map(ci => ({
+          id: ci.id,
+          nombre: ci.nombre,
+          tipo: ci.tipo,
+          valor: ci.valor,
+          aplica: true
+        }))
+      );
+    }
+  }, [existingPresupuesto, costosIndirectos, costosIndirectosConfig.length]);
 
   const handleTipoFacturaChange = (nuevoTipo: TipoFactura) => {
     setTipoFactura(nuevoTipo);
@@ -169,10 +213,57 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     setImpuestosDetalle((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Handlers para Costos Indirectos / Fijos del presupuesto
+  const handleToggleIndirectCost = (index: number) => {
+    setCostosIndirectosConfig((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], aplica: !next[index].aplica };
+      return next;
+    });
+  };
+
+  const handleUpdateIndirectCostValor = (index: number, valor: number) => {
+    setCostosIndirectosConfig((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], valor: Math.max(0, valor) };
+      return next;
+    });
+  };
+
+  const handleAddCustomIndirectCost = () => {
+    const newCost: CostoIndirectoItemConfig = {
+      id: `ci-${crypto.randomUUID()}`,
+      nombre: 'Costo Fijo / Estructura Especial',
+      tipo: 'porcentual_sobre_costo',
+      valor: 5,
+      aplica: true
+    };
+    setCostosIndirectosConfig((prev) => [...prev, newCost]);
+  };
+
+  const handleRemoveIndirectCost = (index: number) => {
+    setCostosIndirectosConfig((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleResetIndirectCosts = () => {
+    if (confirm('¿Restablecer los costos fijos a la plantilla global por defecto?')) {
+      setCostosIndirectosConfig(
+        costosIndirectos.map(ci => ({
+          id: ci.id,
+          nombre: ci.nombre,
+          tipo: ci.tipo,
+          valor: ci.valor,
+          aplica: true
+        }))
+      );
+    }
+  };
+
   // Live total calculations
   const totales = calcularTotalesPresupuesto({
     items,
     costosIndirectosCatalog: costosIndirectos,
+    costosIndirectosConfig,
     margenPorcentaje,
     impuestosDetalle,
     cotizacionMonedaExtranjera: mostrarDolar ? cotizacionDolar : undefined
@@ -306,6 +397,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       validezDias,
       tipoFactura,
       items: itemsFrozen,
+      costosIndirectosConfig,
       costosIndirectosAplicados: totales.costosIndirectosAplicados,
       subtotalInsumos: totales.subtotalInsumos,
       subtotalManoObra: totales.subtotalManoObra,
@@ -504,11 +596,11 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                   return (
                     <div
                       key={item.id}
-                      className="bg-slate-900/50 border border-slate-700/20 rounded-xl p-4 space-y-3 hover:border-slate-600/40 transition"
+                      className="bg-surface-container-highest/40 border border-outline-variant/20 rounded-2xl p-4 space-y-3 hover:border-outline-variant/40 transition"
                     >
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div className="flex-1">
-                          <label className="block text-[10px] text-slate-400 font-semibold uppercase mb-0.5">
+                          <label className="block text-[10px] text-on-surface-variant font-semibold uppercase mb-0.5">
                             {isCustom ? 'Ítem Personalizado — Descripción' : 'Descripción de la Partida'}
                           </label>
                           <input
@@ -522,47 +614,47 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                                 return next;
                               });
                             }}
-                            className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-sm font-bold text-white focus:outline-none focus:border-amber-500"
+                            className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-1.5 text-sm font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
                           />
                         </div>
 
                         <div className="flex flex-wrap items-center justify-between md:justify-end gap-3">
                           {/* Quantity */}
                           <div className="flex items-center gap-1">
-                            <span className="text-xs text-slate-400">Cant:</span>
+                            <span className="text-xs text-on-surface-variant">Cant:</span>
                             <input
                               type="number"
                               step="0.1"
                               value={item.cantidad}
                               onChange={(e) => handleUpdateItemQuantity(idx, parseFloat(e.target.value) || 0)}
-                              className="w-16 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono text-center focus:outline-none focus:border-amber-500"
+                              className="w-16 bg-surface-container-highest border border-outline-variant/30 rounded-xl px-2 py-1 text-xs text-on-surface font-mono text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
                             />
                             <input
                               type="text"
                               value={item.unidad}
                               onChange={(e) => handleUpdateItemUnit(idx, e.target.value)}
-                              className="w-12 bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-xs text-slate-300 text-center focus:outline-none focus:border-amber-500"
+                              className="w-12 bg-surface-container-highest border border-outline-variant/30 rounded-xl px-1.5 py-1 text-xs text-on-surface text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
                             />
                           </div>
 
                           {/* Unit Selling Price Input */}
                           <div className="flex items-center gap-1">
-                            <span className="text-xs text-slate-400">Precio Unit:</span>
+                            <span className="text-xs text-on-surface-variant">Precio Unit:</span>
                             <div className="relative">
-                              <span className="text-xs text-slate-500 absolute left-2 top-1.5">$</span>
+                              <span className="text-xs text-on-surface-variant absolute left-2 top-1.5">$</span>
                               <input
                                 type="number"
                                 step="1"
                                 value={item.precioVentaUnitario}
                                 onChange={(e) => handleUpdateItemUnitPrice(idx, parseFloat(e.target.value) || 0)}
-                                className="w-28 bg-slate-900 border border-slate-700 rounded pl-5 pr-2 py-1 text-xs text-emerald-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+                                className="w-28 bg-surface-container-highest border border-outline-variant/30 rounded-xl pl-5 pr-2 py-1 text-xs text-primary font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
                               />
                             </div>
                           </div>
 
                           <button
                             onClick={() => handleRemoveItem(idx)}
-                            className="p-1 text-slate-400 hover:text-rose-400 transition"
+                            className="p-1.5 text-on-surface-variant hover:text-error rounded-full hover:bg-error-container/30 transition-colors"
                             title="Eliminar ítem"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -571,8 +663,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                       </div>
 
                       {/* Breakdown Cost Footer per Item */}
-                      <div className="bg-slate-900/50 p-2.5 rounded-lg border border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <div className="flex items-center gap-3 text-slate-400">
+                      <div className="bg-surface-container-highest/60 p-3 rounded-xl border border-outline-variant/20 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-3 text-on-surface-variant">
                           {isCustom ? (
                             <div className="flex items-center gap-2">
                               <span>Costo Base Estimado (Opcional):</span>
@@ -581,28 +673,28 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                                 step="1"
                                 value={item.costoDirectoTotal}
                                 onChange={(e) => handleUpdateItemDirectCost(idx, parseFloat(e.target.value) || 0)}
-                                className="w-24 bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-500"
+                                className="w-24 bg-surface-container-highest border border-outline-variant/30 rounded-lg px-2 py-0.5 text-xs text-primary font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
                                 placeholder="0"
                               />
                             </div>
                           ) : (
                             <>
                               <span>
-                                Insumos: <strong className="text-slate-200">{formatARS(item.costoInsumos)}</strong>
+                                Insumos: <strong className="text-on-surface">{formatARS(item.costoInsumos)}</strong>
                               </span>
                               <span>|</span>
                               <span>
-                                Mano Obra: <strong className="text-slate-200">{formatARS(item.costoManoObra)}</strong>
+                                Mano Obra: <strong className="text-on-surface">{formatARS(item.costoManoObra)}</strong>
                               </span>
                               <span>|</span>
                               <span>
-                                Costo Directo Total: <strong className="text-amber-300">{formatARS(item.costoDirectoTotal)}</strong>
+                                Costo Directo Total: <strong className="text-primary font-bold">{formatARS(item.costoDirectoTotal)}</strong>
                               </span>
                             </>
                           )}
                         </div>
 
-                        <div className="font-mono font-bold text-emerald-400 text-sm">
+                        <div className="font-mono font-bold text-primary text-sm">
                           Subtotal Venta: {formatARS(item.precioVentaTotal)}
                         </div>
                       </div>
@@ -614,77 +706,157 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </div>
 
           {/* Payment Conditions & Milestones */}
-          <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 space-y-3">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <div className="bg-surface-container-low border border-outline-variant/10 rounded-3xl p-6 space-y-3 shadow-sm">
+            <h3 className="text-sm font-bold text-primary uppercase tracking-wide">
               Condiciones de Pago & Esquema de Cobro
             </h3>
             <textarea
               rows={3}
               value={condicionesPagoTexto}
               onChange={(e) => setCondicionesPagoTexto(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl p-4 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
         </div>
 
-        {/* Right Column: Live Financial Summary Panel */}
+        {/* Right Column: Live Financial Summary Panel & Indirect Costs */}
         <div className="space-y-6">
-          <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 space-y-5 sticky top-16">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <Calculator className="w-5 h-5 text-amber-400" />
-                <span>Desglose de Costos & Margen</span>
+          <div className="bg-surface-container-low border border-outline-variant/20 rounded-3xl p-6 space-y-6 sticky top-20 shadow-sm">
+            <div className="flex items-center justify-between border-b border-outline-variant/30 pb-3">
+              <h3 className="text-base font-bold text-on-surface flex items-center gap-2">
+                <Calculator className="w-5 h-5 text-primary" />
+                <span>Desglose & Costos Fijos</span>
               </h3>
-              <span className="text-[10px] text-slate-500 font-mono">EN TIEMPO REAL</span>
+              <span className="text-[10px] text-on-surface-variant font-mono uppercase bg-surface-variant px-2.5 py-0.5 rounded-full">EN TIEMPO REAL</span>
             </div>
 
             {/* Direct Costs Breakdown */}
             <div className="space-y-2 text-xs">
-              <div className="flex justify-between text-slate-300">
+              <div className="flex justify-between text-on-surface-variant">
                 <span>Subtotal Insumos Materiales:</span>
-                <span className="font-mono font-semibold">{formatARS(totales.subtotalInsumos)}</span>
+                <span className="font-mono font-semibold text-on-surface">{formatARS(totales.subtotalInsumos)}</span>
               </div>
 
-              <div className="flex justify-between text-slate-300">
+              <div className="flex justify-between text-on-surface-variant">
                 <span>Subtotal Mano de Obra:</span>
-                <span className="font-mono font-semibold">{formatARS(totales.subtotalManoObra)}</span>
+                <span className="font-mono font-semibold text-on-surface">{formatARS(totales.subtotalManoObra)}</span>
               </div>
 
-              <div className="flex justify-between text-amber-300 font-semibold pt-1 border-t border-slate-800">
+              <div className="flex justify-between text-primary font-bold pt-2 border-t border-outline-variant/20">
                 <span>Total Costos Directos:</span>
                 <span className="font-mono">{formatARS(totales.subtotalCostosDirectos)}</span>
               </div>
             </div>
 
-            {/* Indirect Costs Breakdown */}
-            <div className="space-y-2 text-xs pt-3 border-t border-slate-800">
-              <div className="text-slate-400 font-semibold uppercase text-[11px] mb-1">
-                Costos Indirectos Prorrateados:
-              </div>
-              {totales.costosIndirectosAplicados.map((ci) => (
-                <div key={ci.costoIndirectoId} className="flex justify-between text-slate-400">
-                  <span>
-                    • {ci.nombre} {ci.tipo === 'porcentual_sobre_costo' ? `(${ci.valorAplicado}%)` : ''}:
-                  </span>
-                  <span className="font-mono">{formatARS(ci.montoCalculado)}</span>
+            {/* Costos Indirectos / Fijos Propios del Presupuesto */}
+            <div className="space-y-3 pt-3 border-t border-outline-variant/30 text-xs">
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-bold text-on-surface uppercase tracking-wider">
+                  Costos Fijos / Indirectos ({costosIndirectosConfig.filter(c => c.aplica).length} activos)
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResetIndirectCosts}
+                    className="p-1 text-on-surface-variant hover:text-primary transition-colors"
+                    title="Restablecer desde plantilla global"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddCustomIndirectCost}
+                    className="text-[11px] text-primary hover:underline font-semibold"
+                  >
+                    + Nuevo Costo
+                  </button>
                 </div>
-              ))}
-              <div className="flex justify-between text-amber-300 font-semibold pt-1">
-                <span>Total Costos Indirectos:</span>
+              </div>
+
+              <div className="space-y-2">
+                {costosIndirectosConfig.map((ci, idx) => (
+                  <div key={ci.id || idx} className="bg-surface-container-highest/60 p-3 rounded-2xl border border-outline-variant/20 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-on-surface truncate">
+                        <input
+                          type="checkbox"
+                          checked={ci.aplica}
+                          onChange={() => handleToggleIndirectCost(idx)}
+                          className="w-4 h-4 text-primary rounded border-outline-variant bg-surface-container-highest focus:ring-primary"
+                        />
+                        <input
+                          type="text"
+                          value={ci.nombre}
+                          onChange={(e) => {
+                            const newName = e.target.value;
+                            setCostosIndirectosConfig((prev) => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], nombre: newName };
+                              return next;
+                            });
+                          }}
+                          className="bg-transparent border-none p-0 text-xs font-medium text-on-surface focus:ring-0 truncate"
+                        />
+                      </label>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="relative w-20">
+                          {ci.tipo !== 'porcentual_sobre_costo' && <span className="text-[10px] text-on-surface-variant absolute left-1.5 top-1 font-mono">$</span>}
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={ci.valor}
+                            onChange={(e) => handleUpdateIndirectCostValor(idx, parseFloat(e.target.value) || 0)}
+                            className={`w-full bg-surface-container-highest border border-outline-variant/30 rounded-lg px-1.5 py-0.5 text-xs text-right font-mono text-on-surface focus:outline-none focus:ring-1 focus:ring-primary ${ci.tipo !== 'porcentual_sobre_costo' ? 'pl-4' : 'pr-4'}`}
+                          />
+                          {ci.tipo === 'porcentual_sobre_costo' && <span className="text-[10px] text-on-surface-variant absolute right-1.5 top-1 font-bold">%</span>}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveIndirectCost(idx)}
+                          className="text-on-surface-variant hover:text-error p-1 rounded-full hover:bg-error-container/30 transition-colors"
+                          title="Eliminar costo fijo"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {ci.aplica && (
+                      <div className="flex justify-between items-center text-[11px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/20">
+                        <span className="capitalize text-[10px] bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-full">
+                          {ci.tipo === 'porcentual_sobre_costo' ? 'Porcentual' : ci.tipo === 'fijo_mensual' ? 'Fijo Mensual' : 'Por Visita'}
+                        </span>
+                        <span className="font-bold text-primary">
+                          {formatARS(
+                            ci.tipo === 'porcentual_sobre_costo'
+                              ? (totales.subtotalCostosDirectos * (ci.valor / 100))
+                              : ci.valor
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-between text-primary font-bold pt-1">
+                <span>Total Costos Indirectos Fijos:</span>
                 <span className="font-mono">{formatARS(totales.subtotalCostosIndirectos)}</span>
               </div>
             </div>
 
             {/* Total Cost of Job */}
-            <div className="bg-slate-900/60 p-3 rounded-lg flex justify-between items-center text-xs font-semibold text-white">
+            <div className="bg-surface-container p-3.5 rounded-2xl border border-outline-variant/30 flex justify-between items-center text-xs font-bold text-on-surface">
               <span>COSTO TOTAL REAL OBRA:</span>
-              <span className="font-mono text-amber-400">{formatARS(totales.costoTotalObra)}</span>
+              <span className="font-mono text-primary text-sm">{formatARS(totales.costoTotalObra)}</span>
             </div>
 
-            {/* Margin Percentage Input (No Range Slider) */}
+            {/* Margin Percentage Input */}
             <div className="space-y-3 pt-2">
               <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-slate-200">Margen de Ganancia Neto (%):</label>
+                <label className="text-xs font-bold text-on-surface">Margen de Ganancia Neto (%):</label>
                 <div className="relative w-28">
                   <input
                     type="number"
@@ -693,28 +865,28 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                     step="1"
                     value={margenPorcentaje}
                     onChange={(e) => setMargenPorcentaje(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-3 pr-7 py-1.5 text-sm text-amber-400 font-mono font-bold text-right focus:outline-none focus:border-amber-500"
+                    className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl pl-3 pr-7 py-1.5 text-sm text-primary font-mono font-bold text-right focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
-                  <span className="text-xs text-amber-400 font-bold absolute right-2.5 top-2">%</span>
+                  <span className="text-xs text-primary font-bold absolute right-2.5 top-2">%</span>
                 </div>
               </div>
 
-              <div className="flex justify-between text-xs text-slate-400">
+              <div className="flex justify-between text-xs text-on-surface-variant">
                 <span>Ganancia Estimada:</span>
-                <span className="font-mono font-semibold text-emerald-400">{formatARS(totales.montoGanancia)}</span>
+                <span className="font-mono font-semibold text-tertiary">{formatARS(totales.montoGanancia)}</span>
               </div>
             </div>
 
             {/* Itemized Taxes Breakdown Section */}
-            <div className="space-y-3 pt-3 border-t border-slate-800 text-xs">
+            <div className="space-y-3 pt-3 border-t border-outline-variant/30 text-xs">
               <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                <label className="text-xs font-bold text-on-surface uppercase tracking-wider">
                   Impuestos & Tasas ({tipoFactura})
                 </label>
                 <button
                   type="button"
                   onClick={handleAddCustomTax}
-                  className="text-[11px] text-amber-400 hover:underline font-semibold"
+                  className="text-[11px] text-primary hover:underline font-semibold"
                 >
                   + Otro Impuesto
                 </button>
@@ -722,14 +894,14 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
               <div className="space-y-2">
                 {totales.impuestosCalculados.map((tax, idx) => (
-                  <div key={tax.id || idx} className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800 space-y-2">
+                  <div key={tax.id || idx} className="bg-surface-container-highest/60 p-3 rounded-2xl border border-outline-variant/20 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-200">
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-on-surface">
                         <input
                           type="checkbox"
                           checked={tax.aplica}
                           onChange={() => handleToggleTax(idx)}
-                          className="w-3.5 h-3.5 text-amber-500 rounded border-slate-700 bg-slate-800"
+                          className="w-4 h-4 text-primary rounded border-outline-variant bg-surface-container-highest focus:ring-primary"
                         />
                         <span className="truncate">{tax.nombre}</span>
                       </label>
@@ -741,16 +913,16 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                             step="0.1"
                             value={tax.porcentaje}
                             onChange={(e) => handleUpdateTaxPct(idx, parseFloat(e.target.value) || 0)}
-                            className="w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-right font-mono text-white focus:outline-none focus:border-amber-500 pr-5"
+                            className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-lg px-1.5 py-0.5 text-xs text-right font-mono text-on-surface focus:outline-none focus:ring-1 focus:ring-primary pr-5"
                           />
-                          <span className="text-[10px] text-slate-400 absolute right-1.5 top-1 font-bold">%</span>
+                          <span className="text-[10px] text-on-surface-variant absolute right-1.5 top-1 font-bold">%</span>
                         </div>
 
                         {idx >= 2 && (
                           <button
                             type="button"
                             onClick={() => handleRemoveTax(idx)}
-                            className="text-slate-500 hover:text-rose-400 p-0.5"
+                            className="text-on-surface-variant hover:text-error p-1 rounded-full hover:bg-error-container/30 transition-colors"
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -759,30 +931,30 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                     </div>
 
                     {tax.aplica && (
-                      <div className="flex justify-between items-center text-[11px] text-slate-400 font-mono pt-1 border-t border-slate-800/60">
+                      <div className="flex justify-between items-center text-[11px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/20">
                         <span>Monto {tax.nombre}:</span>
-                        <span className="font-bold text-amber-300">{formatARS(tax.montoCalculado)}</span>
+                        <span className="font-bold text-primary">{formatARS(tax.montoCalculado)}</span>
                       </div>
                     )}
                   </div>
                 ))}
               </div>
 
-              <div className="flex justify-between text-slate-300 font-semibold pt-1">
+              <div className="flex justify-between text-on-surface font-semibold pt-1">
                 <span>Total Impuestos:</span>
-                <span className="font-mono text-amber-400">{formatARS(totales.montoImpuestosTotal)}</span>
+                <span className="font-mono text-primary">{formatARS(totales.montoImpuestosTotal)}</span>
               </div>
             </div>
 
             {/* Final Grand Total ARS & Foreign Currency */}
-            <div className="bg-amber-500/10 border border-amber-500/25 p-4 rounded-xl space-y-1.5 text-center">
-              <span className="text-xs uppercase tracking-wider font-bold text-amber-400 block">
+            <div className="bg-primary-container/40 border border-primary/30 p-5 rounded-2xl space-y-2 text-center shadow-sm">
+              <span className="text-xs uppercase tracking-wider font-bold text-primary block">
                 PRECIO TOTAL FINAL COTIZADO
               </span>
-              <div className="font-mono text-xl font-bold text-white">{formatARS(totales.totalARS)}</div>
+              <div className="font-mono text-2xl font-black text-on-surface">{formatARS(totales.totalARS)}</div>
 
               {mostrarDolar && totales.totalMonedaExtranjera && (
-                <div className="text-xs text-emerald-400 font-mono font-semibold pt-1 border-t border-amber-500/20">
+                <div className="text-xs text-tertiary font-mono font-semibold pt-2 border-t border-primary/20">
                   Equivalente: {formatUSD(totales.totalMonedaExtranjera, nombreDolar)}
                 </div>
               )}
@@ -790,60 +962,72 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
             <button
               onClick={() => handleSavePresupuesto('enviado')}
-              className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 text-sm"
+              className="w-full py-3 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full transition-all flex items-center justify-center gap-2 text-sm shadow-md hover:shadow-lg"
             >
-              <CheckCircle className="w-5 h-5 fill-slate-950 text-amber-400" />
+              <CheckCircle className="w-5 h-5 text-on-primary" />
               <span>Emitir & Congelar Presupuesto</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Modal: Item Picker from TareasTipo */}
+      {/* Modal Item Picker (TareasTipo) */}
       {showItemPickerModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700/50 rounded-xl w-full max-w-2xl shadow-2xl p-6 overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Layers className="w-5 h-5 text-amber-400" />
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] text-on-surface">
+            <div className="px-6 py-4 border-b border-outline-variant/30 flex items-center justify-between">
+              <h3 className="font-semibold text-on-surface text-base flex items-center gap-2">
+                <Layers className="w-5 h-5 text-primary" />
                 <span>Seleccionar Tarea Tipo del Catálogo</span>
               </h3>
-              <button onClick={() => setShowItemPickerModal(false)} className="text-slate-400 hover:text-white">
+              <button
+                onClick={() => setShowItemPickerModal(false)}
+                className="text-on-surface-variant hover:text-on-surface p-1 rounded-full hover:bg-surface-variant transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3 overflow-y-auto pr-2 flex-1">
-              {tareasTipo.map((tarea) => {
-                const cost = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap);
-                return (
-                  <div
-                    key={tarea.id}
-                    onClick={() => handleAddTareaTipoItem(tarea)}
-                    className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 hover:border-amber-500/50 cursor-pointer transition flex items-center justify-between group"
-                  >
-                    <div>
-                      <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">
-                        {tarea.categoria}
-                      </span>
-                      <h4 className="font-bold text-white text-base group-hover:text-amber-400 transition">
-                        {tarea.nombre}
-                      </h4>
-                      <p className="text-xs text-slate-400 mt-1">
-                        {tarea.insumos.length} materiales | {tarea.manoObra.length} cat. mano de obra
-                      </p>
-                    </div>
+            <div className="p-6 overflow-y-auto space-y-3 flex-1">
+              {tareasTipo.length === 0 ? (
+                <p className="text-center text-on-surface-variant text-sm py-8">
+                  No hay Tareas Tipo cargadas en el catálogo. Puedes cargarlas desde la pestaña "Tareas Tipo".
+                </p>
+              ) : (
+                tareasTipo.map((tarea) => {
+                  const cost = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap);
+                  return (
+                    <div
+                      key={tarea.id}
+                      onClick={() => handleAddTareaTipoItem(tarea)}
+                      className="bg-surface-container-low border border-outline-variant/20 hover:border-primary/50 hover:bg-surface-container/80 p-4 rounded-2xl cursor-pointer transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 group"
+                    >
+                      <div>
+                        <span className="text-[10px] font-bold text-on-tertiary-container bg-tertiary-container px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                          {tarea.categoria}
+                        </span>
+                        <h4 className="font-bold text-on-surface group-hover:text-primary transition-colors mt-1">
+                          {tarea.nombre}
+                        </h4>
+                        <div className="text-xs text-on-surface-variant mt-1 flex items-center gap-3">
+                          <span>Insumos: {tarea.insumos.length}</span>
+                          <span>•</span>
+                          <span>MO: {tarea.manoObra.length} hs</span>
+                        </div>
+                      </div>
 
-                    <div className="text-right">
-                      <div className="text-xs text-slate-400">Costo Directo Base:</div>
-                      <div className="font-mono font-bold text-emerald-400 text-base">
-                        {formatARS(cost.costoDirectoUnitario)}
-                        <span className="text-xs text-slate-500 font-sans"> / {tarea.unidad}</span>
+                      <div className="text-left sm:text-right shrink-0">
+                        <span className="text-[10px] text-on-surface-variant uppercase tracking-wider block">
+                          Costo Base / {tarea.unidad}
+                        </span>
+                        <span className="font-mono text-base font-bold text-primary">
+                          {formatARS(cost.costoDirectoUnitario)}
+                        </span>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

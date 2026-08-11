@@ -13,6 +13,7 @@ import { PresupuestosList } from './components/PresupuestosList';
 import { PresupuestoEditor } from './components/PresupuestoEditor';
 import { PresupuestoDetail } from './components/PresupuestoDetail';
 import { RegistroTrabajoManager } from './components/RegistroTrabajoManager';
+import { useTheme } from './hooks/useTheme';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('presupuestos');
@@ -22,6 +23,8 @@ export function App() {
 
   const configs = useLiveQuery(() => db.config.toArray());
   const config: AppConfig | undefined = configs && configs.length > 0 ? configs[0] : undefined;
+
+  const { themeMode, setThemeMode } = useTheme(config?.themeMode);
 
   useEffect(() => {
     initializeDatabaseSeed();
@@ -81,6 +84,8 @@ export function App() {
         }}
         config={config}
         onOpenConfig={() => setShowConfigModal(true)}
+        themeMode={themeMode}
+        onThemeModeChange={setThemeMode}
       />
 
       {/* Main Content Area */}

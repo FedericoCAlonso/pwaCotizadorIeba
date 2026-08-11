@@ -11,6 +11,7 @@ import {
   Insumo,
   CategoriaManoDeObra,
   CostoIndirecto,
+  CostoIndirectoItemConfig,
   TareaTipo,
   ItemPresupuesto,
   InsumoSnapshot,
@@ -219,7 +220,8 @@ export function generarImpuestosPorDefecto(
  */
 export function calcularTotalesPresupuesto(params: {
   items: ItemPresupuesto[];
-  costosIndirectosCatalog: CostoIndirecto[];
+  costosIndirectosCatalog?: CostoIndirecto[];
+  costosIndirectosConfig?: CostoIndirectoItemConfig[];
   margenPorcentaje: number;
   impuestosDetalle: ImpuestoItem[];
   cotizacionMonedaExtranjera?: number;
@@ -240,7 +242,8 @@ export function calcularTotalesPresupuesto(params: {
 } {
   const {
     items,
-    costosIndirectosCatalog,
+    costosIndirectosCatalog = [],
+    costosIndirectosConfig,
     margenPorcentaje,
     impuestosDetalle,
     cotizacionMonedaExtranjera
@@ -268,30 +271,47 @@ export function calcularTotalesPresupuesto(params: {
   }
 
   // ─── Costos indirectos — snapshot congelado (spec §1.3, §1.5, auditorías #8 y #9) ───
-  // Se soportan los 3 tipos definidos en TipoCostoIndirecto:
-  //   · porcentual_sobre_costo → % sobre subtotalCostosDirectos
-  //   · fijo_mensual           → valor fijo (costo mensual prorrateable)
-  //   · por_visita             → valor fijo por trabajo/visita
   const costosIndirectosAplicados: CostoIndirectoSnapshot[] = [];
   let subtotalCostosIndirectos = 0;
 
-  for (const c of costosIndirectosCatalog) {
-    let montoCalculado = 0;
-    if (c.tipo === 'porcentual_sobre_costo') {
-      montoCalculado = roundMoney(subtotalCostosDirectos * (safeNum(c.valor) / 100));
-    } else if (c.tipo === 'fijo_mensual' || c.tipo === 'por_visita') {
-      montoCalculado = roundMoney(safeNum(c.valor));
-    }
+  if (costosIndirectosConfig && costosIndirectosConfig.length > 0) {
+    for (const c of costosIndirectosConfig) {
+      if (c.aplica) {
+        let montoCalculado = 0;
+        if (c.tipo === 'porcentual_sobre_costo') {
+          montoCalculado = roundMoney(subtotalCostosDirectos * (safeNum(c.valor) / 100));
+        } else if (c.tipo === 'fijo_mensual' || c.tipo === 'por_visita') {
+          montoCalculado = roundMoney(safeNum(c.valor));
+        }
 
-    subtotalCostosIndirectos = roundMoney(subtotalCostosIndirectos + montoCalculado);
-    // El snapshot congela el monto calculado en el momento de emitir (auditoría #8)
-    costosIndirectosAplicados.push({
-      costoIndirectoId: c.id,
-      nombre: c.nombre,
-      tipo: c.tipo,
-      valorAplicado: safeNum(c.valor),
-      montoCalculado
-    });
+        subtotalCostosIndirectos = roundMoney(subtotalCostosIndirectos + montoCalculado);
+        costosIndirectosAplicados.push({
+          costoIndirectoId: c.id,
+          nombre: c.nombre,
+          tipo: c.tipo,
+          valorAplicado: safeNum(c.valor),
+          montoCalculado
+        });
+      }
+    }
+  } else {
+    for (const c of costosIndirectosCatalog) {
+      let montoCalculado = 0;
+      if (c.tipo === 'porcentual_sobre_costo') {
+        montoCalculado = roundMoney(subtotalCostosDirectos * (safeNum(c.valor) / 100));
+      } else if (c.tipo === 'fijo_mensual' || c.tipo === 'por_visita') {
+        montoCalculado = roundMoney(safeNum(c.valor));
+      }
+
+      subtotalCostosIndirectos = roundMoney(subtotalCostosIndirectos + montoCalculado);
+      costosIndirectosAplicados.push({
+        costoIndirectoId: c.id,
+        nombre: c.nombre,
+        tipo: c.tipo,
+        valorAplicado: safeNum(c.valor),
+        montoCalculado
+      });
+    }
   }
 
   const costoTotalObra = roundMoney(subtotalCostosDirectos + subtotalCostosIndirectos);
