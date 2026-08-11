@@ -65,22 +65,30 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
       {/* Top Action Bar (hidden when printing) */}
-      <div className="no-print flex flex-wrap justify-between items-center gap-3 bg-slate-800/40 border border-slate-700/30 p-4 rounded-xl">
-        <div className="flex items-center gap-3">
+      <div className="no-print flex flex-wrap justify-between items-center gap-4 bg-surface-container rounded-3xl p-5 shadow-sm border border-outline-variant/20">
+        <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-700/50 rounded-lg transition"
+            className="p-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-full transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-white font-mono">{presupuesto.numero}</h2>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${statusBadge.bg}`}>
-                {statusBadge.label}
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold text-on-surface font-mono">{presupuesto.numero}</h2>
+              <span className={`text-[11px] font-bold px-3 py-1 rounded-full capitalize tracking-wide ${
+                {
+                  borrador: 'bg-surface-variant text-on-surface-variant',
+                  enviado: 'bg-primary-container text-on-primary-container',
+                  aprobado: 'bg-tertiary-container text-on-tertiary-container',
+                  rechazado: 'bg-error-container text-on-error-container',
+                  vencido: 'bg-surface-container-highest text-on-surface-variant'
+                }[presupuesto.estado]
+              }`}>
+                {presupuesto.estado}
               </span>
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-on-surface-variant mt-1">
               Emitido el {new Date(presupuesto.fechaEmision).toLocaleDateString('es-AR')} | Válido por {presupuesto.validezDias} días
             </p>
           </div>
@@ -91,7 +99,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
           <select
             value={presupuesto.estado}
             onChange={(e) => handleUpdateStatus(e.target.value as EstadoPresupuesto)}
-            className="bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500/70 capitalize"
+            className="bg-surface-container-highest border-none rounded-full px-4 py-2 text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 capitalize cursor-pointer transition-shadow hover:shadow-sm"
           >
             <option value="borrador">Borrador</option>
             <option value="enviado">Enviado</option>
@@ -102,7 +110,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
 
           <button
             onClick={() => onDuplicate(presupuesto)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700/50 border border-slate-700/40 rounded-lg text-xs font-medium transition"
+            className="flex items-center gap-2 px-4 py-2 text-on-surface hover:bg-surface-variant rounded-full text-sm font-medium transition-colors"
           >
             <Copy className="w-4 h-4" />
             <span>Duplicar</span>
@@ -110,17 +118,17 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
 
           <button
             onClick={onEdit}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700/50 border border-slate-700/40 rounded-lg text-xs font-medium transition"
+            className="flex items-center gap-2 px-4 py-2 text-on-surface hover:bg-surface-variant rounded-full text-sm font-medium transition-colors"
           >
             <span>Editar</span>
           </button>
 
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-xs transition"
+            className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-sm hover:shadow-md"
           >
             <Printer className="w-4 h-4" />
-            <span>Imprimir / Descargar PDF</span>
+            <span>Imprimir / PDF</span>
           </button>
         </div>
       </div>

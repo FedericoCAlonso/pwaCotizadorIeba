@@ -56,26 +56,31 @@ export const db = new CotizadorDatabase();
  * Inicializa la base de datos con los datos semillas por defecto si está vacía.
  */
 export async function initializeDatabaseSeed(): Promise<void> {
-  const insumosCount = await db.insumos.count();
-  if (insumosCount === 0) {
-    await db.transaction('rw', [
-      db.insumos,
-      db.manoObra,
-      db.costosIndirectos,
-      db.tareasTipo,
-      db.clientes,
-      db.proveedores,
-      db.config
-    ], async () => {
-      await db.insumos.bulkAdd(INITIAL_INSUMOS);
-      await db.manoObra.bulkAdd(INITIAL_MANO_OBRA);
-      await db.costosIndirectos.bulkAdd(INITIAL_COSTOS_INDIRECTOS);
-      await db.tareasTipo.bulkAdd(INITIAL_TAREAS_TIPO);
-      await db.clientes.bulkAdd(INITIAL_CLIENTES);
-      await db.proveedores.bulkAdd(INITIAL_PROVEEDORES);
-      await db.config.add(DEFAULT_APP_CONFIG);
-    });
-    console.log('Base de datos inicializada con semillas IEBA correctamente.');
+  try {
+    const configCount = await db.config.count();
+    // Solo inicializar si la tabla de config está vacía (indicador de primera vez real)
+    if (configCount === 0) {
+      await db.transaction('rw', [
+        db.insumos,
+        db.manoObra,
+        db.costosIndirectos,
+        db.tareasTipo,
+        db.clientes,
+        db.proveedores,
+        db.config
+      ], async () => {
+        if (await db.insumos.count() === 0) await db.insumos.bulkAdd(INITIAL_INSUMOS);
+        if (await db.manoObra.count() === 0) await db.manoObra.bulkAdd(INITIAL_MANO_OBRA);
+        if (await db.costosIndirectos.count() === 0) await db.costosIndirectos.bulkAdd(INITIAL_COSTOS_INDIRECTOS);
+        if (await db.tareasTipo.count() === 0) await db.tareasTipo.bulkAdd(INITIAL_TAREAS_TIPO);
+        if (await db.clientes.count() === 0) await db.clientes.bulkAdd(INITIAL_CLIENTES);
+        if (await db.proveedores.count() === 0) await db.proveedores.bulkAdd(INITIAL_PROVEEDORES);
+        if (await db.config.count() === 0) await db.config.add(DEFAULT_APP_CONFIG);
+      });
+      console.log('Base de datos inicializada con semillas IEBA correctamente.');
+    }
+  } catch (err) {
+    console.error('Error al inicializar semillas de BD:', err);
   }
 }
 
@@ -129,7 +134,7 @@ export async function importDatabaseJSON(jsonStr: string): Promise<void> {
 
 /**
  * Importa insumos en lote desde una cadena CSV.
- * Formato CSV: nombre,unidad,categoria,precioActual,codigoProveedor
+ * Formato CSV: nombre,marca,modelo,unidad,categoria,precioActual,codigoProveedor
  */
 export async function importInsumosCSV(csvText: string): Promise<number> {
   const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
@@ -141,7 +146,29 @@ export async function importInsumosCSV(csvText: string): Promise<number> {
 
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-    if (cols.length >= 4) {
+    if (cols.length >= 6) { // Expecting at least 6 to match the new format somewhat
+      const nombre = cols[0];
+      const marca = cols[1] || undefined;
+      const modelo = cols[2] || undefined;
+      const unidad = cols[3] || 'u';
+      const categoria = cols[4] || 'general';
+      const precioActual = parseFloat(cols[5]) || 0;
+      const codigoProveedor = cols[6] || undefined;
+
+      newInsumos.push({
+        id: `ins-csv-${crypto.randomUUID()}`,
+        nombre,
+        marca,
+        modelo,
+        unidad,
+        categoria,
+        precioActual,
+        fechaActualizacion: now,
+        codigoProveedor,
+        historialPrecios: [{ fecha: now, precio: precioActual, fuente: 'Importación CSV' }],
+        ofertas: []
+      });
+    } else if (cols.length >= 4) { // Fallback for old CSV format without marca/modelo
       const nombre = cols[0];
       const unidad = cols[1] || 'u';
       const categoria = cols[2] || 'general';
@@ -156,7 +183,8 @@ export async function importInsumosCSV(csvText: string): Promise<number> {
         precioActual,
         fechaActualizacion: now,
         codigoProveedor,
-        historialPrecios: [{ fecha: now, precio: precioActual, fuente: 'Importación CSV' }]
+        historialPrecios: [{ fecha: now, precio: precioActual, fuente: 'Importación CSV' }],
+        ofertas: []
       });
     }
   }
@@ -165,4 +193,66 @@ export async function importInsumosCSV(csvText: string): Promise<number> {
     await db.insumos.bulkAdd(newInsumos);
   }
   return newInsumos.length;
+}
+
+/**
+ * Importa proveedores en lote desde una cadena CSV.
+ * Formato CSV: nombre,cuit,telefono,email,contacto,direccion,notas
+ */
+export async function importProveedoresCSV(csvText: string): Promise<number> {
+  const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
+  if (lines.length <= 1) return 0;
+
+  const newProveedores: Proveedor[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+    if (cols.length >= 1) {
+      newProveedores.push({
+        id: `prov-csv-${crypto.randomUUID()}`,
+        nombre: cols[0],
+        cuit: cols[1] || undefined,
+        telefono: cols[2] || undefined,
+        email: cols[3] || undefined,
+        contacto: cols[4] || undefined,
+        direccion: cols[5] || undefined,
+        notas: cols[6] || undefined
+      });
+    }
+  }
+
+  if (newProveedores.length > 0) {
+    await db.proveedores.bulkAdd(newProveedores);
+  }
+  return newProveedores.length;
+}
+
+/**
+ * Importa clientes en lote desde una cadena CSV.
+ * Formato CSV: nombre,cuitDni,condicionIVA,telefono,email,direccion,notas
+ */
+export async function importClientesCSV(csvText: string): Promise<number> {
+  const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
+  if (lines.length <= 1) return 0;
+
+  const newClientes: Cliente[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+    if (cols.length >= 1) {
+      newClientes.push({
+        id: `cli-csv-${crypto.randomUUID()}`,
+        nombre: cols[0],
+        cuitDni: cols[1] || undefined,
+        condicionIVA: (cols[2] as Cliente['condicionIVA']) || undefined,
+        telefono: cols[3] || undefined,
+        email: cols[4] || undefined,
+        direccion: cols[5] || undefined,
+        notas: cols[6] || undefined
+      });
+    }
+  }
+
+  if (newClientes.length > 0) {
+    await db.clientes.bulkAdd(newClientes);
+  }
+  return newClientes.length;
 }

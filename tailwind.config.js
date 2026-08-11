@@ -8,26 +8,46 @@ export default {
   theme: {
     extend: {
       colors: {
+        primary: 'var(--md-sys-color-primary)',
+        'on-primary': 'var(--md-sys-color-on-primary)',
+        'primary-container': 'var(--md-sys-color-primary-container)',
+        'on-primary-container': 'var(--md-sys-color-on-primary-container)',
+        secondary: 'var(--md-sys-color-secondary)',
+        'on-secondary': 'var(--md-sys-color-on-secondary)',
+        'secondary-container': 'var(--md-sys-color-secondary-container)',
+        'on-secondary-container': 'var(--md-sys-color-on-secondary-container)',
+        tertiary: 'var(--md-sys-color-tertiary)',
+        'on-tertiary': 'var(--md-sys-color-on-tertiary)',
+        'tertiary-container': 'var(--md-sys-color-tertiary-container)',
+        'on-tertiary-container': 'var(--md-sys-color-on-tertiary-container)',
+        error: 'var(--md-sys-color-error)',
+        'on-error': 'var(--md-sys-color-on-error)',
+        'error-container': 'var(--md-sys-color-error-container)',
+        'on-error-container': 'var(--md-sys-color-on-error-container)',
+        background: 'var(--md-sys-color-background)',
+        'on-background': 'var(--md-sys-color-on-background)',
+        surface: 'var(--md-sys-color-surface)',
+        'on-surface': 'var(--md-sys-color-on-surface)',
+        'surface-variant': 'var(--md-sys-color-surface-variant)',
+        'on-surface-variant': 'var(--md-sys-color-on-surface-variant)',
+        outline: 'var(--md-sys-color-outline)',
+        'outline-variant': 'var(--md-sys-color-outline-variant)',
+        'surface-container-lowest': 'var(--md-sys-color-surface-container-lowest)',
+        'surface-container-low': 'var(--md-sys-color-surface-container-low)',
+        'surface-container': 'var(--md-sys-color-surface-container)',
+        'surface-container-high': 'var(--md-sys-color-surface-container-high)',
+        'surface-container-highest': 'var(--md-sys-color-surface-container-highest)',
+        
+        // Mantener compatibilidad con colores ieba en caso de que falten reemplazar
         ieba: {
-          50: '#fffbeb',
-          100: '#fef3c7',
-          200: '#fde047',
-          300: '#facc15',
           400: '#eab308',
-          500: '#ca8a04', // Amber/Electric Gold primary
-          600: '#a16207',
-          700: '#854d0e',
-          800: '#713f12',
-          900: '#422006',
-          dark: '#0f172a',
-          card: '#1e293b',
-          border: '#334155'
-        },
-        surface: {
-          DEFAULT: 'rgba(30, 41, 59, 0.5)',
-          light: 'rgba(51, 65, 85, 0.3)',
-          deep: 'rgba(15, 23, 42, 0.6)',
+          500: '#ca8a04',
         }
+      },
+      boxShadow: {
+        'md3-1': '0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15)',
+        'md3-2': '0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15)',
+        'md3-3': '0px 1px 3px 0px rgba(0, 0, 0, 0.3), 0px 4px 8px 3px rgba(0, 0, 0, 0.15)',
       }
     },
   },

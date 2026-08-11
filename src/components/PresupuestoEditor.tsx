@@ -334,41 +334,41 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   return (
     <div className="space-y-5 max-w-7xl mx-auto pb-12">
       {/* Top Action Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-800/40 border border-slate-700/30 p-4 rounded-xl">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container p-5 rounded-3xl shadow-sm border border-outline-variant/20">
+        <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-700/50 rounded-lg transition"
+            className="p-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-full transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="text-base font-semibold text-white flex items-center gap-2">
-              <FileText className="w-5 h-5 text-amber-400" />
+            <h2 className="text-xl font-bold text-on-surface flex items-center gap-2">
+              <FileText className="w-5 h-5 text-primary" />
               <span>
                 {existingPresupuesto ? `Editar Cotización ${existingPresupuesto.numero}` : 'Nueva Cotización Eléctrica'}
               </span>
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-sm text-on-surface-variant mt-1">
               Cálculo de costos en capas (materiales, mano de obra, indirectos, margen, impuestos).
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
           <button
             onClick={() => handleSavePresupuesto('borrador')}
-            className="flex-1 sm:flex-initial px-4 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700/50 border border-slate-700/40 rounded-lg text-xs font-medium transition"
+            className="flex-1 sm:flex-initial px-5 py-2.5 text-on-surface-variant hover:bg-surface-variant rounded-full text-sm font-medium transition-colors border border-outline-variant/30"
           >
             Guardar Borrador
           </button>
 
           <button
             onClick={() => handleSavePresupuesto('enviado')}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-xs transition"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-sm hover:shadow-md"
           >
             <Lock className="w-4 h-4" />
-            <span>Emitir & Congelar Precios</span>
+            <span>Emitir & Congelar</span>
           </button>
         </div>
       </div>
@@ -378,18 +378,18 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         {/* Left Column: Header Info & Items List (2 Cols) */}
         <div className="lg:col-span-2 space-y-6">
           {/* Header Metadata Card */}
-          <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 space-y-4">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <div className="bg-surface-container-low rounded-3xl p-6 space-y-5 border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow">
+            <h3 className="text-sm font-bold text-primary uppercase tracking-wide">
               Datos Generales & Tipo de Comprobante
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs text-slate-300 mb-1">Cliente Solicitante</label>
+                <label className="block text-sm font-medium text-on-surface-variant mb-2">Cliente Solicitante</label>
                 <select
                   value={clienteId}
                   onChange={(e) => setClienteId(e.target.value)}
-                  className="w-full bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/70"
+                  className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
                 >
                   <option value="">Selecciona un cliente...</option>
                   {clientes.map((c) => (
@@ -401,11 +401,11 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs text-slate-300 mb-1">Tipo de Factura / Comprobante</label>
+                <label className="block text-sm font-medium text-on-surface-variant mb-2">Tipo de Factura</label>
                 <select
                   value={tipoFactura}
                   onChange={(e) => handleTipoFacturaChange(e.target.value as TipoFactura)}
-                  className="w-full bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-2 text-sm font-medium text-amber-400 focus:outline-none focus:border-amber-500/70"
+                  className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
                 >
                   <option value="Factura A">Factura A (Discrimina IVA e IIBB)</option>
                   <option value="Factura B">Factura B (Consumidor Final / Exento)</option>
@@ -415,29 +415,29 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs text-slate-300 mb-1">Validez de Oferta (Días)</label>
+                <label className="block text-sm font-medium text-on-surface-variant mb-2">Validez Oferta (Días)</label>
                 <div className="relative">
                   <input
                     type="number"
                     value={validezDias}
                     onChange={(e) => setValidezDias(parseInt(e.target.value) || 15)}
-                    className="w-full bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-amber-500/70"
+                    className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-2.5 text-sm text-on-surface font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
                   />
-                  <Calendar className="w-4 h-4 text-slate-500 absolute right-3 top-2.5" />
+                  <Calendar className="w-5 h-5 text-on-surface-variant absolute right-3 top-2.5" />
                 </div>
               </div>
             </div>
 
             {/* Currency Option Toggle */}
-            <div className="bg-slate-950/40 p-3 rounded-lg border border-slate-800 flex flex-wrap items-center justify-between gap-3">
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-200">
+            <div className="bg-surface-variant p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+              <label className="flex items-center gap-3 cursor-pointer text-sm font-medium text-on-surface">
                 <input
                   type="checkbox"
                   checked={mostrarDolar}
                   onChange={(e) => setMostrarDolar(e.target.checked)}
-                  className="w-4 h-4 text-amber-500 rounded border-slate-700 bg-slate-800 focus:ring-amber-500"
+                  className="w-5 h-5 text-primary rounded border-outline bg-surface-container-highest focus:ring-primary"
                 />
-                <span>Mostrar Cotización Equivalente de Referencia</span>
+                <span>Mostrar Cotización Equivalente</span>
               </label>
 
               {mostrarDolar && (
@@ -446,15 +446,15 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                     type="text"
                     value={nombreDolar}
                     onChange={(e) => setNombreDolar(e.target.value)}
-                    className="w-24 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white"
+                    className="w-24 bg-surface-container-highest border-none rounded-lg px-3 py-1.5 text-sm text-on-surface focus:ring-2 focus:ring-primary/50"
                   />
-                  <span className="text-xs text-slate-400">$</span>
+                  <span className="text-sm text-on-surface-variant font-medium">$</span>
                   <input
                     type="number"
                     step="0.01"
                     value={cotizacionDolar}
                     onChange={(e) => setCotizacionDolar(parseFloat(e.target.value) || 0)}
-                    className="w-24 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                    className="w-24 bg-surface-container-highest border-none rounded-lg px-3 py-1.5 text-sm text-on-surface font-mono focus:ring-2 focus:ring-primary/50"
                   />
                 </div>
               )}
@@ -462,38 +462,38 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </div>
 
           {/* Items / Partidas Section */}
-          <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 space-y-4">
+          <div className="bg-surface-container-low rounded-3xl p-6 space-y-5 border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex justify-between items-center">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <h3 className="text-sm font-bold text-primary uppercase tracking-wide">
                 Partidas & Tareas a Ejecutar ({items.length})
               </h3>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setShowItemPickerModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-xs font-bold transition"
+                  className="flex items-center gap-2 px-4 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-full text-sm font-medium transition-colors"
                 >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Cargar Tarea Tipo</span>
+                  <Layers className="w-4 h-4" />
+                  <span>Cargar Tarea</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleAddCustomItem}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition border border-slate-700"
+                  className="flex items-center gap-2 px-4 py-2 bg-surface-variant hover:bg-surface-container-highest text-on-surface rounded-full text-sm font-medium transition-colors"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Ítem Personalizado</span>
+                  <Plus className="w-4 h-4" />
+                  <span>Ítem Nuevo</span>
                 </button>
               </div>
             </div>
 
             {/* Items Table */}
             {items.length === 0 ? (
-              <div className="text-center py-12 border-2 border-dashed border-slate-800 rounded-xl">
-                <Layers className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                <p className="text-sm text-slate-400 font-medium">Aún no agregaste partidas a esta cotización.</p>
-                <p className="text-xs text-slate-500 mt-1">
-                  Haz clic en "Cargar Tarea Tipo" para seleccionar del catálogo e incorporar insumos y mano de obra automáticamente.
+              <div className="text-center py-16 border-2 border-dashed border-outline-variant/50 rounded-2xl bg-surface-container">
+                <Layers className="w-10 h-10 text-outline mx-auto mb-3" />
+                <p className="text-base font-medium text-on-surface">Aún no agregaste partidas a esta cotización.</p>
+                <p className="text-sm text-on-surface-variant mt-2 max-w-md mx-auto">
+                  Haz clic en "Cargar Tarea" para seleccionar del catálogo e incorporar insumos y mano de obra automáticamente.
                 </p>
               </div>
             ) : (

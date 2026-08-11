@@ -71,7 +71,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-background text-on-background flex flex-col font-sans transition-colors duration-300">
       {/* Header */}
       <Header
         activeTab={activeTab}
@@ -79,7 +79,6 @@ export function App() {
           setActiveTab(tab);
           setViewMode('list');
         }}
-        onNewPresupuesto={handleNewPresupuesto}
         config={config}
         onOpenConfig={() => setShowConfigModal(true)}
       />
@@ -124,7 +123,7 @@ export function App() {
       </main>
 
       {/* Footer */}
-      <footer className="no-print py-3 text-center text-xs text-slate-600">
+      <footer className="no-print py-4 text-center text-xs text-on-surface-variant/70">
         Cotizador Eléctrico IEBA — Standalone · Offline-First · PWA
       </footer>
 

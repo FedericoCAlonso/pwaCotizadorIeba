@@ -153,12 +153,8 @@ export const RegistroTrabajoManager: React.FC = () => {
                 <label className="block text-xs text-slate-400 mb-1">Descripción</label>
                 <input type="text" value={formData.descripcion} onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })} className={inputCls} placeholder="Ej: Montaje de 8 bocas de iluminación" required />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><label className="block text-xs text-slate-400 mb-1">Fecha</label><input type="date" value={formData.fecha} onChange={(e) => setFormData({ ...formData, fecha: e.target.value })} className={inputCls} required /></div>
-                <div><label className="block text-xs text-slate-400 mb-1">Cantidad Ejecutada</label><input type="number" step="0.1" value={formData.cantidadEjecutada} onChange={(e) => setFormData({ ...formData, cantidadEjecutada: parseFloat(e.target.value) || 1 })} className={`${inputCls} font-mono`} required /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-xs text-slate-400 mb-1">Horas Reales</label><input type="number" step="0.1" value={formData.horasReales} onChange={(e) => setFormData({ ...formData, horasReales: parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono`} required /></div>
                 <div>
                   <label className="block text-xs text-slate-400 mb-1">Condición de Obra</label>
                   <select value={formData.condicion} onChange={(e) => setFormData({ ...formData, condicion: e.target.value as any })} className={inputCls}>
@@ -166,6 +162,16 @@ export const RegistroTrabajoManager: React.FC = () => {
                     <option value="dificultosa">Dificultosa</option>
                     <option value="favorable">Favorable</option>
                   </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Horas Reales Trabajadas</label>
+                  <input type="number" step="0.5" value={formData.horasReales} onChange={(e) => setFormData({ ...formData, horasReales: parseFloat(e.target.value) || 0 })} className={inputCls} required />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Cantidad de Tareas Ejecutadas</label>
+                  <input type="number" step="0.1" value={formData.cantidadEjecutada} onChange={(e) => setFormData({ ...formData, cantidadEjecutada: parseFloat(e.target.value) || 0 })} className={inputCls} />
                 </div>
               </div>
               <div className="pt-3 border-t border-slate-700/40 flex justify-end gap-2">

@@ -57,16 +57,28 @@ export interface PrecioHistorico {
   fuente: string; // "Lista Proveedor", "Manual", "Ajuste %", etc.
 }
 
+export interface OfertaProveedor {
+  id: string;
+  proveedorId?: string;
+  nombreProveedor: string; // Free text or selected from Proveedores
+  precio: number;
+  fechaActualizacion: string; // ISO string
+  notas?: string;
+}
+
 export interface Insumo {
   id: string;
   nombre: string; // "Cable unipolar 2.5mm2 IRAM 247-3"
+  marca?: string;
+  modelo?: string;
   unidad: string; // "m", "u", "kg", "rollo 100m", "juego"
   categoria: string; // "cableado", "protecciones", "canalizaciones", "cajas", "iluminacion", "accesorios"
-  proveedorPreferido?: string;
+  proveedorPreferido?: string; // Legacy / Fallback
   codigoProveedor?: string;
-  precioActual: number;
+  precioActual: number; // Base/Reference price
   fechaActualizacion: string; // ISO string
   historialPrecios: PrecioHistorico[];
+  ofertas?: OfertaProveedor[];
 }
 
 export interface CategoriaManoDeObra {

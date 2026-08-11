@@ -93,7 +93,7 @@ export const TareasTipoManager: React.FC = () => {
                   </p>
                 )}
 
-                <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   <div className="bg-slate-900/40 p-2.5 rounded-lg">
                     <div className="font-medium text-slate-400 flex items-center gap-1 mb-1.5"><Package className="w-3 h-3 text-amber-400/70" />Insumos ({tarea.insumos.length})</div>
                     <ul className="space-y-0.5 text-[11px] text-slate-500">
