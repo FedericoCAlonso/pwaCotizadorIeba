@@ -51,6 +51,7 @@ import {
 
 interface PresupuestoEditorProps {
   presupuestoId?: string; // If editing existing
+  initialClienteId?: string; // Pre-selected client ID
   config: AppConfig;
   onBack: () => void;
   onSaved: (id: string) => void;
@@ -58,6 +59,7 @@ interface PresupuestoEditorProps {
 
 export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   presupuestoId,
+  initialClienteId,
   config,
   onBack,
   onSaved
@@ -153,10 +155,14 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           }))
         );
       }
-    } else if (clientes.length > 0 && !clienteId) {
-      setClienteId(clientes[0].id);
+    } else {
+      if (initialClienteId) {
+        setClienteId(initialClienteId);
+      } else if (clientes.length > 0 && !clienteId) {
+        setClienteId(clientes[0].id);
+      }
     }
-  }, [existingPresupuesto, clientes]);
+  }, [existingPresupuesto, clientes, initialClienteId]);
 
   // Cargar costos fijos de plantilla global para nuevo presupuesto si aún no están inicializados
   useEffect(() => {

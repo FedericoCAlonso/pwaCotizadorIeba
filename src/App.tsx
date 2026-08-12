@@ -20,6 +20,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<string>('presupuestos');
   const [viewMode, setViewMode] = useState<'list' | 'editor' | 'detail'>('list');
   const [selectedPresupuestoId, setSelectedPresupuestoId] = useState<string | undefined>(undefined);
+  const [initialClienteId, setInitialClienteId] = useState<string | undefined>(undefined);
   const [showConfigModal, setShowConfigModal] = useState(false);
 
   const configs = useLiveQuery(() => db.config.toArray());
@@ -33,6 +34,26 @@ export function App() {
 
   const handleNewPresupuesto = () => {
     setSelectedPresupuestoId(undefined);
+    setInitialClienteId(undefined);
+    setViewMode('editor');
+  };
+
+  const handleNewPresupuestoForCliente = (clienteId: string) => {
+    setSelectedPresupuestoId(undefined);
+    setInitialClienteId(clienteId);
+    setActiveTab('presupuestos');
+    setViewMode('editor');
+  };
+
+  const handleSelectPresupuestoFromClientes = (id: string) => {
+    setSelectedPresupuestoId(id);
+    setActiveTab('presupuestos');
+    setViewMode('detail');
+  };
+
+  const handleEditPresupuestoFromClientes = (id: string) => {
+    setSelectedPresupuestoId(id);
+    setActiveTab('presupuestos');
     setViewMode('editor');
   };
 
@@ -103,6 +124,7 @@ export function App() {
             {viewMode === 'editor' && config && (
               <PresupuestoEditor
                 presupuestoId={selectedPresupuestoId}
+                initialClienteId={initialClienteId}
                 config={config}
                 onBack={() => setViewMode('list')}
                 onSaved={handleSavedPresupuesto}
@@ -123,7 +145,14 @@ export function App() {
         {activeTab === 'insumos' && <InsumosManager />}
         {activeTab === 'manoObra' && <ManoObraManager />}
         {activeTab === 'tareasTipo' && <TareasTipoManager />}
-        {activeTab === 'clientes' && <ClientesManager />}
+        {activeTab === 'clientes' && (
+          <ClientesManager
+            onSelectPresupuesto={handleSelectPresupuestoFromClientes}
+            onEditPresupuesto={handleEditPresupuestoFromClientes}
+            onNewPresupuestoForCliente={handleNewPresupuestoForCliente}
+            onDuplicatePresupuesto={handleDuplicatePresupuesto}
+          />
+        )}
         {activeTab === 'proveedores' && <ProveedoresManager />}
         {activeTab === 'registroTrabajo' && <RegistroTrabajoManager />}
       </main>
