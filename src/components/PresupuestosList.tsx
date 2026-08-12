@@ -11,8 +11,9 @@ import {
   User,
 } from 'lucide-react';
 import { db } from '../db/database';
-import { Presupuesto, EstadoPresupuesto, Cliente } from '../core/types';
+import { Presupuesto, Cliente } from '../core/types';
 import { formatARS, formatUSD } from '../core/calculations';
+import { EstadoBadge } from './EstadoBadge';
 
 interface PresupuestosListProps {
   onNew: () => void;
@@ -71,14 +72,6 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
     }
   };
 
-  const statusConfig: Record<EstadoPresupuesto, { label: string; className: string }> = {
-    borrador: { label: 'Borrador', className: 'bg-surface-variant text-on-surface-variant' },
-    enviado: { label: 'Enviado', className: 'bg-primary-container text-on-primary-container' },
-    aprobado: { label: 'Aprobado', className: 'bg-tertiary-container text-on-tertiary-container' },
-    rechazado: { label: 'Rechazado', className: 'bg-error-container text-on-error-container' },
-    vencido: { label: 'Vencido', className: 'bg-surface-container-highest text-on-surface-variant' }
-  };
-
   return (
     <div className="space-y-6 relative pb-24 lg:pb-6">
       {/* Header Bar */}
@@ -94,6 +87,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
         </div>
 
         <button
+          type="button"
           onClick={onNew}
           className="hidden lg:flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-sm hover:shadow-md active:scale-95"
         >
@@ -118,9 +112,10 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
           {['todos', 'borrador', 'enviado', 'aprobado', 'rechazado', 'vencido'].map((st) => (
             <button
+              type="button"
               key={st}
               onClick={() => setSelectedEstado(st)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors capitalize whitespace-nowrap border border-outline-variant/30 ${
+              className={`px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors capitalize whitespace-nowrap border border-outline-variant/30 ${
                 selectedEstado === st
                   ? 'bg-secondary-container text-on-secondary-container border-transparent'
                   : 'text-on-surface-variant hover:bg-surface-variant hover:text-on-surface'
@@ -134,13 +129,14 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
 
       {/* Quotes Cards Grid */}
       {filteredPresupuestos.length === 0 ? (
-        <div className="text-center py-20 bg-surface-container rounded-3xl border border-outline-variant/20">
+        <div className="text-center py-16 px-4 bg-surface-container rounded-3xl border border-outline-variant/20">
           <FileText className="w-12 h-12 text-outline mx-auto mb-4" />
           <h3 className="text-base font-semibold text-on-surface">No se encontraron presupuestos</h3>
           <p className="text-sm text-on-surface-variant mt-2 max-w-md mx-auto">
             Crea tu primera cotización eléctrica seleccionando tareas tipo del catálogo.
           </p>
           <button
+            type="button"
             onClick={onNew}
             className="mt-6 px-6 py-2.5 bg-primary text-on-primary font-medium text-sm rounded-full inline-flex items-center gap-2 shadow-sm hover:shadow-md transition-shadow"
           >
@@ -152,7 +148,6 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredPresupuestos.map((p) => {
             const cliente = clientesMap.get(p.clienteId);
-            const sc = statusConfig[p.estado] || statusConfig.borrador;
 
             return (
               <div
@@ -168,9 +163,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                       </span>
                     </div>
 
-                    <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full capitalize tracking-wide ${sc.className}`}>
-                      {sc.label}
-                    </span>
+                    <EstadoBadge estado={p.estado} />
                   </div>
 
                   <div className="mt-4 space-y-1">
@@ -204,32 +197,36 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
 
                   <div className="flex items-center gap-2">
                     <button
+                      type="button"
                       onClick={() => onSelect(p.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-xl text-sm font-medium transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-xl text-xs sm:text-sm font-medium transition-colors"
                     >
                       <Eye className="w-4 h-4" />
                       <span>Ver Detalles</span>
                     </button>
 
                     <button
+                      type="button"
                       onClick={() => onEdit(p.id)}
-                      className="p-2.5 text-on-surface-variant hover:text-primary hover:bg-primary-container rounded-xl transition-colors"
+                      className="p-2.5 text-on-surface-variant hover:text-primary hover:bg-primary-container rounded-xl transition-colors shrink-0"
                       title="Editar presupuesto"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
 
                     <button
+                      type="button"
                       onClick={() => handleDuplicate(p)}
-                      className="p-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors"
+                      className="p-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors shrink-0"
                       title="Duplicar como plantilla"
                     >
                       <Copy className="w-4 h-4" />
                     </button>
 
                     <button
+                      type="button"
                       onClick={() => handleDelete(p.id)}
-                      className="p-2.5 text-on-surface-variant hover:text-error hover:bg-error-container rounded-xl transition-colors"
+                      className="p-2.5 text-on-surface-variant hover:text-error hover:bg-error-container rounded-xl transition-colors shrink-0"
                       title="Eliminar"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -244,6 +241,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
 
       {/* Mobile FAB */}
       <button
+        type="button"
         onClick={onNew}
         className="lg:hidden fixed bottom-6 right-6 p-4 bg-primary text-on-primary rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all z-40"
         aria-label="Nueva cotización"
