@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   FileText,
@@ -108,45 +108,77 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   // Modal selector TareaTipo
   const [showItemPickerModal, setShowItemPickerModal] = useState(false);
 
-  // Initial load if editing or creating
-  useEffect(() => {
-    if (existingPresupuesto) {
-      setTipoFactura(existingPresupuesto.tipoFactura || 'Factura B');
-      setImpuestosDetalle(
-        existingPresupuesto.impuestosDetalle && existingPresupuesto.impuestosDetalle.length > 0
-          ? existingPresupuesto.impuestosDetalle
-          : generarImpuestosPorDefecto(
-              existingPresupuesto.tipoFactura || 'Factura B',
-              config.porcentajeIVAPorDefecto ?? 21,
-              config.porcentajeIIBBPorDefecto ?? 3.5
-            )
-      );
-      setClienteId(existingPresupuesto.clienteId);
-      setValidezDias(existingPresupuesto.validezDias);
-      setMargenPorcentaje(existingPresupuesto.margenPorcentaje);
-      setMostrarDolar(existingPresupuesto.mostrarReferenciaMonedaExtranjera);
-      setNombreDolar(existingPresupuesto.nombreMonedaExtranjera || 'USD Blue');
-      setCotizacionDolar(existingPresupuesto.cotizacionMonedaExtranjera || 1350);
-      setCondicionesPagoTexto(existingPresupuesto.condicionesPagoTexto);
-      setItems(existingPresupuesto.items);
-      setEstado(existingPresupuesto.estado);
+  const isInitializedRef = useRef<boolean>(false);
+  const currentPresupuestoIdRef = useRef<string | undefined>(presupuestoId);
 
-      // Cargar configuración de costos indirectos del presupuesto
-      if (existingPresupuesto.costosIndirectosConfig && existingPresupuesto.costosIndirectosConfig.length > 0) {
-        setCostosIndirectosConfig(existingPresupuesto.costosIndirectosConfig);
-      } else if (existingPresupuesto.costosIndirectosAplicados && existingPresupuesto.costosIndirectosAplicados.length > 0) {
-        setCostosIndirectosConfig(
-          existingPresupuesto.costosIndirectosAplicados.map(ci => ({
-            id: ci.costoIndirectoId,
-            nombre: ci.nombre,
-            tipo: ci.tipo,
-            valor: ci.valorAplicado,
-            aplica: true
-          }))
+  // Reset initialization flag when switching presupuestoId
+  if (currentPresupuestoIdRef.current !== presupuestoId) {
+    currentPresupuestoIdRef.current = presupuestoId;
+    isInitializedRef.current = false;
+  }
+
+  // Initial load if editing or creating (runs ONCE per opened budget)
+  useEffect(() => {
+    if (isInitializedRef.current) return;
+
+    if (presupuestoId) {
+      if (existingPresupuesto) {
+        setTipoFactura(existingPresupuesto.tipoFactura || 'Factura B');
+        setImpuestosDetalle(
+          existingPresupuesto.impuestosDetalle && existingPresupuesto.impuestosDetalle.length > 0
+            ? existingPresupuesto.impuestosDetalle
+            : generarImpuestosPorDefecto(
+                existingPresupuesto.tipoFactura || 'Factura B',
+                config.porcentajeIVAPorDefecto ?? 21,
+                config.porcentajeIIBBPorDefecto ?? 3.5
+              )
         );
-      } else if (costosIndirectos.length > 0) {
+        setClienteId(existingPresupuesto.clienteId);
+        setValidezDias(existingPresupuesto.validezDias);
+        setMargenPorcentaje(existingPresupuesto.margenPorcentaje);
+        setMostrarDolar(existingPresupuesto.mostrarReferenciaMonedaExtranjera);
+        setNombreDolar(existingPresupuesto.nombreMonedaExtranjera || 'USD Blue');
+        setCotizacionDolar(existingPresupuesto.cotizacionMonedaExtranjera || 1350);
+        setCondicionesPagoTexto(existingPresupuesto.condicionesPagoTexto);
+        setItems(existingPresupuesto.items);
+        setEstado(existingPresupuesto.estado);
+
+        // Cargar configuración de costos indirectos del presupuesto
+        if (existingPresupuesto.costosIndirectosConfig && existingPresupuesto.costosIndirectosConfig.length > 0) {
+          setCostosIndirectosConfig(existingPresupuesto.costosIndirectosConfig);
+        } else if (existingPresupuesto.costosIndirectosAplicados && existingPresupuesto.costosIndirectosAplicados.length > 0) {
+          setCostosIndirectosConfig(
+            existingPresupuesto.costosIndirectosAplicados.map((ci) => ({
+              id: ci.costoIndirectoId,
+              nombre: ci.nombre,
+              tipo: ci.tipo,
+              valor: ci.valorAplicado,
+              aplica: true
+            }))
+          );
+        } else if (costosIndirectos.length > 0) {
+          setCostosIndirectosConfig(
+            costosIndirectos.map((ci) => ({
+              id: ci.id,
+              nombre: ci.nombre,
+              tipo: ci.tipo,
+              valor: ci.valor,
+              aplica: true
+            }))
+          );
+        }
+        isInitializedRef.current = true;
+      }
+    } else {
+      if (initialClienteId) {
+        setClienteId(initialClienteId);
+      } else if (clientes.length > 0 && !clienteId) {
+        setClienteId(clientes[0].id);
+      }
+
+      if (costosIndirectos.length > 0) {
         setCostosIndirectosConfig(
-          costosIndirectos.map(ci => ({
+          costosIndirectos.map((ci) => ({
             id: ci.id,
             nombre: ci.nombre,
             tipo: ci.tipo,
@@ -155,29 +187,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           }))
         );
       }
-    } else {
-      if (initialClienteId) {
-        setClienteId(initialClienteId);
-      } else if (clientes.length > 0 && !clienteId) {
-        setClienteId(clientes[0].id);
-      }
-    }
-  }, [existingPresupuesto, clientes, initialClienteId]);
 
-  // Cargar costos fijos de plantilla global para nuevo presupuesto si aún no están inicializados
-  useEffect(() => {
-    if (!existingPresupuesto && costosIndirectos.length > 0 && costosIndirectosConfig.length === 0) {
-      setCostosIndirectosConfig(
-        costosIndirectos.map(ci => ({
-          id: ci.id,
-          nombre: ci.nombre,
-          tipo: ci.tipo,
-          valor: ci.valor,
-          aplica: true
-        }))
-      );
+      isInitializedRef.current = true;
     }
-  }, [existingPresupuesto, costosIndirectos, costosIndirectosConfig.length]);
+  }, [presupuestoId, existingPresupuesto, clientes, initialClienteId, costosIndirectos]);
 
   const handleTipoFacturaChange = (nuevoTipo: TipoFactura) => {
     setTipoFactura(nuevoTipo);
@@ -552,6 +565,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container p-5 rounded-3xl shadow-sm border border-outline-variant/20">
         <div className="flex items-center gap-4">
           <button
+            type="button"
             onClick={onBack}
             className="p-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-full transition-colors"
           >
@@ -572,6 +586,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <button
+            type="button"
             onClick={() => handleSavePresupuesto('borrador')}
             className="flex-1 sm:flex-initial px-5 py-2.5 text-on-surface-variant hover:bg-surface-variant rounded-full text-sm font-medium transition-colors border border-outline-variant/30"
           >
@@ -579,6 +594,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </button>
 
           <button
+            type="button"
             onClick={() => handleSavePresupuesto('enviado')}
             className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-sm hover:shadow-md"
           >
@@ -806,6 +822,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                           </div>
 
                           <button
+                            type="button"
                             onClick={() => handleRemoveItem(idx)}
                             className="p-1.5 text-on-surface-variant hover:text-error rounded-full hover:bg-error-container/30 transition-colors"
                             title="Eliminar ítem"
@@ -1114,6 +1131,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             </div>
 
             <button
+              type="button"
               onClick={() => handleSavePresupuesto('enviado')}
               className="w-full py-3 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full transition-all flex items-center justify-center gap-2 text-sm shadow-md hover:shadow-lg"
             >
