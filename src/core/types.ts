@@ -51,10 +51,27 @@ export const TIPO_FACTURA_VALORES = {
 
 // ────────────────────────────────────────────────────────────────────────────────
 
+export type MotivoDesvio = 'material' | 'diseno_cliente' | 'clima' | 'error_calculo' | 'otro';
+export type TipoProveedor = 'material' | 'servicio' | 'ambos';
+
+export const MOTIVO_DESVIO_ETIQUETAS: Record<MotivoDesvio, string> = {
+  material: 'Material',
+  diseno_cliente: 'Diseño/Cliente',
+  clima: 'Clima',
+  error_calculo: 'Error de cálculo',
+  otro: 'Otro'
+};
+
+export interface IndiceReferencia {
+  nombre: string; // "Dólar Blue", "Dólar Oficial", "IPC", "Canasta Eléctrica", etc.
+  valor: number;
+}
+
 export interface PrecioHistorico {
   fecha: string; // ISO string
   precio: number;
   fuente: string; // "Lista Proveedor", "Manual", "Ajuste %", etc.
+  indiceReferencia?: IndiceReferencia;
 }
 
 export interface OfertaProveedor {
@@ -79,6 +96,7 @@ export interface Insumo {
   fechaActualizacion: string; // ISO string
   historialPrecios: PrecioHistorico[];
   ofertas?: OfertaProveedor[];
+  requiereCotizacionDirecta?: boolean; // Flag para ítems tipo tableros especiales / excepciones de ajuste masivo
 }
 
 export interface CategoriaManoDeObra {
@@ -115,6 +133,18 @@ export interface TareaTipo {
   manoObra: ManoObraEnTarea[];
   unidad: string; // "u", "m", "punto", "obra"
   notasTecnicas?: string; // Ej: "Norma AEA 90364-7-771"
+  factorCorreccion?: number; // Factor EMA de calibración (inicia en 1.0)
+}
+
+export interface ServicioTercerizado {
+  id: string;
+  proveedorId?: string;
+  nombreProveedor?: string;
+  descripcion: string;
+  costo: number;
+  margenPropio?: number; // Override opcional del margen de la cotización
+  validezCotizacionTercero?: string; // ISO string de fecha de validez
+  hitoPagoSugerido?: string; // Ref de hito de pago
 }
 
 // Snapshots congelados al emitir el presupuesto (Inmutabilidad)
@@ -125,6 +155,8 @@ export interface InsumoSnapshot {
   cantidadTotal: number;
   precioUnitarioCongelado: number;
   subtotalInsumo: number;
+  esAdHoc?: boolean; // Ítem no catalogado en el maestro
+  requiereCotizacionDirecta?: boolean;
 }
 
 export interface ManoObraSnapshot {
@@ -153,10 +185,15 @@ export interface ItemPresupuesto {
   // Detalle de costo al momento del armado
   insumosSnapshot: InsumoSnapshot[];
   manoObraSnapshot: ManoObraSnapshot[];
+  serviciosTercerizados?: ServicioTercerizado[];
   
   costoInsumos: number;
   costoManoObra: number;
+  costoServiciosTercerizados?: number;
   costoDirectoTotal: number;
+  
+  condicionTrabajo?: 'normal' | 'dificultosa' | 'favorable';
+  esAdHoc?: boolean;
   
   precioVentaUnitario: number;
   precioVentaTotal: number;
@@ -211,6 +248,7 @@ export interface Proveedor {
   contacto?: string;
   direccion?: string;
   notas?: string;
+  tipoProveedor?: TipoProveedor; // 'material', 'servicio', 'ambos'
 }
 
 export interface Proyecto {
@@ -245,6 +283,7 @@ export interface Presupuesto {
   
   subtotalInsumos: number;
   subtotalManoObra: number;
+  subtotalServiciosTercerizados?: number;
   subtotalCostosDirectos: number;
   subtotalCostosIndirectos: number;
   costoTotalObra: number;
@@ -285,6 +324,7 @@ export interface RegistroTrabajo {
   categoriaManoObraId: string;
   cantidadEjecutada: number; // Ej: 8 bocas
   condicion?: 'normal' | 'dificultosa' | 'favorable';
+  motivoDesvio?: MotivoDesvio; // Informativo para desvíos de horas
   notas?: string;
 }
 
@@ -310,4 +350,13 @@ export interface AppConfig {
   prefijoPresupuesto: string; // "IEBA"
   siguienteNumeroCorrelativo: number;
   themeMode?: ThemeMode;
+  
+  // Ajustes especificación v2
+  alphaEmaManoObra?: number; // Factor EMA por defecto (0.3)
+  multiplicadorCondicionNormal?: number; // 1.0
+  multiplicadorCondicionDificultosa?: number; // 1.25
+  multiplicadorCondicionFavorable?: number; // 0.9
+  diasVencimientoPrecioVerde?: number; // 30 días
+  diasVencimientoPrecioAmarillo?: number; // 60 días
+  canastaElectricaValor?: number; // Valor canasta eléctrica propia
 }

@@ -12,16 +12,16 @@ export const ProveedoresManager: React.FC = () => {
   const [csvContent, setCsvContent] = useState('');
   const [formData, setFormData] = useState<Partial<Proveedor>>({ nombre: '', cuit: '', telefono: '', email: '', contacto: '', direccion: '', notas: '' });
 
-  const handleOpenCreate = () => { setFormData({ nombre: '', cuit: '', telefono: '', email: '', contacto: '', direccion: '', notas: '' }); setIsCreating(true); };
-  const handleOpenEdit = (p: Proveedor) => { setEditingProveedor(p); setFormData({ ...p }); };
+  const handleOpenCreate = () => { setFormData({ nombre: '', cuit: '', telefono: '', email: '', contacto: '', direccion: '', notas: '', tipoProveedor: 'material' }); setIsCreating(true); };
+  const handleOpenEdit = (p: Proveedor) => { setEditingProveedor(p); setFormData({ ...p, tipoProveedor: p.tipoProveedor || 'material' }); };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isCreating) {
-      await db.proveedores.add({ id: `prov-${crypto.randomUUID()}`, nombre: formData.nombre || 'Nuevo Proveedor', cuit: formData.cuit, telefono: formData.telefono, email: formData.email, contacto: formData.contacto, direccion: formData.direccion, notas: formData.notas });
+      await db.proveedores.add({ id: `prov-${crypto.randomUUID()}`, nombre: formData.nombre || 'Nuevo Proveedor', cuit: formData.cuit, telefono: formData.telefono, email: formData.email, contacto: formData.contacto, direccion: formData.direccion, notas: formData.notas, tipoProveedor: formData.tipoProveedor || 'material' });
       setIsCreating(false);
     } else if (editingProveedor) {
-      await db.proveedores.update(editingProveedor.id, { nombre: formData.nombre, cuit: formData.cuit, telefono: formData.telefono, email: formData.email, contacto: formData.contacto, direccion: formData.direccion, notas: formData.notas });
+      await db.proveedores.update(editingProveedor.id, { nombre: formData.nombre, cuit: formData.cuit, telefono: formData.telefono, email: formData.email, contacto: formData.contacto, direccion: formData.direccion, notas: formData.notas, tipoProveedor: formData.tipoProveedor || 'material' });
       setEditingProveedor(null);
     }
   };
@@ -104,7 +104,12 @@ export const ProveedoresManager: React.FC = () => {
             <div>
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="font-semibold text-on-surface text-base">{prov.nombre}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-on-surface text-base">{prov.nombre}</h3>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container capitalize">
+                      {prov.tipoProveedor || 'material'}
+                    </span>
+                  </div>
                   {prov.cuit && <span className="text-xs font-mono text-on-surface-variant block mt-1">CUIT: {prov.cuit}</span>}
                 </div>
                 <div className="flex items-center gap-1">
@@ -134,6 +139,14 @@ export const ProveedoresManager: React.FC = () => {
             </div>
             <form onSubmit={handleSave} onKeyDown={handleKeyDownSequential} className="space-y-4">
               <div><label className="block text-xs text-on-surface-variant mb-1">Razón Social / Distribuidora</label><input type="text" value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} className={inputCls} required /></div>
+              <div>
+                <label className="block text-xs text-on-surface-variant mb-1">Tipo de Rubro / Proveedor</label>
+                <select value={formData.tipoProveedor || 'material'} onChange={(e) => setFormData({ ...formData, tipoProveedor: e.target.value as any })} className={inputCls}>
+                  <option value="material">Materiales / Insumos Eléctricos</option>
+                  <option value="servicio">Servicios Tercerizados (Subcontratistas)</option>
+                  <option value="ambos">Ambos (Materiales y Servicios)</option>
+                </select>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><label className="block text-xs text-on-surface-variant mb-1">CUIT</label><input type="text" value={formData.cuit} onChange={(e) => setFormData({ ...formData, cuit: e.target.value })} className={`${inputCls} font-mono`} /></div>
                 <div><label className="block text-xs text-on-surface-variant mb-1">Contacto</label><input type="text" value={formData.contacto} onChange={(e) => setFormData({ ...formData, contacto: e.target.value })} className={inputCls} /></div>

@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Package, Plus, Search, TrendingUp, History, FileSpreadsheet,
-  Edit2, Trash2, X, Save, Percent, Calendar, AlertCircle, Camera
+  Edit2, Trash2, X, Save, Percent, Calendar, AlertCircle, Camera, CheckCircle2, Clock, ShieldAlert
 } from 'lucide-react';
 import { db, importInsumosCSV } from '../db/database';
-import { Insumo, Proveedor, OfertaProveedor } from '../core/types';
-import { formatARS } from '../core/calculations';
+import { Insumo, Proveedor, OfertaProveedor, IndiceReferencia } from '../core/types';
+import { formatARS, obtenerEstadoVencimientoInsumo } from '../core/calculations';
 import { BASE_CATEGORIES, BASE_UNITS } from '../core/sampleData';
 import { AutocompleteInput } from './AutocompleteInput';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
@@ -14,22 +14,29 @@ import { BarcodeScannerModal } from './BarcodeScannerModal';
 export const InsumosManager: React.FC = () => {
   const insumos = useLiveQuery(() => db.insumos.toArray()) || [];
   const proveedores = useLiveQuery(() => db.proveedores.toArray()) || [];
-  
+  const configs = useLiveQuery(() => db.config.toArray()) || [];
+  const config = configs[0];
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
+  const [selectedVencimiento, setSelectedVencimiento] = useState<'todos' | 'verde' | 'amarillo' | 'rojo'>('todos');
   const [editingInsumo, setEditingInsumo] = useState<Insumo | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [historyInsumo, setHistoryInsumo] = useState<Insumo | null>(null);
   const [showMassUpdateModal, setShowMassUpdateModal] = useState(false);
   const [massCategory, setMassCategory] = useState('todas');
+  const [tipoAjusteIndice, setTipoAjusteIndice] = useState<'porcentaje' | 'dolar_blue' | 'ipc' | 'canasta'>('porcentaje');
   const [massPercentage, setMassPercentage] = useState<number>(10);
+  const [ipcManualPct, setIpcManualPct] = useState<number>(5);
+  const [canastaManualPct, setCanastaManualPct] = useState<number>(8);
   const [showCSVModal, setShowCSVModal] = useState(false);
   const [csvContent, setCsvContent] = useState('');
   const [showScanner, setShowScanner] = useState(false);
 
   const [formData, setFormData] = useState<Partial<Insumo>>({
     nombre: '', marca: '', modelo: '', unidad: 'm', categoria: 'cableado',
-    proveedorPreferido: '', codigoProveedor: '', precioActual: 0, ofertas: []
+    proveedorPreferido: '', codigoProveedor: '', precioActual: 0, ofertas: [],
+    requiereCotizacionDirecta: false
   });
 
   const [newOferta, setNewOferta] = useState<Partial<OfertaProveedor>>({
@@ -41,13 +48,6 @@ export const InsumosManager: React.FC = () => {
   const BASE_CATEGORIES = ['cableado', 'protecciones', 'cajas', 'canalizaciones', 'accesorios', 'iluminacion', 'insumos', 'tableros', 'medicion'];
   for (const c of BASE_CATEGORIES) { if (!categories.includes(c)) categories.push(c); }
   categories.sort();
-  const BASE_UNITS = ['m', 'u', 'kg', 'rollo', 'caja', 'par', 'juego', 'litro', 'ml', 'tramo'];
-
-  const proveedorOptions = proveedores.map(p => ({
-    id: p.id,
-    label: p.nombre,
-    subLabel: p.cuit ? `CUIT: ${p.cuit}` : undefined
-  }));
 
   const filteredInsumos = insumos.filter((item) => {
     const matchesSearch =
@@ -55,7 +55,15 @@ export const InsumosManager: React.FC = () => {
       (item.codigoProveedor && item.codigoProveedor.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (item.proveedorPreferido && item.proveedorPreferido.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCat = selectedCategory === 'todas' || item.categoria === selectedCategory;
-    return matchesSearch && matchesCat;
+    
+    const estadoVenc = obtenerEstadoVencimientoInsumo(
+      item.fechaActualizacion,
+      config?.diasVencimientoPrecioVerde ?? 30,
+      config?.diasVencimientoPrecioAmarillo ?? 60
+    );
+    const matchesVenc = selectedVencimiento === 'todos' || estadoVenc === selectedVencimiento;
+
+    return matchesSearch && matchesCat && matchesVenc;
   });
 
   const handleOpenCreate = (prefill?: Partial<Insumo>) => {
@@ -129,18 +137,41 @@ export const InsumosManager: React.FC = () => {
   };
 
   const handleApplyMassUpdate = async () => {
-    if (massPercentage === 0) return;
+    let porcentajeAplicar = massPercentage;
+    let indiceRefObj: IndiceReferencia | undefined = undefined;
+
+    if (tipoAjusteIndice === 'dolar_blue') {
+      porcentajeAplicar = massPercentage; 
+      indiceRefObj = { nombre: config?.dolarReferenciaNombre || 'Dólar Blue', valor: config?.dolarReferenciaValor || 1350 };
+    } else if (tipoAjusteIndice === 'ipc') {
+      porcentajeAplicar = ipcManualPct;
+      indiceRefObj = { nombre: 'IPC (Índice Precios Consumidor)', valor: ipcManualPct };
+    } else if (tipoAjusteIndice === 'canasta') {
+      porcentajeAplicar = canastaManualPct;
+      indiceRefObj = { nombre: 'Canasta Eléctrica IEBA', valor: canastaManualPct };
+    }
+
+    if (porcentajeAplicar === 0) return;
+
     const now = new Date().toISOString();
-    const factor = 1 + massPercentage / 100;
-    const targetInsumos = insumos.filter((i) => massCategory === 'todas' || i.categoria === massCategory);
+    const factor = 1 + porcentajeAplicar / 100;
+    const targetInsumos = insumos.filter((i) => 
+      (massCategory === 'todas' || i.categoria === massCategory) && !i.requiereCotizacionDirecta
+    );
+
     for (const item of targetInsumos) {
       const nuevoPrecio = Math.round(item.precioActual * factor);
       const history = [...(item.historialPrecios || [])];
-      history.unshift({ fecha: now, precio: nuevoPrecio, fuente: `Aumento Masivo ${massPercentage > 0 ? '+' : ''}${massPercentage}%` });
+      history.unshift({
+        fecha: now,
+        precio: nuevoPrecio,
+        fuente: `Aumento por Indice (${indiceRefObj ? indiceRefObj.nombre : 'Manual'}) ${porcentajeAplicar > 0 ? '+' : ''}${porcentajeAplicar}%`,
+        indiceReferencia: indiceRefObj
+      });
       await db.insumos.update(item.id, { precioActual: nuevoPrecio, fechaActualizacion: now, historialPrecios: history });
     }
     setShowMassUpdateModal(false);
-    alert(`Se actualizaron ${targetInsumos.length} insumos.`);
+    alert(`Se actualizaron ${targetInsumos.length} insumos excluyendo ítems de cotización directa.`);
   };
 
   const handleImportCSV = async () => {
@@ -180,20 +211,25 @@ export const InsumosManager: React.FC = () => {
         await db.proveedores.add({
           id: `prov-${crypto.randomUUID()}`,
           nombre: newOferta.nombreProveedor,
-          cuit: '', telefono: '', email: '', contacto: '', direccion: '', notas: 'Creado desde Insumos'
+          tipoProveedor: 'material'
         });
       }
       setSaveProviderToDB(false);
     }
 
-    const of: OfertaProveedor = {
-      id: `oferta-${crypto.randomUUID()}`,
+    const oferta: OfertaProveedor = {
+      id: `of-${crypto.randomUUID()}`,
+      proveedorId: proveedores.find(p => p.nombre.toLowerCase() === newOferta.nombreProveedor!.toLowerCase())?.id,
       nombreProveedor: newOferta.nombreProveedor,
       precio: newOferta.precio,
-      notas: newOferta.notas,
-      fechaActualizacion: new Date().toISOString()
+      fechaActualizacion: new Date().toISOString(),
+      notas: newOferta.notas || undefined
     };
-    setFormData(prev => ({ ...prev, ofertas: [...(prev.ofertas || []), of] }));
+
+    setFormData(prev => ({
+      ...prev,
+      ofertas: [...(prev.ofertas || []), oferta]
+    }));
     setNewOferta({ nombreProveedor: '', precio: 0, notas: '' });
   };
 
@@ -201,32 +237,13 @@ export const InsumosManager: React.FC = () => {
     setFormData(prev => ({ ...prev, ofertas: prev.ofertas?.filter(o => o.id !== id) }));
   };
 
-  const handleKeyDownSequential = (e: React.KeyboardEvent<HTMLFormElement>) => {
-    if (e.key === 'Enter') {
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'TEXTAREA' || target.tagName === 'BUTTON') return;
-      e.preventDefault();
-      const form = e.currentTarget;
-      const elements = Array.from(form.elements) as HTMLElement[];
-      const index = elements.indexOf(target);
-      if (index > -1 && index < elements.length - 1) {
-        let nextEl = elements[index + 1];
-        while (nextEl && (nextEl.hasAttribute('disabled') || nextEl.tabIndex === -1 || nextEl.tagName === 'FIELDSET')) {
-          const nextIndex = elements.indexOf(nextEl) + 1;
-          nextEl = elements[nextIndex];
-        }
-        if (nextEl) nextEl.focus();
-      }
-    }
-  };
-
   const inputCls = "w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-on-surface-variant/70 transition-shadow";
   const modalCls = "fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4";
   const modalBoxCls = "bg-surface-container border border-outline-variant/30 rounded-3xl w-full shadow-2xl p-6 text-on-surface";
+  const proveedorOptions = proveedores.map(p => p.nombre);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-xl font-semibold text-on-surface flex items-center gap-2">
@@ -238,7 +255,7 @@ export const InsumosManager: React.FC = () => {
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <button onClick={() => setShowMassUpdateModal(true)}
             className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 text-on-surface-variant hover:bg-surface-variant rounded-full text-sm font-medium transition-colors border border-outline-variant/30">
-            <TrendingUp className="w-4 h-4" /><span>Aumento %</span>
+            <TrendingUp className="w-4 h-4" /><span>Aumento por Índice</span>
           </button>
           <button onClick={handleExportCSV}
             className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 text-on-surface-variant hover:bg-surface-variant rounded-full text-sm font-medium transition-colors border border-outline-variant/30">
@@ -255,19 +272,28 @@ export const InsumosManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters & Search */}
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="flex flex-1 gap-2">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-on-surface-variant absolute left-4 top-3" />
-            <input type="text" placeholder="Buscar por nombre, código o proveedor..."
-              value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-surface-container-highest border-none rounded-full pl-10 pr-4 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-on-surface-variant/70 transition-shadow" />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex flex-1 gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-on-surface-variant absolute left-4 top-3" />
+              <input type="text" placeholder="Buscar por nombre, código o proveedor..."
+                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-surface-container-highest border-none rounded-full pl-10 pr-4 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-on-surface-variant/70 transition-shadow" />
+            </div>
+            <button onClick={() => setShowScanner(true)} className="p-2.5 bg-surface-variant hover:bg-surface-container-highest rounded-full text-on-surface transition-colors flex-shrink-0 flex items-center justify-center border border-outline-variant/30" title="Escanear Código (SKU/EAN)">
+              <Camera className="w-5 h-5 text-amber-500" />
+            </button>
           </div>
-          <button onClick={() => setShowScanner(true)} className="p-2.5 bg-surface-variant hover:bg-surface-container-highest rounded-full text-on-surface transition-colors flex-shrink-0 flex items-center justify-center border border-outline-variant/30" title="Escanear Código (SKU/EAN)">
-            <Camera className="w-5 h-5 text-amber-500" />
-          </button>
+          <div className="flex items-center gap-1.5 bg-surface-container-highest p-1 rounded-full text-xs font-medium border border-outline-variant/20">
+            <span className="px-3 text-on-surface-variant text-[11px]">Vencimiento:</span>
+            <button onClick={() => setSelectedVencimiento('todos')} className={`px-3 py-1 rounded-full ${selectedVencimiento === 'todos' ? 'bg-surface text-on-surface font-semibold shadow-xs' : 'text-on-surface-variant'}`}>Todos</button>
+            <button onClick={() => setSelectedVencimiento('verde')} className={`px-3 py-1 rounded-full flex items-center gap-1 ${selectedVencimiento === 'verde' ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-semibold' : 'text-on-surface-variant'}`}><CheckCircle2 className="w-3 h-3 text-emerald-500"/>Al día</button>
+            <button onClick={() => setSelectedVencimiento('amarillo')} className={`px-3 py-1 rounded-full flex items-center gap-1 ${selectedVencimiento === 'amarillo' ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold' : 'text-on-surface-variant'}`}><Clock className="w-3 h-3 text-amber-500"/>30-60d</button>
+            <button onClick={() => setSelectedVencimiento('rojo')} className={`px-3 py-1 rounded-full flex items-center gap-1 ${selectedVencimiento === 'rojo' ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300 font-semibold' : 'text-on-surface-variant'}`}><AlertCircle className="w-3 h-3 text-rose-500"/>Vencidos</button>
+          </div>
         </div>
+
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
           <button onClick={() => setSelectedCategory('todas')}
             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap border border-outline-variant/30 ${selectedCategory === 'todas' ? 'bg-secondary-container text-on-secondary-container border-transparent' : 'text-on-surface-variant hover:bg-surface-variant hover:text-on-surface'}`}>
@@ -282,7 +308,6 @@ export const InsumosManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Table (Desktop) */}
       <div className="hidden md:block bg-surface-container-low border border-outline-variant/20 rounded-3xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-on-surface">
@@ -292,7 +317,7 @@ export const InsumosManager: React.FC = () => {
                 <th className="px-5 py-3.5 font-medium">Categoría</th>
                 <th className="px-5 py-3.5 font-medium">Proveedor</th>
                 <th className="px-5 py-3.5 text-right font-medium">Precio Actual</th>
-                <th className="px-5 py-3.5 text-center font-medium">Última Act.</th>
+                <th className="px-5 py-3.5 text-center font-medium">Estado Precio</th>
                 <th className="px-5 py-3.5 text-right font-medium">Acciones</th>
               </tr>
             </thead>
@@ -301,12 +326,24 @@ export const InsumosManager: React.FC = () => {
                 <tr><td colSpan={6} className="px-5 py-12 text-center text-on-surface-variant text-sm font-medium">No se encontraron insumos.</td></tr>
               ) : (
                 filteredInsumos.map((item) => {
+                  const estadoVenc = obtenerEstadoVencimientoInsumo(
+                    item.fechaActualizacion,
+                    config?.diasVencimientoPrecioVerde ?? 30,
+                    config?.diasVencimientoPrecioAmarillo ?? 60
+                  );
                   const daysOld = Math.floor((new Date().getTime() - new Date(item.fechaActualizacion).getTime()) / (1000 * 3600 * 24));
-                  const isStale = daysOld > 45;
+                  
                   return (
                     <tr key={item.id} className="hover:bg-surface-container-highest/50 transition-colors">
                       <td className="px-5 py-4">
-                        <div className="font-bold text-on-surface text-sm">{item.nombre}</div>
+                        <div className="font-bold text-on-surface text-sm flex items-center gap-2">
+                          {item.nombre}
+                          {item.requiereCotizacionDirecta && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30" title="Ítem especial — requiere cotización directa del proveedor">
+                              <ShieldAlert className="w-3 h-3" /> Cotiz. Directa
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-on-surface-variant mt-0.5 font-mono">{item.unidad}</div>
                       </td>
                       <td className="px-5 py-4">
@@ -321,13 +358,21 @@ export const InsumosManager: React.FC = () => {
                         <span className="text-[10px] text-on-surface-variant font-sans ml-1">/{item.unidad}</span>
                       </td>
                       <td className="px-5 py-4 text-center text-xs">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <span className={isStale ? 'text-error font-medium' : 'text-on-surface-variant'}>
-                            {new Date(item.fechaActualizacion).toLocaleDateString('es-AR')}
+                        {estadoVenc === 'verde' && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Al día ({daysOld}d)
                           </span>
-                          {isStale && <span title="Precio desactualizado (+45 días)"><AlertCircle className="w-3.5 h-3.5 text-error" /></span>}
-                        </div>
-                        <span className="text-[10px] text-on-surface-variant/70 block mt-0.5">hace {daysOld}d</span>
+                        )}
+                        {estadoVenc === 'amarillo' && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                            <Clock className="w-3.5 h-3.5" /> Regular ({daysOld}d)
+                          </span>
+                        )}
+                        {estadoVenc === 'rojo' && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400" title="Precio desactualizado hace más de 60 días">
+                            <AlertCircle className="w-3.5 h-3.5" /> Vencido ({daysOld}d)
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-4 text-right space-x-1">
                         <button onClick={() => setHistoryInsumo(item)} className="p-2 rounded-full hover:bg-surface-variant text-on-surface-variant hover:text-primary transition-colors" title="Ver historial" aria-label={`Historial de ${item.nombre}`}><History className="w-4 h-4" /></button>
@@ -343,52 +388,35 @@ export const InsumosManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile List View */}
-      <div className="block md:hidden flex flex-col gap-2">
-        {filteredInsumos.length === 0 ? (
-          <div className="text-center text-on-surface-variant text-sm py-8">No se encontraron insumos.</div>
-        ) : (
-          filteredInsumos.map((item) => (
-            <div key={item.id} onClick={() => handleOpenEdit(item)} className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 active:bg-surface-variant transition-colors flex justify-between items-center shadow-sm cursor-pointer">
-              <div className="flex-1 pr-3">
-                <div className="font-bold text-on-surface text-sm leading-tight">{item.nombre}</div>
-                <div className="text-xs text-on-surface-variant mt-1 capitalize">{item.categoria} • {item.proveedorPreferido || 'Sin prov.'}</div>
-              </div>
-              <div className="text-right">
-                <div className="font-mono font-bold text-primary text-base">{formatARS(item.precioActual)}</div>
-                <div className="text-[10px] text-on-surface-variant mt-0.5">/{item.unidad}</div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
       {(isCreating || editingInsumo) && (
         <div className={modalCls}>
-          <div className={`${modalBoxCls} max-w-2xl max-h-[90vh] overflow-y-auto no-scrollbar`}>
-            <div className="flex items-center justify-between mb-5 sticky top-0 bg-surface-container py-2 z-10 border-b border-outline-variant/30">
-              <h3 className="text-base font-semibold text-on-surface">{isCreating ? 'Agregar Material / Insumo' : 'Editar Material / Insumo'}</h3>
-              <button onClick={() => { setIsCreating(false); setEditingInsumo(null); }} className="text-on-surface-variant hover:text-on-surface p-1" aria-label="Cerrar"><X className="w-4 h-4" /></button>
+          <div className={`${modalBoxCls} max-w-xl max-h-[90vh] overflow-y-auto`}>
+            <div className="flex items-center justify-between mb-5 border-b border-outline-variant/30 pb-3">
+              <h3 className="text-base font-semibold text-on-surface flex items-center gap-2">
+                <Package className="w-4 h-4 text-primary" />
+                {isCreating ? 'Nuevo Insumo' : 'Editar Insumo'}
+              </h3>
+              <button onClick={() => { setIsCreating(false); setEditingInsumo(null); }} className="text-on-surface-variant hover:text-on-surface p-1"><X className="w-4 h-4" /></button>
             </div>
-            <form onSubmit={handleSaveInsumo} onKeyDown={handleKeyDownSequential} className="space-y-4">
+            <form onSubmit={handleSaveInsumo} className="space-y-4">
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Nombre / Descripción</label>
-                <input id="form-nombre" type="text" value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} className={inputCls} placeholder="Ej: Cable unipolar 2.5mm²" required />
+                <input id="form-nombre" type="text" value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} className={inputCls} required placeholder="Ej: Cable Unipolar 2.5mm2 IRAM 247-3" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-on-surface-variant mb-1">Marca <span className="opacity-70">(opc)</span></label>
+                  <label className="block text-xs text-on-surface-variant mb-1">Marca <span className="opacity-70">(opcional)</span></label>
                   <input id="form-marca" type="text" value={formData.marca || ''} onChange={(e) => setFormData({ ...formData, marca: e.target.value })} className={inputCls} placeholder="Prysmian, Schneider..." />
                 </div>
                 <div>
-                  <label className="block text-xs text-on-surface-variant mb-1">Modelo <span className="opacity-70">(opc)</span></label>
-                  <input id="form-modelo" type="text" value={formData.modelo || ''} onChange={(e) => setFormData({ ...formData, modelo: e.target.value })} className={inputCls} placeholder="Acti9, Afumex..." />
+                  <label className="block text-xs text-on-surface-variant mb-1">Modelo <span className="opacity-70">(opcional)</span></label>
+                  <input id="form-modelo" type="text" value={formData.modelo || ''} onChange={(e) => setFormData({ ...formData, modelo: e.target.value })} className={inputCls} placeholder="Superinmunizado..." />
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-on-surface-variant mb-1">Categoría</label>
-                  <input id="form-categoria" type="text" list="lista-categorias" value={formData.categoria} onChange={(e) => setFormData({ ...formData, categoria: e.target.value })} className={inputCls} required />
+                  <input id="form-categoria" type="text" list="lista-categorias" value={formData.categoria} onChange={(e) => setFormData({ ...formData, categoria: e.target.value })} className={`${inputCls} capitalize`} required />
                   <datalist id="lista-categorias">{categories.map((c) => <option key={c} value={c} />)}</datalist>
                 </div>
                 <div>
@@ -410,78 +438,34 @@ export const InsumosManager: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <p className="text-[10px] text-on-surface-variant/80 mt-1">El precio base se usa por defecto. Puedes fijarlo usando la lista de proveedores abajo.</p>
 
-              {/* Ofertas Multi-Proveedor */}
-              <div className="pt-4 border-t border-outline-variant/30 space-y-3">
-                <h4 className="text-sm font-semibold text-on-surface">Lista de Precios por Proveedor <span className="text-xs text-on-surface-variant font-normal">({formData.ofertas?.length || 0})</span></h4>
-                
-                {formData.ofertas && formData.ofertas.length > 0 && (
-                  <div className="space-y-2">
-                    {formData.ofertas.map(of => (
-                      <div key={of.id} className="bg-surface-container-low p-2.5 rounded-xl border border-outline-variant/20 flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex-1 min-w-[120px]">
-                          <div className="text-xs font-semibold text-on-surface">{of.nombreProveedor}</div>
-                          {of.notas && <div className="text-[10px] text-on-surface-variant truncate">{of.notas}</div>}
-                        </div>
-                        <div className="font-mono text-sm text-primary font-bold">{formatARS(of.precio)}</div>
-                        <div className="flex items-center gap-1">
-                          <button type="button" onClick={() => setFormData({ ...formData, precioActual: of.precio, proveedorPreferido: of.nombreProveedor })} className="p-1 text-xs text-primary hover:bg-surface-variant rounded-full px-2.5 transition-colors font-medium" title="Usar este precio como Base">Fijar Base</button>
-                          <button type="button" onClick={() => handleRemoveOferta(of.id)} className="p-1 text-on-surface-variant hover:text-error hover:bg-error-container/30 rounded-full transition-colors" title="Eliminar precio"><Trash2 className="w-3.5 h-3.5" /></button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20 flex flex-col gap-3">
-                  <div className="flex flex-wrap items-end gap-2">
-                    <div className="flex-1 min-w-[150px]">
-                      <label className="block text-[10px] text-on-surface-variant mb-1">Proveedor</label>
-                      <AutocompleteInput
-                        value={newOferta.nombreProveedor || ''}
-                        onChange={val => setNewOferta({ ...newOferta, nombreProveedor: val })}
-                        options={proveedorOptions}
-                        placeholder="Seleccionar o escribir..."
-                        className={inputCls}
-                      />
-                    </div>
-                    <div className="w-28">
-                      <label className="block text-[10px] text-on-surface-variant mb-1">Precio</label>
-                      <input type="number" value={newOferta.precio || ''} onChange={e => setNewOferta({ ...newOferta, precio: parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono`} placeholder="$" />
-                    </div>
-                    <div className="flex-1 min-w-[100px]">
-                      <label className="block text-[10px] text-on-surface-variant mb-1">Notas</label>
-                      <input type="text" value={newOferta.notas || ''} onChange={e => setNewOferta({ ...newOferta, notas: e.target.value })} className={inputCls} placeholder="Ej: Solo efvo" />
-                    </div>
-                    <button type="button" onClick={handleAddOferta} className="h-9 px-3.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-full text-xs font-semibold transition-colors flex items-center gap-1">
-                      <Plus className="w-3.5 h-3.5" /> Agregar
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" id="save-prov-cb" checked={saveProviderToDB} onChange={(e) => setSaveProviderToDB(e.target.checked)} className="w-3.5 h-3.5 accent-primary" />
-                    <label htmlFor="save-prov-cb" className="text-xs text-on-surface-variant cursor-pointer">Guardar este proveedor en la base de datos (si no existe)</label>
-                  </div>
+              <div className="bg-purple-500/10 border border-purple-500/30 p-3 rounded-2xl flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  id="cb-cotiz-directa"
+                  checked={formData.requiereCotizacionDirecta || false}
+                  onChange={(e) => setFormData({ ...formData, requiereCotizacionDirecta: e.target.checked })}
+                  className="mt-0.5 w-4 h-4 accent-purple-600 rounded"
+                />
+                <div>
+                  <label htmlFor="cb-cotiz-directa" className="text-xs font-semibold text-purple-950 dark:text-purple-200 cursor-pointer">
+                    Requiere Cotización Directa / Puntual (Excepción)
+                  </label>
+                  <p className="text-[11px] text-purple-900/70 dark:text-purple-300/80 mt-0.5">
+                    Marcar para tableros especiales o grupos electrógenos. Estos ítems se exceptúan automáticamente de los aumentos masivos por fórmula.
+                  </p>
                 </div>
               </div>
-              <div className="pt-4 border-t border-outline-variant/30 flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
-                {editingInsumo ? (
-                  <div className="flex gap-2 w-full sm:w-auto">
-                    <button type="button" onClick={() => { setHistoryInsumo(editingInsumo); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium text-on-surface-variant hover:bg-surface-variant transition-colors border border-outline-variant/30"><History className="w-4 h-4"/> Historial</button>
-                    <button type="button" onClick={() => { handleDelete(editingInsumo.id).then(() => setEditingInsumo(null)); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium text-error hover:bg-error-container/30 transition-colors border border-error/30"><Trash2 className="w-4 h-4"/> Eliminar</button>
-                  </div>
-                ) : <div />}
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <button type="button" onClick={() => { setIsCreating(false); setEditingInsumo(null); }} className="flex-1 sm:flex-none px-4 py-2 rounded-full text-sm text-on-surface-variant hover:bg-surface-variant">Cancelar</button>
-                  <button type="submit" className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-sm shadow-sm"><Save className="w-3.5 h-3.5" />Guardar</button>
-                </div>
+
+              <div className="pt-4 border-t border-outline-variant/30 flex justify-end gap-2">
+                <button type="button" onClick={() => { setIsCreating(false); setEditingInsumo(null); }} className="px-4 py-2 rounded-full text-sm text-on-surface-variant hover:bg-surface-variant">Cancelar</button>
+                <button type="submit" className="px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-sm shadow-sm flex items-center gap-2"><Save className="w-3.5 h-3.5" />Guardar</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Modal: History */}
       {historyInsumo && (
         <div className={modalCls}>
           <div className={`${modalBoxCls} max-w-md`}>
@@ -509,40 +493,76 @@ export const InsumosManager: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: Mass Update */}
       {showMassUpdateModal && (
         <div className={modalCls}>
           <div className={`${modalBoxCls} max-w-md`}>
-            <div className="flex items-center justify-between mb-5 border-b border-outline-variant/30 pb-3">
-              <div className="flex items-center gap-2 text-primary font-semibold text-sm"><TrendingUp className="w-4 h-4" />Actualización Masiva Porcentual</div>
+            <div className="flex items-center justify-between mb-4 border-b border-outline-variant/30 pb-3">
+              <div className="flex items-center gap-2 text-primary font-semibold text-sm">
+                <TrendingUp className="w-4 h-4" /> Ajuste Masivo por Índice de Referencia
+              </div>
               <button onClick={() => setShowMassUpdateModal(false)} className="text-on-surface-variant hover:text-on-surface p-1"><X className="w-4 h-4" /></button>
             </div>
-            <div className="space-y-3.5">
+            <div className="space-y-4">
               <div>
-                <label className="block text-xs text-on-surface-variant mb-1">Categoría</label>
+                <label className="block text-xs text-on-surface-variant mb-1">Categoría Objetivo</label>
                 <select value={massCategory} onChange={(e) => setMassCategory(e.target.value)} className={`${inputCls} capitalize`}>
                   <option value="todas">Todas las categorías</option>
                   {categories.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
+
               <div>
-                <label className="block text-xs text-on-surface-variant mb-1">Porcentaje (%)</label>
-                <div className="relative">
-                  <input type="number" step="0.1" value={massPercentage} onChange={(e) => setMassPercentage(parseFloat(e.target.value) || 0)} className={`${inputCls} font-mono pr-8`} />
-                  <Percent className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" />
-                </div>
-                <p className="text-[11px] text-on-surface-variant/80 mt-1">Positivo para aumento, negativo para descuento.</p>
+                <label className="block text-xs text-on-surface-variant mb-1">Índice / Mecanismo de Referencia</label>
+                <select value={tipoAjusteIndice} onChange={(e) => setTipoAjusteIndice(e.target.value as any)} className={inputCls}>
+                  <option value="porcentaje">% Porcentaje Manual Directo</option>
+                  <option value="dolar_blue">Dólar Blue (Ref: ${config?.dolarReferenciaValor || 1350})</option>
+                  <option value="ipc">IPC (Índice de Precios al Consumidor)</option>
+                  <option value="canasta">Canasta Eléctrica IEBA</option>
+                </select>
               </div>
+
+              {tipoAjusteIndice === 'porcentaje' && (
+                <div>
+                  <label className="block text-xs text-on-surface-variant mb-1">Aumento / Variación (%)</label>
+                  <input type="number" step="0.1" value={massPercentage} onChange={(e) => setMassPercentage(parseFloat(e.target.value) || 0)} className={`${inputCls} font-mono`} />
+                </div>
+              )}
+
+              {tipoAjusteIndice === 'dolar_blue' && (
+                <div>
+                  <label className="block text-xs text-on-surface-variant mb-1">Variación del Dólar (%)</label>
+                  <input type="number" step="0.1" value={massPercentage} onChange={(e) => setMassPercentage(parseFloat(e.target.value) || 0)} className={`${inputCls} font-mono`} />
+                  <p className="text-[11px] text-on-surface-variant mt-1">Ref Dólar Actual: ${config?.dolarReferenciaValor || 1350}</p>
+                </div>
+              )}
+
+              {tipoAjusteIndice === 'ipc' && (
+                <div>
+                  <label className="block text-xs text-on-surface-variant mb-1">Tasa IPC del período (%)</label>
+                  <input type="number" step="0.1" value={ipcManualPct} onChange={(e) => setIpcManualPct(parseFloat(e.target.value) || 0)} className={`${inputCls} font-mono`} />
+                </div>
+              )}
+
+              {tipoAjusteIndice === 'canasta' && (
+                <div>
+                  <label className="block text-xs text-on-surface-variant mb-1">Variación Canasta Eléctrica (%)</label>
+                  <input type="number" step="0.1" value={canastaManualPct} onChange={(e) => setCanastaManualPct(parseFloat(e.target.value) || 0)} className={`${inputCls} font-mono`} />
+                </div>
+              )}
+
+              <p className="text-[11px] text-purple-900/80 dark:text-purple-300/80 bg-purple-500/10 p-2.5 rounded-xl border border-purple-500/20">
+                * Los ítems marcados como <strong>Cotización Directa</strong> quedarán exceptuados automáticamente.
+              </p>
+
               <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
                 <button onClick={() => setShowMassUpdateModal(false)} className="px-4 py-2 rounded-full text-sm text-on-surface-variant hover:bg-surface-variant">Cancelar</button>
-                <button onClick={handleApplyMassUpdate} className="px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-sm">Aplicar</button>
+                <button onClick={handleApplyMassUpdate} className="px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-sm">Aplicar Ajuste</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal: CSV */}
       {showCSVModal && (
         <div className={modalCls}>
           <div className={`${modalBoxCls} max-w-lg`}>

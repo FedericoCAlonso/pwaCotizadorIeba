@@ -35,7 +35,8 @@ import {
   EstadoPresupuesto,
   TipoFactura,
   ImpuestoItem,
-  TipoCostoIndirecto
+  TipoCostoIndirecto,
+  ServicioTercerizado
 } from '../core/types';
 import {
   calcularCostoTareaTipo,
@@ -43,7 +44,9 @@ import {
   formatARS,
   formatUSD,
   congelarItemPresupuesto,
-  generarImpuestosPorDefecto
+  generarImpuestosPorDefecto,
+  obtenerMultiplicadorCondicion,
+  roundMoney
 } from '../core/calculations';
 
 interface PresupuestoEditorProps {
@@ -297,6 +300,34 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   };
 
   // Add Custom Free Text Item
+  // Add Ad-Hoc / Non-Cataloged Item (Spec v2 §2.4)
+  const handleAddAdHocItem = () => {
+    const newItem: ItemPresupuesto = {
+      id: `item-${crypto.randomUUID()}`,
+      descripcion: 'Material / Insumo Especial No Catalogado (Ad-Hoc)',
+      cantidad: 1,
+      unidad: 'u',
+      insumosSnapshot: [{
+        insumoId: `ins-adhoc-${crypto.randomUUID()}`,
+        nombre: 'Material Ad-Hoc No Catalogado',
+        unidad: 'u',
+        cantidadTotal: 1,
+        precioUnitarioCongelado: 5000,
+        subtotalInsumo: 5000,
+        esAdHoc: true
+      }],
+      manoObraSnapshot: [],
+      costoInsumos: 5000,
+      costoManoObra: 0,
+      costoDirectoTotal: 5000,
+      esAdHoc: true,
+      precioVentaUnitario: Math.round(5000 * (1 + margenPorcentaje / 100)),
+      precioVentaTotal: Math.round(5000 * (1 + margenPorcentaje / 100))
+    };
+    setItems((prev) => [...prev, newItem]);
+  };
+
+  // Add Custom Free Text Item
   const handleAddCustomItem = () => {
     const newItem: ItemPresupuesto = {
       id: `item-${crypto.randomUUID()}`,
@@ -312,6 +343,92 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       precioVentaTotal: 10000
     };
     setItems((prev) => [...prev, newItem]);
+  };
+
+  const handleUpdateItemCondicion = (index: number, condicion: 'normal' | 'dificultosa' | 'favorable') => {
+    setItems((prev) => {
+      const next = [...prev];
+      const target = next[index];
+      const mult = obtenerMultiplicadorCondicion(condicion, {
+        multiplicadorCondicionNormal: config.multiplicadorCondicionNormal,
+        multiplicadorCondicionDificultosa: config.multiplicadorCondicionDificultosa,
+        multiplicadorCondicionFavorable: config.multiplicadorCondicionFavorable
+      });
+
+      // Recalcular mano de obra con multiplicador de condición (Spec v2 §1.2)
+      const manoObraActualizada = target.manoObraSnapshot.map(mo => {
+        const horasAjustadas = mo.horasTotales * mult;
+        return {
+          ...mo,
+          subtotalManoObra: roundMoney(mo.costoHoraCongelado * horasAjustadas)
+        };
+      });
+
+      const costoManoObra = roundMoney(manoObraActualizada.reduce((acc, m) => acc + m.subtotalManoObra, 0));
+      const costoDirectoTotal = roundMoney(target.costoInsumos + costoManoObra + (target.costoServiciosTercerizados || 0));
+      const precioVentaUnitario = Math.round(costoDirectoTotal * (1 + margenPorcentaje / 100));
+
+      next[index] = {
+        ...target,
+        condicionTrabajo: condicion,
+        manoObraSnapshot: manoObraActualizada,
+        costoManoObra,
+        costoDirectoTotal,
+        precioVentaUnitario,
+        precioVentaTotal: precioVentaUnitario * target.cantidad
+      };
+      return next;
+    });
+  };
+
+  const handleAddServicioTercerizadoToItem = (itemIndex: number) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const target = next[itemIndex];
+      const servicios = target.serviciosTercerizados || [];
+
+      const newServicio: ServicioTercerizado = {
+        id: `serv-${crypto.randomUUID()}`,
+        descripcion: 'Subcontrato / Servicio Tercerizado',
+        costo: 20000,
+        margenPropio: undefined
+      };
+
+      const serviciosActualizados = [...servicios, newServicio];
+      const costoServiciosTercerizados = roundMoney(
+        serviciosActualizados.reduce((acc, s) => acc + s.costo, 0)
+      );
+
+      const costoDirectoTotal = roundMoney(target.costoInsumos + target.costoManoObra + costoServiciosTercerizados);
+      
+      next[itemIndex] = {
+        ...target,
+        serviciosTercerizados: serviciosActualizados,
+        costoServiciosTercerizados,
+        costoDirectoTotal
+      };
+      return next;
+    });
+  };
+
+  const handleRemoveServicioTercerizadoFromItem = (itemIndex: number, servicioId: string) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const target = next[itemIndex];
+      const serviciosActualizados = (target.serviciosTercerizados || []).filter(s => s.id !== servicioId);
+      const costoServiciosTercerizados = roundMoney(
+        serviciosActualizados.reduce((acc, s) => acc + s.costo, 0)
+      );
+      const costoDirectoTotal = roundMoney(target.costoInsumos + target.costoManoObra + costoServiciosTercerizados);
+
+      next[itemIndex] = {
+        ...target,
+        serviciosTercerizados: serviciosActualizados,
+        costoServiciosTercerizados,
+        costoDirectoTotal
+      };
+      return next;
+    });
   };
 
   const handleUpdateItemQuantity = (index: number, cantidad: number) => {
@@ -555,26 +672,35 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
           {/* Items / Partidas Section */}
           <div className="bg-surface-container-low rounded-3xl p-6 space-y-5 border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
               <h3 className="text-sm font-bold text-primary uppercase tracking-wide">
                 Partidas & Tareas a Ejecutar ({items.length})
               </h3>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowItemPickerModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-full text-sm font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-full text-xs font-semibold transition-colors"
                 >
-                  <Layers className="w-4 h-4" />
+                  <Layers className="w-3.5 h-3.5" />
                   <span>Cargar Tarea</span>
                 </button>
                 <button
                   type="button"
-                  onClick={handleAddCustomItem}
-                  className="flex items-center gap-2 px-4 py-2 bg-surface-variant hover:bg-surface-container-highest text-on-surface rounded-full text-sm font-medium transition-colors"
+                  onClick={handleAddAdHocItem}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-500/15 text-purple-700 dark:text-purple-300 hover:bg-purple-500/25 border border-purple-500/30 rounded-full text-xs font-semibold transition-colors"
+                  title="Material / Partida especial única no catalogada"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Ítem Nuevo</span>
+                  <Package className="w-3.5 h-3.5" />
+                  <span>Ítem Ad-Hoc</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddCustomItem}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-surface-variant hover:bg-surface-container-highest text-on-surface rounded-full text-xs font-semibold transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Ítem Libre</span>
                 </button>
               </div>
             </div>
@@ -600,9 +726,16 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                     >
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div className="flex-1">
-                          <label className="block text-[10px] text-on-surface-variant font-semibold uppercase mb-0.5">
-                            {isCustom ? 'Ítem Personalizado — Descripción' : 'Descripción de la Partida'}
-                          </label>
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <label className="text-[10px] text-on-surface-variant font-semibold uppercase">
+                              {item.esAdHoc ? 'Ítem Ad-Hoc (Sin Catálogo)' : isCustom ? 'Partida Libre — Descripción' : 'Descripción de la Partida'}
+                            </label>
+                            {item.esAdHoc && (
+                              <span className="text-[9px] font-bold px-2 py-0.2 rounded-full bg-purple-500/20 text-purple-700 dark:text-purple-300">
+                                Ad-Hoc
+                              </span>
+                            )}
+                          </div>
                           <input
                             type="text"
                             value={item.descripcion}
@@ -618,7 +751,21 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                           />
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-between md:justify-end gap-3">
+                        <div className="flex flex-wrap items-center justify-between md:justify-end gap-2.5">
+                          {/* Modificador por Condición de Obra (Spec v2 §1.2) */}
+                          <div className="flex items-center gap-1">
+                            <span className="text-[11px] text-on-surface-variant">Obra:</span>
+                            <select
+                              value={item.condicionTrabajo || 'normal'}
+                              onChange={(e) => handleUpdateItemCondicion(idx, e.target.value as any)}
+                              className="bg-surface-container-highest border border-outline-variant/30 rounded-xl px-2 py-1 text-xs text-on-surface focus:outline-none"
+                            >
+                              <option value="normal">Normal (1.0x)</option>
+                              <option value="dificultosa">Dificultosa (1.25x)</option>
+                              <option value="favorable">Favorable (0.9x)</option>
+                            </select>
+                          </div>
+
                           {/* Quantity */}
                           <div className="flex items-center gap-1">
                             <span className="text-xs text-on-surface-variant">Cant:</span>

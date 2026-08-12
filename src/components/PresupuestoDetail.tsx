@@ -204,14 +204,41 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-200">
               {presupuesto.items.map((item, idx) => (
-                <tr key={idx} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-semibold text-slate-900">{item.descripcion}</td>
-                  <td className="px-4 py-3 text-center font-mono">
-                    {item.cantidad} {item.unidad}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono">{formatARS(item.precioVentaUnitario)}</td>
-                  <td className="px-4 py-3 text-right font-mono font-bold">{formatARS(item.precioVentaTotal)}</td>
-                </tr>
+                <React.Fragment key={idx}>
+                  <tr className="hover:bg-slate-50">
+                    <td className="px-4 py-3 font-semibold text-slate-900">
+                      {item.descripcion}
+                      {item.condicionTrabajo && item.condicionTrabajo !== 'normal' && (
+                        <span className="ml-2 text-[10px] text-slate-500 font-normal italic">
+                          (Condición Obra: {item.condicionTrabajo})
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center font-mono">
+                      {item.cantidad} {item.unidad}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono">{formatARS(item.precioVentaUnitario)}</td>
+                    <td className="px-4 py-3 text-right font-mono font-bold">{formatARS(item.precioVentaTotal)}</td>
+                  </tr>
+                  {/* Subcontratos / Servicios Tercerizados desglosados si existen (Spec v2 §3) */}
+                  {item.serviciosTercerizados && item.serviciosTercerizados.length > 0 && (
+                    <tr className="bg-slate-50/70">
+                      <td colSpan={4} className="px-6 py-2">
+                        <div className="text-[11px] font-semibold text-slate-700 mb-1">
+                          ↳ Subcontratos & Servicios Tercerizados Asociados:
+                        </div>
+                        <div className="space-y-1">
+                          {item.serviciosTercerizados.map((st) => (
+                            <div key={st.id} className="flex justify-between text-[10px] text-slate-600 font-mono">
+                              <span>· {st.descripcion} {st.nombreProveedor ? `(${st.nombreProveedor})` : ''}</span>
+                              <span>Costo Tercero: {formatARS(st.costo)} {st.validezCotizacionTercero ? `[Vence: ${st.validezCotizacionTercero}]` : ''}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
@@ -237,9 +264,19 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
           <div className="bg-slate-100 p-6 rounded-2xl border border-slate-300 space-y-3 text-right">
             <div className="space-y-1.5 text-xs text-slate-600 border-b border-slate-300 pb-3">
               <div className="flex justify-between">
-                <span>Subtotal Neto Gravado:</span>
-                <span className="font-mono">{formatARS(presupuesto.subtotalCostosDirectos ? (presupuesto.totalARS - presupuesto.montoImpuestos) : (presupuesto.totalARS - (presupuesto.montoImpuestos || 0)))}</span>
+                <span>Subtotal Insumos Materiales:</span>
+                <span className="font-mono">{formatARS(presupuesto.subtotalInsumos)}</span>
               </div>
+              <div className="flex justify-between">
+                <span>Subtotal Mano de Obra:</span>
+                <span className="font-mono">{formatARS(presupuesto.subtotalManoObra)}</span>
+              </div>
+              {presupuesto.subtotalServiciosTercerizados ? (
+                <div className="flex justify-between text-purple-900 dark:text-purple-300 font-medium">
+                  <span>Subtotal Servicios Tercerizados:</span>
+                  <span className="font-mono">{formatARS(presupuesto.subtotalServiciosTercerizados)}</span>
+                </div>
+              ) : null}
 
               {presupuesto.impuestosDetalle && presupuesto.impuestosDetalle.length > 0 ? (
                 presupuesto.impuestosDetalle

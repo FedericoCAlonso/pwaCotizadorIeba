@@ -152,7 +152,29 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
             </div>
           </div>
 
-          <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
+          <hr className="border-outline-variant/30" />
+
+          {/* Parámetros v2 (Calibración EMA & Vencimientos) */}
+          <div>
+            <h3 className={sectionTitle}>Ajustes de Calibración & Vencimiento (v2)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs text-on-surface-variant mb-1">Peso α EMA Calibración MO</label>
+                <input type="number" step="0.05" min="0.05" max="0.95" value={formData.alphaEmaManoObra ?? 0.3} onChange={(e) => setFormData({ ...formData, alphaEmaManoObra: parseFloat(e.target.value) || 0.3 })} className={`${inputCls} font-mono`} />
+                <span className="text-[10px] text-on-surface-variant/70">Defecto: 0.3 (30% peso a dato nuevo)</span>
+              </div>
+              <div>
+                <label className="block text-xs text-on-surface-variant mb-1">Umbral Vencimiento Verde (días)</label>
+                <input type="number" value={formData.diasVencimientoPrecioVerde ?? 30} onChange={(e) => setFormData({ ...formData, diasVencimientoPrecioVerde: parseInt(e.target.value) || 30 })} className={`${inputCls} font-mono`} />
+              </div>
+              <div>
+                <label className="block text-xs text-on-surface-variant mb-1">Umbral Vencimiento Amarillo (días)</label>
+                <input type="number" value={formData.diasVencimientoPrecioAmarillo ?? 60} onChange={(e) => setFormData({ ...formData, diasVencimientoPrecioAmarillo: parseInt(e.target.value) || 60 })} className={`${inputCls} font-mono`} />
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-outline-variant/30 flex justify-end gap-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-full text-sm text-on-surface-variant hover:bg-surface-variant">Cancelar</button>
             <button type="submit" className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-sm shadow-sm"><Save className="w-3.5 h-3.5" />Guardar Configuración</button>
           </div>

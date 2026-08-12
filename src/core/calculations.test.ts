@@ -4,7 +4,11 @@ import {
   calcularCostoTareaTipo,
   calcularTotalesPresupuesto,
   congelarItemPresupuesto,
-  generarImpuestosPorDefecto
+  generarImpuestosPorDefecto,
+  calcularNuevoFactorEMA,
+  obtenerMultiplicadorCondicion,
+  obtenerEstadoVencimientoInsumo,
+  calcularDispersionHorasTarea
 } from './calculations';
 import { Insumo, CategoriaManoDeObra, CostoIndirecto, TareaTipo, ItemPresupuesto } from './types';
 
@@ -345,3 +349,60 @@ describe('congelarItemPresupuesto', () => {
     expect(typeof frozen.precioVentaTotal).toBe('number');
   });
 });
+
+// ─── Tests v2: EMA, Condición, Vencimientos, Servicios Tercerizados ──────────
+
+describe('calcularNuevoFactorEMA (spec v2 §1.1)', () => {
+  it('incrementa el factor si las horas reales superan las estimadas', () => {
+    // factor 1.0, 15hs reales vs 10hs estimadas (ratio 1.5), alpha 0.3
+    // nuevo = 1.0 * 0.7 + 1.5 * 0.3 = 0.7 + 0.45 = 1.15
+    const nuevoFactor = calcularNuevoFactorEMA(1.0, 15, 10, 0.3);
+    expect(nuevoFactor).toBe(1.15);
+  });
+
+  it('reduce el factor si las horas reales son menores a las estimadas', () => {
+    // factor 1.0, 5hs reales vs 10hs estimadas (ratio 0.5), alpha 0.3
+    // nuevo = 1.0 * 0.7 + 0.5 * 0.3 = 0.7 + 0.15 = 0.85
+    const nuevoFactor = calcularNuevoFactorEMA(1.0, 5, 10, 0.3);
+    expect(nuevoFactor).toBe(0.85);
+  });
+});
+
+describe('obtenerMultiplicadorCondicion (spec v2 §1.2)', () => {
+  it('retorna multiplicadores correctos por condición de obra', () => {
+    expect(obtenerMultiplicadorCondicion('normal')).toBe(1.0);
+    expect(obtenerMultiplicadorCondicion('dificultosa')).toBe(1.25);
+    expect(obtenerMultiplicadorCondicion('favorable')).toBe(0.9);
+  });
+});
+
+describe('obtenerEstadoVencimientoInsumo (spec v2 §2.1)', () => {
+  it('marca verde para <= 30 días, amarillo para 31-60 y rojo para > 60', () => {
+    const hoy = new Date();
+    
+    const hace10dias = new Date(hoy.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    const hace45dias = new Date(hoy.getTime() - 45 * 24 * 60 * 60 * 1000).toISOString();
+    const hace90dias = new Date(hoy.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
+    expect(obtenerEstadoVencimientoInsumo(hace10dias)).toBe('verde');
+    expect(obtenerEstadoVencimientoInsumo(hace45dias)).toBe('amarillo');
+    expect(obtenerEstadoVencimientoInsumo(hace90dias)).toBe('rojo');
+  });
+});
+
+describe('calcularDispersionHorasTarea (spec v2 §1.4)', () => {
+  it('calcula correctamente el rango y desvío de horas por tarea', () => {
+    const registros = [
+      { tareaTipoId: 'tt-1', horasReales: 10, cantidadEjecutada: 1 }, // ratio 1.0
+      { tareaTipoId: 'tt-1', horasReales: 15, cantidadEjecutada: 1 }  // ratio 1.5
+    ];
+
+    const dispersion = calcularDispersionHorasTarea(registros, 'tt-1', 10);
+    expect(dispersion.count).toBe(2);
+    expect(dispersion.minRatio).toBe(1.0);
+    expect(dispersion.maxRatio).toBe(1.5);
+    expect(dispersion.avgRatio).toBe(1.25);
+    expect(dispersion.desvioEstandar).toBeGreaterThan(0);
+  });
+});
+

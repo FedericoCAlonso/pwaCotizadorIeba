@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Layers, Plus, Edit2, Trash2, X, Save, Package, Clock, Info } from 'lucide-react';
+import { Layers, Plus, Edit2, Trash2, X, Save, Package, Clock, Info, Activity } from 'lucide-react';
 import { db } from '../db/database';
 import { TareaTipo, Insumo, CategoriaManoDeObra, InsumoEnTarea, ManoObraEnTarea } from '../core/types';
-import { calcularCostoTareaTipo, formatARS } from '../core/calculations';
+import { calcularCostoTareaTipo, formatARS, calcularDispersionHorasTarea } from '../core/calculations';
 import { BASE_UNITS } from '../core/sampleData';
 
 export const TareasTipoManager: React.FC = () => {
   const tareasTipo = useLiveQuery(() => db.tareasTipo.toArray()) || [];
   const insumos = useLiveQuery(() => db.insumos.toArray()) || [];
   const manoObraList = useLiveQuery(() => db.manoObra.toArray()) || [];
+  const registrosTrabajo = useLiveQuery(() => db.registrosTrabajo.toArray()) || [];
 
   const insumosMap = new Map<string, Insumo>(insumos.map((i) => [i.id, i]));
   const manoObraMap = new Map<string, CategoriaManoDeObra>(manoObraList.map((m) => [m.id, m]));
@@ -35,7 +36,7 @@ export const TareasTipoManager: React.FC = () => {
   const handleSaveTarea = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isCreating) {
-      await db.tareasTipo.add({ id: `tt-${crypto.randomUUID()}`, nombre: formData.nombre, categoria: formData.categoria, unidad: formData.unidad, notasTecnicas: formData.notasTecnicas || undefined, insumos: formData.insumos, manoObra: formData.manoObra });
+      await db.tareasTipo.add({ id: `tt-${crypto.randomUUID()}`, nombre: formData.nombre, categoria: formData.categoria, unidad: formData.unidad, notasTecnicas: formData.notasTecnicas || undefined, insumos: formData.insumos, manoObra: formData.manoObra, factorCorreccion: 1.0 });
       setIsCreating(false);
     } else if (editingTarea) {
       await db.tareasTipo.update(editingTarea.id, { nombre: formData.nombre, categoria: formData.categoria, unidad: formData.unidad, notasTecnicas: formData.notasTecnicas || undefined, insumos: formData.insumos, manoObra: formData.manoObra });
@@ -73,18 +74,42 @@ export const TareasTipoManager: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {tareasTipo.map((tarea) => {
           const cost = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap);
+          const horasEstimadasBase = tarea.manoObra.reduce((acc, m) => acc + m.horas, 0);
+          const dispersion = calcularDispersionHorasTarea(registrosTrabajo, tarea.id, horasEstimadasBase);
+          const factorEMA = tarea.factorCorreccion ?? 1.0;
+
           return (
             <div key={tarea.id} className="bg-surface-container-low border border-outline-variant/20 rounded-3xl overflow-hidden hover:bg-surface-container/60 transition-all flex flex-col justify-between shadow-sm">
               <div className="p-5 space-y-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <span className="text-[11px] font-medium text-on-tertiary-container bg-tertiary-container px-3 py-1 rounded-full uppercase tracking-wider">{tarea.categoria}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-medium text-on-tertiary-container bg-tertiary-container px-3 py-1 rounded-full uppercase tracking-wider">{tarea.categoria}</span>
+                      <span className="text-[11px] font-mono font-semibold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full" title="Factor EMA de corrección por historial de obras">
+                        {factorEMA.toFixed(2)}x EMA
+                      </span>
+                    </div>
                     <h3 className="text-base font-semibold text-on-surface mt-2">{tarea.nombre}</h3>
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => handleOpenEdit(tarea)} className="p-2 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-variant transition-colors" aria-label={`Editar ${tarea.nombre}`}><Edit2 className="w-4 h-4" /></button>
                     <button onClick={() => handleDelete(tarea.id)} className="p-2 text-on-surface-variant hover:text-error rounded-full hover:bg-error-container/30 transition-colors" aria-label={`Eliminar ${tarea.nombre}`}><Trash2 className="w-4 h-4" /></button>
                   </div>
+                </div>
+
+                {/* Indicador de Dispersión (Spec v2 §1.4) */}
+                <div className="bg-surface-container-highest/60 p-2.5 rounded-2xl flex items-center justify-between text-xs text-on-surface-variant border border-outline-variant/20">
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <Activity className="w-3.5 h-3.5 text-secondary" />
+                    <span>Dispersión de Horas:</span>
+                  </div>
+                  {dispersion.count > 0 ? (
+                    <div className="font-mono text-[11px]">
+                      N={dispersion.count} · Ratio: {dispersion.minRatio.toFixed(2)}–{dispersion.maxRatio.toFixed(2)} · Desvío: ±{dispersion.desvioEstandar.toFixed(2)}
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-on-surface-variant/70 font-sans">Sin registros reales aún</span>
+                  )}
                 </div>
 
                 {tarea.notasTecnicas && (

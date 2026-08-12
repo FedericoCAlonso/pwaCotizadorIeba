@@ -161,17 +161,116 @@ export function congelarItemPresupuesto(
   };
 }
 
+// ─── Funciones de especificación v2 (Ajustes de Calibración, Insumos y Servicios) ───
+
+/**
+ * Recalcula el factor de corrección EMA (Media Móvil Exponencial) para una TareaTipo
+ * cuando se registra un nuevo trabajo real.
+ * Spec v2 §1.1: factorNuevo = factorAnterior * (1 - α) + (horasReales / horasEstimadas) * α
+ */
+export function calcularNuevoFactorEMA(
+  factorAnterior = 1.0,
+  horasReales: number,
+  horasEstimadas: number,
+  alpha = 0.3
+): number {
+  const fAnt = safeNum(factorAnterior) || 1.0;
+  const hReales = safeNum(horasReales);
+  const hEst = safeNum(horasEstimadas);
+  if (hEst <= 0) return fAnt;
+
+  const ratio = hReales / hEst;
+  const a = Math.min(1.0, Math.max(0.01, safeNum(alpha) || 0.3));
+  const factorNuevo = fAnt * (1 - a) + ratio * a;
+
+  // Limitar a un rango sano [0.1, 10.0] redondeado a 4 decimales
+  return Math.round(Math.min(10.0, Math.max(0.1, factorNuevo)) * 10000) / 10000;
+}
+
+/**
+ * Obtiene el multiplicador por Condición de Obra (Spec v2 §1.2).
+ * Normal: 1.0 | Dificultosa: 1.25 | Favorable: 0.9
+ */
+export function obtenerMultiplicadorCondicion(
+  condicion?: 'normal' | 'dificultosa' | 'favorable',
+  customConfig?: {
+    multiplicadorCondicionNormal?: number;
+    multiplicadorCondicionDificultosa?: number;
+    multiplicadorCondicionFavorable?: number;
+  }
+): number {
+  if (condicion === 'dificultosa') return customConfig?.multiplicadorCondicionDificultosa ?? 1.25;
+  if (condicion === 'favorable') return customConfig?.multiplicadorCondicionFavorable ?? 0.9;
+  return customConfig?.multiplicadorCondicionNormal ?? 1.0;
+}
+
+/**
+ * Determina el estado de vencimiento del precio de un insumo (Spec v2 §2.1).
+ * Verde: <= 30 días | Amarillo: 31-60 días | Rojo: > 60 días
+ */
+export function obtenerEstadoVencimientoInsumo(
+  fechaActualizacion: string,
+  diasVerde = 30,
+  diasAmarillo = 60
+): 'verde' | 'amarillo' | 'rojo' {
+  if (!fechaActualizacion) return 'rojo';
+  const fecha = new Date(fechaActualizacion).getTime();
+  if (isNaN(fecha)) return 'rojo';
+
+  const diffMs = Date.now() - fecha;
+  const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDias <= diasVerde) return 'verde';
+  if (diffDias <= diasAmarillo) return 'amarillo';
+  return 'rojo';
+}
+
+/**
+ * Calcula la dispersión (mín, máx, desvío estándar) de las horas reales registradas por TareaTipo.
+ * Spec v2 §1.4: Señal visual para el usuario.
+ */
+export function calcularDispersionHorasTarea(
+  registros: { tareaTipoId?: string; horasReales: number; cantidadEjecutada: number }[],
+  tareaTipoId: string,
+  horasEstimadasBase: number
+): {
+  count: number;
+  minRatio: number;
+  maxRatio: number;
+  avgRatio: number;
+  desvioEstandar: number;
+} {
+  const filtrados = registros.filter(
+    r => r.tareaTipoId === tareaTipoId && r.cantidadEjecutada > 0 && r.horasReales > 0
+  );
+
+  if (filtrados.length === 0 || horasEstimadasBase <= 0) {
+    return { count: 0, minRatio: 1, maxRatio: 1, avgRatio: 1, desvioEstandar: 0 };
+  }
+
+  const ratios = filtrados.map(r => r.horasReales / (r.cantidadEjecutada * horasEstimadasBase));
+  const count = ratios.length;
+  const minRatio = Math.min(...ratios);
+  const maxRatio = Math.max(...ratios);
+  const sum = ratios.reduce((acc, v) => acc + v, 0);
+  const avgRatio = sum / count;
+
+  const variance = ratios.reduce((acc, v) => acc + Math.pow(v - avgRatio, 2), 0) / count;
+  const desvioEstandar = Math.sqrt(variance);
+
+  return {
+    count,
+    minRatio: roundMoney(minRatio),
+    maxRatio: roundMoney(maxRatio),
+    avgRatio: roundMoney(avgRatio),
+    desvioEstandar: Math.round(desvioEstandar * 100) / 100
+  };
+}
+
 // ─── Configuración de impuestos por tipo de factura (spec §5) ─────────────────
 
 /**
  * Genera la configuración de impuestos por defecto según el Tipo de Factura seleccionado.
- *
- * Reglas (spec §5):
- * - Factura A: IVA discriminado + IIBB discriminado
- * - Factura B: IVA incluido + IIBB incluido
- * - Factura C / Sin Factura: solo IIBB (monotributista)
- *
- * Spec: §5 (Impuestos y tipos de factura).
  */
 export function generarImpuestosPorDefecto(
   tipoFactura: TipoFactura,
@@ -202,21 +301,14 @@ export function generarImpuestosPorDefecto(
   ];
 }
 
-// ─── Cálculo de totales del presupuesto (spec §3, §1.3, §1.5) ────────────────
+// ─── Cálculo de totales del presupuesto (spec §3, §1.3, §1.5 & v2 §3.3) ───────
 
 /**
  * Calcula los totales completos de un presupuesto:
- * subtotales, costos indirectos (snapshot), margen, impuestos e IVA/IIBB.
+ * subtotales (insumos, mano de obra, servicios tercerizados), costos indirectos (snapshot),
+ * margen, impuestos e IVA/IIBB.
  *
- * Soporta los 3 tipos de `CostoIndirecto` (spec §1.3):
- * - `porcentual_sobre_costo`: % sobre el total de costos directos
- * - `fijo_mensual`: monto fijo independiente del proyecto
- * - `por_visita`: monto fijo por visita/trabajo
- *
- * Los costos indirectos se snapshottean en `costosIndirectosAplicados`
- * para cumplir la regla de oro de inmutabilidad (spec §1.5, auditoría #8).
- *
- * Spec: §3 (Presupuesto), §1.3 (CostoIndirecto), §1.5 (Inmutabilidad).
+ * Spec v2 §3.3: Costo Directo = Σ(Insumos) + Σ(Mano Obra) + Σ(Servicios Tercerizados)
  */
 export function calcularTotalesPresupuesto(params: {
   items: ItemPresupuesto[];
@@ -228,6 +320,7 @@ export function calcularTotalesPresupuesto(params: {
 }): {
   subtotalInsumos: number;
   subtotalManoObra: number;
+  subtotalServiciosTercerizados: number;
   subtotalCostosDirectos: number;
   subtotalCostosIndirectos: number;
   costosIndirectosAplicados: CostoIndirectoSnapshot[];
@@ -249,28 +342,43 @@ export function calcularTotalesPresupuesto(params: {
     cotizacionMonedaExtranjera
   } = params;
 
-  // Acumuladores con roundMoney en cada suma (auditoría #7: CRITICAL)
   let subtotalInsumos = 0;
   let subtotalManoObra = 0;
+  let subtotalServiciosTercerizados = 0;
   let subtotalCostosDirectos = 0;
   let subtotalPrecioVentaItems = 0;
 
   for (const item of items) {
-    subtotalInsumos = roundMoney(subtotalInsumos + safeNum(item.costoInsumos));
-    subtotalManoObra = roundMoney(subtotalManoObra + safeNum(item.costoManoObra));
+    const cInsumos = safeNum(item.costoInsumos);
+    const cManoObra = safeNum(item.costoManoObra);
+    
+    // Suma de servicios tercerizados si existen (spec v2 §3)
+    let cServicios = 0;
+    if (item.serviciosTercerizados && item.serviciosTercerizados.length > 0) {
+      cServicios = roundMoney(
+        item.serviciosTercerizados.reduce((acc, s) => acc + safeNum(s.costo), 0)
+      );
+    } else {
+      cServicios = safeNum(item.costoServiciosTercerizados);
+    }
+
+    subtotalInsumos = roundMoney(subtotalInsumos + cInsumos);
+    subtotalManoObra = roundMoney(subtotalManoObra + cManoObra);
+    subtotalServiciosTercerizados = roundMoney(subtotalServiciosTercerizados + cServicios);
 
     const hasSnapshots = (item.insumosSnapshot && item.insumosSnapshot.length > 0) ||
-                         (item.manoObraSnapshot && item.manoObraSnapshot.length > 0);
+                         (item.manoObraSnapshot && item.manoObraSnapshot.length > 0) ||
+                         (item.serviciosTercerizados && item.serviciosTercerizados.length > 0);
 
     const itemCostoDirecto = hasSnapshots
-      ? roundMoney(safeNum(item.costoInsumos) + safeNum(item.costoManoObra))
+      ? roundMoney(cInsumos + cManoObra + cServicios)
       : safeNum(item.costoDirectoTotal);
 
     subtotalCostosDirectos = roundMoney(subtotalCostosDirectos + itemCostoDirecto);
     subtotalPrecioVentaItems = roundMoney(subtotalPrecioVentaItems + safeNum(item.precioVentaTotal));
   }
 
-  // ─── Costos indirectos — snapshot congelado (spec §1.3, §1.5, auditorías #8 y #9) ───
+  // ─── Costos indirectos — snapshot congelado (spec §1.3, §1.5) ───
   const costosIndirectosAplicados: CostoIndirectoSnapshot[] = [];
   let subtotalCostosIndirectos = 0;
 
@@ -315,7 +423,6 @@ export function calcularTotalesPresupuesto(params: {
   }
 
   const costoTotalObra = roundMoney(subtotalCostosDirectos + subtotalCostosIndirectos);
-
   const precioVentaSinImpuestos = subtotalPrecioVentaItems;
   const montoGanancia = roundMoney(precioVentaSinImpuestos - costoTotalObra);
 
@@ -347,6 +454,7 @@ export function calcularTotalesPresupuesto(params: {
   return {
     subtotalInsumos,
     subtotalManoObra,
+    subtotalServiciosTercerizados,
     subtotalCostosDirectos,
     subtotalCostosIndirectos,
     costosIndirectosAplicados,
