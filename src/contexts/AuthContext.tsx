@@ -9,7 +9,7 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../config/firebase';
-import { syncUserData, startRealtimeSync, SyncState } from '../services/syncService';
+import { syncUserData, startRealtimeSync, setupDexieHooks, stopRealtimeSync, SyncState } from '../services/syncService';
 
 interface AuthContextType {
   user: User | null;
@@ -62,8 +62,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(false);
 
       if (currentUser) {
+        setupDexieHooks(currentUser.uid);
         await handleSync(currentUser);
-        // Start realtime sync listener
+        // Start realtime sync listener for multi-device sync
         const stopListener = startRealtimeSync(currentUser.uid, () => {
           setLastSyncTime(new Date());
           setSyncState('synced');
@@ -73,6 +74,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           stopListener();
         };
       } else {
+        setupDexieHooks(null);
+        stopRealtimeSync();
         setSyncState('idle');
       }
     });
@@ -114,6 +117,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     if (!auth) return;
+    setupDexieHooks(null);
+    stopRealtimeSync();
     await firebaseSignOut(auth);
   };
 
