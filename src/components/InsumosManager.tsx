@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Package, Plus, Search, TrendingUp, History, FileSpreadsheet,
-  Edit2, Trash2, X, Save, Percent, Calendar, AlertCircle, Camera, CheckCircle2, Clock, ShieldAlert
+  Edit2, Trash2, X, Save, Percent, Calendar, AlertCircle, Camera, CheckCircle2, Clock, ShieldAlert, Truck
 } from 'lucide-react';
 import { db, importInsumosCSV } from '../db/database';
 import { Insumo, Proveedor, OfertaProveedor, IndiceReferencia } from '../core/types';
@@ -553,6 +553,94 @@ export const InsumosManager: React.FC = () => {
                     Marcar para tableros especiales o grupos electrógenos. Estos ítems se exceptúan automáticamente de los aumentos masivos por fórmula.
                   </p>
                 </div>
+              </div>
+
+              {/* Sección de Comparativa de Precios por Proveedor (Ofertas) */}
+              <div className="space-y-3 pt-3 border-t border-outline-variant/30">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                    <Truck className="w-4 h-4 text-primary" />
+                    Comparativa de Precios por Proveedor ({formData.ofertas?.length || 0})
+                  </label>
+                </div>
+
+                {/* Formulario rápido para agregar cotización de proveedor */}
+                <div className="flex flex-col sm:flex-row items-center gap-2 bg-surface-container-low p-2.5 rounded-2xl border border-outline-variant/20">
+                  <input
+                    type="text"
+                    list="lista-proveedores-oferta"
+                    value={newOferta.nombreProveedor}
+                    onChange={(e) => setNewOferta({ ...newOferta, nombreProveedor: e.target.value })}
+                    placeholder="Nombre del Proveedor / Mayorista"
+                    className="w-full sm:flex-1 bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-1.5 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                  <datalist id="lista-proveedores-oferta">
+                    {proveedores.map((p) => (
+                      <option key={p.id} value={p.nombre} />
+                    ))}
+                  </datalist>
+
+                  <div className="relative w-full sm:w-32 shrink-0">
+                    <span className="text-xs text-on-surface-variant absolute left-2.5 top-1.5 font-mono">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={newOferta.precio || ''}
+                      onChange={(e) => setNewOferta({ ...newOferta, precio: parseFloat(e.target.value) || 0 })}
+                      placeholder="Precio ARS"
+                      className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl pl-6 pr-2 py-1.5 text-xs font-mono font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddOferta}
+                    className="w-full sm:w-auto px-3.5 py-1.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-xl text-xs font-semibold shrink-0 transition-colors shadow-xs"
+                  >
+                    + Agregar Cotización
+                  </button>
+                </div>
+
+                {/* Lista de precios por proveedor registrados */}
+                {formData.ofertas && formData.ofertas.length > 0 && (
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {formData.ofertas.map((of) => (
+                      <div
+                        key={of.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-surface-container-highest/60 p-2.5 rounded-xl text-xs border border-outline-variant/10"
+                      >
+                        <div className="min-w-0">
+                          <span className="font-bold text-on-surface truncate block">{of.nombreProveedor}</span>
+                          <span className="text-[10px] text-on-surface-variant">
+                            Cotizado el: {new Date(of.fechaActualizacion).toLocaleDateString('es-AR')}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 font-mono">
+                          <span className="font-bold text-primary text-xs">{formatARS(of.precio)}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData((prev) => ({ ...prev, precioActual: of.precio }));
+                            }}
+                            className="text-[10px] px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 font-medium font-sans transition-colors"
+                            title="Establecer este precio como el precio base del insumo"
+                          >
+                            Usar como Base
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveOferta(of.id)}
+                            className="p-1 text-on-surface-variant hover:text-error rounded-lg hover:bg-error-container/30 transition-colors"
+                            title="Eliminar esta oferta"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t border-outline-variant/30 flex justify-end gap-2">
