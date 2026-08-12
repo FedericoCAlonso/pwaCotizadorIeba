@@ -388,6 +388,104 @@ export const InsumosManager: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile Card List View (< md breakpoint) */}
+      <div className="block md:hidden space-y-3">
+        {filteredInsumos.length === 0 ? (
+          <div className="bg-surface-container-low border border-outline-variant/20 rounded-2xl p-8 text-center text-on-surface-variant text-sm font-medium">
+            No se encontraron insumos.
+          </div>
+        ) : (
+          filteredInsumos.map((item) => {
+            const estadoVenc = obtenerEstadoVencimientoInsumo(
+              item.fechaActualizacion,
+              config?.diasVencimientoPrecioVerde ?? 30,
+              config?.diasVencimientoPrecioAmarillo ?? 60
+            );
+            const daysOld = Math.floor((new Date().getTime() - new Date(item.fechaActualizacion).getTime()) / (1000 * 3600 * 24));
+
+            return (
+              <div
+                key={item.id}
+                className="bg-surface-container-low border border-outline-variant/20 rounded-2xl p-4 space-y-3 shadow-xs"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1 min-w-0">
+                    <div className="font-bold text-on-surface text-sm truncate flex items-center gap-1.5 flex-wrap">
+                      <span>{item.nombre}</span>
+                      {item.requiereCotizacionDirecta && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-2 py-0.2 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                          <ShieldAlert className="w-2.5 h-2.5" /> Cotiz. Directa
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-tertiary-container text-on-tertiary-container capitalize">
+                        {item.categoria}
+                      </span>
+                      <span className="font-mono text-on-surface-variant text-[11px]">Unidad: {item.unidad}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <div className="font-mono font-bold text-base text-primary">
+                      {formatARS(item.precioActual)}
+                    </div>
+                    <span className="text-[10px] text-on-surface-variant font-mono">/{item.unidad}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-outline-variant/20 text-xs">
+                  <div>
+                    {estadoVenc === 'verde' && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="w-3 h-3" /> Al día ({daysOld}d)
+                      </span>
+                    )}
+                    {estadoVenc === 'amarillo' && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                        <Clock className="w-3 h-3" /> Regular ({daysOld}d)
+                      </span>
+                    )}
+                    {estadoVenc === 'rojo' && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                        <AlertCircle className="w-3 h-3" /> Vencido ({daysOld}d)
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setHistoryInsumo(item)}
+                      className="p-1.5 rounded-lg hover:bg-surface-variant text-on-surface-variant hover:text-primary transition-colors"
+                      title="Ver historial"
+                    >
+                      <History className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(item)}
+                      className="p-1.5 rounded-lg hover:bg-surface-variant text-on-surface-variant hover:text-on-surface transition-colors"
+                      title="Editar"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.id)}
+                      className="p-1.5 rounded-lg hover:bg-surface-variant text-on-surface-variant hover:text-error transition-colors"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
       {(isCreating || editingInsumo) && (
         <div className={modalCls}>
           <div className={`${modalBoxCls} max-w-xl max-h-[90vh] overflow-y-auto`}>
