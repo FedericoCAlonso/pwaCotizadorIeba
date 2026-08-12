@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { X, Save, Building, DollarSign, Percent, Calendar, Sun, Moon, Monitor } from 'lucide-react';
-import { AppConfig, ThemeMode } from '../core/types';
+import { X, Save, Building, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle } from 'lucide-react';
+import { AppConfig } from '../core/types';
 import { db } from '../db/database';
 import { TIPOS_FACTURA } from '../core/sampleData';
+import { isFirebaseConfigured, getFirebaseConfig, clearCustomFirebaseConfig } from '../config/firebase';
+import { AuthModal } from './AuthModal';
 
 interface ConfigModalProps {
   config: AppConfig;
@@ -13,6 +15,10 @@ interface ConfigModalProps {
 
 export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClose, onSave }) => {
   const [formData, setFormData] = useState<AppConfig>({ ...config });
+  const [showAuthSetup, setShowAuthSetup] = useState(false);
+  const firebaseConfigured = isFirebaseConfigured();
+  const currentFbConfig = getFirebaseConfig();
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -77,6 +83,54 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                 <Sun className="w-5 h-5" />
                 <span>Modo Claro</span>
               </button>
+            </div>
+          </div>
+
+          <hr className="border-outline-variant/30" />
+
+          {/* Integración Firebase Nube */}
+          <div>
+            <h3 className={`${sectionTitle} flex items-center gap-2`}><Cloud className="w-4 h-4 text-primary" />Sincronización Nube & Firebase</h3>
+            <div className="p-4 rounded-2xl bg-surface-container-highest border border-outline-variant/30 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {firebaseConfigured ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+                  )}
+                  <div>
+                    <h4 className="text-xs font-semibold">
+                      {firebaseConfigured ? 'Firebase Conectado' : 'Sin Configurar'}
+                    </h4>
+                    <p className="text-[11px] text-on-surface-variant">
+                      {firebaseConfigured
+                        ? `Proyecto: ${currentFbConfig?.projectId || 'Configurado'}`
+                        : 'Ingresá tus credenciales de Firebase para sincronizar entre dispositivos.'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAuthSetup(true)}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-primary text-on-primary hover:bg-primary/90 transition-colors shadow-sm"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  {firebaseConfigured ? 'Editar Claves' : 'Configurar Claves'}
+                </button>
+              </div>
+
+              {localStorage.getItem('ieba_custom_firebase_config') && (
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={clearCustomFirebaseConfig}
+                    className="text-[11px] font-medium text-error hover:underline"
+                  >
+                    Restablecer credenciales por defecto
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -180,6 +234,8 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
           </div>
         </form>
       </div>
+
+      <AuthModal isOpen={showAuthSetup} onClose={() => setShowAuthSetup(false)} />
     </div>
   );
 };

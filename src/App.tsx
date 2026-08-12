@@ -13,6 +13,7 @@ import { PresupuestosList } from './components/PresupuestosList';
 import { PresupuestoEditor } from './components/PresupuestoEditor';
 import { PresupuestoDetail } from './components/PresupuestoDetail';
 import { RegistroTrabajoManager } from './components/RegistroTrabajoManager';
+import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { useTheme } from './hooks/useTheme';
 
 export function App() {
@@ -141,6 +142,9 @@ export function App() {
           onSave={() => {}}
         />
       )}
+
+      {/* PWA Notifications & Install Banner */}
+      <PWAInstallBanner />
     </div>
   );
 }

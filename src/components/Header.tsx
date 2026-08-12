@@ -16,10 +16,18 @@ import {
   Truck,
   Sun,
   Moon,
-  Monitor
+  Monitor,
+  Cloud,
+  CheckCircle2,
+  RefreshCw,
+  LogOut,
+  User as UserIcon,
+  ShieldCheck
 } from 'lucide-react';
 import { exportDatabaseJSON, importDatabaseJSON } from '../db/database';
 import { AppConfig, ThemeMode } from '../core/types';
+import { useAuth } from '../contexts/AuthContext';
+import { AuthModal } from './AuthModal';
 
 interface HeaderProps {
   activeTab: string;
@@ -38,9 +46,13 @@ export const Header: React.FC<HeaderProps> = ({
   themeMode,
   onThemeModeChange
 }) => {
+  const { user, syncState, lastSyncTime, logout, triggerSync } = useAuth();
+
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showExportSuccess, setShowExportSuccess] = useState(false);
   const [showUtilsMenu, setShowUtilsMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -155,6 +167,98 @@ export const Header: React.FC<HeaderProps> = ({
             {getThemeIcon()}
           </button>
 
+          {/* Firebase Authentication & Cloud Sync Profile / Login */}
+          {user ? (
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu((v) => !v)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-container/40 text-on-primary-container hover:bg-primary-container/70 border border-primary/20 transition-all text-xs font-medium"
+                title={`Sesión iniciada: ${user.email}`}
+              >
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt="Avatar" className="w-5 h-5 rounded-full" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center text-[10px] font-bold">
+                    {user.email ? user.email[0].toUpperCase() : 'U'}
+                  </div>
+                )}
+                <span className="hidden sm:inline max-w-[120px] truncate">{user.displayName || user.email?.split('@')[0]}</span>
+                {syncState === 'syncing' ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                )}
+              </button>
+
+              {showUserMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)} />
+                  <div className="absolute right-0 top-full mt-2 z-20 bg-surface-container-high rounded-2xl shadow-xl py-3 min-w-[240px] border border-outline-variant/30 text-on-surface">
+                    <div className="px-4 pb-2 border-b border-outline-variant/20 mb-2">
+                      <p className="text-xs font-semibold text-on-surface truncate">{user.displayName || 'Usuario IEBA'}</p>
+                      <p className="text-[11px] text-on-surface-variant truncate">{user.email}</p>
+                      <div className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        <span>
+                          {syncState === 'syncing'
+                            ? 'Sincronizando...'
+                            : lastSyncTime
+                            ? `Sincronizado ${lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                            : 'Nube activa'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        triggerSync();
+                        setShowUserMenu(false);
+                      }}
+                      disabled={syncState === 'syncing'}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-xs text-on-surface hover:bg-surface-container-highest transition-colors"
+                    >
+                      <RefreshCw className={`w-4 h-4 text-primary ${syncState === 'syncing' ? 'animate-spin' : ''}`} />
+                      Sincronizar ahora
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowAuthModal(true);
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-xs text-on-surface hover:bg-surface-container-highest transition-colors"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-on-surface-variant" />
+                      Configuración de cuenta
+                    </button>
+
+                    <hr className="border-outline-variant/30 my-1" />
+
+                    <button
+                      onClick={() => {
+                        logout();
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-xs text-error hover:bg-error-container/20 transition-colors font-medium"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Cerrar sesión
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-primary text-on-primary shadow-sm hover:bg-primary/90 transition-colors"
+              title="Iniciar sesión para acceder desde cualquier dispositivo"
+            >
+              <Cloud className="w-4 h-4" />
+              <span className="hidden sm:inline">Iniciar Sesión</span>
+            </button>
+          )}
+
           {/* Utils dropdown */}
           <div className="relative">
             <button
@@ -267,6 +371,9 @@ export const Header: React.FC<HeaderProps> = ({
           ✓ Copia de seguridad guardada en descargas.
         </div>
       )}
+
+      {/* Auth Modal */}
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </header>
   );
 };
