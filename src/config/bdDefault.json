@@ -1,0 +1,78 @@
+{
+  "categoriasMaterial": [
+    {
+      "id": "cat-sin-categoria",
+      "nombre": "Sin categoría (No asignado)",
+      "atributosSugeridos": []
+    },
+    {
+      "id": "cat-cables",
+      "nombre": "Cables & Conductores",
+      "atributosSugeridos": [
+        { "clave": "seccion", "etiqueta": "Sección", "unidad": "mm²", "tipo": "numero" },
+        { "clave": "norma", "etiqueta": "Norma IRAM", "unidad": "", "tipo": "texto" }
+      ]
+    },
+    {
+      "id": "cat-protecciones",
+      "nombre": "Protecciones Eléctricas",
+      "atributosSugeridos": [
+        { "clave": "In", "etiqueta": "Corriente Nominal", "unidad": "A", "tipo": "numero" },
+        { "clave": "polos", "etiqueta": "Cantidad de Polos", "unidad": "", "tipo": "numero" }
+      ]
+    },
+    {
+      "id": "cat-canalizaciones",
+      "nombre": "Canalizaciones & Caños",
+      "atributosSugeridos": [
+        { "clave": "diametro", "etiqueta": "Diámetro", "unidad": "pulgadas", "tipo": "texto" }
+      ]
+    },
+    {
+      "id": "cat-cajas",
+      "nombre": "Cajas, Módulos & Bastidores",
+      "atributosSugeridos": [
+        { "clave": "tipo_caja", "etiqueta": "Tipo de Caja", "unidad": "", "tipo": "texto" },
+        { "clave": "modulos", "etiqueta": "Cantidad de Módulos", "unidad": "", "tipo": "numero" }
+      ]
+    },
+    {
+      "id": "cat-tableros",
+      "nombre": "Tableros & Gabinetes",
+      "atributosSugeridos": [
+        { "clave": "modulos", "etiqueta": "Capacidad Módulos DIN", "unidad": "", "tipo": "numero" },
+        { "clave": "ip", "etiqueta": "Grado Protección IP", "unidad": "", "tipo": "texto" }
+      ]
+    },
+    {
+      "id": "cat-iluminacion",
+      "nombre": "Iluminación & Artefactos",
+      "atributosSugeridos": [
+        { "clave": "potencia", "etiqueta": "Potencia", "unidad": "W", "tipo": "numero" },
+        { "clave": "temperatura", "etiqueta": "Color de Luz", "unidad": "K", "tipo": "texto" }
+      ]
+    },
+    {
+      "id": "cat-medicion",
+      "nombre": "Medición & Puesta a Tierra",
+      "atributosSugeridos": [
+        { "clave": "longitud", "etiqueta": "Longitud", "unidad": "m", "tipo": "numero" }
+      ]
+    },
+    {
+      "id": "cat-accesorios",
+      "nombre": "Accesorios & Consumibles",
+      "atributosSugeridos": [
+        { "clave": "presentacion", "etiqueta": "Presentación", "unidad": "", "tipo": "texto" }
+      ]
+    }
+  ],
+  "materiales": [],
+  "productos": [],
+  "ofertas": [],
+  "manoObra": [],
+  "costosIndirectos": [],
+  "tareasTipo": [],
+  "clientes": [],
+  "proveedores": []
+}

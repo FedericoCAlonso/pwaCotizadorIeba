@@ -105,16 +105,51 @@ export async function initializeDatabaseSeed(): Promise<void> {
       db.proveedores,
       db.config
     ], async () => {
-      if (await db.categoriasMaterial.count() === 0) await db.categoriasMaterial.bulkAdd(INITIAL_CATEGORIAS_MATERIAL);
-      if (await db.materiales.count() === 0) await db.materiales.bulkAdd(INITIAL_MATERIALES);
-      if (await db.productos.count() === 0) await db.productos.bulkAdd(INITIAL_PRODUCTOS);
-      if (await db.ofertas.count() === 0) await db.ofertas.bulkAdd(INITIAL_OFERTAS);
-      if (await db.insumos.count() === 0) await db.insumos.bulkAdd(INITIAL_INSUMOS);
-      if (await db.manoObra.count() === 0) await db.manoObra.bulkAdd(INITIAL_MANO_OBRA);
-      if (await db.costosIndirectos.count() === 0) await db.costosIndirectos.bulkAdd(INITIAL_COSTOS_INDIRECTOS);
-      if (await db.tareasTipo.count() === 0) await db.tareasTipo.bulkAdd(INITIAL_TAREAS_TIPO);
-      if (await db.clientes.count() === 0) await db.clientes.bulkAdd(INITIAL_CLIENTES);
-      if (await db.proveedores.count() === 0) await db.proveedores.bulkAdd(INITIAL_PROVEEDORES);
+      // 1. Asegurar que todas las categorías semillas de bdDefault.json existan en IndexedDB
+      const existingCats = await db.categoriasMaterial.toArray();
+      const existingCatIds = new Set(existingCats.map(c => c.id));
+      for (const cat of INITIAL_CATEGORIAS_MATERIAL) {
+        if (!existingCatIds.has(cat.id)) {
+          await db.categoriasMaterial.put(cat);
+        }
+      }
+
+      // 2. Mapear y corregir materiales existentes con IDs de categoría antiguos o no coincidentes
+      const categoryMapping: Record<string, string> = {
+        'cableado': 'cat-cables',
+        'cables': 'cat-cables',
+        'protecciones': 'cat-protecciones',
+        'canalizaciones': 'cat-canalizaciones',
+        'cajas': 'cat-cajas',
+        'tableros': 'cat-tableros',
+        'iluminacion': 'cat-iluminacion',
+        'medicion': 'cat-medicion',
+        'accesorios': 'cat-accesorios',
+        'insumos': 'cat-accesorios'
+      };
+
+      const allCats = await db.categoriasMaterial.toArray();
+      const validCatIds = new Set(allCats.map(c => c.id));
+
+      const mats = await db.materiales.toArray();
+      for (const m of mats) {
+        let updated = false;
+        let newCatId = m.categoriaId;
+
+        if (categoryMapping[m.categoriaId]) {
+          newCatId = categoryMapping[m.categoriaId];
+          updated = true;
+        } else if (!validCatIds.has(m.categoriaId)) {
+          newCatId = 'cat-sin-categoria';
+          updated = true;
+        }
+
+        if (updated) {
+          await db.materiales.update(m.id, { categoriaId: newCatId });
+        }
+      }
+
+      // 3. Inicializar configuración por defecto si la base está vacía
       if (await db.config.count() === 0) await db.config.add(DEFAULT_APP_CONFIG);
     });
     console.log('Verificación e inicialización de semillas de BD completada.');

@@ -12,6 +12,7 @@ import {
   AppConfig
 } from './types';
 import appConfigData from '../config/appConfig.json';
+import bdDefaultData from '../config/bdDefault.json';
 
 const now = new Date().toISOString();
 
@@ -27,16 +28,16 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
 } as AppConfig;
 
 export const INITIAL_CATEGORIAS_MATERIAL: CategoriaMaterial[] =
-  (appConfigData.initialCategoriasMaterial || []) as CategoriaMaterial[];
+  (bdDefaultData.categoriasMaterial || []) as CategoriaMaterial[];
 
 export const INITIAL_MATERIALES: Material[] =
-  (appConfigData.initialMateriales || []) as Material[];
+  (bdDefaultData.materiales || []) as Material[];
 
 export const INITIAL_PRODUCTOS: Producto[] =
-  (appConfigData.initialProductos || []) as Producto[];
+  (bdDefaultData.productos || []) as Producto[];
 
 export const INITIAL_OFERTAS: Oferta[] =
-  (appConfigData.initialOfertas || []) as Oferta[];
+  (bdDefaultData.ofertas || []) as Oferta[];
 
 export const INITIAL_INSUMOS: Insumo[] = INITIAL_MATERIALES.map(m => {
   const oferta = INITIAL_OFERTAS.find(o => o.materialId === m.id);
@@ -49,20 +50,20 @@ export const INITIAL_INSUMOS: Insumo[] = INITIAL_MATERIALES.map(m => {
   };
 });
 
-export const INITIAL_MANO_OBRA: CategoriaManoDeObra[] = (appConfigData.initialManoObra as Partial<CategoriaManoDeObra>[]).map((mo) => ({
+export const INITIAL_MANO_OBRA: CategoriaManoDeObra[] = (bdDefaultData.manoObra as Partial<CategoriaManoDeObra>[] || []).map((mo) => ({
   id: mo.id || `mo-${crypto.randomUUID()}`,
   nombre: mo.nombre || '',
   costoHora: mo.costoHora || 0,
   fechaActualizacion: now
 }));
 
-export const INITIAL_COSTOS_INDIRECTOS: CostoIndirecto[] = appConfigData.initialCostosIndirectos as CostoIndirecto[];
+export const INITIAL_COSTOS_INDIRECTOS: CostoIndirecto[] = (bdDefaultData.costosIndirectos || []) as CostoIndirecto[];
 
-export const INITIAL_TAREAS_TIPO: TareaTipo[] = appConfigData.initialTareasTipo as TareaTipo[];
+export const INITIAL_TAREAS_TIPO: TareaTipo[] = (bdDefaultData.tareasTipo || []) as TareaTipo[];
 
-export const INITIAL_CLIENTES: Cliente[] = appConfigData.initialClientes as Cliente[];
+export const INITIAL_CLIENTES: Cliente[] = (bdDefaultData.clientes || []) as Cliente[];
 
-export const INITIAL_PROVEEDORES: Proveedor[] = appConfigData.initialProveedores as unknown as Proveedor[];
+export const INITIAL_PROVEEDORES: Proveedor[] = (bdDefaultData.proveedores || []) as unknown as Proveedor[];
 
 export const BASE_CATEGORIES: string[] = appConfigData.categories;
 export const BASE_UNITS: string[] = appConfigData.units;
