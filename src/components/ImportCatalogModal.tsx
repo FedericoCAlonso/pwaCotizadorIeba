@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
-import { X, FileSpreadsheet, Upload, CheckCircle2, AlertCircle, ArrowRight, Table } from 'lucide-react';
+import {
+  X, FileSpreadsheet, Upload, CheckCircle2, AlertCircle, ArrowRight, Table, Download, RefreshCw, Eye
+} from 'lucide-react';
 import { db } from '../db/database';
 import { Material, Producto, Oferta, CategoriaMaterial } from '../core/types';
 
@@ -19,6 +21,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
   const [fileName, setFileName] = useState<string>('');
   const [headers, setHeaders] = useState<string[]>([]);
   const [rawRows, setRawRows] = useState<any[]>([]);
+  const [importMode, setImportMode] = useState<'merge' | 'create_only'>('merge');
 
   // Column Mapping State
   const [mapping, setMapping] = useState<{
@@ -45,14 +48,58 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
     productosToCreate: Partial<Producto>[];
     ofertasToCreate: Partial<Oferta>[];
     ignoredCount: number;
+    updatedCount: number;
+    newCount: number;
   }>({
     materialesToCreate: [],
     productosToCreate: [],
     ofertasToCreate: [],
-    ignoredCount: 0
+    ignoredCount: 0,
+    updatedCount: 0,
+    newCount: 0
   });
 
   if (!isOpen) return null;
+
+  /**
+   * Genera y descarga una plantilla Excel estandarizada de ejemplo.
+   */
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        'Nombre / Descripción': 'Cable Unipolar 2.5 mm² IRAM 247-3',
+        'Categoría': 'Cables & Conductores',
+        'Unidad': 'm',
+        'Norma': 'IRAM 247-3',
+        'Marca': 'Prysmian',
+        'Precio Unitario ARS': 720,
+        'Proveedor': 'Distribuidora Eléctrica Central'
+      },
+      {
+        'Nombre / Descripción': 'Interruptor Termomagnético 2x16A C 6kA',
+        'Categoría': 'Protecciones Eléctricas',
+        'Unidad': 'u',
+        'Norma': 'IEC 60898',
+        'Marca': 'Schneider Electric',
+        'Precio Unitario ARS': 8500,
+        'Proveedor': 'Distribuidora Eléctrica Central'
+      },
+      {
+        'Nombre / Descripción': 'Caño Corrugado Blanco 3/4" (20mm) X 25m',
+        'Categoría': 'Canalizaciones & Cañerías',
+        'Unidad': 'm',
+        'Norma': 'IRAM 62386',
+        'Marca': 'Genrod',
+        'Precio Unitario ARS': 310,
+        'Proveedor': 'Materiales Eléctricos del Sur'
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Catálogo_IEBA');
+    XLSX.writeFile(wb, 'Plantilla_Importacion_IEBA.xlsx');
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -80,33 +127,51 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
         setHeaders(extractedHeaders);
         setRawRows(dataRows);
 
-        // Auto-guess mapping
+        // Smart Synonym Regex Matching
         const autoMap = {
-          nombre: extractedHeaders.find(h => /material|descrip|nombre|item|insumo/i.test(h)) || extractedHeaders[0] || '',
-          categoria: extractedHeaders.find(h => /cat|rubro|familia|tipo/i.test(h)) || '',
-          unidad: extractedHeaders.find(h => /unidad|unid|medida|u\.m/i.test(h)) || '',
+          nombre: extractedHeaders.find(h => /material|descrip|nombre|item|insumo|art|articulo|detalle|producto/i.test(h)) || extractedHeaders[0] || '',
+          categoria: extractedHeaders.find(h => /cat|rubro|familia|tipo|grupo|linea/i.test(h)) || '',
+          unidad: extractedHeaders.find(h => /unidad|unid|medida|u\.m|pres|empaque/i.test(h)) || '',
           norma: extractedHeaders.find(h => /norma|iram|iec/i.test(h)) || '',
           marca: extractedHeaders.find(h => /marca|fabricante|modelo/i.test(h)) || '',
-          precio: extractedHeaders.find(h => /precio|costo|valor|p\.u|monto/i.test(h)) || '',
-          proveedor: extractedHeaders.find(h => /prov|distrib|vendedor/i.test(h)) || ''
+          precio: extractedHeaders.find(h => /precio|costo|valor|p\.u|monto|p\.lista|pneto|neto|importe/i.test(h)) || '',
+          proveedor: extractedHeaders.find(h => /prov|distrib|vendedor|proveedor|empresa/i.test(h)) || ''
         };
 
         setMapping(autoMap);
         setStep(2);
       } catch (err) {
         console.error('Error al procesar el archivo Excel/CSV:', err);
-        alert('Ocurrió un error al leer el archivo. Asegúrate de subír un archivo .xlsx, .xls o .csv válido.');
+        alert('Ocurrió un error al leer el archivo. Asegúrate de subir un archivo .xlsx, .xls o .csv válido.');
       }
     };
 
     reader.readAsArrayBuffer(file);
   };
 
-  const handleGeneratePreview = () => {
+  /**
+   * Helper para obtener valores de muestra para la vista previa del mapeo.
+   */
+  const getSampleValues = (headerName: string) => {
+    if (!headerName) return null;
+    const idx = headers.indexOf(headerName);
+    if (idx === -1) return null;
+    const samples = rawRows
+      .slice(0, 3)
+      .map(r => r[idx])
+      .filter(v => v !== undefined && v !== null && String(v).trim() !== '');
+    if (samples.length === 0) return null;
+    return samples.map(s => String(s)).join('  |  ');
+  };
+
+  const handleGeneratePreview = async () => {
     if (!mapping.nombre) {
-      alert('Debes mapear al menos la columna del Nombre del Material.');
+      alert('Debes mapear al menos la columna del Nombre / Descripción del Material.');
       return;
     }
+
+    const existingCategories = await db.categoriasMaterial.toArray();
+    const existingMaterials = await db.materiales.toArray();
 
     const nameIdx = headers.indexOf(mapping.nombre);
     const catIdx = headers.indexOf(mapping.categoria);
@@ -120,17 +185,44 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
     const prodList: Partial<Producto>[] = [];
     const ofertaList: Partial<Oferta>[] = [];
     let ignored = 0;
+    let updatedExistingCount = 0;
+    let createdNewCount = 0;
 
     const now = new Date().toISOString();
+    const existingMatByNameMap = new Map(existingMaterials.map(m => [m.nombre.trim().toLowerCase(), m]));
 
-    rawRows.forEach((row, idx) => {
+    // Matcher de categorías flexible
+    const resolveCategoryId = (excelCatName: string): string => {
+      if (!excelCatName) return 'cat-sin-categoria';
+      const normCat = excelCatName.trim().toLowerCase();
+
+      // 1. Coincidencia exacta o ID
+      const directMatch = existingCategories.find(c =>
+        c.nombre.toLowerCase() === normCat || c.id.toLowerCase() === normCat
+      );
+      if (directMatch) return directMatch.id;
+
+      // 2. Coincidencia difusa por palabras clave estándar de electricidad
+      if (normCat.includes('cable') || normCat.includes('conductor')) return 'cat-cables';
+      if (normCat.includes('termic') || normCat.includes('disyuntor') || normCat.includes('protec')) return 'cat-protecciones';
+      if (normCat.includes('caño') || normCat.includes('canal') || normCat.includes('ducto')) return 'cat-canalizaciones';
+      if (normCat.includes('caja') || normCat.includes('bastidor') || normCat.includes('modulo')) return 'cat-cajas';
+      if (normCat.includes('tablero') || normCat.includes('gabinete')) return 'cat-tableros';
+      if (normCat.includes('ilumin') || normCat.includes('lamp') || normCat.includes('led')) return 'cat-iluminacion';
+      if (normCat.includes('medicion') || normCat.includes('jabalina') || normCat.includes('pat')) return 'cat-medicion';
+
+      return `cat-${normCat.replace(/[^a-z0-9]/g, '_')}`;
+    };
+
+    rawRows.forEach((row) => {
       const nombreVal = nameIdx > -1 ? String(row[nameIdx] || '').trim() : '';
       if (!nombreVal) {
         ignored++;
         return;
       }
 
-      const catName = catIdx > -1 ? String(row[catIdx] || '').trim() : 'General';
+      const catName = catIdx > -1 ? String(row[catIdx] || '').trim() : '';
+      const resolvedCatId = resolveCategoryId(catName);
       const unidadVal = unitIdx > -1 ? String(row[unitIdx] || '').trim() : 'u';
       const normaVal = normaIdx > -1 ? String(row[normaIdx] || '').trim() : '';
       const marcaVal = marcaIdx > -1 ? String(row[marcaIdx] || '').trim() : '';
@@ -138,19 +230,28 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       const provVal = provIdx > -1 ? String(row[provIdx] || '').trim() : '';
 
       const matKey = nombreVal.toLowerCase();
-      let matId = `mat-imp-${matKey.replace(/[^a-z0-9]/g, '_')}`;
+      const existingMat = existingMatByNameMap.get(matKey);
+
+      let matId = '';
+      if (importMode === 'merge' && existingMat) {
+        matId = existingMat.id;
+        updatedExistingCount++;
+      } else {
+        matId = `mat-imp-${matKey.replace(/[^a-z0-9]/g, '_')}`;
+        createdNewCount++;
+      }
 
       if (!matMap.has(matKey)) {
         matMap.set(matKey, {
           id: matId,
-          categoriaId: catName ? `cat-${catName.toLowerCase().replace(/[^a-z0-9]/g, '_')}` : 'cat-sin-categoria',
+          categoriaId: resolvedCatId,
           nombre: nombreVal,
-          norma: normaVal,
-          unidadVenta: unidadVal,
-          atributos: [],
+          norma: normaVal || (existingMat ? existingMat.norma : ''),
+          unidadVenta: unidadVal || (existingMat ? existingMat.unidadVenta : 'u'),
+          atributos: existingMat ? existingMat.atributos : [],
           activo: true,
           fichaIncompleta: false,
-          createdAt: now,
+          createdAt: existingMat ? existingMat.createdAt : now,
           updatedAt: now
         });
       }
@@ -191,7 +292,9 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       materialesToCreate: Array.from(matMap.values()),
       productosToCreate: prodList,
       ofertasToCreate: ofertaList,
-      ignoredCount: ignored
+      ignoredCount: ignored,
+      updatedCount: updatedExistingCount,
+      newCount: createdNewCount
     });
 
     setStep(3);
@@ -200,46 +303,48 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
   const handleExecuteImport = async () => {
     try {
       await db.transaction('rw', [db.materiales, db.productos, db.ofertas, db.categoriasMaterial], async () => {
-        // 1. Bulk Put Materiales
         if (parsedPreview.materialesToCreate.length > 0) {
           await db.materiales.bulkPut(parsedPreview.materialesToCreate as Material[]);
         }
 
-        // 2. Bulk Put Productos
         if (parsedPreview.productosToCreate.length > 0) {
           await db.productos.bulkPut(parsedPreview.productosToCreate as Producto[]);
         }
 
-        // 3. Bulk Put Ofertas
         if (parsedPreview.ofertasToCreate.length > 0) {
           await db.ofertas.bulkPut(parsedPreview.ofertasToCreate as Oferta[]);
         }
       });
 
-      alert(`¡Importación exitosa!\n\n- ${parsedPreview.materialesToCreate.length} materiales procesados.\n- ${parsedPreview.productosToCreate.length} productos/marcas registrados.\n- ${parsedPreview.ofertasToCreate.length} ofertas de precios vigentes cargadas.`);
+      alert(
+        `¡Importación completada con éxito!\n\n` +
+        `- ${parsedPreview.materialesToCreate.length} materiales procesados (${parsedPreview.updatedCount} actualizados, ${parsedPreview.newCount} nuevos).\n` +
+        `- ${parsedPreview.productosToCreate.length} marcas registradas.\n` +
+        `- ${parsedPreview.ofertasToCreate.length} ofertas de precios actualizadas.`
+      );
       onSuccess();
       onClose();
     } catch (err) {
-      console.error('Error al volcar datos de la importación:', err);
+      console.error('Error al guardar datos de la importación:', err);
       alert('Ocurrió un error al guardar los datos en la base de datos local.');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-2xl shadow-2xl p-6 text-on-surface max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-2xl shadow-2xl p-6 text-on-surface max-h-[92vh] flex flex-col">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-outline-variant/30 pb-3 mb-4 shrink-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <div className="p-2 bg-primary/10 text-primary rounded-xl">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-semibold text-base text-on-surface">Importador Inteligente de Catálogos (Excel / CSV)</h3>
-              <p className="text-xs text-on-surface-variant">Mapea columnas y previsualiza los cambios antes de guardar en el sistema.</p>
+              <p className="text-xs text-on-surface-variant">Mapea columnas, deduce categorías y previsualiza los cambios antes de importar.</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 text-on-surface-variant hover:text-on-surface">
+          <button onClick={onClose} className="p-1.5 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -247,32 +352,95 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
         {/* Steps Content */}
         <div className="flex-1 overflow-y-auto space-y-5 pr-1">
           {step === 1 && (
-            <div className="p-10 border-2 border-dashed border-outline-variant/40 rounded-3xl text-center space-y-4 bg-surface-container-low">
-              <Upload className="w-12 h-12 text-primary mx-auto" />
-              <div>
-                <h4 className="font-semibold text-sm text-on-surface">Selecciona o arrastra tu lista de precios / catálogo</h4>
-                <p className="text-xs text-on-surface-variant mt-1">Soporta archivos .xlsx, .xls y .csv de proveedores y listas oficiales.</p>
+            <div className="space-y-4">
+              <div className="p-8 border-2 border-dashed border-outline-variant/40 rounded-3xl text-center space-y-4 bg-surface-container-low">
+                <Upload className="w-12 h-12 text-primary mx-auto" />
+                <div>
+                  <h4 className="font-semibold text-sm text-on-surface">Selecciona tu lista de precios o catálogo</h4>
+                  <p className="text-xs text-on-surface-variant mt-1">Soporta archivos .xlsx, .xls y .csv de proveedores y mayoristas.</p>
+                </div>
+                <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs cursor-pointer shadow-sm">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>Explorar Archivo Excel / CSV</span>
+                  <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} className="hidden" />
+                </label>
               </div>
-              <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs cursor-pointer shadow-sm">
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>Explorar Archivo Excel</span>
-                <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} className="hidden" />
-              </label>
+
+              {/* Botón Descargar Plantilla */}
+              <div className="p-4 bg-surface-container-high rounded-2xl border border-outline-variant/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                <div>
+                  <h5 className="font-semibold text-on-surface">¿No tienes el archivo formateado?</h5>
+                  <p className="text-on-surface-variant text-[11px]">Descarga nuestra plantilla de ejemplo lista para copiar y pegar tus datos.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-secondary-container text-on-secondary-container hover:bg-secondary-container/80 rounded-xl font-semibold text-xs shrink-0 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Descargar Plantilla Excel</span>
+                </button>
+              </div>
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-4">
               <div className="p-3 bg-surface-container-high rounded-2xl flex items-center justify-between text-xs">
-                <span className="font-semibold text-on-surface">Archivo: {fileName}</span>
-                <span className="text-on-surface-variant font-mono">{rawRows.length} filas detectadas</span>
+                <span className="font-semibold text-on-surface truncate max-w-[280px]">Archivo: {fileName}</span>
+                <span className="text-primary font-mono font-bold bg-primary/10 px-2 py-0.5 rounded-full">{rawRows.length} filas</span>
               </div>
 
-              <h4 className="font-semibold text-xs text-primary uppercase tracking-wider">Emparejar Columnas del Excel con el Sistema</h4>
+              {/* Selector de estrategia de importación */}
+              <div className="p-3 bg-surface-container-low border border-outline-variant/30 rounded-2xl space-y-2">
+                <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Modo de Importación & Deduplicación</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <label className={`p-2.5 rounded-xl border flex items-center gap-2 cursor-pointer transition-all ${
+                    importMode === 'merge'
+                      ? 'bg-primary-container/30 border-primary text-on-primary-container font-semibold'
+                      : 'bg-surface-container-highest border-outline-variant/30 text-on-surface-variant'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="importMode"
+                      checked={importMode === 'merge'}
+                      onChange={() => setImportMode('merge')}
+                      className="text-primary focus:ring-primary"
+                    />
+                    <div>
+                      <span className="block text-xs">Actualizar existencias (Recomendado)</span>
+                      <span className="text-[10px] text-on-surface-variant font-normal">Actualiza precios si el material ya existe por nombre</span>
+                    </div>
+                  </label>
+
+                  <label className={`p-2.5 rounded-xl border flex items-center gap-2 cursor-pointer transition-all ${
+                    importMode === 'create_only'
+                      ? 'bg-primary-container/30 border-primary text-on-primary-container font-semibold'
+                      : 'bg-surface-container-highest border-outline-variant/30 text-on-surface-variant'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="importMode"
+                      checked={importMode === 'create_only'}
+                      onChange={() => setImportMode('create_only')}
+                      className="text-primary focus:ring-primary"
+                    />
+                    <div>
+                      <span className="block text-xs">Crear siempre nuevos ítems</span>
+                      <span className="text-[10px] text-on-surface-variant font-normal">Agrega todo como ítem nuevo sin modificar anteriores</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <h4 className="font-semibold text-xs text-primary uppercase tracking-wider flex items-center gap-1.5">
+                <RefreshCw className="w-3.5 h-3.5 text-primary" /> Mapeo de Columnas con Previsualización
+              </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div>
-                  <label className="block font-medium text-on-surface-variant mb-1">Nombre / Descripción del Material *</label>
+                {/* Nombre / Descripción */}
+                <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
+                  <label className="block font-semibold text-on-surface mb-1">Nombre / Descripción del Material *</label>
                   <select
                     value={mapping.nombre}
                     onChange={(e) => setMapping({ ...mapping, nombre: e.target.value })}
@@ -281,10 +449,16 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     <option value="">-- Seleccionar Columna --</option>
                     {headers.map(h => <option key={h} value={h}>{h}</option>)}
                   </select>
+                  {getSampleValues(mapping.nombre) && (
+                    <p className="text-[10px] text-on-surface-variant/80 mt-1 truncate">
+                      <span className="font-semibold">Muestra:</span> {getSampleValues(mapping.nombre)}
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block font-medium text-on-surface-variant mb-1">Precio Unitario ARS</label>
+                {/* Precio Unitario */}
+                <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
+                  <label className="block font-semibold text-on-surface mb-1">Precio Unitario ARS</label>
                   <select
                     value={mapping.precio}
                     onChange={(e) => setMapping({ ...mapping, precio: e.target.value })}
@@ -293,10 +467,16 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     <option value="">-- Seleccionar Columna --</option>
                     {headers.map(h => <option key={h} value={h}>{h}</option>)}
                   </select>
+                  {getSampleValues(mapping.precio) && (
+                    <p className="text-[10px] text-primary font-mono mt-1 truncate">
+                      <span className="font-semibold text-on-surface-variant font-sans">Muestra:</span> {getSampleValues(mapping.precio)}
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block font-medium text-on-surface-variant mb-1">Marca / Fabricante</label>
+                {/* Marca / Fabricante */}
+                <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
+                  <label className="block font-semibold text-on-surface mb-1">Marca / Fabricante</label>
                   <select
                     value={mapping.marca}
                     onChange={(e) => setMapping({ ...mapping, marca: e.target.value })}
@@ -305,42 +485,65 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     <option value="">-- No mapear --</option>
                     {headers.map(h => <option key={h} value={h}>{h}</option>)}
                   </select>
+                  {getSampleValues(mapping.marca) && (
+                    <p className="text-[10px] text-on-surface-variant/80 mt-1 truncate">
+                      <span className="font-semibold">Muestra:</span> {getSampleValues(mapping.marca)}
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block font-medium text-on-surface-variant mb-1">Categoría / Rubro</label>
+                {/* Categoría / Rubro */}
+                <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
+                  <label className="block font-semibold text-on-surface mb-1">Categoría / Rubro</label>
                   <select
                     value={mapping.categoria}
                     onChange={(e) => setMapping({ ...mapping, categoria: e.target.value })}
                     className="w-full p-2 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface"
                   >
-                    <option value="">-- No mapear --</option>
+                    <option value="">-- Deducción Automática --</option>
                     {headers.map(h => <option key={h} value={h}>{h}</option>)}
                   </select>
+                  {getSampleValues(mapping.categoria) && (
+                    <p className="text-[10px] text-on-surface-variant/80 mt-1 truncate">
+                      <span className="font-semibold">Muestra:</span> {getSampleValues(mapping.categoria)}
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block font-medium text-on-surface-variant mb-1">Unidad (m, u, kg)</label>
+                {/* Unidad */}
+                <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
+                  <label className="block font-semibold text-on-surface mb-1">Unidad (m, u, kg)</label>
                   <select
                     value={mapping.unidad}
                     onChange={(e) => setMapping({ ...mapping, unidad: e.target.value })}
                     className="w-full p-2 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface"
                   >
-                    <option value="">-- No mapear --</option>
+                    <option value="">-- Por defecto (u) --</option>
                     {headers.map(h => <option key={h} value={h}>{h}</option>)}
                   </select>
+                  {getSampleValues(mapping.unidad) && (
+                    <p className="text-[10px] text-on-surface-variant/80 mt-1 truncate">
+                      <span className="font-semibold">Muestra:</span> {getSampleValues(mapping.unidad)}
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block font-medium text-on-surface-variant mb-1">Proveedor</label>
+                {/* Proveedor */}
+                <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
+                  <label className="block font-semibold text-on-surface mb-1">Proveedor / Distribuidor</label>
                   <select
                     value={mapping.proveedor}
                     onChange={(e) => setMapping({ ...mapping, proveedor: e.target.value })}
                     className="w-full p-2 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface"
                   >
-                    <option value="">-- No mapear --</option>
+                    <option value="">-- Proveedor General --</option>
                     {headers.map(h => <option key={h} value={h}>{h}</option>)}
                   </select>
+                  {getSampleValues(mapping.proveedor) && (
+                    <p className="text-[10px] text-on-surface-variant/80 mt-1 truncate">
+                      <span className="font-semibold">Muestra:</span> {getSampleValues(mapping.proveedor)}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -353,17 +556,17 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                   <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                   <span>Resumen de Previsualización (Dry-Run)</span>
                 </div>
-                <p>Se procesaron {rawRows.length} filas del archivo Excel de forma segura en memoria:</p>
-                <ul className="list-disc pl-5 pt-1 font-mono text-[11px]">
-                  <li><strong>{parsedPreview.materialesToCreate.length}</strong> Materiales listos para ingresar/actualizar.</li>
+                <p>Se analizaron {rawRows.length} filas del archivo Excel de forma segura en memoria:</p>
+                <ul className="list-disc pl-5 pt-1 font-mono text-[11px] space-y-0.5">
+                  <li><strong>{parsedPreview.materialesToCreate.length}</strong> Materiales listos ({parsedPreview.updatedCount} actualizados, {parsedPreview.newCount} nuevos).</li>
                   <li><strong>{parsedPreview.productosToCreate.length}</strong> Productos / Marcas asociadas.</li>
                   <li><strong>{parsedPreview.ofertasToCreate.length}</strong> Ofertas de precio vigentes a guardar.</li>
-                  <li><strong>{parsedPreview.ignoredCount}</strong> Filas omitidas por falta de nombre.</li>
+                  <li><strong>{parsedPreview.ignoredCount}</strong> Filas omitidas por falta de nombre o descripción.</li>
                 </ul>
               </div>
 
               <h4 className="font-semibold text-xs text-on-surface flex items-center gap-1.5">
-                <Table className="w-4 h-4 text-primary" /> Muestra de los primeros registros a guardar:
+                <Table className="w-4 h-4 text-primary" /> Muestra de los primeros registros a procesar:
               </h4>
 
               <div className="overflow-x-auto border border-outline-variant/20 rounded-2xl">
@@ -429,7 +632,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
             {step === 3 && (
               <button
                 onClick={handleExecuteImport}
-                className="flex items-center gap-1.5 px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs rounded-full shadow-sm"
+                className="flex items-center gap-1.5 px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs rounded-full shadow-sm active:scale-95 transition-transform"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Confirmar e Importar en la BD</span>
