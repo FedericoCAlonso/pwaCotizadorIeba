@@ -11,7 +11,7 @@ import { TIPOS_AJUSTE_PRECIO, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL } 
 import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { ImportCatalogModal } from './ImportCatalogModal';
 
-const inputCls = "w-full px-3 py-2 text-xs rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary";
+const inputCls = "w-full px-3.5 py-2.5 text-base sm:text-xs rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]";
 
 export const InsumosManager: React.FC = () => {
   const categorias = useLiveQuery(() => db.categoriasMaterial.toArray()) || [];
@@ -1520,14 +1520,16 @@ export const InsumosManager: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL IMPORTACION INTELIGENTE EXCEL / CSV */}
-      <ImportCatalogModal
-        isOpen={showImportCatalogModal}
-        onClose={() => setShowImportCatalogModal(false)}
-        onSuccess={() => {
-          setShowImportCatalogModal(false);
-        }}
-      />
+      {/* Mobile M3 Extended FAB for Material creation */}
+      <button
+        type="button"
+        onClick={handleOpenQuickCreateMat}
+        className="sm:hidden fixed bottom-20 right-4 px-4 py-3.5 bg-primary text-on-primary rounded-2xl shadow-md3-2 hover:shadow-md3-3 active:scale-95 transition-all z-30 flex items-center gap-2 font-semibold text-xs"
+        aria-label="Alta Rápida de Material"
+      >
+        <Zap className="w-5 h-5 text-amber-300" />
+        <span>Alta Rápida</span>
+      </button>
     </div>
   );
 };

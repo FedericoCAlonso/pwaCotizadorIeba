@@ -198,11 +198,11 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1 flex-wrap">
                     <button
                       type="button"
                       onClick={() => onSelect(p.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-xl text-xs sm:text-sm font-medium transition-colors"
+                      className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-xl text-xs sm:text-sm font-semibold transition-colors"
                     >
                       <Eye className="w-4 h-4" />
                       <span>Detalles</span>
@@ -211,7 +211,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                     <button
                       type="button"
                       onClick={() => exportPresupuestoToXLSX(p, cliente)}
-                      className="p-2 text-on-surface-variant hover:text-emerald-500 hover:bg-emerald-500/10 rounded-xl transition-colors shrink-0"
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:text-emerald-500 hover:bg-emerald-500/10 rounded-xl transition-colors shrink-0"
                       title="Exportar a Excel (XLSX)"
                     >
                       <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
@@ -220,7 +220,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                     <button
                       type="button"
                       onClick={() => sharePresupuesto(p, cliente)}
-                      className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0"
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0"
                       title="Compartir presupuesto (WhatsApp / Web Share)"
                     >
                       <Share2 className="w-4 h-4 text-primary" />
@@ -229,7 +229,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                     <button
                       type="button"
                       onClick={() => onEdit(p.id)}
-                      className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0"
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0"
                       title="Editar presupuesto"
                     >
                       <Edit2 className="w-4 h-4" />
@@ -238,7 +238,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                     <button
                       type="button"
                       onClick={() => handleDuplicate(p)}
-                      className="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors shrink-0"
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors shrink-0"
                       title="Duplicar como plantilla"
                     >
                       <Copy className="w-4 h-4" />
@@ -247,7 +247,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                     <button
                       type="button"
                       onClick={() => handleDelete(p.id)}
-                      className="p-2 text-on-surface-variant hover:text-error hover:bg-error-container/30 rounded-xl transition-colors shrink-0"
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error-container/30 rounded-xl transition-colors shrink-0"
                       title="Eliminar"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -260,14 +260,15 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
         </div>
       )}
 
-      {/* Mobile FAB */}
+      {/* Mobile M3 Extended FAB */}
       <button
         type="button"
         onClick={onNew}
-        className="lg:hidden fixed bottom-6 right-6 p-4 bg-primary text-on-primary rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all z-40"
+        className="lg:hidden fixed bottom-20 right-4 px-4 py-3.5 bg-primary text-on-primary rounded-2xl shadow-md3-2 hover:shadow-md3-3 active:scale-95 transition-all z-30 flex items-center gap-2 font-semibold text-xs sm:text-sm"
         aria-label="Nueva cotización"
       >
-        <Plus className="w-6 h-6" />
+        <Plus className="w-5 h-5" />
+        <span>Nueva Cotización</span>
       </button>
     </div>
   );

@@ -198,17 +198,20 @@ export const BarcodeScannerModal: React.FC<Props> = ({ onScan, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center p-4">
-      <div className="bg-surface-container border border-outline-variant/30 w-full max-w-md rounded-3xl overflow-hidden shadow-2xl text-on-surface">
+    <div className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-surface-container border-t sm:border border-outline-variant/30 w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl text-on-surface max-h-[92vh] sm:max-h-[90vh] pb-safe">
+        {/* Mobile Drag indicator */}
+        <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto mt-2.5 mb-1 shrink-0 sm:hidden" />
+
         {/* Header */}
-        <div className="p-4 flex items-center justify-between border-b border-outline-variant/30">
+        <div className="p-4 flex items-center justify-between border-b border-outline-variant/30 bg-surface-container-low shrink-0">
           <h3 className="font-semibold text-on-surface flex items-center gap-2 text-base">
             <Camera className="w-5 h-5 text-primary" /> 
             Escanear Código (1D / QR)
           </h3>
           <button 
             onClick={onClose} 
-            className="text-on-surface-variant hover:text-on-surface p-1.5 rounded-full hover:bg-surface-variant transition-colors"
+            className="text-on-surface-variant hover:text-on-surface p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-surface-variant transition-colors"
             title="Cerrar"
           >
             <X className="w-5 h-5" />

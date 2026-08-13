@@ -37,8 +37,11 @@ export const ModalContainer: React.FC<ModalContainerProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
       <div
-        className={`bg-surface-container border border-outline-variant/30 rounded-t-3xl sm:rounded-3xl w-full ${maxWidthClass} shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] text-on-surface`}
+        className={`bg-surface-container border-t sm:border border-outline-variant/30 rounded-t-3xl sm:rounded-3xl w-full ${maxWidthClass} shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] text-on-surface pb-safe`}
       >
+        {/* Mobile M3 Bottom Sheet Drag Indicator */}
+        <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto mt-2.5 mb-1 shrink-0 sm:hidden" />
+
         {/* Modal Header */}
         <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-outline-variant/20 bg-surface-container-low flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -51,14 +54,15 @@ export const ModalContainer: React.FC<ModalContainerProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors shrink-0"
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors shrink-0"
+            aria-label="Cerrar modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Content */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 touch-pan-y">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 touch-pan-y overscroll-contain">
           {children}
         </div>
 

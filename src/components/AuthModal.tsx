@@ -101,17 +101,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md bg-surface border border-outline-variant/30 text-on-surface rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative w-full max-w-md bg-surface border-t sm:border border-outline-variant/30 text-on-surface rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] pb-safe">
+        {/* Mobile Drag indicator */}
+        <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto mt-2.5 mb-1 shrink-0 sm:hidden" />
+
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-outline-variant/20 bg-surface-container-low">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/20 bg-surface-container-low shrink-0">
           <div className="flex items-center gap-2.5 font-bold text-primary">
             <ShieldCheck className="w-6 h-6 text-primary" />
-            <span className="text-lg">Acceso Multidispositivo</span>
+            <span className="text-base sm:text-lg">Acceso Multidispositivo</span>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-colors"
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-colors"
+            aria-label="Cerrar modal"
           >
             <X className="w-5 h-5" />
           </button>

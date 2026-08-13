@@ -25,7 +25,10 @@ import {
   User as UserIcon,
   ShieldCheck,
   Send,
-  ShoppingCart
+  ShoppingCart,
+  Menu,
+  ChevronRight,
+  X
 } from 'lucide-react';
 import { exportDatabaseJSON, importDatabaseJSON } from '../db/database';
 import { AppConfig, ThemeMode } from '../core/types';
@@ -56,6 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [showUtilsMenu, setShowUtilsMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showMobileDrawer, setShowMobileDrawer] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -357,8 +361,8 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
       
-      {/* Tab Navigation Area */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Desktop Tab Navigation Area (Visible md and up) */}
+      <div className="hidden md:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <nav
           className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 pt-1"
           role="tablist"
@@ -388,6 +392,170 @@ export const Header: React.FC<HeaderProps> = ({
           })}
         </nav>
       </div>
+
+      {/* Mobile M3 Bottom Navigation Bar (Visible on mobile < md) */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-container-high/95 backdrop-blur-md border-t border-outline-variant/30 px-1 py-1.5 flex items-center justify-around pb-safe shadow-lg"
+        aria-label="Navegación inferior móvil"
+      >
+        {/* Primary 4 Mobile Navigation Items */}
+        {navItems.slice(0, 4).map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveTab(item.id);
+                setShowMobileDrawer(false);
+              }}
+              className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl min-w-[64px] min-h-[48px] transition-all"
+            >
+              <div
+                className={`px-4 py-1 rounded-full flex items-center justify-center transition-all ${
+                  isActive
+                    ? 'bg-secondary-container text-on-secondary-container font-semibold scale-105'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                <Icon className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <span
+                className={`text-[10px] tracking-tight mt-0.5 transition-colors ${
+                  isActive ? 'font-bold text-primary' : 'text-on-surface-variant'
+                }`}
+              >
+                {item.label.split(' ')[0]}
+              </span>
+            </button>
+          );
+        })}
+
+        {/* 5th Mobile Navigation Item: "Más" (Drawer Trigger) */}
+        <button
+          onClick={() => setShowMobileDrawer(true)}
+          className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl min-w-[64px] min-h-[48px] transition-all"
+          aria-label="Abrir menú de herramientas y más opciones"
+        >
+          <div
+            className={`px-4 py-1 rounded-full flex items-center justify-center transition-all ${
+              ['clientes', 'proveedores', 'rfq', 'registroTrabajo', 'logistica'].includes(activeTab) || showMobileDrawer
+                ? 'bg-secondary-container text-on-secondary-container font-semibold scale-105'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <Menu className="w-5 h-5" aria-hidden="true" />
+          </div>
+          <span
+            className={`text-[10px] tracking-tight mt-0.5 transition-colors ${
+              ['clientes', 'proveedores', 'rfq', 'registroTrabajo', 'logistica'].includes(activeTab)
+                ? 'font-bold text-primary'
+                : 'text-on-surface-variant'
+            }`}
+          >
+            Más
+          </span>
+        </button>
+      </nav>
+
+      {/* M3 Mobile Bottom Sheet Drawer for "Más" items */}
+      {showMobileDrawer && (
+        <div className="md:hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-end justify-center animate-in fade-in duration-200">
+          <div
+            className="fixed inset-0"
+            onClick={() => setShowMobileDrawer(false)}
+            aria-hidden="true"
+          />
+          <div className="relative bg-surface-container border-t border-outline-variant/30 rounded-t-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh] z-10 pb-safe animate-in slide-in-from-bottom duration-300">
+            {/* Drag handle pill */}
+            <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto mt-3 mb-2 shrink-0" />
+
+            <div className="px-5 py-3 border-b border-outline-variant/20 flex justify-between items-center bg-surface-container-low shrink-0">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-primary" />
+                <h3 className="font-bold text-base text-on-surface">Herramientas & Módulos IEBA</h3>
+              </div>
+              <button
+                onClick={() => setShowMobileDrawer(false)}
+                className="p-1.5 rounded-full text-on-surface-variant hover:bg-surface-variant"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-4 touch-pan-y overscroll-contain">
+              {/* Navigation Grid */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        setShowMobileDrawer(false);
+                      }}
+                      className={`flex items-center gap-3 p-3 rounded-2xl text-left transition-all min-h-[56px] border ${
+                        isActive
+                          ? 'bg-secondary-container text-on-secondary-container border-primary/30 shadow-xs'
+                          : 'bg-surface-container-low hover:bg-surface-container-high border-outline-variant/20 text-on-surface'
+                      }`}
+                    >
+                      <div className={`p-2 rounded-xl shrink-0 ${isActive ? 'bg-primary/20 text-primary' : 'bg-surface-variant text-on-surface-variant'}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs font-semibold block truncate">{item.label}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Utility Actions */}
+              <div className="pt-3 border-t border-outline-variant/30 space-y-2">
+                <div className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">
+                  Acciones Rápidas
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      handleExportJSON();
+                      setShowMobileDrawer(false);
+                    }}
+                    className="flex items-center gap-2 p-3 bg-surface-container-low hover:bg-surface-container-high rounded-2xl border border-outline-variant/20 text-xs font-medium text-on-surface min-h-[48px]"
+                  >
+                    <Download className="w-4 h-4 text-primary" />
+                    <span>Respaldar JSON</span>
+                  </button>
+
+                  <label className="flex items-center gap-2 p-3 bg-surface-container-low hover:bg-surface-container-high rounded-2xl border border-outline-variant/20 text-xs font-medium text-on-surface cursor-pointer min-h-[48px]">
+                    <Upload className="w-4 h-4 text-primary" />
+                    <span>Restaurar JSON</span>
+                    <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
+                  </label>
+                </div>
+
+                <button
+                  onClick={() => {
+                    onOpenConfig();
+                    setShowMobileDrawer(false);
+                  }}
+                  className="w-full flex items-center justify-between p-3.5 bg-surface-container-low hover:bg-surface-container-high rounded-2xl border border-outline-variant/20 text-xs font-semibold text-on-surface min-h-[48px]"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Settings className="w-4 h-4 text-primary" />
+                    <span>Configuración General & Moneda</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-on-surface-variant" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showExportSuccess && (
         <div className="bg-tertiary-container text-on-tertiary-container text-sm font-medium px-4 py-2 text-center shadow-md">

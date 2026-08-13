@@ -1306,6 +1306,38 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </div>
         </div>
       )}
+
+      {/* Mobile Sticky Quote Total & Action Bar */}
+      <div className="md:hidden fixed bottom-16 left-0 right-0 z-30 bg-surface-container-high/95 backdrop-blur-md border-t border-outline-variant/30 px-4 py-2.5 flex items-center justify-between shadow-2xl">
+        <div>
+          <span className="text-[10px] text-on-surface-variant uppercase font-semibold block">Total Cotización</span>
+          <div className="font-mono text-base font-bold text-primary">
+            {formatARS(totales.totalARS)}
+          </div>
+          {mostrarDolar && totales.totalMonedaExtranjera !== undefined && (
+            <div className="text-[10px] font-mono text-on-surface-variant">
+              {formatUSD(totales.totalMonedaExtranjera, nombreDolar)}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleSavePresupuesto('borrador')}
+            className="px-3 py-2 bg-surface-variant text-on-surface hover:bg-surface-container-highest rounded-xl text-xs font-semibold"
+          >
+            Borrador
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSavePresupuesto('enviado')}
+            className="px-4 py-2 bg-primary text-on-primary rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1"
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span>Emitir</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
