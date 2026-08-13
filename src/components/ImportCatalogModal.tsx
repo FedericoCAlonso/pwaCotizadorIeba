@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
-  X, FileSpreadsheet, Upload, CheckCircle2, AlertCircle, ArrowRight, Table, Download, RefreshCw, Layers
+  X, FileSpreadsheet, Upload, CheckCircle2, AlertCircle, ArrowRight, Table, Download, RefreshCw
 } from 'lucide-react';
 import { db } from '../db/database';
 import { Material, Producto, Oferta, CategoriaMaterial } from '../core/types';
@@ -23,7 +23,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
   const [rawRows, setRawRows] = useState<any[]>([]);
   const [importMode, setImportMode] = useState<'merge' | 'create_only'>('merge');
 
-  // Column Mapping State
+  // Column Mapping State (Sin Proveedor)
   const [mapping, setMapping] = useState<{
     nombre: string;
     categoria: string;
@@ -31,15 +31,13 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
     norma: string;
     marca: string;
     precio: string;
-    proveedor: string;
   }>({
     nombre: '',
     categoria: '',
     unidad: '',
     norma: '',
     marca: '',
-    precio: '',
-    proveedor: ''
+    precio: ''
   });
 
   // Parsed Preview Results
@@ -71,14 +69,28 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
   const handleDownloadExcelTemplate = async () => {
     try {
       const existingCats = await db.categoriasMaterial.toArray();
+      const catNamesList = existingCats.map(c => String(c.nombre || '').replace(/"/g, ''));
+      // Fórmula de validación de datos en Excel (dropdown de lista)
+      const catDropdownFormula = `"${catNamesList.join(',')}"`;
 
-      // Hoja 1: Materiales con encabezados y filas de trabajo
+      // Hoja 1: Materiales con encabezados y filas de trabajo (Sin Proveedor)
       const headersSheet1: any[][] = [
-        ['Nombre / Descripción', 'Categoría', 'Unidad', 'Norma', 'Marca', 'Precio Unitario ARS', 'Proveedor']
+        ['Nombre / Descripción', 'Categoría', 'Unidad', 'Norma', 'Marca', 'Precio Referencia ARS']
       ];
-      // Agregar 30 filas base pre-formateadas
-      for (let i = 0; i < 30; i++) {
-        headersSheet1.push(['', '', 'u', '', '', '', '']);
+
+      // Fila de ejemplo 1
+      headersSheet1.push([
+        'Cable Unipolar 2.5 mm² IRAM 247-3',
+        catNamesList[0] || 'Cables & Conductores',
+        'm',
+        'IRAM 247-3',
+        'Prysmian',
+        720
+      ]);
+
+      // Filas base pre-formateadas
+      for (let i = 0; i < 25; i++) {
+        headersSheet1.push(['', '', 'u', '', '', '']);
       }
 
       const ws1 = XLSX.utils.aoa_to_sheet(headersSheet1);
@@ -87,7 +99,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       (ws1 as any)['!tables'] = [
         {
           name: 'TablaMaterialesIEBA',
-          ref: 'A1:G31',
+          ref: 'A1:F27',
           headerRowCount: 1,
           totalsRowCount: 0,
           columns: [
@@ -96,32 +108,29 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
             { name: 'Unidad' },
             { name: 'Norma' },
             { name: 'Marca' },
-            { name: 'Precio Unitario ARS' },
-            { name: 'Proveedor' }
+            { name: 'Precio Referencia ARS' }
           ]
         }
       ];
 
       // Regla de Validación de Datos de Excel (Dropdown de Categorías en columna B: B2 a B100)
-      const lastCatRow = Math.max(2, existingCats.length + 1);
       (ws1 as any)['!dataValidation'] = [
         {
           type: 'list',
           allowBlank: true,
           sqref: 'B2:B100',
-          formula1: `'Categorias_Disponibles'!$B$2:$B$${lastCatRow}`
+          formula1: catDropdownFormula
         }
       ];
 
       // Anchos de columna optimizados
       ws1['!cols'] = [
         { wch: 42 }, // Nombre
-        { wch: 28 }, // Categoría
+        { wch: 30 }, // Categoría
         { wch: 10 }, // Unidad
         { wch: 16 }, // Norma
         { wch: 22 }, // Marca
-        { wch: 22 }, // Precio ARS
-        { wch: 32 }  // Proveedor
+        { wch: 22 }  // Precio ARS
       ];
 
       // Hoja 2: Categorías Disponibles
@@ -155,7 +164,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       XLSX.utils.book_append_sheet(wb, ws1, 'Materiales');
       XLSX.utils.book_append_sheet(wb, ws2, 'Categorias_Disponibles');
 
-      XLSX.writeFile(wb, 'Plantilla_Importacion_IEBA.xlsx');
+      XLSX.writeFile(wb, 'Plantilla_Importacion_Materiales_IEBA.xlsx');
     } catch (err) {
       console.error('Error al generar plantilla Excel:', err);
       alert('Ocurrió un error al generar la plantilla Excel.');
@@ -163,7 +172,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
   };
 
   /**
-   * Genera y descarga 2 planillas CSV separadas:
+   * Genera y descarga 2 planillas CSV separadas (Sin Proveedor):
    * - Plantilla_Materiales.csv (solo encabezados)
    * - Plantilla_Categorias_Disponibles.csv (listado de categorías)
    */
@@ -172,7 +181,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       const existingCats = await db.categoriasMaterial.toArray();
 
       // CSV 1: Materiales
-      const csvMat = 'Nombre / Descripción,Categoría,Unidad,Norma,Marca,Precio Unitario ARS,Proveedor\n';
+      const csvMat = 'Nombre / Descripción,Categoría,Unidad,Norma,Marca,Precio Referencia ARS\n';
       const blobMat = new Blob([csvMat], { type: 'text/csv;charset=utf-8;' });
       const a1 = document.createElement('a');
       a1.href = URL.createObjectURL(blobMat);
@@ -226,15 +235,14 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
         setHeaders(extractedHeaders);
         setRawRows(dataRows);
 
-        // Smart Synonym Regex Matching
+        // Smart Synonym Regex Matching (Sin Proveedor)
         const autoMap = {
           nombre: extractedHeaders.find(h => /material|descrip|nombre|item|insumo|art|articulo|detalle|producto/i.test(h)) || extractedHeaders[0] || '',
           categoria: extractedHeaders.find(h => /cat|rubro|familia|tipo|grupo|linea/i.test(h)) || '',
           unidad: extractedHeaders.find(h => /unidad|unid|medida|u\.m|pres|empaque/i.test(h)) || '',
           norma: extractedHeaders.find(h => /norma|iram|iec/i.test(h)) || '',
           marca: extractedHeaders.find(h => /marca|fabricante|modelo/i.test(h)) || '',
-          precio: extractedHeaders.find(h => /precio|costo|valor|p\.u|monto|p\.lista|pneto|neto|importe/i.test(h)) || '',
-          proveedor: extractedHeaders.find(h => /prov|distrib|vendedor|proveedor|empresa/i.test(h)) || ''
+          precio: extractedHeaders.find(h => /precio|costo|valor|p\.u|monto|p\.lista|pneto|neto|importe/i.test(h)) || ''
         };
 
         setMapping(autoMap);
@@ -278,7 +286,6 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
     const normaIdx = headers.indexOf(mapping.norma);
     const marcaIdx = headers.indexOf(mapping.marca);
     const precioIdx = headers.indexOf(mapping.precio);
-    const provIdx = headers.indexOf(mapping.proveedor);
 
     const matMap = new Map<string, Partial<Material>>();
     const catMap = new Map<string, Partial<CategoriaMaterial>>();
@@ -336,7 +343,6 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       const normaVal = normaIdx > -1 ? String(row[normaIdx] || '').trim() : '';
       const marcaVal = marcaIdx > -1 ? String(row[marcaIdx] || '').trim() : '';
       const precioVal = precioIdx > -1 ? parseFloat(String(row[precioIdx]).replace(/[^0-9.,]/g, '').replace(',', '.')) || 0 : 0;
-      const provVal = provIdx > -1 ? String(row[provIdx] || '').trim() : '';
 
       const matKey = nombreVal.toLowerCase();
       const existingMat = existingMatByNameMap.get(matKey);
@@ -379,7 +385,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
             id: `oferta-imp-${crypto.randomUUID()}`,
             materialId: matId,
             productoId: prodId,
-            proveedorId: provVal ? `prov-${provVal.toLowerCase().replace(/[^a-z0-9]/g, '_')}` : 'prov-general',
+            proveedorId: 'prov-general',
             precio: precioVal,
             fecha: now,
             fuente: 'importacion_excel'
@@ -389,7 +395,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
         ofertaList.push({
           id: `oferta-imp-${crypto.randomUUID()}`,
           materialId: matId,
-          proveedorId: provVal ? `prov-${provVal.toLowerCase().replace(/[^a-z0-9]/g, '_')}` : 'prov-general',
+          proveedorId: 'prov-general',
           precio: precioVal,
           fecha: now,
           fuente: 'importacion_excel'
@@ -428,18 +434,18 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
           await db.productos.bulkPut(parsedPreview.productosToCreate as Producto[]);
         }
 
-        // 4. Guardar Ofertas
+        // 4. Guardar Ofertas Referencia
         if (parsedPreview.ofertasToCreate.length > 0) {
           await db.ofertas.bulkPut(parsedPreview.ofertasToCreate as Oferta[]);
         }
       });
 
       alert(
-        `¡Importación completada con éxito!\n\n` +
+        `¡Importación de materiales completada con éxito!\n\n` +
         `- ${parsedPreview.materialesToCreate.length} materiales procesados (${parsedPreview.updatedCount} actualizados, ${parsedPreview.newCount} nuevos).\n` +
         (parsedPreview.categoriasToCreate.length > 0 ? `- ${parsedPreview.categoriasToCreate.length} nuevas categorías incorporadas al sistema.\n` : '') +
         `- ${parsedPreview.productosToCreate.length} marcas registradas.\n` +
-        `- ${parsedPreview.ofertasToCreate.length} ofertas de precios actualizadas.`
+        `- ${parsedPreview.ofertasToCreate.length} precios de referencia guardados.`
       );
       onSuccess();
       onClose();
@@ -459,8 +465,8 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-base text-on-surface">Importador Inteligente de Catálogos (Excel / CSV)</h3>
-              <p className="text-xs text-on-surface-variant">Mapea columnas, deduce/crea categorías y previsualiza antes de guardar.</p>
+              <h3 className="font-semibold text-base text-on-surface">Importador Técnico de Materiales (Excel / CSV)</h3>
+              <p className="text-xs text-on-surface-variant">Importación directa de fichas de materiales, normas y precios de referencia.</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant">
@@ -475,8 +481,8 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
               <div className="p-8 border-2 border-dashed border-outline-variant/40 rounded-3xl text-center space-y-4 bg-surface-container-low">
                 <Upload className="w-12 h-12 text-primary mx-auto" />
                 <div>
-                  <h4 className="font-semibold text-sm text-on-surface">Selecciona tu lista de precios o catálogo</h4>
-                  <p className="text-xs text-on-surface-variant mt-1">Soporta archivos .xlsx, .xls y .csv de proveedores y mayoristas.</p>
+                  <h4 className="font-semibold text-sm text-on-surface">Selecciona tu lista o catálogo de materiales</h4>
+                  <p className="text-xs text-on-surface-variant mt-1">Soporta archivos .xlsx, .xls y .csv de productos y fichas técnicas.</p>
                 </div>
                 <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs cursor-pointer shadow-sm">
                   <FileSpreadsheet className="w-4 h-4" />
@@ -490,7 +496,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                 <div>
                   <h5 className="font-semibold text-on-surface">¿Deseas descargar planillas de plantilla vacías?</h5>
                   <p className="text-on-surface-variant text-[11px]">
-                    Descarga las plantillas en blanco con los encabezados exactos y el listado de categorías actualmente registradas.
+                    Descarga las plantillas en blanco con los encabezados exactos y el desplegable de categorías incorporado.
                   </p>
                 </div>
 
@@ -501,7 +507,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     className="flex items-center gap-1.5 px-3.5 py-2 bg-secondary-container text-on-secondary-container hover:bg-secondary-container/80 rounded-xl font-semibold text-xs transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Plantilla Excel (.xlsx con 2 Hojas)</span>
+                    <span>Plantilla Excel (.xlsx con Desplegable)</span>
                   </button>
 
                   <button
@@ -542,7 +548,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     />
                     <div>
                       <span className="block text-xs">Actualizar existencias (Recomendado)</span>
-                      <span className="text-[10px] text-on-surface-variant font-normal">Actualiza precios si el material ya existe por nombre</span>
+                      <span className="text-[10px] text-on-surface-variant font-normal">Actualiza si el material ya existe por nombre</span>
                     </div>
                   </label>
 
@@ -560,7 +566,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     />
                     <div>
                       <span className="block text-xs">Crear siempre nuevos ítems</span>
-                      <span className="text-[10px] text-on-surface-variant font-normal">Agrega todo como ítem nuevo sin modificar anteriores</span>
+                      <span className="text-[10px] text-on-surface-variant font-normal">Agrega todo como ítem nuevo</span>
                     </div>
                   </label>
                 </div>
@@ -589,15 +595,15 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                   )}
                 </div>
 
-                {/* Precio Unitario */}
+                {/* Precio Referencia */}
                 <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
-                  <label className="block font-semibold text-on-surface mb-1">Precio Unitario ARS</label>
+                  <label className="block font-semibold text-on-surface mb-1">Precio Referencia ARS</label>
                   <select
                     value={mapping.precio}
                     onChange={(e) => setMapping({ ...mapping, precio: e.target.value })}
                     className="w-full p-2 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface"
                   >
-                    <option value="">-- Seleccionar Columna --</option>
+                    <option value="">-- No mapear --</option>
                     {headers.map(h => <option key={h} value={h}>{h}</option>)}
                   </select>
                   {getSampleValues(mapping.precio) && (
@@ -644,7 +650,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                 </div>
 
                 {/* Unidad */}
-                <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
+                <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20 font-sans">
                   <label className="block font-semibold text-on-surface mb-1">Unidad (m, u, kg)</label>
                   <select
                     value={mapping.unidad}
@@ -661,20 +667,20 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                   )}
                 </div>
 
-                {/* Proveedor */}
+                {/* Norma */}
                 <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
-                  <label className="block font-semibold text-on-surface mb-1">Proveedor / Distribuidor</label>
+                  <label className="block font-semibold text-on-surface mb-1">Norma Técnico-Normativa</label>
                   <select
-                    value={mapping.proveedor}
-                    onChange={(e) => setMapping({ ...mapping, proveedor: e.target.value })}
+                    value={mapping.norma}
+                    onChange={(e) => setMapping({ ...mapping, norma: e.target.value })}
                     className="w-full p-2 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface"
                   >
-                    <option value="">-- Proveedor General --</option>
+                    <option value="">-- No mapear --</option>
                     {headers.map(h => <option key={h} value={h}>{h}</option>)}
                   </select>
-                  {getSampleValues(mapping.proveedor) && (
+                  {getSampleValues(mapping.norma) && (
                     <p className="text-[10px] text-on-surface-variant/80 mt-1 truncate">
-                      <span className="font-semibold">Muestra:</span> {getSampleValues(mapping.proveedor)}
+                      <span className="font-semibold">Muestra:</span> {getSampleValues(mapping.norma)}
                     </p>
                   )}
                 </div>
@@ -698,7 +704,6 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     </li>
                   )}
                   <li><strong>{parsedPreview.productosToCreate.length}</strong> Productos / Marcas asociadas.</li>
-                  <li><strong>{parsedPreview.ofertasToCreate.length}</strong> Ofertas de precio vigentes a guardar.</li>
                   <li><strong>{parsedPreview.ignoredCount}</strong> Filas omitidas por falta de nombre o descripción.</li>
                 </ul>
               </div>
@@ -714,7 +719,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                       <th className="p-2.5">Material</th>
                       <th className="p-2.5">Categoría ID</th>
                       <th className="p-2.5">Unidad</th>
-                      <th className="p-2.5 text-right">Precio ARS</th>
+                      <th className="p-2.5 text-right">Precio Ref. ARS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-outline-variant/10">
