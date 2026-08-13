@@ -1520,6 +1520,15 @@ export const InsumosManager: React.FC = () => {
         </div>
       )}
 
+      {/* Import Catalog Modal (Excel / CSV) */}
+      <ImportCatalogModal
+        isOpen={showImportCatalogModal}
+        onClose={() => setShowImportCatalogModal(false)}
+        onSuccess={() => {
+          setShowImportCatalogModal(false);
+        }}
+      />
+
       {/* Mobile M3 Extended FAB for Material creation */}
       <button
         type="button"
