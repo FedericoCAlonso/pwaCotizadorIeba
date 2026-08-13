@@ -8,6 +8,7 @@ import {
   calcularNuevoFactorEMA,
   obtenerMultiplicadorCondicion,
   obtenerEstadoVencimientoInsumo,
+  calcularDispersionHorasTareaLegacy,
   calcularDispersionHorasTarea
 } from './calculations';
 import { Insumo, CategoriaManoDeObra, CostoIndirecto, TareaTipo, ItemPresupuesto } from './types';
@@ -398,14 +399,14 @@ describe('obtenerEstadoVencimientoInsumo (spec v2 §2.1)', () => {
   });
 });
 
-describe('calcularDispersionHorasTarea (spec v2 §1.4)', () => {
+describe('calcularDispersionHorasTareaLegacy (spec v2 §1.4)', () => {
   it('calcula correctamente el rango y desvío de horas por tarea', () => {
     const registros = [
       { tareaTipoId: 'tt-1', horasReales: 10, cantidadEjecutada: 1 }, // ratio 1.0
       { tareaTipoId: 'tt-1', horasReales: 15, cantidadEjecutada: 1 }  // ratio 1.5
     ];
 
-    const dispersion = calcularDispersionHorasTarea(registros, 'tt-1', 10);
+    const dispersion = calcularDispersionHorasTareaLegacy(registros, 'tt-1', 10);
     expect(dispersion.count).toBe(2);
     expect(dispersion.minRatio).toBe(1.0);
     expect(dispersion.maxRatio).toBe(1.5);

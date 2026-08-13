@@ -106,12 +106,12 @@ export const Header: React.FC<HeaderProps> = ({
   const navItems = [
     { id: 'presupuestos', label: 'Presupuestos', icon: FileText },
     { id: 'insumos', label: 'Materiales & Precios', icon: Package },
+    { id: 'tareasTipo', label: 'Laboratorio Tareas', icon: Layers },
+    { id: 'registroTrabajo', label: 'Registro Obra', icon: HardHat },
     { id: 'manoObra', label: 'Mano de Obra', icon: Clock },
-    { id: 'tareasTipo', label: 'Tareas Tipo', icon: Layers },
     { id: 'clientes', label: 'Clientes', icon: Users },
     { id: 'proveedores', label: 'Proveedores', icon: Truck },
     { id: 'rfq', label: 'Solicitudes RFQ', icon: Send },
-    { id: 'registroTrabajo', label: 'Registro', icon: HardHat },
     { id: 'logistica', label: 'Logística', icon: ShoppingCart }
   ];
 

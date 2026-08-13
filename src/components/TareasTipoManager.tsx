@@ -14,12 +14,38 @@ import {
   Calculator,
   Tag,
   BookOpen,
-  Copy
+  Copy,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle2,
+  ShieldAlert,
+  Zap,
+  Sliders,
+  Sparkles,
+  BarChart3,
+  RefreshCw,
+  Search,
+  ExternalLink
 } from 'lucide-react';
 import { db } from '../db/database';
-import { TareaTipo, Insumo, CategoriaManoDeObra, InsumoEnTarea, ManoObraEnTarea, CATEGORIA_TAREA } from '../core/types';
-import { calcularCostoTareaTipo, formatARS, calcularDispersionHorasTarea } from '../core/calculations';
+import {
+  TareaTipo,
+  Insumo,
+  CategoriaManoDeObra,
+  InsumoEnTarea,
+  ManoObraEnTarea,
+  CATEGORIA_TAREA
+} from '../core/types';
+import {
+  calcularCostoTareaTipo,
+  formatARS,
+  formatNumber,
+  calcularDispersionHorasTarea,
+  auditarRentabilidadTareaTipo,
+  roundMoney
+} from '../core/calculations';
 import { BASE_UNITS } from '../core/sampleData';
+import { ModalContainer } from './ModalContainer';
 
 const CATEGORIAS_TAREA_LIST = Object.values(CATEGORIA_TAREA);
 
@@ -30,11 +56,13 @@ export const TareasTipoManager: React.FC = () => {
   const ofertas = useLiveQuery(() => db.ofertas.toArray()) || [];
   const manoObraList = useLiveQuery(() => db.manoObra.toArray()) || [];
   const registrosTrabajo = useLiveQuery(() => db.registrosTrabajo.toArray()) || [];
+  const configs = useLiveQuery(() => db.config.toArray()) || [];
+  const config = configs[0];
 
   const insumosMap = new Map<string, Insumo>();
-  legacyInsumos.forEach(i => insumosMap.set(i.id, i));
-  materiales.forEach(m => {
-    const oferta = ofertas.find(o => o.materialId === m.id);
+  legacyInsumos.forEach((i) => insumosMap.set(i.id, i));
+  materiales.forEach((m) => {
+    const oferta = ofertas.find((o) => o.materialId === m.id);
     insumosMap.set(m.id, {
       ...m,
       id: m.id,
@@ -48,9 +76,20 @@ export const TareasTipoManager: React.FC = () => {
   });
   const manoObraMap = new Map<string, CategoriaManoDeObra>(manoObraList.map((m) => [m.id, m]));
 
+  const [activeSubmodulo, setActiveSubmodulo] = useState<'catalogo' | 'simulacion' | 'calibracion' | 'auditoria'>('catalogo');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('todas');
+
+  // Simulation State ("What-If Scenarios")
+  const [simulatedTareaId, setSimulatedTareaId] = useState<string>('');
+  const [simMaterialesPct, setSimMaterialesPct] = useState<number>(0); // -50% to +100%
+  const [simManoObraPct, setSimManoObraPct] = useState<number>(0); // -50% to +100%
+  const [simHorasExtra, setSimHorasExtra] = useState<number>(0); // 0 to 10 hs
+  const [simMargenPct, setSimMargenPct] = useState<number>(config?.margenPorDefectoPct || 35); // 10% to 70%
+
+  // Editor Modal States
   const [editingTarea, setEditingTarea] = useState<TareaTipo | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-
   const [formData, setFormData] = useState<{
     nombre: string;
     categoria: string;
@@ -121,7 +160,7 @@ export const TareasTipoManager: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar esta tarea tipo?')) await db.tareasTipo.delete(id);
+    if (confirm('¿Eliminar esta tarea tipo del catálogo?')) await db.tareasTipo.delete(id);
   };
 
   const handleDuplicateTarea = (t: TareaTipo) => {
@@ -131,10 +170,15 @@ export const TareasTipoManager: React.FC = () => {
       categoria: t.categoria || CATEGORIAS_TAREA_LIST[0],
       unidad: t.unidad || 'u',
       notasTecnicas: t.notasTecnicas || '',
-      insumos: t.insumos ? t.insumos.map(i => ({ ...i })) : [],
-      manoObra: t.manoObra ? t.manoObra.map(m => ({ ...m })) : []
+      insumos: t.insumos ? t.insumos.map((i) => ({ ...i })) : [],
+      manoObra: t.manoObra ? t.manoObra.map((m) => ({ ...m })) : []
     });
     setIsCreating(true);
+  };
+
+  const handleCalibrarEma = async (tareaId: string, factorSugerido: number) => {
+    await db.tareasTipo.update(tareaId, { factorCorreccion: factorSugerido });
+    alert(`¡Factor EMA calibrado con éxito a ${factorSugerido.toFixed(2)}x!`);
   };
 
   const addInsumoRow = () => {
@@ -184,7 +228,6 @@ export const TareasTipoManager: React.FC = () => {
     });
   };
 
-  // Cálculo en tiempo real del costo de la tarea mientras se edita en el formulario
   const tempTareaForm: TareaTipo = {
     id: 'temp',
     nombre: formData.nombre,
@@ -196,467 +239,857 @@ export const TareasTipoManager: React.FC = () => {
   };
   const tempCost = calcularCostoTareaTipo(tempTareaForm, insumosMap, manoObraMap);
 
-  const inputCls =
-    'w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-on-surface-variant/70 transition-shadow';
+  const filteredTareas = tareasTipo.filter((t) => {
+    const matchesSearch = t.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || (t.notasTecnicas && t.notasTecnicas.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesCat = selectedCategoryFilter === 'todas' || t.categoria === selectedCategoryFilter;
+    return matchesSearch && matchesCat;
+  });
+
+  const inputCls = "w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow";
+
+  // Selected Simulation Task Calculation
+  const selectedSimTarea = tareasTipo.find((t) => t.id === (simulatedTareaId || tareasTipo[0]?.id));
+  const baseCostData = selectedSimTarea ? calcularCostoTareaTipo(selectedSimTarea, insumosMap, manoObraMap) : null;
+
+  const simCostInsumos = baseCostData ? roundMoney(baseCostData.costoInsumosUnitario * (1 + simMaterialesPct / 100)) : 0;
+  const baseHorasMo = baseCostData ? baseCostData.manoObraSnapshotUnitario.reduce((acc, m) => acc + m.horasTotales, 0) : 0;
+  const simHorasTotalesMo = baseHorasMo + simHorasExtra;
+  const costoHoraPromedio = baseHorasMo > 0 && baseCostData ? baseCostData.costoManoObraUnitario / baseHorasMo : (manoObraList[0]?.costoHora || 9500);
+  const simCostManoObra = roundMoney(simHorasTotalesMo * costoHoraPromedio * (1 + simManoObraPct / 100));
+
+  const simCostDirectoTotal = roundMoney(simCostInsumos + simCostManoObra);
+  const factorMargen = 1 - (simMargenPct / 100);
+  const simPrecioVenta = factorMargen > 0 ? roundMoney(simCostDirectoTotal / factorMargen) : roundMoney(simCostDirectoTotal * 1.35);
+  const simGanancia = roundMoney(simPrecioVenta - simCostDirectoTotal);
+
+  const baseCostoDirecto = baseCostData ? baseCostData.costoDirectoUnitario : 0;
+  const variacionCostoDirectoPct = baseCostoDirecto > 0 ? roundMoney(((simCostDirectoTotal - baseCostoDirecto) / baseCostoDirecto) * 100) : 0;
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-on-surface flex items-center gap-2">
-            <Layers className="w-5 h-5 text-primary" />
-            Catálogo de Tareas Tipo
+          <h2 className="text-xl font-bold text-on-surface flex items-center gap-2">
+            <Calculator className="w-5 h-5 text-primary" />
+            <span>Laboratorio de Tareas Tipo (Modo Experto)</span>
           </h2>
           <p className="text-sm text-on-surface-variant mt-1">
-            Ensambles estandarizados reutilizables con materiales y mano de obra.
+            Diseño de ensambles, simulación What-If de escenarios, calibración EMA y auditoría de rentabilidad.
           </p>
         </div>
+
         <button
+          type="button"
           onClick={handleOpenCreate}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-sm"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-sm active:scale-95"
         >
           <Plus className="w-4 h-4" />
           <span>Nueva Tarea Tipo</span>
         </button>
       </div>
 
-      {/* Grid de Tareas Tipo */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {tareasTipo.map((tarea) => {
-          const cost = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap);
-          const horasEstimadasBase = tarea.manoObra.reduce((acc, m) => acc + m.horas, 0);
-          const dispersion = calcularDispersionHorasTarea(registrosTrabajo, tarea.id, horasEstimadasBase);
-          const factorEMA = tarea.factorCorreccion ?? 1.0;
+      {/* Submodule Navigation Tabs */}
+      <div className="flex border-b border-outline-variant/30 overflow-x-auto no-scrollbar gap-2 sm:gap-6">
+        <button
+          onClick={() => setActiveSubmodulo('catalogo')}
+          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${
+            activeSubmodulo === 'catalogo'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Catálogo & Diseñador ({tareasTipo.length})</span>
+        </button>
 
-          return (
-            <div
-              key={tarea.id}
-              className="bg-surface-container-low border border-outline-variant/20 rounded-3xl overflow-hidden hover:bg-surface-container/60 transition-all flex flex-col justify-between shadow-sm"
+        <button
+          onClick={() => {
+            if (!simulatedTareaId && tareasTipo.length > 0) setSimulatedTareaId(tareasTipo[0].id);
+            setActiveSubmodulo('simulacion');
+          }}
+          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${
+            activeSubmodulo === 'simulacion'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          <Sliders className="w-4 h-4" />
+          <span>Simulación What-If</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubmodulo('calibracion')}
+          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${
+            activeSubmodulo === 'calibracion'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          <span>Motor Estadístico EMA</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubmodulo('auditoria')}
+          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${
+            activeSubmodulo === 'auditoria'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          <ShieldAlert className="w-4 h-4" />
+          <span>Auditoría de Rentabilidad</span>
+        </button>
+      </div>
+
+      {/* SUBMÓDULO 1: CATÁLOGO & DISEÑADOR */}
+      {activeSubmodulo === 'catalogo' && (
+        <div className="space-y-5">
+          {/* Search & Category Filter */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 text-on-surface-variant absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="Buscar tarea o nota técnica..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`${inputCls} pl-9`}
+              />
+            </div>
+
+            <select
+              value={selectedCategoryFilter}
+              onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+              className={`${inputCls} sm:w-auto capitalize`}
             >
-              <div className="p-5 space-y-3">
-                <div className="flex justify-between items-start">
+              <option value="todas">Todas las categorías</option>
+              {CATEGORIAS_TAREA_LIST.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Grid of Task Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredTareas.map((tarea) => {
+              const costData = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap);
+              const audit = auditarRentabilidadTareaTipo(tarea, insumosMap, manoObraMap, config);
+
+              return (
+                <div
+                  key={tarea.id}
+                  className="bg-surface-container-low border border-outline-variant/20 rounded-3xl p-5 hover:bg-surface-container/60 transition-all flex flex-col justify-between space-y-4 shadow-sm"
+                >
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-medium text-on-tertiary-container bg-tertiary-container px-3 py-1 rounded-full uppercase tracking-wider">
-                        {tarea.categoria}
-                      </span>
-                      <span
-                        className="text-[11px] font-mono font-semibold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full"
-                        title="Factor EMA de corrección por historial de obras"
-                      >
-                        {factorEMA.toFixed(2)}x EMA
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-[10px] font-bold text-on-tertiary-container bg-tertiary-container px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                          {tarea.categoria}
+                        </span>
+                        <h3 className="font-bold text-on-surface text-base mt-1">{tarea.nombre}</h3>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <span
+                          className={`w-3 h-3 rounded-full ${
+                            audit.estado === 'verde'
+                              ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50'
+                              : audit.estado === 'amarillo'
+                              ? 'bg-amber-500 shadow-sm shadow-amber-500/50'
+                              : 'bg-rose-500 shadow-sm shadow-rose-500/50'
+                          }`}
+                          title={`Estado auditoría: ${audit.estado}`}
+                        />
+                        <button
+                          onClick={() => handleDuplicateTarea(tarea)}
+                          className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl"
+                          title="Duplicar tarea"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenEdit(tarea)}
+                          className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl"
+                          title="Editar tarea"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(tarea.id)}
+                          className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-xl"
+                          title="Eliminar tarea"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {tarea.notasTecnicas && (
+                      <p className="text-xs text-on-surface-variant mt-2 line-clamp-2 italic">
+                        {tarea.notasTecnicas}
+                      </p>
+                    )}
+
+                    {/* Despiece Insumos */}
+                    <div className="mt-3 pt-3 border-t border-outline-variant/20 space-y-1 text-xs">
+                      <div className="text-[11px] font-semibold text-on-surface-variant uppercase">
+                        Insumos ({tarea.insumos.length}):
+                      </div>
+                      <div className="space-y-1 max-h-24 overflow-y-auto">
+                        {tarea.insumos.map((item, idx) => {
+                          const mat = insumosMap.get(item.materialId || item.insumoId || '');
+                          return (
+                            <div key={idx} className="flex justify-between items-center text-[11px] text-on-surface">
+                              <span className="truncate max-w-[170px]">{mat?.nombre || 'Material'}</span>
+                              <span className="font-mono text-on-surface-variant shrink-0">
+                                {item.cantidad} {mat?.unidadVenta || mat?.unidad || 'u'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Mano de Obra */}
+                    <div className="mt-3 pt-2 border-t border-outline-variant/20 flex justify-between text-xs">
+                      <span className="text-on-surface-variant">Mano de Obra:</span>
+                      <span className="font-mono font-semibold text-on-surface">
+                        {tarea.manoObra.reduce((acc, m) => acc + m.horas, 0)} hs
                       </span>
                     </div>
-                    <h3 className="text-base font-semibold text-on-surface mt-2">{tarea.nombre}</h3>
                   </div>
-                  <div className="flex items-center gap-1">
+
+                  {/* Costos Footer */}
+                  <div className="pt-3 border-t border-outline-variant/30 flex items-baseline justify-between">
+                    <div>
+                      <span className="text-[10px] text-on-surface-variant uppercase block">Costo Directo Base</span>
+                      <span className="font-mono text-base font-extrabold text-primary">
+                        {formatARS(costData.costoDirectoUnitario)}
+                      </span>
+                      <span className="text-[10px] text-on-surface-variant font-normal"> /{tarea.unidad}</span>
+                    </div>
+
                     <button
-                      onClick={() => handleDuplicateTarea(tarea)}
-                      className="p-2 text-on-surface-variant hover:text-primary rounded-full hover:bg-primary/10 transition-colors"
-                      aria-label={`Duplicar ${tarea.nombre}`}
-                      title="Crear tarea similar"
+                      onClick={() => {
+                        setSimulatedTareaId(tarea.id);
+                        setActiveSubmodulo('simulacion');
+                      }}
+                      className="px-3 py-1.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-xl text-xs font-semibold flex items-center gap-1"
                     >
-                      <Copy className="w-4 h-4" />
+                      <Sliders className="w-3.5 h-3.5" />
+                      <span>Simular</span>
                     </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* SUBMÓDULO 2: SIMULACIÓN WHAT-IF */}
+      {activeSubmodulo === 'simulacion' && selectedSimTarea && (
+        <div className="space-y-6">
+          {/* Selector de Tarea para simular */}
+          <div className="bg-surface-container-low p-4 rounded-3xl border border-outline-variant/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <span className="text-xs text-primary font-bold uppercase tracking-wider">Escenario What-If</span>
+              <h3 className="text-lg font-bold text-on-surface">Simulación de Variación de Costos & Márgenes</h3>
+            </div>
+
+            <select
+              value={simulatedTareaId}
+              onChange={(e) => setSimulatedTareaId(e.target.value)}
+              className={`${inputCls} sm:w-72 font-semibold`}
+            >
+              {tareasTipo.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.nombre} ({formatARS(calcularCostoTareaTipo(t, insumosMap, manoObraMap).costoDirectoUnitario)})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Sliders Control Panel */}
+            <div className="lg:col-span-2 bg-surface-container-low rounded-3xl p-6 border border-outline-variant/20 space-y-6 shadow-sm">
+              <h4 className="text-sm font-bold text-on-surface uppercase tracking-wider flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-primary" />
+                <span>Parámetros de Variación Temp</span>
+              </h4>
+
+              {/* Slider 1: Materiales % */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <label className="font-semibold text-on-surface">Aumento en Costo de Materiales (%):</label>
+                  <span className={`font-mono font-bold text-sm px-2.5 py-0.5 rounded-full ${simMaterialesPct > 0 ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' : simMaterialesPct < 0 ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface-variant text-on-surface'}`}>
+                    {simMaterialesPct > 0 ? `+${simMaterialesPct}%` : `${simMaterialesPct}%`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="-30"
+                  max="100"
+                  step="5"
+                  value={simMaterialesPct}
+                  onChange={(e) => setSimMaterialesPct(parseInt(e.target.value) || 0)}
+                  className="w-full accent-primary h-2 bg-surface-container-highest rounded-lg cursor-pointer"
+                />
+              </div>
+
+              {/* Slider 2: Mano de Obra % */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <label className="font-semibold text-on-surface">Aumento en Costo Hora Mano de Obra (%):</label>
+                  <span className={`font-mono font-bold text-sm px-2.5 py-0.5 rounded-full ${simManoObraPct > 0 ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' : simManoObraPct < 0 ? 'bg-emerald-500/20 text-emerald-600' : 'bg-surface-variant text-on-surface'}`}>
+                    {simManoObraPct > 0 ? `+${simManoObraPct}%` : `${simManoObraPct}%`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="-30"
+                  max="100"
+                  step="5"
+                  value={simManoObraPct}
+                  onChange={(e) => setSimManoObraPct(parseInt(e.target.value) || 0)}
+                  className="w-full accent-primary h-2 bg-surface-container-highest rounded-lg cursor-pointer"
+                />
+              </div>
+
+              {/* Slider 3: Horas Adicionales */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <label className="font-semibold text-on-surface">Horas Adicionales / Ayudante Extra:</label>
+                  <span className="font-mono font-bold text-sm text-primary px-2.5 py-0.5 bg-primary/10 rounded-full">
+                    +{simHorasExtra} hs
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="8"
+                  step="0.5"
+                  value={simHorasExtra}
+                  onChange={(e) => setSimHorasExtra(parseFloat(e.target.value) || 0)}
+                  className="w-full accent-primary h-2 bg-surface-container-highest rounded-lg cursor-pointer"
+                />
+              </div>
+
+              {/* Slider 4: Margen Objetivo % */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <label className="font-semibold text-on-surface">Margen de Ganancia Objetivo (%):</label>
+                  <span className="font-mono font-bold text-sm text-emerald-600 dark:text-emerald-400 px-2.5 py-0.5 bg-emerald-500/10 rounded-full">
+                    {simMargenPct}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="70"
+                  step="1"
+                  value={simMargenPct}
+                  onChange={(e) => setSimMargenPct(parseInt(e.target.value) || 35)}
+                  className="w-full accent-emerald-500 h-2 bg-surface-container-highest rounded-lg cursor-pointer"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-outline-variant/30 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSimMaterialesPct(0);
+                    setSimManoObraPct(0);
+                    setSimHorasExtra(0);
+                    setSimMargenPct(config?.margenPorDefectoPct || 35);
+                  }}
+                  className="px-4 py-2 bg-surface-variant hover:bg-surface-container-highest rounded-full text-xs font-semibold text-on-surface-variant flex items-center gap-1.5 transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Restablecer Simulación</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Results Dashboard Panel */}
+            <div className="bg-surface-container border border-outline-variant/30 rounded-3xl p-6 space-y-5 shadow-md flex flex-col justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-primary uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  <span>Resultados Proyectados</span>
+                </h4>
+
+                <div className="space-y-3">
+                  <div className="flex justify-between text-xs py-1 border-b border-outline-variant/20">
+                    <span className="text-on-surface-variant">Insumos Simulados:</span>
+                    <span className="font-mono font-semibold text-on-surface">{formatARS(simCostInsumos)}</span>
+                  </div>
+
+                  <div className="flex justify-between text-xs py-1 border-b border-outline-variant/20">
+                    <span className="text-on-surface-variant">Mano de Obra Simulado ({simHorasTotalesMo}h):</span>
+                    <span className="font-mono font-semibold text-on-surface">{formatARS(simCostManoObra)}</span>
+                  </div>
+
+                  <div className="flex justify-between text-sm py-2 border-b border-outline-variant/30 font-bold">
+                    <span className="text-on-surface">Costo Directo Simulado:</span>
+                    <span className="font-mono text-primary">{formatARS(simCostDirectoTotal)}</span>
+                  </div>
+
+                  <div className="flex justify-between text-xs py-1 text-emerald-600 dark:text-emerald-400">
+                    <span>Ganancia Proyectada ({simMargenPct}%):</span>
+                    <span className="font-mono font-bold">{formatARS(simGanancia)}</span>
+                  </div>
+                </div>
+
+                <div className="mt-6 p-4 rounded-2xl bg-primary-container/40 border border-primary/20 text-center">
+                  <span className="text-xs text-on-surface-variant uppercase font-semibold block">Precio Venta Sugerido</span>
+                  <div className="font-mono text-2xl font-extrabold text-primary mt-1">
+                    {formatARS(simPrecioVenta)}
+                  </div>
+                  <span className="text-[10px] text-on-surface-variant block mt-0.5">por {selectedSimTarea.unidad}</span>
+                </div>
+              </div>
+
+              {/* Variación vs Base */}
+              <div className="pt-3 border-t border-outline-variant/30 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-on-surface-variant">Variación Costo vs Base:</span>
+                  <span className={`font-mono font-bold ${variacionCostoDirectoPct > 0 ? 'text-rose-500' : variacionCostoDirectoPct < 0 ? 'text-emerald-500' : 'text-on-surface-variant'}`}>
+                    {variacionCostoDirectoPct > 0 ? `+${variacionCostoDirectoPct}%` : `${variacionCostoDirectoPct}%`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUBMÓDULO 3: MOTOR ESTADÍSTICO EMA & DISPERSIÓN */}
+      {activeSubmodulo === 'calibracion' && (
+        <div className="space-y-6">
+          <div className="bg-surface-container-low p-5 rounded-3xl border border-outline-variant/20 space-y-2">
+            <h3 className="font-bold text-base text-on-surface flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-primary" />
+              <span>Calibración Estadística EMA (Media Móvil Exponencial)</span>
+            </h3>
+            <p className="text-xs text-on-surface-variant">
+              Compara el tiempo teórico de catálogo contra el historial real registrado en obra. El factor EMA ajusta dinámicamente las estimaciones futuras.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {tareasTipo.map((tarea) => {
+              const disp = calcularDispersionHorasTarea(tarea, registrosTrabajo, config?.alphaEmaManoObra || 0.3);
+
+              return (
+                <div key={tarea.id} className="bg-surface-container-low border border-outline-variant/20 rounded-3xl p-5 space-y-4 shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-[10px] font-bold text-on-tertiary-container bg-tertiary-container px-2 py-0.5 rounded-full uppercase">
+                        {tarea.categoria}
+                      </span>
+                      <h4 className="font-bold text-on-surface text-base mt-1">{tarea.nombre}</h4>
+                    </div>
+                    <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-primary-container text-on-primary-container shrink-0">
+                      {disp.factorEMAActual.toFixed(2)}x EMA
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex justify-between text-on-surface-variant">
+                      <span>Muestras de obra:</span>
+                      <span className="font-mono font-bold text-on-surface">{disp.nMuestras} registros</span>
+                    </div>
+                    <div className="flex justify-between text-on-surface-variant">
+                      <span>Horas Base Catálogo:</span>
+                      <span className="font-mono text-on-surface">{disp.horasEstimadasBase} hs/{tarea.unidad}</span>
+                    </div>
+                    <div className="flex justify-between text-on-surface-variant">
+                      <span>Mínimo / Máximo Real:</span>
+                      <span className="font-mono text-on-surface">
+                        {disp.nMuestras > 0 ? `${disp.minHorasUnidad}h — ${disp.maxHorasUnidad}h` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-on-surface-variant">
+                      <span>Promedio Real:</span>
+                      <span className="font-mono text-primary font-bold">
+                        {disp.nMuestras > 0 ? `${disp.promedioHorasUnidad} hs` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-on-surface-variant">
+                      <span>Desviación Estándar (σ):</span>
+                      <span className="font-mono text-on-surface">
+                        {disp.nMuestras > 0 ? `±${disp.desviacionEstandar} hs` : '—'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-outline-variant/30 flex justify-between items-center">
+                    <div>
+                      <span className="text-[10px] text-on-surface-variant uppercase block">Factor Sugerido EMA</span>
+                      <span className="font-mono text-sm font-bold text-primary">{disp.factorEmaSugerido.toFixed(2)}x</span>
+                    </div>
+
                     <button
-                      onClick={() => handleOpenEdit(tarea)}
-                      className="p-2 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-variant transition-colors"
-                      aria-label={`Editar ${tarea.nombre}`}
+                      onClick={() => handleCalibrarEma(tarea.id, disp.factorEmaSugerido)}
+                      disabled={disp.nMuestras === 0}
+                      className="px-3.5 py-2 bg-primary text-on-primary hover:bg-primary/90 disabled:opacity-40 rounded-xl text-xs font-semibold transition-colors shadow-xs"
                     >
-                      <Edit2 className="w-4 h-4" />
+                      Aplicar EMA
                     </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* SUBMÓDULO 4: AUDITORÍA DE RENTABILIDAD & ALERTAS */}
+      {activeSubmodulo === 'auditoria' && (
+        <div className="space-y-6">
+          <div className="bg-surface-container-low p-5 rounded-3xl border border-outline-variant/20 space-y-2">
+            <h3 className="font-bold text-base text-on-surface flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-primary" />
+              <span>Auditoría de Rentabilidad & Materiales Discontinuados</span>
+            </h3>
+            <p className="text-xs text-on-surface-variant">
+              Semáforo de salud técnica. Detecta automáticamente tareas con insumos obsoletos (`activo: false`) o cuyo margen proyectado cayó por debajo del {config?.umbralMargenMinimoAdvertencia || 20}%.
+            </p>
+          </div>
+
+          <div className="bg-surface-container-low border border-outline-variant/20 rounded-3xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-on-surface">
+                <thead className="bg-surface-container text-xs text-on-surface-variant border-b border-outline-variant/30">
+                  <tr>
+                    <th className="px-5 py-3.5 font-medium">Estado Semáforo</th>
+                    <th className="px-5 py-3.5 font-medium">Tarea Tipo</th>
+                    <th className="px-5 py-3.5 text-right font-medium">Costo Directo</th>
+                    <th className="px-5 py-3.5 text-right font-medium">Precio Venta</th>
+                    <th className="px-5 py-3.5 text-center font-medium">Margen Proyectado</th>
+                    <th className="px-5 py-3.5 font-medium">Alertas / Diagnóstico</th>
+                    <th className="px-5 py-3.5 text-right font-medium">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant/20">
+                  {tareasTipo.map((tarea) => {
+                    const audit = auditarRentabilidadTareaTipo(tarea, insumosMap, manoObraMap, config);
+
+                    return (
+                      <tr key={tarea.id} className="hover:bg-surface-container-highest/50 transition-colors">
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold capitalize ${
+                              audit.estado === 'verde'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                : audit.estado === 'amarillo'
+                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                                : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                            }`}
+                          >
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                audit.estado === 'verde'
+                                  ? 'bg-emerald-500'
+                                  : audit.estado === 'amarillo'
+                                  ? 'bg-amber-500'
+                                  : 'bg-rose-500'
+                              }`}
+                            />
+                            {audit.estado === 'verde' ? 'Sana' : audit.estado === 'amarillo' ? 'Alerta' : 'Riesgo Crítico'}
+                          </span>
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <div className="font-bold text-on-surface">{tarea.nombre}</div>
+                          <span className="text-xs text-on-surface-variant font-mono">[{tarea.categoria}]</span>
+                        </td>
+
+                        <td className="px-5 py-4 text-right font-mono font-bold text-primary">
+                          {formatARS(audit.costoDirecto)}
+                        </td>
+
+                        <td className="px-5 py-4 text-right font-mono font-bold text-on-surface">
+                          {formatARS(audit.precioVentaSugerido)}
+                        </td>
+
+                        <td className="px-5 py-4 text-center font-mono font-bold">
+                          <span
+                            className={
+                              audit.margenPorcentajeProyectado < (config?.umbralMargenMinimoAdvertencia || 20)
+                                ? 'text-rose-500 font-extrabold'
+                                : 'text-emerald-600 dark:text-emerald-400'
+                            }
+                          >
+                            {audit.margenPorcentajeProyectado}%
+                          </span>
+                        </td>
+
+                        <td className="px-5 py-4 text-xs space-y-1">
+                          {audit.alertas.length === 0 ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Ficha y margen en regla
+                            </span>
+                          ) : (
+                            audit.alertas.map((alt, idx) => (
+                              <div key={idx} className="text-rose-600 dark:text-rose-400 font-medium flex items-start gap-1">
+                                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                <span>{alt}</span>
+                              </div>
+                            ))
+                          )}
+                        </td>
+
+                        <td className="px-5 py-4 text-right">
+                          <button
+                            onClick={() => handleOpenEdit(tarea)}
+                            className="px-3 py-1.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-xl text-xs font-semibold"
+                          >
+                            Editar
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editor / Diseñador de Tarea Tipo */}
+      <ModalContainer
+        isOpen={isCreating || !!editingTarea}
+        onClose={() => {
+          setIsCreating(false);
+          setEditingTarea(null);
+        }}
+        title={editingTarea ? `Editar ${editingTarea.nombre}` : 'Diseñador de Tarea Tipo (Ensamble)'}
+        subtitle="Despiece de materiales y horas por categoría de mano de obra"
+        icon={<Layers className="w-5 h-5 text-primary" />}
+        maxWidth="2xl"
+      >
+        <form onSubmit={handleSaveTarea} className="space-y-5">
+          {/* General Data */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1">Nombre de la Tarea</label>
+              <input
+                type="text"
+                value={formData.nombre}
+                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                className={inputCls}
+                placeholder="Ej: Boca de Iluminación Completa (IUG)"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1">Categoría</label>
+              <select
+                value={formData.categoria}
+                onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
+                className={inputCls}
+              >
+                {CATEGORIAS_TAREA_LIST.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1">Unidad de Medida</label>
+              <input
+                type="text"
+                value={formData.unidad}
+                onChange={(e) => setFormData({ ...formData, unidad: e.target.value })}
+                className={inputCls}
+                placeholder="punto, m, u"
+                required
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1">Notas / Especificaciones Técnicas</label>
+              <input
+                type="text"
+                value={formData.notasTecnicas}
+                onChange={(e) => setFormData({ ...formData, notasTecnicas: e.target.value })}
+                className={inputCls}
+                placeholder="Especificaciones norma IRAM o montaje"
+              />
+            </div>
+          </div>
+
+          {/* Section: Insumos / Materiales */}
+          <div className="space-y-2 border-t border-outline-variant/30 pt-4">
+            <div className="flex justify-between items-center">
+              <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                <Package className="w-4 h-4" />
+                <span>Despiece de Insumos & Materiales</span>
+              </h4>
+              <button
+                type="button"
+                onClick={addInsumoRow}
+                className="text-xs text-primary font-semibold hover:underline flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" /> Agregar Insumo
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {formData.insumos.length === 0 ? (
+                <p className="text-xs text-on-surface-variant italic py-2">Sin materiales asignados a esta tarea.</p>
+              ) : (
+                formData.insumos.map((item, idx) => {
+                  const targetId = item.materialId || item.insumoId || '';
+                  const selectedMat = insumosMap.get(targetId);
+
+                  return (
+                    <div key={idx} className="flex items-center gap-2 bg-surface-container-low p-2 rounded-xl border border-outline-variant/20">
+                      <select
+                        value={targetId}
+                        onChange={(e) => {
+                          updateInsumoRow(idx, 'materialId', e.target.value);
+                          updateInsumoRow(idx, 'insumoId', e.target.value);
+                        }}
+                        className={`${inputCls} flex-1 text-xs`}
+                      >
+                        {Array.from(insumosMap.values()).map((ins) => (
+                          <option key={ins.id} value={ins.id}>
+                            {ins.nombre} {ins.precioActual ? `(${formatARS(ins.precioActual)})` : ''}
+                          </option>
+                        ))}
+                      </select>
+
+                      <div className="flex items-center gap-1 w-28 shrink-0">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={item.cantidad}
+                          onChange={(e) => updateInsumoRow(idx, 'cantidad', parseFloat(e.target.value) || 0)}
+                          className={`${inputCls} text-xs font-mono text-center px-1`}
+                        />
+                        <span className="text-[10px] text-on-surface-variant shrink-0">{selectedMat?.unidadVenta || 'u'}</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removeInsumoRow(idx)}
+                        className="p-1.5 text-on-surface-variant hover:text-error rounded-lg"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Section: Mano de Obra */}
+          <div className="space-y-2 border-t border-outline-variant/30 pt-4">
+            <div className="flex justify-between items-center">
+              <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                <Clock className="w-4 h-4" />
+                <span>Horas por Categoría de Mano de Obra</span>
+              </h4>
+              <button
+                type="button"
+                onClick={addManoObraRow}
+                className="text-xs text-primary font-semibold hover:underline flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" /> Agregar Mano de Obra
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-36 overflow-y-auto">
+              {formData.manoObra.length === 0 ? (
+                <p className="text-xs text-on-surface-variant italic py-2">Sin horas de mano de obra asignadas.</p>
+              ) : (
+                formData.manoObra.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-surface-container-low p-2 rounded-xl border border-outline-variant/20">
+                    <select
+                      value={item.categoriaId}
+                      onChange={(e) => updateManoObraRow(idx, 'categoriaId', e.target.value)}
+                      className={`${inputCls} flex-1 text-xs`}
+                    >
+                      {manoObraList.map((mo) => (
+                        <option key={mo.id} value={mo.id}>
+                          {mo.nombre} ({formatARS(mo.costoHora)}/h)
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="flex items-center gap-1 w-24 shrink-0">
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={item.horas}
+                        onChange={(e) => updateManoObraRow(idx, 'horas', parseFloat(e.target.value) || 0)}
+                        className={`${inputCls} text-xs font-mono text-center px-1`}
+                      />
+                      <span className="text-[10px] text-on-surface-variant shrink-0">hs</span>
+                    </div>
+
                     <button
-                      onClick={() => handleDelete(tarea.id)}
-                      className="p-2 text-on-surface-variant hover:text-error rounded-full hover:bg-error-container/30 transition-colors"
-                      aria-label={`Eliminar ${tarea.nombre}`}
+                      type="button"
+                      onClick={() => removeManoObraRow(idx)}
+                      className="p-1.5 text-on-surface-variant hover:text-error rounded-lg"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                </div>
-
-                {/* Indicador de Dispersión */}
-                <div className="bg-surface-container-highest/60 p-2.5 rounded-2xl flex items-center justify-between text-xs text-on-surface-variant border border-outline-variant/20">
-                  <div className="flex items-center gap-1.5 font-medium">
-                    <Activity className="w-3.5 h-3.5 text-secondary" />
-                    <span>Dispersión de Horas:</span>
-                  </div>
-                  {dispersion.count > 0 ? (
-                    <div className="font-mono text-[11px]">
-                      N={dispersion.count} · Ratio: {dispersion.minRatio.toFixed(2)}–{dispersion.maxRatio.toFixed(2)} · Desvío: ±{dispersion.desvioEstandar.toFixed(2)}
-                    </div>
-                  ) : (
-                    <span className="text-[11px] text-on-surface-variant/70 font-sans">Sin registros reales aún</span>
-                  )}
-                </div>
-
-                {tarea.notasTecnicas && (
-                  <p className="text-xs text-on-surface-variant bg-surface-container-highest/60 p-3 rounded-2xl flex items-start gap-2">
-                    <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-                    {tarea.notasTecnicas}
-                  </p>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="bg-surface-container-highest/50 p-3 rounded-2xl">
-                    <div className="font-semibold text-on-surface flex items-center gap-1.5 mb-2">
-                      <Package className="w-3.5 h-3.5 text-primary" />
-                      Insumos ({tarea.insumos.length})
-                    </div>
-                    <ul className="space-y-1 text-xs text-on-surface-variant">
-                      {tarea.insumos.map((item, i) => {
-                        const targetId = item.materialId || item.insumoId || '';
-                        const ins = insumosMap.get(targetId);
-                        return (
-                          <li key={i} className="truncate">
-                            · {item.cantidad} {ins?.unidadVenta || ins?.unidad || ''} × {ins?.nombre || 'Insumo'}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                  <div className="bg-surface-container-highest/50 p-3 rounded-2xl">
-                    <div className="font-semibold text-on-surface flex items-center gap-1.5 mb-2">
-                      <Clock className="w-3.5 h-3.5 text-primary" />
-                      Mano de Obra
-                    </div>
-                    <ul className="space-y-1 text-xs text-on-surface-variant">
-                      {tarea.manoObra.map((item, i) => {
-                        const mo = manoObraMap.get(item.categoriaId);
-                        return (
-                          <li key={i} className="truncate">
-                            · {item.horas} hs × {mo?.nombre || 'Categoría'}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer con costo */}
-              <div className="bg-surface-container border-t border-outline-variant/30 px-5 py-3.5 flex justify-between items-center">
-                <div>
-                  <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-medium">
-                    Costo directo / {tarea.unidad}
-                  </span>
-                  <div className="text-xs text-on-surface-variant mt-0.5">
-                    Mat: {formatARS(cost.costoInsumosUnitario)} · MO: {formatARS(cost.costoManoObraUnitario)}
-                  </div>
-                </div>
-                <div className="font-mono text-lg font-bold text-primary">{formatARS(cost.costoDirectoUnitario)}</div>
-              </div>
+                ))
+              )}
             </div>
-          );
-        })}
-      </div>
-
-      {/* Modal / Sheet Responsive de Edición (Optimizado Mobile Material 3 / Jetpack Compose UX) */}
-      {(isCreating || editingTarea) && (
-        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-surface-container border border-outline-variant/30 rounded-t-3xl sm:rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] text-on-surface">
-            {/* Header del Modal */}
-            <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-outline-variant/20 bg-surface-container-low flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="bg-primary/10 p-2 rounded-xl text-primary">
-                  <Layers className="w-5 h-5" />
-                </div>
-                <h3 className="text-sm sm:text-base font-bold text-on-surface">
-                  {isCreating ? 'Nueva Tarea Tipo (Ensamble)' : 'Editar Tarea Tipo'}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCreating(false);
-                  setEditingTarea(null);
-                }}
-                className="p-1.5 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Formulario Scrolleable */}
-            <form onSubmit={handleSaveTarea} className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 touch-pan-y">
-              {/* Tarjeta con cálculo del Costo Directo en tiempo real */}
-              <div className="bg-primary-container/40 border border-primary/20 p-3.5 rounded-2xl flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2 text-on-primary-container">
-                  <Calculator className="w-4 h-4 text-primary shrink-0" />
-                  <span className="font-medium">Costo Calculado por {formData.unidad || 'unidad'}:</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-sm font-bold font-mono text-primary block">
-                    {formatARS(tempCost.costoDirectoUnitario)}
-                  </span>
-                  <span className="text-[10px] text-on-surface-variant block">
-                    Mat: {formatARS(tempCost.costoInsumosUnitario)} + MO: {formatARS(tempCost.costoManoObraUnitario)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Datos principales (Nombre, Categoría, Unidad) */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-on-surface mb-1 flex items-center gap-1.5">
-                    <Tag className="w-3.5 h-3.5 text-primary" />
-                    Nombre de la Tarea Tipo *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.nombre}
-                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                    className={inputCls}
-                    placeholder="Ej: Boca de Iluminación Completa"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-on-surface mb-1">Categoría *</label>
-                    <input
-                      type="text"
-                      list="lista-categorias-tt"
-                      value={formData.categoria}
-                      onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
-                      className={inputCls}
-                      placeholder="Bocas, Circuitos, Tableros..."
-                      required
-                    />
-                    <datalist id="lista-categorias-tt">
-                      {CATEGORIAS_TAREA_LIST.map((c) => (
-                        <option key={c} value={c} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-on-surface mb-1">Unidad de Medida *</label>
-                    <input
-                      type="text"
-                      list="lista-unidades-tt"
-                      value={formData.unidad}
-                      onChange={(e) => setFormData({ ...formData, unidad: e.target.value })}
-                      className={inputCls}
-                      placeholder="punto, u, m, global"
-                      required
-                    />
-                    <datalist id="lista-unidades-tt">
-                      {BASE_UNITS.map((u) => (
-                        <option key={u} value={u} />
-                      ))}
-                    </datalist>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-on-surface mb-1 flex items-center gap-1.5">
-                    <BookOpen className="w-3.5 h-3.5 text-primary" />
-                    Notas Técnicas / Referencia Norma AEA (Opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.notasTecnicas}
-                    onChange={(e) => setFormData({ ...formData, notasTecnicas: e.target.value })}
-                    className={inputCls}
-                    placeholder="Ej: Norma AEA 90364-7-771 (Mínimo caño 3/4, cable 1.5mm²)"
-                  />
-                </div>
-              </div>
-
-              <hr className="border-outline-variant/30" />
-
-              {/* Insumos por Unidad */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <h4 className="text-xs sm:text-sm font-bold text-on-surface flex items-center gap-2">
-                    <Package className="w-4 h-4 text-primary" />
-                    Insumos Requeridos ({formData.insumos.length})
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={addInsumoRow}
-                    className="text-xs text-on-primary bg-primary hover:bg-primary/90 px-3 py-1.5 rounded-full flex items-center gap-1 font-semibold shadow-sm transition-all"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Agregar Material</span>
-                  </button>
-                </div>
-
-                {formData.insumos.length === 0 ? (
-                  <div className="text-center py-4 px-3 bg-surface-container-low rounded-2xl border border-dashed border-outline-variant/30 text-xs text-on-surface-variant">
-                    No has agregado insumos a esta tarea. Haz clic en "+ Agregar Material".
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {formData.insumos.map((item, idx) => {
-                      const targetId = item.materialId || item.insumoId || '';
-                      const selectedInsumo = insumosMap.get(targetId);
-                      return (
-                        <div
-                          key={idx}
-                          className="flex flex-col sm:flex-row sm:items-center gap-2 bg-surface-container-low p-3 sm:p-3.5 rounded-2xl border border-outline-variant/20 shadow-xs"
-                        >
-                          {/* Selector de Insumo - Ancho completo en mobile */}
-                          <div className="flex-1 min-w-0">
-                            <label className="block sm:hidden text-[10px] uppercase font-semibold text-on-surface-variant mb-1">
-                              Material #{idx + 1}
-                            </label>
-                            <select
-                              value={item.materialId || item.insumoId || ''}
-                              onChange={(e) => {
-                                updateInsumoRow(idx, 'materialId', e.target.value);
-                                updateInsumoRow(idx, 'insumoId', e.target.value);
-                              }}
-                              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 truncate"
-                            >
-                              {Array.from(insumosMap.values()).map((ins) => (
-                                <option key={ins.id} value={ins.id}>
-                                  {ins.nombre} ({formatARS(ins.precioActual || 0)}/{ins.unidadVenta || ins.unidad || 'u'})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {/* Cantidad y botón eliminar - Fila adaptativa */}
-                          <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-outline-variant/10">
-                            <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30">
-                              <span className="text-[11px] font-semibold text-on-surface-variant">Cant:</span>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0.01"
-                                value={item.cantidad}
-                                onChange={(e) => updateInsumoRow(idx, 'cantidad', parseFloat(e.target.value) || 0)}
-                                className="w-16 sm:w-20 bg-transparent text-xs text-on-surface font-mono font-bold text-center focus:outline-none"
-                              />
-                              <span className="text-[11px] text-on-surface-variant font-mono">
-                                {selectedInsumo?.unidadVenta || selectedInsumo?.unidad || ''}
-                              </span>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => removeInsumoRow(idx)}
-                              className="p-2 text-error hover:bg-error-container/30 rounded-xl transition-colors shrink-0"
-                              title="Eliminar insumo de la tarea"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <hr className="border-outline-variant/30" />
-
-              {/* Mano de Obra por Unidad */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <h4 className="text-xs sm:text-sm font-bold text-on-surface flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-primary" />
-                    Mano de Obra ({formData.manoObra.length})
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={addManoObraRow}
-                    className="text-xs text-on-primary bg-primary hover:bg-primary/90 px-3 py-1.5 rounded-full flex items-center gap-1 font-semibold shadow-sm transition-all"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Agregar Mano de Obra</span>
-                  </button>
-                </div>
-
-                {formData.manoObra.length === 0 ? (
-                  <div className="text-center py-4 px-3 bg-surface-container-low rounded-2xl border border-dashed border-outline-variant/30 text-xs text-on-surface-variant">
-                    No has asignado mano de obra a esta tarea. Haz clic en "+ Agregar Mano de Obra".
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {formData.manoObra.map((item, idx) => {
-                      const selectedMO = manoObraMap.get(item.categoriaId);
-                      return (
-                        <div
-                          key={idx}
-                          className="flex flex-col sm:flex-row sm:items-center gap-2 bg-surface-container-low p-3 sm:p-3.5 rounded-2xl border border-outline-variant/20 shadow-xs"
-                        >
-                          {/* Selector de Categoría MO - Ancho completo en mobile */}
-                          <div className="flex-1 min-w-0">
-                            <label className="block sm:hidden text-[10px] uppercase font-semibold text-on-surface-variant mb-1">
-                              Mano de Obra #{idx + 1}
-                            </label>
-                            <select
-                              value={item.categoriaId}
-                              onChange={(e) => updateManoObraRow(idx, 'categoriaId', e.target.value)}
-                              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 truncate"
-                            >
-                              {manoObraList.map((mo) => (
-                                <option key={mo.id} value={mo.id}>
-                                  {mo.nombre} ({formatARS(mo.costoHora)}/hs)
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {/* Horas y botón eliminar - Fila adaptativa */}
-                          <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-outline-variant/10">
-                            <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30">
-                              <span className="text-[11px] font-semibold text-on-surface-variant">Horas:</span>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0.01"
-                                value={item.horas}
-                                onChange={(e) => updateManoObraRow(idx, 'horas', parseFloat(e.target.value) || 0)}
-                                className="w-16 sm:w-20 bg-transparent text-xs text-on-surface font-mono font-bold text-center focus:outline-none"
-                              />
-                              <span className="text-[11px] text-on-surface-variant font-mono">hs</span>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => removeManoObraRow(idx)}
-                              className="p-2 text-error hover:bg-error-container/30 rounded-xl transition-colors shrink-0"
-                              title="Eliminar mano de obra"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Sticky / Anchored Footer */}
-              <div className="pt-4 border-t border-outline-variant/30 flex items-center justify-end gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCreating(false);
-                    setEditingTarea(null);
-                  }}
-                  className="px-4 py-2.5 rounded-full text-xs sm:text-sm font-semibold text-on-surface-variant hover:bg-surface-variant transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs sm:text-sm shadow-md transition-all"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>Guardar Tarea Tipo</span>
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
-      )}
+
+          {/* Live Cost Summary Preview */}
+          <div className="p-3.5 rounded-2xl bg-surface-container-high border border-outline-variant/30 flex justify-between items-center text-xs">
+            <div>
+              <span className="text-on-surface-variant block">Costo Directo Estimado</span>
+              <span className="font-mono font-bold text-primary text-base">{formatARS(tempCost.costoDirectoUnitario)}</span>
+            </div>
+            <div className="text-right font-mono text-on-surface-variant text-[11px]">
+              <div>Insumos: {formatARS(tempCost.costoInsumosUnitario)}</div>
+              <div>MO: {formatARS(tempCost.costoManoObraUnitario)}</div>
+            </div>
+          </div>
+
+          {/* Form Actions */}
+          <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsCreating(false);
+                setEditingTarea(null);
+              }}
+              className="px-4 py-2 rounded-full text-xs font-semibold text-on-surface-variant hover:bg-surface-variant"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-full text-xs shadow-sm active:scale-95"
+            >
+              <Save className="w-4 h-4" />
+              <span>Guardar Tarea Tipo</span>
+            </button>
+          </div>
+        </form>
+      </ModalContainer>
     </div>
   );
 };

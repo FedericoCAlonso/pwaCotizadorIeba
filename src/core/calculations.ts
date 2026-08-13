@@ -20,7 +20,9 @@ import {
   Presupuesto,
   EsquemaPago,
   ImpuestoItem,
-  TipoFactura
+  TipoFactura,
+  RegistroTrabajo,
+  AppConfig
 } from './types';
 
 // ─── Helper monetario (auditoría #7: CRITICAL) ───────────────────────────────
@@ -228,7 +230,7 @@ export function obtenerEstadoVencimientoInsumo(
 }
 
 /**
- * Alias/helper para determinar estado de vencimiento de una Oferta.
+ * Alias de compatibilidad para determinar estado de vencimiento de una Oferta.
  */
 export function obtenerEstadoVencimientoOferta(
   fechaActualizacion: string,
@@ -239,10 +241,9 @@ export function obtenerEstadoVencimientoOferta(
 }
 
 /**
- * Calcula la dispersión (mín, máx, desvío estándar) de las horas reales registradas por TareaTipo.
- * Spec v2 §1.4: Señal visual para el usuario.
+ * Alias de dispersión simple para interfaz retrocompatible.
  */
-export function calcularDispersionHorasTarea(
+export function calcularDispersionHorasTareaLegacy(
   registros: { tareaTipoId?: string; horasReales: number; cantidadEjecutada: number }[],
   tareaTipoId: string,
   horasEstimadasBase: number
@@ -276,7 +277,7 @@ export function calcularDispersionHorasTarea(
     minRatio: roundMoney(minRatio),
     maxRatio: roundMoney(maxRatio),
     avgRatio: roundMoney(avgRatio),
-    desvioEstandar: Math.round(desvioEstandar * 100) / 100
+    desvioEstandar: roundMoney(desvioEstandar)
   };
 }
 
@@ -513,4 +514,201 @@ export function formatNumber(val: number, decimals = 2): string {
   return safeNum(val, true).toLocaleString('es-AR', {
     maximumFractionDigits: decimals
   });
+}
+
+// ─── Fase 4: Estadísticas de Dispersión, EMA & Auditoría de Rentabilidad ──────
+
+export interface DispersionEstadisticaTarea {
+  tareaId: string;
+  nombreTarea: string;
+  nMuestras: number;
+  horasEstimadasBase: number;
+  factorEMAActual: number;
+  horasConFactorEMA: number;
+  minHorasUnidad: number;
+  maxHorasUnidad: number;
+  promedioHorasUnidad: number;
+  varianza: number;
+  desviacionEstandar: number;
+  emaHorasSugerido: number;
+  factorEmaSugerido: number;
+  desviacionPct: number;
+}
+
+/**
+ * Calcula las métricas estadísticas completas (min, max, promedio, varianza, EMA)
+ * de una TareaTipo basándose en los registros de trabajo de campo reales.
+ */
+export function calcularDispersionHorasTarea(
+  tarea: TareaTipo,
+  registros: RegistroTrabajo[],
+  alpha = 0.3
+): DispersionEstadisticaTarea {
+  const logs = registros.filter((r) => r.tareaTipoId === tarea.id);
+  const nMuestras = logs.length;
+  const horasEstimadasBase = safeNum(tarea.manoObra.reduce((acc, m) => acc + m.horas, 0));
+  const factorEMAActual = safeNum(tarea.factorCorreccion) || 1.0;
+  const horasConFactorEMA = roundMoney(horasEstimadasBase * factorEMAActual);
+
+  if (nMuestras === 0) {
+    return {
+      tareaId: tarea.id,
+      nombreTarea: tarea.nombre,
+      nMuestras: 0,
+      horasEstimadasBase,
+      factorEMAActual,
+      horasConFactorEMA,
+      minHorasUnidad: 0,
+      maxHorasUnidad: 0,
+      promedioHorasUnidad: 0,
+      varianza: 0,
+      desviacionEstandar: 0,
+      emaHorasSugerido: horasEstimadasBase,
+      factorEmaSugerido: factorEMAActual,
+      desviacionPct: 0
+    };
+  }
+
+  const horasUnitarias = logs.map((r) => {
+    const cant = safeNum(r.cantidadEjecutada) || 1;
+    return safeNum(r.horasReales) / cant;
+  });
+
+  const minHorasUnidad = Math.min(...horasUnitarias);
+  const maxHorasUnidad = Math.max(...horasUnitarias);
+  const suma = horasUnitarias.reduce((acc, h) => acc + h, 0);
+  const promedioHorasUnidad = suma / nMuestras;
+
+  const varianza = horasUnitarias.reduce((acc, h) => acc + Math.pow(h - promedioHorasUnidad, 2), 0) / nMuestras;
+  const desviacionEstandar = Math.sqrt(varianza);
+
+  // Cálculo secuencial de Media Móvil Exponencial (EMA)
+  let emaCurrent = horasEstimadasBase > 0 ? horasEstimadasBase : promedioHorasUnidad;
+  const a = Math.min(1.0, Math.max(0.01, safeNum(alpha) || 0.3));
+  for (const hReal of horasUnitarias) {
+    emaCurrent = emaCurrent * (1 - a) + hReal * a;
+  }
+
+  const emaHorasSugerido = Math.round(emaCurrent * 100) / 100;
+  const factorEmaSugerido = horasEstimadasBase > 0
+    ? Math.round((emaHorasSugerido / horasEstimadasBase) * 10000) / 10000
+    : 1.0;
+
+  const desviacionPct = horasEstimadasBase > 0
+    ? roundMoney(((promedioHorasUnidad - horasEstimadasBase) / horasEstimadasBase) * 100)
+    : 0;
+
+  return {
+    tareaId: tarea.id,
+    nombreTarea: tarea.nombre,
+    nMuestras,
+    horasEstimadasBase,
+    factorEMAActual,
+    horasConFactorEMA,
+    minHorasUnidad: roundMoney(minHorasUnidad),
+    maxHorasUnidad: roundMoney(maxHorasUnidad),
+    promedioHorasUnidad: roundMoney(promedioHorasUnidad),
+    varianza: roundMoney(varianza),
+    desviacionEstandar: roundMoney(desviacionEstandar),
+    emaHorasSugerido,
+    factorEmaSugerido,
+    desviacionPct
+  };
+}
+
+export interface ResultadoAuditoriaTarea {
+  tarea: TareaTipo;
+  costoDirecto: number;
+  costoInsumos: number;
+  costoManoObra: number;
+  precioVentaSugerido: number;
+  margenPorcentajeProyectado: number;
+  estado: 'verde' | 'amarillo' | 'rojo';
+  alertas: string[];
+  insumosInactivos: string[];
+  insumosIncompletos: string[];
+}
+
+/**
+ * Escanea y audita la salud técnica y rentabilidad de una TareaTipo.
+ * Detecta insumos discontinuados (`activo: false`), margen por debajo del umbral de seguridad,
+ * o desvíos significativos en horas reales de obra.
+ */
+export function auditarRentabilidadTareaTipo(
+  tarea: TareaTipo,
+  insumosMap: Map<string, Insumo>,
+  manoObraMap: Map<string, CategoriaManoDeObra>,
+  config?: AppConfig
+): ResultadoAuditoriaTarea {
+  const costoData = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap);
+  const costoDirecto = costoData.costoDirectoUnitario;
+  const costoInsumos = costoData.costoInsumosUnitario;
+  const costoManoObra = costoData.costoManoObraUnitario;
+
+  const margenPctDefecto = safeNum(config?.margenPorDefectoPct) || 35;
+  const umbralAdvertencia = safeNum(config?.umbralMargenMinimoAdvertencia) || 20;
+
+  // Precio de venta proyectado aplicando margen estándar
+  const factorMargen = 1 - (margenPctDefecto / 100);
+  const precioVentaSugerido = factorMargen > 0 ? roundMoney(costoDirecto / factorMargen) : roundMoney(costoDirecto * 1.35);
+  const margenPorcentajeProyectado = precioVentaSugerido > 0
+    ? roundMoney(((precioVentaSugerido - costoDirecto) / precioVentaSugerido) * 100)
+    : 0;
+
+  const alertas: string[] = [];
+  const insumosInactivos: string[] = [];
+  const insumosIncompletos: string[] = [];
+
+  // Check 1: Insumos descontinuados o incompletos
+  for (const item of tarea.insumos) {
+    const targetId = item.materialId || item.insumoId || '';
+    const mat = insumosMap.get(targetId);
+    if (!mat) {
+      alertas.push(`Material no encontrado en catálogo (ID: ${targetId})`);
+      insumosInactivos.push(targetId);
+    } else {
+      if (mat.activo === false) {
+        alertas.push(`Material discontinuado/obsoleto: "${mat.nombre}"`);
+        insumosInactivos.push(mat.nombre);
+      }
+      if (mat.fichaIncompleta) {
+        alertas.push(`Ficha técnica incompleta: "${mat.nombre}"`);
+        insumosIncompletos.push(mat.nombre);
+      }
+      if (!mat.precioActual || mat.precioActual <= 0) {
+        alertas.push(`Material sin precio de oferta vigente: "${mat.nombre}"`);
+      }
+    }
+  }
+
+  // Check 2: Evaluación de margen mínimo
+  if (margenPorcentajeProyectado < umbralAdvertencia) {
+    alertas.push(`Margen proyectado (${margenPorcentajeProyectado}%) por debajo del umbral mínimo (${umbralAdvertencia}%)`);
+  }
+
+  // Check 3: Factor EMA muy elevado (> 1.25x indica sobrecosto recurrente de mano de obra)
+  const factorEMA = safeNum(tarea.factorCorreccion) || 1.0;
+  if (factorEMA > 1.25) {
+    alertas.push(`Sobrecosto histórico de mano de obra: Factor EMA actual ${factorEMA.toFixed(2)}x`);
+  }
+
+  let estado: 'verde' | 'amarillo' | 'rojo' = 'verde';
+  if (insumosInactivos.length > 0 || margenPorcentajeProyectado < umbralAdvertencia || costoDirecto === 0) {
+    estado = 'rojo';
+  } else if (insumosIncompletos.length > 0 || factorEMA > 1.2 || alertas.length > 0) {
+    estado = 'amarillo';
+  }
+
+  return {
+    tarea,
+    costoDirecto,
+    costoInsumos,
+    costoManoObra,
+    precioVentaSugerido,
+    margenPorcentajeProyectado,
+    estado,
+    alertas,
+    insumosInactivos,
+    insumosIncompletos
+  };
 }
