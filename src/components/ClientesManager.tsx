@@ -20,7 +20,6 @@ import {
   XCircle,
   FileCheck,
   TrendingUp,
-  DollarSign,
   UserPlus
 } from 'lucide-react';
 import { db, importClientesCSV } from '../db/database';

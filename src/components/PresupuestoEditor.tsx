@@ -4,43 +4,30 @@ import {
   FileText,
   Plus,
   Trash2,
-  Save,
   CheckCircle,
-  Clock,
-  DollarSign,
   Calculator,
-  Percent,
   Calendar,
   Layers,
   Package,
-  ChevronDown,
   Lock,
   ArrowLeft,
-  Info,
   X,
   RotateCcw,
   Star,
-  Zap,
-  Copy,
   AlertCircle
 } from 'lucide-react';
 import { db } from '../db/database';
 import {
   Presupuesto,
   ItemPresupuesto,
-  EsquemaPago,
-  HitoPago,
   AppConfig,
   TareaTipo,
   Insumo,
   CategoriaManoDeObra,
-  CostoIndirecto,
   CostoIndirectoItemConfig,
   EstadoPresupuesto,
   TipoFactura,
-  ImpuestoItem,
-  TipoCostoIndirecto,
-  ServicioTercerizado
+  ImpuestoItem
 } from '../core/types';
 import {
   calcularCostoTareaTipo,
@@ -130,7 +117,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
   const [items, setItems] = useState<ItemPresupuesto[]>([]);
   const [costosIndirectosConfig, setCostosIndirectosConfig] = useState<CostoIndirectoItemConfig[]>([]);
-  const [estado, setEstado] = useState<EstadoPresupuesto>('borrador');
+  const [_estado, setEstado] = useState<EstadoPresupuesto>('borrador');
 
   // Modal selector TareaTipo
   const [showItemPickerModal, setShowItemPickerModal] = useState(false);
@@ -428,56 +415,6 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         costoDirectoTotal,
         precioVentaUnitario,
         precioVentaTotal: precioVentaUnitario * target.cantidad
-      };
-      return next;
-    });
-  };
-
-  const handleAddServicioTercerizadoToItem = (itemIndex: number) => {
-    setItems((prev) => {
-      const next = [...prev];
-      const target = next[itemIndex];
-      const servicios = target.serviciosTercerizados || [];
-
-      const newServicio: ServicioTercerizado = {
-        id: `serv-${crypto.randomUUID()}`,
-        descripcion: 'Subcontrato / Servicio Tercerizado',
-        costo: 20000,
-        margenPropio: undefined
-      };
-
-      const serviciosActualizados = [...servicios, newServicio];
-      const costoServiciosTercerizados = roundMoney(
-        serviciosActualizados.reduce((acc, s) => acc + s.costo, 0)
-      );
-
-      const costoDirectoTotal = roundMoney(target.costoInsumos + target.costoManoObra + costoServiciosTercerizados);
-      
-      next[itemIndex] = {
-        ...target,
-        serviciosTercerizados: serviciosActualizados,
-        costoServiciosTercerizados,
-        costoDirectoTotal
-      };
-      return next;
-    });
-  };
-
-  const handleRemoveServicioTercerizadoFromItem = (itemIndex: number, servicioId: string) => {
-    setItems((prev) => {
-      const next = [...prev];
-      const target = next[itemIndex];
-      const serviciosActualizados = (target.serviciosTercerizados || []).filter(s => s.id !== servicioId);
-      const costoServiciosTercerizados = roundMoney(
-        serviciosActualizados.reduce((acc, s) => acc + s.costo, 0)
-      );
-      const costoDirectoTotal = roundMoney(target.costoInsumos + target.costoManoObra + costoServiciosTercerizados);
-
-      next[itemIndex] = {
-        ...target,
-        serviciosTercerizados: serviciosActualizados,
-        costoServiciosTercerizados,
-        costoDirectoTotal
       };
       return next;
     });

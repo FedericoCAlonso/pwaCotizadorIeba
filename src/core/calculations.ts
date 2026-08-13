@@ -17,8 +17,6 @@ import {
   InsumoSnapshot,
   ManoObraSnapshot,
   CostoIndirectoSnapshot,
-  Presupuesto,
-  EsquemaPago,
   ImpuestoItem,
   TipoFactura,
   RegistroTrabajo,
@@ -351,7 +349,6 @@ export function calcularTotalesPresupuesto(params: {
     items,
     costosIndirectosCatalog = [],
     costosIndirectosConfig,
-    margenPorcentaje,
     impuestosDetalle,
     cotizacionMonedaExtranjera
   } = params;

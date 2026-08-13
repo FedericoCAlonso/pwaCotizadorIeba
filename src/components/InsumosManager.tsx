@@ -1,14 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  Package, Plus, Search, TrendingUp, History, FileSpreadsheet,
-  Edit2, Trash2, X, Save, Percent, Calendar, AlertCircle, Camera, CheckCircle2, Clock, ShieldAlert, Truck, Star, Tag, Layers, RefreshCw, Zap, ExternalLink, Copy, LayoutGrid, List
+  Package, Plus, Search, TrendingUp, FileSpreadsheet,
+  Edit2, Trash2, X, Save, AlertCircle, Star, Tag, Layers, RefreshCw, Zap, ExternalLink, Copy, LayoutGrid, List
 } from 'lucide-react';
-import { db, importInsumosCSV } from '../db/database';
-import { CategoriaMaterial, Material, Producto, Oferta, IndiceReferencia } from '../core/types';
+import { db } from '../db/database';
+import { CategoriaMaterial, Material, Producto, Oferta } from '../core/types';
 import { formatARS, obtenerEstadoVencimientoOferta } from '../core/calculations';
 import { TIPOS_AJUSTE_PRECIO, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL } from '../core/sampleData';
-import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { ImportCatalogModal } from './ImportCatalogModal';
 
 const inputCls = "w-full px-3.5 py-2.5 text-base sm:text-xs rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]";

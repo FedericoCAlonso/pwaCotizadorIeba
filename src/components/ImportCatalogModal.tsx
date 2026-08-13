@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
-  X, FileSpreadsheet, Upload, CheckCircle2, AlertCircle, ArrowRight, Table, Download, RefreshCw
+  X, FileSpreadsheet, Upload, CheckCircle2, ArrowRight, Table, Download, RefreshCw
 } from 'lucide-react';
 import { db } from '../db/database';
 import { Material, Producto, Oferta, CategoriaMaterial } from '../core/types';

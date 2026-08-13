@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, initializeDatabaseSeed } from './db/database';
 import { AppConfig, Presupuesto } from './core/types';

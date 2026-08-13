@@ -3,15 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import {
   ArrowLeft,
   Printer,
-  Download,
   Copy,
-  CheckCircle2,
-  Clock,
-  Zap,
-  Building,
-  Calendar,
-  FileText,
-  DollarSign
+  Zap
 } from 'lucide-react';
 import { db } from '../db/database';
 import { AppConfig, Presupuesto, EstadoPresupuesto } from '../core/types';
@@ -54,14 +47,6 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
   const handleUpdateStatus = async (nuevoEstado: EstadoPresupuesto) => {
     await db.presupuestos.update(presupuesto.id, { estado: nuevoEstado });
   };
-
-  const statusBadge = {
-    borrador: { label: 'BORRADOR', bg: 'bg-slate-800 text-slate-300 border-slate-700' },
-    enviado: { label: 'ENVIADO', bg: 'bg-amber-500/10 text-amber-400 border-amber-500/30' },
-    aprobado: { label: 'APROBADO', bg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' },
-    rechazado: { label: 'RECHAZADO', bg: 'bg-rose-500/10 text-rose-400 border-rose-500/30' },
-    vencido: { label: 'VENCIDO', bg: 'bg-slate-800 text-slate-500 border-slate-700' }
-  }[presupuesto.estado];
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">

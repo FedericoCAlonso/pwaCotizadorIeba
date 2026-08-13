@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Save, Building, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Save, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle } from 'lucide-react';
 import { AppConfig } from '../core/types';
 import { db } from '../db/database';
 import { TIPOS_FACTURA, DEFAULT_APP_CONFIG } from '../core/sampleData';

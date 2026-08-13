@@ -22,7 +22,6 @@ import {
   AlertCircle,
   RefreshCw,
   LogOut,
-  User as UserIcon,
   ShieldCheck,
   Send,
   ShoppingCart,

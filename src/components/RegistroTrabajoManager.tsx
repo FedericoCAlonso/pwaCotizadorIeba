@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { HardHat, Plus, Save, Trash2, TrendingUp, X, AlertTriangle, Clock, Layers, Calendar, FileText, Check } from 'lucide-react';
+import { HardHat, Plus, Save, Trash2, TrendingUp } from 'lucide-react';
 import { db } from '../db/database';
-import { RegistroTrabajo, TareaTipo, CategoriaManoDeObra, MotivoDesvio, MOTIVO_DESVIO_ETIQUETAS } from '../core/types';
+import { RegistroTrabajo, TareaTipo, MotivoDesvio, MOTIVO_DESVIO_ETIQUETAS } from '../core/types';
 import { formatNumber, calcularNuevoFactorEMA } from '../core/calculations';
 import { CONDICIONES_TRABAJO, MOTIVOS_DESVIO } from '../core/sampleData';
 import { ModalContainer } from './ModalContainer';
@@ -17,7 +17,6 @@ export const RegistroTrabajoManager: React.FC = () => {
   const config = configs[0];
 
   const tareasMap = new Map<string, TareaTipo>(tareasTipo.map((t) => [t.id, t]));
-  const manoObraMap = new Map<string, CategoriaManoDeObra>(manoObraList.map((m) => [m.id, m]));
   const clientesMap = new Map(clientes.map((c) => [c.id, c]));
 
   const [isCreating, setIsCreating] = useState(false);

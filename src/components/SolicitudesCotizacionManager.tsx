@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  FileText,
   Plus,
   Send,
-  CheckCircle2,
-  Clock,
-  MessageCircle,
   Copy,
   DollarSign,
   Trash2,
-  Edit2,
   X,
   Save,
   Check

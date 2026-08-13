@@ -2,9 +2,7 @@ import {
   collection,
   doc,
   getDocs,
-  writeBatch,
-  setDoc,
-  deleteDoc
+  writeBatch
 } from 'firebase/firestore';
 import { dbFirestore } from '../config/firebase';
 import { db } from '../db/database';

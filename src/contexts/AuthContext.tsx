@@ -11,7 +11,6 @@ import {
 import { auth, googleProvider, isFirebaseConfigured } from '../config/firebase';
 import {
   syncUserData,
-  flushPendingSync,
   startSyncScheduler,
   stopSyncScheduler,
   setupDexieHooks,

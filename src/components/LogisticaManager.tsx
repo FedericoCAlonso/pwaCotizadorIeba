@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Truck, CheckSquare, Square, ShoppingCart, Send, Mail, Copy } from 'lucide-react';
 import { db } from '../db/database';
-import { Presupuesto, Material, Producto, Proveedor, InsumoSnapshot } from '../core/types';
+import { Proveedor, InsumoSnapshot } from '../core/types';
 import { formatARS } from '../core/calculations';
 
 interface ConsolidatedItem {

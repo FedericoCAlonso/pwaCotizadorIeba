@@ -8,8 +8,7 @@ import {
   calcularNuevoFactorEMA,
   obtenerMultiplicadorCondicion,
   obtenerEstadoVencimientoInsumo,
-  calcularDispersionHorasTareaLegacy,
-  calcularDispersionHorasTarea
+  calcularDispersionHorasTareaLegacy
 } from './calculations';
 import { Insumo, CategoriaManoDeObra, CostoIndirecto, TareaTipo, ItemPresupuesto } from './types';
 

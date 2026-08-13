@@ -5,27 +5,20 @@ import {
   Plus,
   Edit2,
   Trash2,
-  X,
   Save,
   Package,
   Clock,
-  Info,
-  Activity,
   Calculator,
-  Tag,
   BookOpen,
   Copy,
-  TrendingUp,
   AlertTriangle,
   CheckCircle2,
   ShieldAlert,
-  Zap,
   Sliders,
   Sparkles,
   BarChart3,
   RefreshCw,
-  Search,
-  ExternalLink
+  Search
 } from 'lucide-react';
 import { db } from '../db/database';
 import {
@@ -39,12 +32,10 @@ import {
 import {
   calcularCostoTareaTipo,
   formatARS,
-  formatNumber,
   calcularDispersionHorasTarea,
   auditarRentabilidadTareaTipo,
   roundMoney
 } from '../core/calculations';
-import { BASE_UNITS } from '../core/sampleData';
 import { ModalContainer } from './ModalContainer';
 
 const CATEGORIAS_TAREA_LIST = Object.values(CATEGORIA_TAREA);

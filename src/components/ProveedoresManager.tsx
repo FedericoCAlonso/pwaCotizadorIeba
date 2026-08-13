@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Truck, Plus, Edit2, Trash2, X, Save, Phone, Mail, MapPin, User, FileSpreadsheet, MessageCircle, Globe, ExternalLink, UserPlus } from 'lucide-react';
+import { Truck, Plus, Edit2, Trash2, X, Save, Phone, Mail, User, FileSpreadsheet, MessageCircle, Globe, UserPlus } from 'lucide-react';
 import { db, importProveedoresCSV } from '../db/database';
-import { Proveedor, Contacto, CanalContacto } from '../core/types';
+import { Proveedor } from '../core/types';
 import { TIPOS_PROVEEDOR } from '../core/sampleData';
 
 export const ProveedoresManager: React.FC = () => {
