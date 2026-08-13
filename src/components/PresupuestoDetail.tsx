@@ -16,6 +16,7 @@ import {
 import { db } from '../db/database';
 import { AppConfig, Presupuesto, EstadoPresupuesto } from '../core/types';
 import { formatARS, formatUSD } from '../core/calculations';
+import { ESTADOS_PRESUPUESTO } from '../core/sampleData';
 
 interface PresupuestoDetailProps {
   presupuestoId: string;
@@ -101,11 +102,11 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
             onChange={(e) => handleUpdateStatus(e.target.value as EstadoPresupuesto)}
             className="bg-surface-container-highest border-none rounded-full px-4 py-2 text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 capitalize cursor-pointer transition-shadow hover:shadow-sm"
           >
-            <option value="borrador">Borrador</option>
-            <option value="enviado">Enviado</option>
-            <option value="aprobado">Aprobado</option>
-            <option value="rechazado">Rechazado</option>
-            <option value="vencido">Vencido</option>
+            {ESTADOS_PRESUPUESTO.filter(e => e !== 'todos').map((st) => (
+              <option key={st} value={st}>
+                {st.charAt(0).toUpperCase() + st.slice(1)}
+              </option>
+            ))}
           </select>
 
           <button

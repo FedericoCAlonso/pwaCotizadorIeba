@@ -11,7 +11,16 @@ import appConfigData from '../config/appConfig.json';
 
 const now = new Date().toISOString();
 
-export const DEFAULT_APP_CONFIG: AppConfig = appConfigData.defaultAppConfig as AppConfig;
+export interface OptionConfig<T = string> {
+  value: T;
+  label: string;
+  multiplicador?: number;
+  description?: string;
+}
+
+export const DEFAULT_APP_CONFIG: AppConfig = {
+  ...appConfigData.defaultAppConfig
+} as AppConfig;
 
 export const INITIAL_INSUMOS: Insumo[] = (appConfigData.initialInsumos as Partial<Insumo>[]).map((ins) => ({
   id: ins.id || `ins-${crypto.randomUUID()}`,
@@ -45,3 +54,24 @@ export const CONDICIONES_IVA: string[] = appConfigData.condicionesIVA;
 export const TIPOS_FACTURA: string[] = appConfigData.tiposFactura;
 export const ESTADOS_PRESUPUESTO: string[] = appConfigData.estadosPresupuesto;
 export const ESTADOS_REGISTRO_TRABAJO: string[] = appConfigData.estadosRegistroTrabajo;
+
+export const CONDICIONES_TRABAJO: OptionConfig<'normal' | 'dificultosa' | 'favorable'>[] =
+  appConfigData.condicionesTrabajo as OptionConfig<'normal' | 'dificultosa' | 'favorable'>[];
+
+export const MOTIVOS_DESVIO: OptionConfig<string>[] =
+  appConfigData.motivosDesvio as OptionConfig<string>[];
+
+export const TIPOS_PROVEEDOR: OptionConfig<'material' | 'servicio' | 'ambos'>[] =
+  appConfigData.tiposProveedor as OptionConfig<'material' | 'servicio' | 'ambos'>[];
+
+export const TIPOS_COSTO_INDIRECTO: OptionConfig<'porcentual_sobre_costo' | 'por_visita' | 'fijo_mensual'>[] =
+  appConfigData.tiposCostoIndirecto as OptionConfig<'porcentual_sobre_costo' | 'por_visita' | 'fijo_mensual'>[];
+
+export const MEDIOS_PAGO: OptionConfig<'efectivo' | 'transferencia' | 'cheque' | 'otro'>[] =
+  appConfigData.mediosPago as OptionConfig<'efectivo' | 'transferencia' | 'cheque' | 'otro'>[];
+
+export const MODALIDADES_PAGO: OptionConfig<'pago_unico' | 'adelanto_saldo' | 'certificados_avance' | 'cuotas'>[] =
+  appConfigData.modalidadesPago as OptionConfig<'pago_unico' | 'adelanto_saldo' | 'certificados_avance' | 'cuotas'>[];
+
+export const TIPOS_AJUSTE_PRECIO: OptionConfig<string>[] =
+  appConfigData.tiposAjustePrecio as OptionConfig<string>[];

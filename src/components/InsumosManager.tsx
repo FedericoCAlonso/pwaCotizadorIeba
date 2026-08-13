@@ -7,7 +7,7 @@ import {
 import { db, importInsumosCSV } from '../db/database';
 import { Insumo, Proveedor, OfertaProveedor, IndiceReferencia } from '../core/types';
 import { formatARS, obtenerEstadoVencimientoInsumo } from '../core/calculations';
-import { BASE_CATEGORIES, BASE_UNITS } from '../core/sampleData';
+import { BASE_CATEGORIES, BASE_UNITS, TIPOS_AJUSTE_PRECIO, DEFAULT_APP_CONFIG } from '../core/sampleData';
 import { AutocompleteInput } from './AutocompleteInput';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
 
@@ -142,7 +142,7 @@ export const InsumosManager: React.FC = () => {
 
     if (tipoAjusteIndice === 'dolar_blue') {
       porcentajeAplicar = massPercentage; 
-      indiceRefObj = { nombre: config?.dolarReferenciaNombre || 'Dólar Blue', valor: config?.dolarReferenciaValor || 1350 };
+      indiceRefObj = { nombre: config?.dolarReferenciaNombre || DEFAULT_APP_CONFIG.dolarReferenciaNombre, valor: config?.dolarReferenciaValor || DEFAULT_APP_CONFIG.dolarReferenciaValor };
     } else if (tipoAjusteIndice === 'ipc') {
       porcentajeAplicar = ipcManualPct;
       indiceRefObj = { nombre: 'IPC (Índice Precios Consumidor)', valor: ipcManualPct };
@@ -700,10 +700,13 @@ export const InsumosManager: React.FC = () => {
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Índice / Mecanismo de Referencia</label>
                 <select value={tipoAjusteIndice} onChange={(e) => setTipoAjusteIndice(e.target.value as any)} className={inputCls}>
-                  <option value="porcentaje">% Porcentaje Manual Directo</option>
-                  <option value="dolar_blue">Dólar Blue (Ref: ${config?.dolarReferenciaValor || 1350})</option>
-                  <option value="ipc">IPC (Índice de Precios al Consumidor)</option>
-                  <option value="canasta">Canasta Eléctrica IEBA</option>
+                  {TIPOS_AJUSTE_PRECIO.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.value === 'dolar_blue'
+                        ? `${t.label} (Ref: $${config?.dolarReferenciaValor || DEFAULT_APP_CONFIG.dolarReferenciaValor})`
+                        : t.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -718,7 +721,7 @@ export const InsumosManager: React.FC = () => {
                 <div>
                   <label className="block text-xs text-on-surface-variant mb-1">Variación del Dólar (%)</label>
                   <input type="number" step="0.1" value={massPercentage} onChange={(e) => setMassPercentage(parseFloat(e.target.value) || 0)} className={`${inputCls} font-mono`} />
-                  <p className="text-[11px] text-on-surface-variant mt-1">Ref Dólar Actual: ${config?.dolarReferenciaValor || 1350}</p>
+                  <p className="text-[11px] text-on-surface-variant mt-1">Ref Dólar Actual: ${config?.dolarReferenciaValor || DEFAULT_APP_CONFIG.dolarReferenciaValor}</p>
                 </div>
               )}
 

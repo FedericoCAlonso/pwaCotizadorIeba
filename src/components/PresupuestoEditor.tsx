@@ -48,6 +48,11 @@ import {
   obtenerMultiplicadorCondicion,
   roundMoney
 } from '../core/calculations';
+import {
+  TIPOS_FACTURA,
+  CONDICIONES_TRABAJO,
+  DEFAULT_APP_CONFIG
+} from '../core/sampleData';
 
 interface PresupuestoEditorProps {
   presupuestoId?: string; // If editing existing
@@ -79,23 +84,23 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   );
 
   const [tipoFactura, setTipoFactura] = useState<TipoFactura>(
-    config.tipoFacturaPorDefecto || 'Factura B'
+    config.tipoFacturaPorDefecto || DEFAULT_APP_CONFIG.tipoFacturaPorDefecto
   );
   const [impuestosDetalle, setImpuestosDetalle] = useState<ImpuestoItem[]>(
     generarImpuestosPorDefecto(
-      config.tipoFacturaPorDefecto || 'Factura B',
-      config.porcentajeIVAPorDefecto ?? 21,
-      config.porcentajeIIBBPorDefecto ?? 3.5
+      config.tipoFacturaPorDefecto || DEFAULT_APP_CONFIG.tipoFacturaPorDefecto,
+      config.porcentajeIVAPorDefecto ?? DEFAULT_APP_CONFIG.porcentajeIVAPorDefecto,
+      config.porcentajeIIBBPorDefecto ?? DEFAULT_APP_CONFIG.porcentajeIIBBPorDefecto
     )
   );
 
   const [clienteId, setClienteId] = useState<string>('');
-  const [validezDias, setValidezDias] = useState<number>(config.validezDiasPorDefecto || 15);
-  const [margenPorcentaje, setMargenPorcentaje] = useState<number>(config.margenPorDefectoPct || 35);
+  const [validezDias, setValidezDias] = useState<number>(config.validezDiasPorDefecto || DEFAULT_APP_CONFIG.validezDiasPorDefecto);
+  const [margenPorcentaje, setMargenPorcentaje] = useState<number>(config.margenPorDefectoPct || DEFAULT_APP_CONFIG.margenPorDefectoPct);
   
-  const [mostrarDolar, setMostrarDolar] = useState<boolean>(config.mostrarDolarPorDefecto ?? true);
-  const [nombreDolar, setNombreDolar] = useState<string>(config.dolarReferenciaNombre || 'USD Blue');
-  const [cotizacionDolar, setCotizacionDolar] = useState<number>(config.dolarReferenciaValor || 1350);
+  const [mostrarDolar, setMostrarDolar] = useState<boolean>(config.mostrarDolarPorDefecto ?? DEFAULT_APP_CONFIG.mostrarDolarPorDefecto);
+  const [nombreDolar, setNombreDolar] = useState<string>(config.dolarReferenciaNombre || DEFAULT_APP_CONFIG.dolarReferenciaNombre);
+  const [cotizacionDolar, setCotizacionDolar] = useState<number>(config.dolarReferenciaValor || DEFAULT_APP_CONFIG.dolarReferenciaValor);
 
   const [condicionesPagoTexto, setCondicionesPagoTexto] = useState<string>(
     '50% de anticipo al confirmar para acopio de materiales. 30% contra certificado de avance de obra. 20% saldo contra recepción final.'
@@ -638,10 +643,11 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                   onChange={(e) => handleTipoFacturaChange(e.target.value as TipoFactura)}
                   className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
                 >
-                  <option value="Factura A">Factura A (Discrimina IVA e IIBB)</option>
-                  <option value="Factura B">Factura B (Consumidor Final / Exento)</option>
-                  <option value="Factura C">Factura C (Monotributo)</option>
-                  <option value="Presupuesto X (Sin Factura)">Presupuesto X (Sin Factura)</option>
+                  {TIPOS_FACTURA.map((tf) => (
+                    <option key={tf} value={tf}>
+                      {tf}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -782,9 +788,11 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                               onChange={(e) => handleUpdateItemCondicion(idx, e.target.value as any)}
                               className="bg-surface-container-highest border border-outline-variant/30 rounded-xl px-2 py-1 text-xs text-on-surface focus:outline-none"
                             >
-                              <option value="normal">Normal (1.0x)</option>
-                              <option value="dificultosa">Dificultosa (1.25x)</option>
-                              <option value="favorable">Favorable (0.9x)</option>
+                              {CONDICIONES_TRABAJO.map((c) => (
+                                <option key={c.value} value={c.value}>
+                                  {c.label}
+                                </option>
+                              ))}
                             </select>
                           </div>
 

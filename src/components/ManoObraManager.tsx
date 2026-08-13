@@ -4,6 +4,7 @@ import { Clock, Plus, Edit2, Trash2, Save, Calculator } from 'lucide-react';
 import { db } from '../db/database';
 import { CategoriaManoDeObra, CostoIndirecto, TipoCostoIndirecto } from '../core/types';
 import { formatARS } from '../core/calculations';
+import { TIPOS_COSTO_INDIRECTO } from '../core/sampleData';
 import { ModalContainer } from './ModalContainer';
 
 export const ManoObraManager: React.FC = () => {
@@ -314,9 +315,9 @@ export const ManoObraManager: React.FC = () => {
               onChange={(e) => setCIForm({ ...ciForm, tipo: e.target.value as TipoCostoIndirecto })}
               className={inputCls}
             >
-              <option value="porcentual_sobre_costo">Porcentual sobre Costo Directo (%)</option>
-              <option value="por_visita">Monto Fijo por Visita (ARS)</option>
-              <option value="fijo_mensual">Monto Fijo Mensual (ARS)</option>
+              {TIPOS_COSTO_INDIRECTO.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
             </select>
           </div>
           <div>

@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Truck, Plus, Edit2, Trash2, X, Save, Phone, Mail, MapPin, User, FileSpreadsheet } from 'lucide-react';
 import { db, importProveedoresCSV } from '../db/database';
 import { Proveedor } from '../core/types';
+import { TIPOS_PROVEEDOR } from '../core/sampleData';
 
 export const ProveedoresManager: React.FC = () => {
   const proveedores = useLiveQuery(() => db.proveedores.toArray()) || [];
@@ -142,9 +143,9 @@ export const ProveedoresManager: React.FC = () => {
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Tipo de Rubro / Proveedor</label>
                 <select value={formData.tipoProveedor || 'material'} onChange={(e) => setFormData({ ...formData, tipoProveedor: e.target.value as any })} className={inputCls}>
-                  <option value="material">Materiales / Insumos Eléctricos</option>
-                  <option value="servicio">Servicios Tercerizados (Subcontratistas)</option>
-                  <option value="ambos">Ambos (Materiales y Servicios)</option>
+                  {TIPOS_PROVEEDOR.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
                 </select>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

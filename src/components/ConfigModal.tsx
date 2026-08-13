@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Save, Building, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle } from 'lucide-react';
 import { AppConfig } from '../core/types';
 import { db } from '../db/database';
-import { TIPOS_FACTURA } from '../core/sampleData';
+import { TIPOS_FACTURA, DEFAULT_APP_CONFIG } from '../core/sampleData';
 import { isFirebaseConfigured, getFirebaseConfig, clearCustomFirebaseConfig } from '../config/firebase';
 import { AuthModal } from './AuthModal';
 
@@ -214,16 +214,16 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Peso α EMA Calibración MO</label>
-                <input type="number" step="0.05" min="0.05" max="0.95" value={formData.alphaEmaManoObra ?? 0.3} onChange={(e) => setFormData({ ...formData, alphaEmaManoObra: parseFloat(e.target.value) || 0.3 })} className={`${inputCls} font-mono`} />
-                <span className="text-[10px] text-on-surface-variant/70">Defecto: 0.3 (30% peso a dato nuevo)</span>
+                <input type="number" step="0.05" min="0.05" max="0.95" value={formData.alphaEmaManoObra ?? DEFAULT_APP_CONFIG.alphaEmaManoObra} onChange={(e) => setFormData({ ...formData, alphaEmaManoObra: parseFloat(e.target.value) || DEFAULT_APP_CONFIG.alphaEmaManoObra })} className={`${inputCls} font-mono`} />
+                <span className="text-[10px] text-on-surface-variant/70">Defecto: {DEFAULT_APP_CONFIG.alphaEmaManoObra} (30% peso a dato nuevo)</span>
               </div>
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Umbral Vencimiento Verde (días)</label>
-                <input type="number" value={formData.diasVencimientoPrecioVerde ?? 30} onChange={(e) => setFormData({ ...formData, diasVencimientoPrecioVerde: parseInt(e.target.value) || 30 })} className={`${inputCls} font-mono`} />
+                <input type="number" value={formData.diasVencimientoPrecioVerde ?? DEFAULT_APP_CONFIG.diasVencimientoPrecioVerde} onChange={(e) => setFormData({ ...formData, diasVencimientoPrecioVerde: parseInt(e.target.value) || DEFAULT_APP_CONFIG.diasVencimientoPrecioVerde })} className={`${inputCls} font-mono`} />
               </div>
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Umbral Vencimiento Amarillo (días)</label>
-                <input type="number" value={formData.diasVencimientoPrecioAmarillo ?? 60} onChange={(e) => setFormData({ ...formData, diasVencimientoPrecioAmarillo: parseInt(e.target.value) || 60 })} className={`${inputCls} font-mono`} />
+                <input type="number" value={formData.diasVencimientoPrecioAmarillo ?? DEFAULT_APP_CONFIG.diasVencimientoPrecioAmarillo} onChange={(e) => setFormData({ ...formData, diasVencimientoPrecioAmarillo: parseInt(e.target.value) || DEFAULT_APP_CONFIG.diasVencimientoPrecioAmarillo })} className={`${inputCls} font-mono`} />
               </div>
             </div>
           </div>

@@ -4,6 +4,7 @@ import { HardHat, Plus, Save, Trash2, TrendingUp, X, AlertTriangle } from 'lucid
 import { db } from '../db/database';
 import { RegistroTrabajo, TareaTipo, CategoriaManoDeObra, MotivoDesvio, MOTIVO_DESVIO_ETIQUETAS } from '../core/types';
 import { formatNumber, calcularNuevoFactorEMA } from '../core/calculations';
+import { CONDICIONES_TRABAJO, MOTIVOS_DESVIO } from '../core/sampleData';
 
 export const RegistroTrabajoManager: React.FC = () => {
   const registros = useLiveQuery(() => db.registrosTrabajo.reverse().toArray()) || [];
@@ -199,9 +200,9 @@ export const RegistroTrabajoManager: React.FC = () => {
                 <div>
                   <label className="block text-xs text-on-surface-variant mb-1">Condición de Obra</label>
                   <select value={formData.condicion} onChange={(e) => setFormData({ ...formData, condicion: e.target.value as any })} className={inputCls}>
-                    <option value="normal">Normal (1.0x)</option>
-                    <option value="dificultosa">Dificultosa (1.25x)</option>
-                    <option value="favorable">Favorable (0.9x)</option>
+                    {CONDICIONES_TRABAJO.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -221,11 +222,9 @@ export const RegistroTrabajoManager: React.FC = () => {
                 <label className="block text-xs text-on-surface-variant mb-1">Motivo de Desvío <span className="opacity-70">(opcional — informativo)</span></label>
                 <select value={formData.motivoDesvio || ''} onChange={(e) => setFormData({ ...formData, motivoDesvio: (e.target.value || undefined) as MotivoDesvio })} className={inputCls}>
                   <option value="">Sin motivo particular</option>
-                  <option value="material">Material (demoras/defectos de proveedores)</option>
-                  <option value="diseno_cliente">Diseño / Modificación de Cliente</option>
-                  <option value="clima">Clima / Factores Ambientales</option>
-                  <option value="error_calculo">Error de cálculo en la estimación inicial</option>
-                  <option value="otro">Otro imprevisible</option>
+                  {MOTIVOS_DESVIO.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
                 </select>
                 <p className="text-[10px] text-on-surface-variant/80 mt-1">Este campo no afecta el cálculo automático del factor EMA.</p>
               </div>
