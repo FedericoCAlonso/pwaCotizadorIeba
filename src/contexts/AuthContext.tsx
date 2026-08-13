@@ -16,6 +16,7 @@ import {
   stopSyncScheduler,
   setupDexieHooks,
   resetQuotaExceededState,
+  resetSyncLock,
   isCircuitBreakerActive,
   getPendingSyncCount,
   SyncState
@@ -159,6 +160,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const triggerSync = async () => {
     if (user) {
+      resetSyncLock();
       resetQuotaExceededState();
       await handleSync(user);
     }

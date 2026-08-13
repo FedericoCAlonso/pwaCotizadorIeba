@@ -33,10 +33,34 @@ type TableName = typeof SYNCED_TABLES[number];
 let currentUserId: string | null = null;
 let isApplyingRemoteChange = false;
 let isSyncingActive = false;
+let syncLockTimestamp = 0;
 let syncIntervalTimer: any = null;
 let visibilityListenerAttached = false;
 
 const CIRCUIT_BREAKER_KEY = 'ieba_sync_blocked_until';
+const SYNC_LOCK_TIMEOUT_MS = 15000; // 15 segundos máximo para evitar deadlocks
+
+/**
+ * Detecta si el lock de sincronización está activo y no ha expirado.
+ */
+export function isSyncLocked(): boolean {
+  if (!isSyncingActive) return false;
+  if (Date.now() - syncLockTimestamp > SYNC_LOCK_TIMEOUT_MS) {
+    console.warn('[DeltaSync] Lock de sincronización expirado (>15s). Reseteando estado.');
+    isSyncingActive = false;
+    syncLockTimestamp = 0;
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Libera manualmente cualquier bloqueo de sincronización.
+ */
+export function resetSyncLock(): void {
+  isSyncingActive = false;
+  syncLockTimestamp = 0;
+}
 
 /**
  * Detecta si un error proviene del agotamiento de cuota diaria de Firebase Spark.
@@ -84,7 +108,6 @@ export function isCircuitBreakerActive(): boolean {
  */
 export function activateCircuitBreaker(): void {
   try {
-    // Bloquear por 24 horas (o hasta el reseteo diario de Firebase Spark)
     const blockedUntil = Date.now() + 24 * 60 * 60 * 1000;
     localStorage.setItem(CIRCUIT_BREAKER_KEY, String(blockedUntil));
   } catch (err) {
@@ -98,6 +121,7 @@ export function activateCircuitBreaker(): void {
 export function resetQuotaExceededState(): void {
   try {
     localStorage.removeItem(CIRCUIT_BREAKER_KEY);
+    resetSyncLock();
   } catch (err) {
     console.warn('[Sync] Error al reiniciar estado de cuota:', err);
   }
@@ -146,10 +170,8 @@ export async function softDeleteRecord(tableName: TableName, id: string): Promis
   if (!item) return;
 
   if (item.syncStatus === 'pending_insert') {
-    // Nunca fue subido a la nube: se elimina físicamente de inmediato
     await table.delete(id);
   } else {
-    // Ya existía en la nube: se marca como pendiente de borrado
     await table.update(id, {
       syncStatus: 'pending_delete',
       _updatedAt: Date.now()
@@ -182,12 +204,13 @@ export async function getPendingSyncCount(): Promise<number> {
 export async function flushPendingSync(userId: string): Promise<SyncState> {
   if (!navigator.onLine) return 'offline';
   if (isCircuitBreakerActive()) return 'quota_exceeded';
-  if (isSyncingActive) return 'syncing';
+  if (isSyncLocked()) return 'syncing';
 
   const firestore = dbFirestore;
   if (!firestore || !userId) return 'idle';
 
   isSyncingActive = true;
+  syncLockTimestamp = Date.now();
 
   try {
     const pendingOps: { tableName: TableName; id: string; status: SyncStatus; data?: any }[] = [];
@@ -211,7 +234,6 @@ export async function flushPendingSync(userId: string): Promise<SyncState> {
     }
 
     if (pendingOps.length === 0) {
-      isSyncingActive = false;
       return 'synced';
     }
 
@@ -227,7 +249,6 @@ export async function flushPendingSync(userId: string): Promise<SyncState> {
         if (op.status === 'pending_delete') {
           batch.delete(docRef);
         } else {
-          // Payload limpio sin syncStatus interno
           const payload = { ...op.data };
           delete payload.syncStatus;
           payload._syncedAt = new Date().toISOString();
@@ -235,7 +256,6 @@ export async function flushPendingSync(userId: string): Promise<SyncState> {
         }
       }
 
-      // Confirmación atómica del lote
       await batch.commit();
 
       // 3. Actualizar estado local tras éxito del lote (commit HTTP 200)
@@ -256,10 +276,8 @@ export async function flushPendingSync(userId: string): Promise<SyncState> {
       }
     }
 
-    isSyncingActive = false;
     return 'synced';
   } catch (err: any) {
-    isSyncingActive = false;
     console.warn('[DeltaSync] Error al sincronizar lotes con Firestore:', err);
 
     if (isQuotaError(err)) {
@@ -267,6 +285,9 @@ export async function flushPendingSync(userId: string): Promise<SyncState> {
       return 'quota_exceeded';
     }
     return 'error';
+  } finally {
+    isSyncingActive = false;
+    syncLockTimestamp = 0;
   }
 }
 
@@ -286,32 +307,40 @@ export async function syncUserData(userId: string): Promise<SyncState> {
   // Pull remoto desde Firestore para datos que no están en Dexie
   try {
     for (const tableName of SYNCED_TABLES) {
-      const colRef = collection(firestore, 'users', userId, tableName);
-      const snapshot = await getDocs(colRef);
-      const table = (db as any)[tableName];
-      if (!table) continue;
-
-      isApplyingRemoteChange = true;
       try {
-        for (const docSnap of snapshot.docs) {
-          const remoteData = docSnap.data();
-          const localItem = await table.get(docSnap.id);
-          if (!localItem) {
-            const cleanData: any = { ...remoteData, syncStatus: 'synced' };
-            delete cleanData._syncedAt;
-            await table.put(cleanData);
-          } else if (localItem.syncStatus === 'synced') {
-            const remoteTime = remoteData._updatedAt || 0;
-            const localTime = localItem._updatedAt || 0;
-            if (remoteTime > localTime) {
+        const colRef = collection(firestore, 'users', userId, tableName);
+        const snapshot = await getDocs(colRef);
+        const table = (db as any)[tableName];
+        if (!table) continue;
+
+        isApplyingRemoteChange = true;
+        try {
+          for (const docSnap of snapshot.docs) {
+            const remoteData = docSnap.data();
+            const localItem = await table.get(docSnap.id);
+            if (!localItem) {
               const cleanData: any = { ...remoteData, syncStatus: 'synced' };
               delete cleanData._syncedAt;
               await table.put(cleanData);
+            } else if (localItem.syncStatus === 'synced') {
+              const remoteTime = remoteData._updatedAt || 0;
+              const localTime = localItem._updatedAt || 0;
+              if (remoteTime > localTime) {
+                const cleanData: any = { ...remoteData, syncStatus: 'synced' };
+                delete cleanData._syncedAt;
+                await table.put(cleanData);
+              }
             }
           }
+        } finally {
+          isApplyingRemoteChange = false;
         }
-      } finally {
-        isApplyingRemoteChange = false;
+      } catch (tableErr: any) {
+        console.warn(`[DeltaSync] Error al leer colección ${tableName}:`, tableErr);
+        if (isQuotaError(tableErr)) {
+          activateCircuitBreaker();
+          return 'quota_exceeded';
+        }
       }
     }
     return 'synced';
@@ -321,6 +350,9 @@ export async function syncUserData(userId: string): Promise<SyncState> {
       return 'quota_exceeded';
     }
     return pushState;
+  } finally {
+    isSyncingActive = false;
+    syncLockTimestamp = 0;
   }
 }
 
@@ -333,14 +365,14 @@ export function startSyncScheduler(userId: string, intervalMinutes = 5): void {
 
   const ms = Math.max(1, intervalMinutes) * 60 * 1000;
   syncIntervalTimer = setInterval(() => {
-    if (navigator.onLine && !isCircuitBreakerActive()) {
+    if (navigator.onLine && !isCircuitBreakerActive() && !isSyncLocked()) {
       flushPendingSync(userId);
     }
   }, ms);
 
   if (!visibilityListenerAttached) {
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden' && navigator.onLine && !isCircuitBreakerActive()) {
+      if (document.visibilityState === 'hidden' && navigator.onLine && !isCircuitBreakerActive() && !isSyncLocked()) {
         if (currentUserId) flushPendingSync(currentUserId);
       }
     });
