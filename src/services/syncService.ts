@@ -38,7 +38,29 @@ let syncIntervalTimer: any = null;
 let visibilityListenerAttached = false;
 
 const CIRCUIT_BREAKER_KEY = 'ieba_sync_blocked_until';
-const SYNC_LOCK_TIMEOUT_MS = 15000; // 15 segundos máximo para evitar deadlocks
+const SYNC_LOCK_TIMEOUT_MS = 10000; // 10s máximo para evitar deadlocks
+const NETWORK_TIMEOUT_MS = 5000; // 5s máximo por llamada a Firestore
+
+/**
+ * Enuelve una promesa con un timeout duro de red.
+ */
+function withTimeout<T>(promise: Promise<T>, ms = NETWORK_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('RESOURCE_EXHAUSTED: Sync network timeout'));
+    }, ms);
+
+    promise
+      .then((res) => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
 
 /**
  * Detecta si el lock de sincronización está activo y no ha expirado.
@@ -46,7 +68,7 @@ const SYNC_LOCK_TIMEOUT_MS = 15000; // 15 segundos máximo para evitar deadlocks
 export function isSyncLocked(): boolean {
   if (!isSyncingActive) return false;
   if (Date.now() - syncLockTimestamp > SYNC_LOCK_TIMEOUT_MS) {
-    console.warn('[DeltaSync] Lock de sincronización expirado (>15s). Reseteando estado.');
+    console.warn('[DeltaSync] Lock de sincronización expirado (>10s). Reseteando estado.');
     isSyncingActive = false;
     syncLockTimestamp = 0;
     return false;
@@ -63,7 +85,7 @@ export function resetSyncLock(): void {
 }
 
 /**
- * Detecta si un error proviene del agotamiento de cuota diaria de Firebase Spark.
+ * Detecta si un error proviene del agotamiento de cuota diaria de Firebase Spark o de timeout de cuota.
  */
 export function isQuotaError(err: any): boolean {
   if (!err) return false;
@@ -73,8 +95,10 @@ export function isQuotaError(err: any): boolean {
     (typeof err.message === 'string' && (
       err.message.includes('Quota exceeded') ||
       err.message.includes('resource-exhausted') ||
+      err.message.includes('RESOURCE_EXHAUSTED') ||
       err.message.includes('quota') ||
-      err.message.includes('Quota')
+      err.message.includes('Quota') ||
+      err.message.includes('network timeout')
     ))
   );
 }
@@ -237,7 +261,7 @@ export async function flushPendingSync(userId: string): Promise<SyncState> {
       return 'synced';
     }
 
-    // 2. Agrupar en batches de Firestore (límite máximo 400 ops por batch)
+    // 2. Agrupar en batches de Firestore con timeout duro
     const BATCH_SIZE = 400;
     for (let i = 0; i < pendingOps.length; i += BATCH_SIZE) {
       const chunk = pendingOps.slice(i, i + BATCH_SIZE);
@@ -256,7 +280,8 @@ export async function flushPendingSync(userId: string): Promise<SyncState> {
         }
       }
 
-      await batch.commit();
+      // Envolver commit en timeout duro de 5 segundos
+      await withTimeout(batch.commit(), NETWORK_TIMEOUT_MS);
 
       // 3. Actualizar estado local tras éxito del lote (commit HTTP 200)
       isApplyingRemoteChange = true;
@@ -304,12 +329,12 @@ export async function syncUserData(userId: string): Promise<SyncState> {
   const firestore = dbFirestore;
   if (!firestore || !userId) return pushState;
 
-  // Pull remoto desde Firestore para datos que no están en Dexie
+  // Pull remoto ligero con timeout por colección
   try {
     for (const tableName of SYNCED_TABLES) {
       try {
         const colRef = collection(firestore, 'users', userId, tableName);
-        const snapshot = await getDocs(colRef);
+        const snapshot = await withTimeout(getDocs(colRef), 3000);
         const table = (db as any)[tableName];
         if (!table) continue;
 
@@ -336,7 +361,7 @@ export async function syncUserData(userId: string): Promise<SyncState> {
           isApplyingRemoteChange = false;
         }
       } catch (tableErr: any) {
-        console.warn(`[DeltaSync] Error al leer colección ${tableName}:`, tableErr);
+        console.warn(`[DeltaSync] Error o timeout al leer colección ${tableName}:`, tableErr);
         if (isQuotaError(tableErr)) {
           activateCircuitBreaker();
           return 'quota_exceeded';
