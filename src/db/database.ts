@@ -1,5 +1,10 @@
 import Dexie, { type Table } from 'dexie';
 import {
+  CategoriaMaterial,
+  Material,
+  Producto,
+  Oferta,
+  SolicitudCotizacion,
   Insumo,
   CategoriaManoDeObra,
   CostoIndirecto,
@@ -13,6 +18,10 @@ import {
 } from '../core/types';
 import {
   DEFAULT_APP_CONFIG,
+  INITIAL_CATEGORIAS_MATERIAL,
+  INITIAL_MATERIALES,
+  INITIAL_PRODUCTOS,
+  INITIAL_OFERTAS,
   INITIAL_INSUMOS,
   INITIAL_MANO_OBRA,
   INITIAL_COSTOS_INDIRECTOS,
@@ -22,6 +31,12 @@ import {
 } from '../core/sampleData';
 
 export class CotizadorDatabase extends Dexie {
+  categoriasMaterial!: Table<CategoriaMaterial, string>;
+  materiales!: Table<Material, string>;
+  productos!: Table<Producto, string>;
+  ofertas!: Table<Oferta, string>;
+  solicitudesCotizacion!: Table<SolicitudCotizacion, string>;
+
   insumos!: Table<Insumo, string>;
   manoObra!: Table<CategoriaManoDeObra, string>;
   costosIndirectos!: Table<CostoIndirecto, string>;
@@ -35,6 +50,7 @@ export class CotizadorDatabase extends Dexie {
 
   constructor() {
     super('CotizadorIebaDB');
+    
     this.version(1).stores({
       insumos: 'id, nombre, categoria, codigoProveedor',
       manoObra: 'id, nombre',
@@ -42,6 +58,25 @@ export class CotizadorDatabase extends Dexie {
       tareasTipo: 'id, nombre, categoria',
       clientes: 'id, nombre, cuitDni',
       proveedores: 'id, nombre, cuit',
+      proyectos: 'id, clienteId, nombre',
+      presupuestos: 'id, numero, clienteId, estado, fechaEmision',
+      registrosTrabajo: 'id, presupuestoId, tareaTipoId, fecha',
+      config: 'id'
+    });
+
+    this.version(2).stores({
+      categoriasMaterial: 'id, nombre',
+      materiales: 'id, categoriaId, nombre, activo',
+      productos: 'id, materialId, marca, esPreferido',
+      ofertas: 'id, materialId, productoId, proveedorId, fecha, fuente',
+      solicitudesCotizacion: 'id, proveedorId, estado, fechaCreacion',
+
+      insumos: 'id, nombre, categoria, codigoProveedor',
+      manoObra: 'id, nombre',
+      costosIndirectos: 'id, nombre, tipo',
+      tareasTipo: 'id, nombre, categoria',
+      clientes: 'id, nombre, cuitDni',
+      proveedores: 'id, razonSocial, nombre, cuit',
       proyectos: 'id, clienteId, nombre',
       presupuestos: 'id, numero, clienteId, estado, fechaEmision',
       registrosTrabajo: 'id, presupuestoId, tareaTipoId, fecha',
@@ -57,28 +92,32 @@ export const db = new CotizadorDatabase();
  */
 export async function initializeDatabaseSeed(): Promise<void> {
   try {
-    const configCount = await db.config.count();
-    // Solo inicializar si la tabla de config está vacía (indicador de primera vez real)
-    if (configCount === 0) {
-      await db.transaction('rw', [
-        db.insumos,
-        db.manoObra,
-        db.costosIndirectos,
-        db.tareasTipo,
-        db.clientes,
-        db.proveedores,
-        db.config
-      ], async () => {
-        if (await db.insumos.count() === 0) await db.insumos.bulkAdd(INITIAL_INSUMOS);
-        if (await db.manoObra.count() === 0) await db.manoObra.bulkAdd(INITIAL_MANO_OBRA);
-        if (await db.costosIndirectos.count() === 0) await db.costosIndirectos.bulkAdd(INITIAL_COSTOS_INDIRECTOS);
-        if (await db.tareasTipo.count() === 0) await db.tareasTipo.bulkAdd(INITIAL_TAREAS_TIPO);
-        if (await db.clientes.count() === 0) await db.clientes.bulkAdd(INITIAL_CLIENTES);
-        if (await db.proveedores.count() === 0) await db.proveedores.bulkAdd(INITIAL_PROVEEDORES);
-        if (await db.config.count() === 0) await db.config.add(DEFAULT_APP_CONFIG);
-      });
-      console.log('Base de datos inicializada con semillas IEBA correctamente.');
-    }
+    await db.transaction('rw', [
+      db.categoriasMaterial,
+      db.materiales,
+      db.productos,
+      db.ofertas,
+      db.insumos,
+      db.manoObra,
+      db.costosIndirectos,
+      db.tareasTipo,
+      db.clientes,
+      db.proveedores,
+      db.config
+    ], async () => {
+      if (await db.categoriasMaterial.count() === 0) await db.categoriasMaterial.bulkAdd(INITIAL_CATEGORIAS_MATERIAL);
+      if (await db.materiales.count() === 0) await db.materiales.bulkAdd(INITIAL_MATERIALES);
+      if (await db.productos.count() === 0) await db.productos.bulkAdd(INITIAL_PRODUCTOS);
+      if (await db.ofertas.count() === 0) await db.ofertas.bulkAdd(INITIAL_OFERTAS);
+      if (await db.insumos.count() === 0) await db.insumos.bulkAdd(INITIAL_INSUMOS);
+      if (await db.manoObra.count() === 0) await db.manoObra.bulkAdd(INITIAL_MANO_OBRA);
+      if (await db.costosIndirectos.count() === 0) await db.costosIndirectos.bulkAdd(INITIAL_COSTOS_INDIRECTOS);
+      if (await db.tareasTipo.count() === 0) await db.tareasTipo.bulkAdd(INITIAL_TAREAS_TIPO);
+      if (await db.clientes.count() === 0) await db.clientes.bulkAdd(INITIAL_CLIENTES);
+      if (await db.proveedores.count() === 0) await db.proveedores.bulkAdd(INITIAL_PROVEEDORES);
+      if (await db.config.count() === 0) await db.config.add(DEFAULT_APP_CONFIG);
+    });
+    console.log('Verificación e inicialización de semillas de BD completada.');
   } catch (err) {
     console.error('Error al inicializar semillas de BD:', err);
   }
@@ -89,6 +128,11 @@ export async function initializeDatabaseSeed(): Promise<void> {
  */
 export async function exportDatabaseJSON(): Promise<string> {
   const data = {
+    categoriasMaterial: await db.categoriasMaterial.toArray(),
+    materiales: await db.materiales.toArray(),
+    productos: await db.productos.toArray(),
+    ofertas: await db.ofertas.toArray(),
+    solicitudesCotizacion: await db.solicitudesCotizacion.toArray(),
     insumos: await db.insumos.toArray(),
     manoObra: await db.manoObra.toArray(),
     costosIndirectos: await db.costosIndirectos.toArray(),
@@ -110,21 +154,33 @@ export async function exportDatabaseJSON(): Promise<string> {
 export async function importDatabaseJSON(jsonStr: string): Promise<void> {
   const data = JSON.parse(jsonStr);
   await db.transaction('rw', [
+    db.categoriasMaterial,
+    db.materiales,
+    db.productos,
+    db.ofertas,
+    db.solicitudesCotizacion,
     db.insumos,
     db.manoObra,
     db.costosIndirectos,
     db.tareasTipo,
     db.clientes,
+    db.proveedores,
     db.proyectos,
     db.presupuestos,
     db.registrosTrabajo,
     db.config
   ], async () => {
+    if (data.categoriasMaterial) { await db.categoriasMaterial.clear(); await db.categoriasMaterial.bulkAdd(data.categoriasMaterial); }
+    if (data.materiales) { await db.materiales.clear(); await db.materiales.bulkAdd(data.materiales); }
+    if (data.productos) { await db.productos.clear(); await db.productos.bulkAdd(data.productos); }
+    if (data.ofertas) { await db.ofertas.clear(); await db.ofertas.bulkAdd(data.ofertas); }
+    if (data.solicitudesCotizacion) { await db.solicitudesCotizacion.clear(); await db.solicitudesCotizacion.bulkAdd(data.solicitudesCotizacion); }
     if (data.insumos) { await db.insumos.clear(); await db.insumos.bulkAdd(data.insumos); }
     if (data.manoObra) { await db.manoObra.clear(); await db.manoObra.bulkAdd(data.manoObra); }
     if (data.costosIndirectos) { await db.costosIndirectos.clear(); await db.costosIndirectos.bulkAdd(data.costosIndirectos); }
     if (data.tareasTipo) { await db.tareasTipo.clear(); await db.tareasTipo.bulkAdd(data.tareasTipo); }
     if (data.clientes) { await db.clientes.clear(); await db.clientes.bulkAdd(data.clientes); }
+    if (data.proveedores) { await db.proveedores.clear(); await db.proveedores.bulkAdd(data.proveedores); }
     if (data.proyectos) { await db.proyectos.clear(); await db.proyectos.bulkAdd(data.proyectos); }
     if (data.presupuestos) { await db.presupuestos.clear(); await db.presupuestos.bulkAdd(data.presupuestos); }
     if (data.registrosTrabajo) { await db.registrosTrabajo.clear(); await db.registrosTrabajo.bulkAdd(data.registrosTrabajo); }
@@ -133,42 +189,18 @@ export async function importDatabaseJSON(jsonStr: string): Promise<void> {
 }
 
 /**
- * Importa insumos en lote desde una cadena CSV.
- * Formato CSV: nombre,marca,modelo,unidad,categoria,precioActual,codigoProveedor
+ * Importa insumos/materiales en lote desde una cadena CSV.
  */
 export async function importInsumosCSV(csvText: string): Promise<number> {
   const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
   if (lines.length <= 1) return 0;
 
-  // Asumimos primera linea es encabezado
   const now = new Date().toISOString();
   const newInsumos: Insumo[] = [];
 
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-    if (cols.length >= 6) { // Expecting at least 6 to match the new format somewhat
-      const nombre = cols[0];
-      const marca = cols[1] || undefined;
-      const modelo = cols[2] || undefined;
-      const unidad = cols[3] || 'u';
-      const categoria = cols[4] || 'general';
-      const precioActual = parseFloat(cols[5]) || 0;
-      const codigoProveedor = cols[6] || undefined;
-
-      newInsumos.push({
-        id: `ins-csv-${crypto.randomUUID()}`,
-        nombre,
-        marca,
-        modelo,
-        unidad,
-        categoria,
-        precioActual,
-        fechaActualizacion: now,
-        codigoProveedor,
-        historialPrecios: [{ fecha: now, precio: precioActual, fuente: 'Importación CSV' }],
-        ofertas: []
-      });
-    } else if (cols.length >= 4) { // Fallback for old CSV format without marca/modelo
+    if (cols.length >= 4) {
       const nombre = cols[0];
       const unidad = cols[1] || 'u';
       const categoria = cols[2] || 'general';
@@ -177,9 +209,11 @@ export async function importInsumosCSV(csvText: string): Promise<number> {
 
       newInsumos.push({
         id: `ins-csv-${crypto.randomUUID()}`,
+        categoriaId: categoria,
         nombre,
-        unidad,
-        categoria,
+        unidadVenta: unidad,
+        atributos: [],
+        activo: true,
         precioActual,
         fechaActualizacion: now,
         codigoProveedor,
@@ -197,7 +231,6 @@ export async function importInsumosCSV(csvText: string): Promise<number> {
 
 /**
  * Importa proveedores en lote desde una cadena CSV.
- * Formato CSV: nombre,cuit,telefono,email,contacto,direccion,notas
  */
 export async function importProveedoresCSV(csvText: string): Promise<number> {
   const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
@@ -207,10 +240,23 @@ export async function importProveedoresCSV(csvText: string): Promise<number> {
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
     if (cols.length >= 1) {
+      const razonSocial = cols[0];
       newProveedores.push({
         id: `prov-csv-${crypto.randomUUID()}`,
-        nombre: cols[0],
+        razonSocial,
+        nombre: razonSocial,
         cuit: cols[1] || undefined,
+        tipoProveedor: 'material',
+        contactos: [
+          {
+            id: crypto.randomUUID(),
+            nombrePersona: cols[4] || 'Contacto Principal',
+            canales: [
+              ...(cols[2] ? [{ tipo: 'telefono' as const, valor: cols[2], esPrincipal: true }] : []),
+              ...(cols[3] ? [{ tipo: 'email' as const, valor: cols[3], esPrincipal: false }] : [])
+            ]
+          }
+        ],
         telefono: cols[2] || undefined,
         email: cols[3] || undefined,
         contacto: cols[4] || undefined,
@@ -228,7 +274,6 @@ export async function importProveedoresCSV(csvText: string): Promise<number> {
 
 /**
  * Importa clientes en lote desde una cadena CSV.
- * Formato CSV: nombre,cuitDni,condicionIVA,telefono,email,direccion,notas
  */
 export async function importClientesCSV(csvText: string): Promise<number> {
   const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);

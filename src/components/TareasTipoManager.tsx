@@ -13,7 +13,8 @@ import {
   Activity,
   Calculator,
   Tag,
-  BookOpen
+  BookOpen,
+  Copy
 } from 'lucide-react';
 import { db } from '../db/database';
 import { TareaTipo, Insumo, CategoriaManoDeObra, InsumoEnTarea, ManoObraEnTarea, CATEGORIA_TAREA } from '../core/types';
@@ -24,11 +25,27 @@ const CATEGORIAS_TAREA_LIST = Object.values(CATEGORIA_TAREA);
 
 export const TareasTipoManager: React.FC = () => {
   const tareasTipo = useLiveQuery(() => db.tareasTipo.toArray()) || [];
-  const insumos = useLiveQuery(() => db.insumos.toArray()) || [];
+  const legacyInsumos = useLiveQuery(() => db.insumos.toArray()) || [];
+  const materiales = useLiveQuery(() => db.materiales.toArray()) || [];
+  const ofertas = useLiveQuery(() => db.ofertas.toArray()) || [];
   const manoObraList = useLiveQuery(() => db.manoObra.toArray()) || [];
   const registrosTrabajo = useLiveQuery(() => db.registrosTrabajo.toArray()) || [];
 
-  const insumosMap = new Map<string, Insumo>(insumos.map((i) => [i.id, i]));
+  const insumosMap = new Map<string, Insumo>();
+  legacyInsumos.forEach(i => insumosMap.set(i.id, i));
+  materiales.forEach(m => {
+    const oferta = ofertas.find(o => o.materialId === m.id);
+    insumosMap.set(m.id, {
+      ...m,
+      id: m.id,
+      nombre: m.nombre,
+      unidad: m.unidadVenta || 'u',
+      categoria: m.categoriaId,
+      precioActual: oferta ? oferta.precio : (m as any).precioActual || 0,
+      fechaActualizacion: oferta ? oferta.fecha : new Date().toISOString(),
+      historialPrecios: []
+    });
+  });
   const manoObraMap = new Map<string, CategoriaManoDeObra>(manoObraList.map((m) => [m.id, m]));
 
   const [editingTarea, setEditingTarea] = useState<TareaTipo | null>(null);
@@ -107,11 +124,25 @@ export const TareasTipoManager: React.FC = () => {
     if (confirm('¿Eliminar esta tarea tipo?')) await db.tareasTipo.delete(id);
   };
 
+  const handleDuplicateTarea = (t: TareaTipo) => {
+    setEditingTarea(null);
+    setFormData({
+      nombre: `${t.nombre} (Copia)`,
+      categoria: t.categoria || CATEGORIAS_TAREA_LIST[0],
+      unidad: t.unidad || 'u',
+      notasTecnicas: t.notasTecnicas || '',
+      insumos: t.insumos ? t.insumos.map(i => ({ ...i })) : [],
+      manoObra: t.manoObra ? t.manoObra.map(m => ({ ...m })) : []
+    });
+    setIsCreating(true);
+  };
+
   const addInsumoRow = () => {
-    if (insumos.length === 0) return alert('Primero debes cargar insumos en el catálogo de Materiales.');
+    const list = Array.from(insumosMap.values());
+    if (list.length === 0) return alert('Primero debes cargar insumos en el catálogo de Materiales.');
     setFormData((prev) => ({
       ...prev,
-      insumos: [...prev.insumos, { insumoId: insumos[0].id, cantidad: 1 }]
+      insumos: [...prev.insumos, { materialId: list[0].id, insumoId: list[0].id, cantidad: 1 }]
     }));
   };
 
@@ -122,7 +153,7 @@ export const TareasTipoManager: React.FC = () => {
     }));
   };
 
-  const updateInsumoRow = (index: number, field: 'insumoId' | 'cantidad', val: any) => {
+  const updateInsumoRow = (index: number, field: 'materialId' | 'insumoId' | 'cantidad', val: any) => {
     setFormData((prev) => {
       const next = [...prev.insumos];
       next[index] = { ...next[index], [field]: val };
@@ -221,6 +252,14 @@ export const TareasTipoManager: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-1">
                     <button
+                      onClick={() => handleDuplicateTarea(tarea)}
+                      className="p-2 text-on-surface-variant hover:text-primary rounded-full hover:bg-primary/10 transition-colors"
+                      aria-label={`Duplicar ${tarea.nombre}`}
+                      title="Crear tarea similar"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => handleOpenEdit(tarea)}
                       className="p-2 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-variant transition-colors"
                       aria-label={`Editar ${tarea.nombre}`}
@@ -267,10 +306,11 @@ export const TareasTipoManager: React.FC = () => {
                     </div>
                     <ul className="space-y-1 text-xs text-on-surface-variant">
                       {tarea.insumos.map((item, i) => {
-                        const ins = insumosMap.get(item.insumoId);
+                        const targetId = item.materialId || item.insumoId || '';
+                        const ins = insumosMap.get(targetId);
                         return (
                           <li key={i} className="truncate">
-                            · {item.cantidad} {ins?.unidad || ''} × {ins?.nombre || 'Insumo'}
+                            · {item.cantidad} {ins?.unidadVenta || ins?.unidad || ''} × {ins?.nombre || 'Insumo'}
                           </li>
                         );
                       })}
@@ -451,7 +491,8 @@ export const TareasTipoManager: React.FC = () => {
                 ) : (
                   <div className="space-y-2.5">
                     {formData.insumos.map((item, idx) => {
-                      const selectedInsumo = insumosMap.get(item.insumoId);
+                      const targetId = item.materialId || item.insumoId || '';
+                      const selectedInsumo = insumosMap.get(targetId);
                       return (
                         <div
                           key={idx}
@@ -463,13 +504,16 @@ export const TareasTipoManager: React.FC = () => {
                               Material #{idx + 1}
                             </label>
                             <select
-                              value={item.insumoId}
-                              onChange={(e) => updateInsumoRow(idx, 'insumoId', e.target.value)}
+                              value={item.materialId || item.insumoId || ''}
+                              onChange={(e) => {
+                                updateInsumoRow(idx, 'materialId', e.target.value);
+                                updateInsumoRow(idx, 'insumoId', e.target.value);
+                              }}
                               className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 truncate"
                             >
-                              {insumos.map((ins) => (
+                              {Array.from(insumosMap.values()).map((ins) => (
                                 <option key={ins.id} value={ins.id}>
-                                  {ins.nombre} ({formatARS(ins.precioActual)}/{ins.unidad})
+                                  {ins.nombre} ({formatARS(ins.precioActual || 0)}/{ins.unidadVenta || ins.unidad || 'u'})
                                 </option>
                               ))}
                             </select>
@@ -488,7 +532,7 @@ export const TareasTipoManager: React.FC = () => {
                                 className="w-16 sm:w-20 bg-transparent text-xs text-on-surface font-mono font-bold text-center focus:outline-none"
                               />
                               <span className="text-[11px] text-on-surface-variant font-mono">
-                                {selectedInsumo?.unidad || ''}
+                                {selectedInsumo?.unidadVenta || selectedInsumo?.unidad || ''}
                               </span>
                             </div>
 

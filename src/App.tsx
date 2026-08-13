@@ -9,10 +9,12 @@ import { ManoObraManager } from './components/ManoObraManager';
 import { TareasTipoManager } from './components/TareasTipoManager';
 import { ClientesManager } from './components/ClientesManager';
 import { ProveedoresManager } from './components/ProveedoresManager';
+import { SolicitudCotizacionManager } from './components/SolicitudesCotizacionManager';
 import { PresupuestosList } from './components/PresupuestosList';
 import { PresupuestoEditor } from './components/PresupuestoEditor';
 import { PresupuestoDetail } from './components/PresupuestoDetail';
 import { RegistroTrabajoManager } from './components/RegistroTrabajoManager';
+import { LogisticaManager } from './components/LogisticaManager';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { useTheme } from './hooks/useTheme';
 
@@ -154,7 +156,9 @@ export function App() {
           />
         )}
         {activeTab === 'proveedores' && <ProveedoresManager />}
+        {activeTab === 'rfq' && <SolicitudCotizacionManager />}
         {activeTab === 'registroTrabajo' && <RegistroTrabajoManager />}
+        {activeTab === 'logistica' && <LogisticaManager />}
       </main>
 
       {/* Footer */}

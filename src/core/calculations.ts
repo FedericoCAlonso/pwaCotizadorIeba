@@ -68,16 +68,18 @@ export function calcularCostoTareaTipo(
   const insumosSnapshotUnitario: InsumoSnapshot[] = [];
 
   for (const item of tarea.insumos) {
-    const insumo = insumosMap.get(item.insumoId);
+    const targetId = item.materialId || item.insumoId || '';
+    const insumo = insumosMap.get(targetId);
     const precioUnitario = roundMoney(safeNum(insumo?.precioActual));
     const cantidad = safeNum(item.cantidad);
     const subtotal = roundMoney(precioUnitario * cantidad);
     costoInsumosUnitario = roundMoney(costoInsumosUnitario + subtotal);
 
     insumosSnapshotUnitario.push({
-      insumoId: item.insumoId,
-      nombre: insumo ? insumo.nombre : 'Insumo no encontrado',
-      unidad: insumo ? insumo.unidad : 'u',
+      materialId: targetId,
+      insumoId: targetId,
+      nombre: insumo ? (insumo.nombre || 'Insumo no encontrado') : 'Insumo no encontrado',
+      unidad: insumo ? (insumo.unidadVenta || insumo.unidad || 'u') : 'u',
       cantidadTotal: cantidad,
       precioUnitarioCongelado: precioUnitario,
       subtotalInsumo: subtotal
@@ -223,6 +225,17 @@ export function obtenerEstadoVencimientoInsumo(
   if (diffDias <= diasVerde) return 'verde';
   if (diffDias <= diasAmarillo) return 'amarillo';
   return 'rojo';
+}
+
+/**
+ * Alias/helper para determinar estado de vencimiento de una Oferta.
+ */
+export function obtenerEstadoVencimientoOferta(
+  fechaActualizacion: string,
+  diasVerde = 30,
+  diasAmarillo = 60
+): 'verde' | 'amarillo' | 'rojo' {
+  return obtenerEstadoVencimientoInsumo(fechaActualizacion, diasVerde, diasAmarillo);
 }
 
 /**

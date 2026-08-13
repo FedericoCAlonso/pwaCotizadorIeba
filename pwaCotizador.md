@@ -7,7 +7,8 @@
 Su objetivo principal es resolver el problema central del cálculo de costos y cotización en contextos inflacionarios o de alta volatilidad de precios, permitiendo armar presupuestos precisos en minutos a través de la reutilización de datos, la centralización de parámetros de configuración y el desglose estructurado de componentes financieros.
 
 ### Características Clave de Arquitectura:
-- **Offline-First & Sincronización Híbrida:** Funciona de forma 100% autónoma en el navegador/dispositivo mediante **IndexedDB** y **Dexie.js**. Cuenta con soporte de sincronización opcional a la nube mediante **Firebase / Firestore**.
+- **Offline-First & Sincronización Híbrida:** Funciona de forma 100% autónoma en el navegador/dispositivo mediante **IndexedDB** y **Dexie.js (Schema v2)**. Cuenta con soporte de sincronización opcional a la nube mediante **Firebase / Firestore**.
+- **Modelo Técnico Desglosado:** Separación explícita entre la ficha técnico-normativa (`Material`), la versión comercial de marca (`Producto`), las cotizaciones vigentes por distribuidor (`Oferta`) y la plantilla de sugerencias técnicas (`CategoriaMaterial`).
 - **Configuración Centralizada:** Toda la parametrización de opciones, tipos fiscal-monetarios, categorías, unidades, umbrales de vencimiento, multiplicadores de dificultad y factores de calibración está declarada de forma estructurada en un archivo de configuración maestro (`appConfig.json` y `sampleData.ts`), eliminando magic strings y valores hardcoded en los componentes de UI.
 - **Inmutabilidad de Presupuestos (Snapshotting):** Al emitir o guardar un presupuesto, los precios de materiales, categorías de mano de obra y costos indirectos se "congelan" en capturas inmutables (`InsumoSnapshot`, `ManoObraSnapshot`, `CostoIndirectoSnapshot`). Esto garantiza que las actualizaciones futuras en el catálogo maestro no alteren retroactivamente los presupuestos ya emitidos.
 - **Modelo Monetario Preciso:** Lógica de redondeo bancario (`roundMoney`) implementada en el motor de cálculo para evitar inconsistencias acumulativas de punto flotante IEEE 754.
@@ -18,7 +19,7 @@ Su objetivo principal es resolver el problema central del cálculo de costos y c
 
 El sistema desglosa cada partida o cotización en capas diferenciadas para reflejar la rentabilidad real del trabajo:
 
-$$\text{Costo Directo} = \sum (\text{Insumos}) + \sum (\text{Mano de obra interna}) + \sum (\text{Servicios Tercerizados})$$
+$$\text{Costo Directo} = \sum (\text{Insumos / Materiales}) + \sum (\text{Mano de obra interna}) + \sum (\text{Servicios Tercerizados})$$
 
 $$\text{Costo Total Obra} = \text{Costo Directo} + \text{Costos Indirectos (Gastos Generales)}$$
 
@@ -40,58 +41,64 @@ $$\text{Precio Total} = \text{Precio de Venta} + \text{Impuestos (IVA, IIBB, etc
 - **Gestión de Estados:** Seguimiento del ciclo de vida del presupuesto (*Borrador*, *Enviado*, *Aprobado*, *Rechazado*, *Vencido*), desacoplado mediante `ESTADOS_PRESUPUESTO`.
 - **Notas y Condicionado:** Inclusión de notas internas (privadas) y notas dirigidas al cliente (visibles en el PDF).
 
-### 3.2. Catálogo de Insumos (Materiales) y Gestión de Vencimientos
-- **Gestión de Insumos:** Registro de materiales con nombre, marca, modelo, unidad de medida (`m`, `u`, `kg`, etc.), categoría y código de proveedor.
-- **Semáforo de Vencimiento de Precios:** Badge visual de antigüedad (*Verde*: $\le 30$ días, *Amarillo*: $31-60$ días, *Rojo*: $> 60$ días sin actualizar) parametrizable desde la configuración de la empresa.
+### 3.2. Catálogo Estructurado de Materiales, Productos y Ofertas
+- **Ficha Técnico-Normativa (`Material`):** Definición de la especificación técnica (ej. *"Cable Unipolar 2.5 mm² IRAM 247-3"*), unidad de venta, atributos parametrizados (`seccion`, `norma`, `In`, `polos`) y estado activo/obsoleto, independientemente de la marca o precio.
+- **Implementación de Marca (`Producto`):** Registro de marcas y modelos específicos (ej. *Prysmian Superastic*, *Schneider Easy9*) vinculados al Material con indicación de marca preferida por defecto.
+- **Gestión de Precios (`Oferta`):** Cotización de un proveedor para un Producto o Material genérico. Registro de fecha, fuente (`manual`, `indice`, `cotizacion_directa`) y vinculación opcional a Solicitud de Cotización (RFQ).
+- **Categorías Técnico-Normativas (`CategoriaMaterial`):** Plantillas de sugerencia de atributos técnicos por familia (*Cables*, *Protecciones*, *Canalizaciones*, *Cajas*).
+- **Semáforo de Vencimiento de Precios:** Badge visual de antigüedad (*Verde*: $\le 30$ días, *Amarillo*: $31-60$ días, *Rojo*: $> 60$ días sin actualizar) a nivel Oferta.
 - **Marca de Cotización Directa (Excepción):** Flag (`requiereCotizacionDirecta`) para materiales especiales (ej. tableros a medida o grupos electrógenos) exceptuados automáticamente de aumentos masivos por fórmula.
 - **Aumento por Índice de Referencia:** Incrementos masivos guiados por Dólar Blue/Oficial, IPC o Canasta Eléctrica registradas en el historial de precios versionado (`TIPOS_AJUSTE_PRECIO`).
 - **Ítems Ad-Hoc (No Catalogados):** Creación de ítems especiales de única vez dentro de un presupuesto con inmutabilidad congelada sin alterar el catálogo maestro.
-- **Historial de Precios Versionado:** Registro temporal de variaciones de precio por insumo con fecha, fuente e índice de referencia.
-- **Ofertas por Proveedor:** Carga de múltiples cotizaciones/ofertas de proveedores para un mismo insumo.
 - **Escáner de Código de Barras / QR:** Lectura mediante la cámara del dispositivo (`html5-qrcode`).
-- **Importación y Exportación Masiva:** Carga masiva mediante archivos CSV/Excel.
+- **Importación y Exportación Masiva:** Carga masiva mediante archivos CSV/Excel y JSON.
 
-### 3.3. Categorías de Mano de Obra y Calibración EMA
+### 3.3. Solicitud de Cotización a Proveedores (RFQ)
+- **Armado de Solicitud (`SolicitudCotizacion`):** Selección de materiales y marcas requeridas por proveedor con cantidades estimadas.
+- **Generación de Resumen para Envíos Rápidos:** Helper que genera texto plano con formato listo para copiar y enviar directamente por **WhatsApp** o **Email**.
+- **Carga Directa de Respuestas:** Carga individual de los precios cotizados por el proveedor al recibir la respuesta, lo cual genera automáticamente una `Oferta` con fuente `cotizacion_directa`.
+
+### 3.4. Categorías de Mano de Obra y Calibración EMA
 - **Tarifario por Categoría:** Definición del costo real por hora según el perfil técnico (*Oficial Electricista*, *Ayudante*, *Técnico DCI*, *Especialista en Tableros*, etc.).
 - **Calibración de Mano de Obra por EMA:** Factor de corrección por Media Móvil Exponencial ($\alpha = 0.3$ por defecto, configurable) que recalcula automáticamente las horas estimadas de las Tareas Tipo en función de las horas reales registradas.
 - **Motivo de Desvío:** Registro informativo de desvíos parametrizados (`MOTIVOS_DESVIO`: *Material*, *Diseño/Cliente*, *Clima*, *Error de cálculo*, *Otro*).
 - **Indicador de Dispersión:** Muestra en tiempo real de ratio mínimo, máximo y desvío estándar de ejecuciones por tarea.
 
-### 3.4. Costos Indirectos y Gastos Generales
+### 3.5. Costos Indirectos y Gastos Generales
 - **Prorrateo de Gastos Fijos y Estructura:** Configuración de costos indirectos aplicables a las obras (`TIPOS_COSTO_INDIRECTO`: *Porcentual sobre costo directo*, *Fijo mensual*, *Por visita/traslado*).
 - **Selección y Snapshot por Presupuesto:** Posibilidad de activar o desactivar costos indirectos específicos y congelar su valor exacto al momento de emitir la cotización.
 
-### 3.5. Tareas Tipo (Ensambles Reutilizables)
+### 3.6. Tareas Tipo (Ensambles Reutilizables)
 - **Kits/Ensamble de Trabajo:** Creación de plantillas estandarizadas (*"Punto de luz completo"*, *"Boca TUG 20A"*, *"Tablero seccional 12 módulos"*).
 - **Factor EMA & Dispersión:** Muestra de factor acumulado y varianza histórica de ejecución.
 - **Sustento Normativo:** Campo para incluir notas técnicas y referencias a reglamentaciones (ej. Norma AEA 90364).
 
-### 3.6. Servicios Tercerizados (Subcontrataciones)
+### 3.7. Servicios Tercerizados (Subcontrataciones)
 - **Modelado de Subcontratos:** Entidad propia `ServicioTercerizado` vinculada a partidas.
 - **Clasificación de Proveedores:** Clasificación en `TIPOS_PROVEEDOR` (*Materiales*, *Servicios* o *Ambos*).
 - **Margen Propio:** Posibilidad de aplicar un margen sobre el servicio tercerizado distinto al margen general de la obra.
 
-### 3.7. Esquema de Pagos e Hitos Financieros
+### 3.8. Esquema de Pagos e Hitos Financieros
 - **Estructuración del Cobro:** Definición de `MODALIDADES_PAGO` (*Pago Único*, *Adelanto + Saldo*, *Certificados de Avance*, *Cuotas*).
 - **Desglose de Hitos:** Configuración de anticipos, entregas intermedias contra certificación y retención de fondo de reparo.
 - **Medios de Pago Esperados:** Registro de condiciones mediante `MEDIOS_PAGO` (*Efectivo*, *Transferencia*, *Cheque*, *Otro*).
 
-### 3.8. Gestión de Clientes y Proveedores
+### 3.9. Gestión de Clientes y Proveedores con Contactos Dinámicos
 - **Directorio de Clientes:** Ficha de cliente con nombre, CUIT/DNI, condición IVA (`CONDICIONES_IVA`), teléfono, email y dirección.
-- **Directorio de Proveedores:** Agenda de proveedores de materiales y subcontratistas de servicios.
+- **Directorio de Proveedores & Contactos:** Agenda de distribuidores con lista dinámica de agentes de venta/técnicos (`Contacto`), canales directos (`CanalContacto`: WhatsApp, Email, Teléfono, Web) y botones de acción rápida con deep links (`wa.me` y `mailto`).
 
-### 3.9. Control y Registro de Trabajo Real
+### 3.10. Control y Registro de Trabajo Real
 - **Carga de Horas Reales:** Registro diario/posterior de horas ejecutadas por tarea tipo.
 - **Calificación de Condiciones de Obra:** Evaluación (*Normal*, *Dificultosa*, *Favorable*).
 
-### 3.10. Salida Profesional y Exportación (PDF)
+### 3.11. Salida Profesional y Exportación (PDF)
 - **Generación de PDF Profesional:** Impresión / exportación directa desde el navegador utilizando `jsPDF` y `html2canvas`.
 - **Desglose de Subcontratos:** Inclusión de servicios tercerizados y desglose transparente de condiciones comercializables.
 
-### 3.11. Referencia Multimoneda Informativa
+### 3.12. Referencia Multimoneda Informativa
 - **Referencia Extranjera:** Conversión informativa opcional del presupuesto a una moneda de referencia (ej. USD Blue / USD Oficial) con cotización configurable.
 
-### 3.12. Personalización y Apariencia
+### 3.13. Personalización y Apariencia
 - **Soporte Dark Mode / Light Mode:** Cambio dinámico de tema visual (Claro, Oscuro o Automático según el sistema).
 - **Configuración Centralizada:** Ajuste del peso $\alpha$ de calibración EMA, umbrales de vencimiento de precios (días verde / días amarillo), impuesto IVA/IIBB, datos corporativos y moneda de referencia.
 
@@ -111,7 +118,7 @@ La aplicación implementa un patrón de **Configuración Centralizada y Fuerteme
 
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS.
 - **Iconografía:** Lucide React.
-- **Base de Datos Local & Offline:** IndexedDB mediante Dexie.js + Dexie React Hooks.
+- **Base de Datos Local & Offline:** IndexedDB mediante Dexie.js (Schema v2) + Dexie React Hooks.
 - **Sincronización Nube:** Firebase / Firestore SDK.
 - **PDF & Canvas:** jsPDF, html2canvas.
 - **Lectura de Códigos:** html5-qrcode.

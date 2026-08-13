@@ -9,11 +9,14 @@ import {
   Copy,
   Trash2,
   User,
+  FileSpreadsheet,
+  Share2,
 } from 'lucide-react';
 import { db } from '../db/database';
 import { Presupuesto, Cliente } from '../core/types';
 import { formatARS, formatUSD } from '../core/calculations';
 import { EstadoBadge } from './EstadoBadge';
+import { exportPresupuestoToXLSX, sharePresupuesto } from '../core/exportUtils';
 
 interface PresupuestosListProps {
   onNew: () => void;
@@ -195,20 +198,38 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <button
                       type="button"
                       onClick={() => onSelect(p.id)}
                       className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-xl text-xs sm:text-sm font-medium transition-colors"
                     >
                       <Eye className="w-4 h-4" />
-                      <span>Ver Detalles</span>
+                      <span>Detalles</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => exportPresupuestoToXLSX(p, cliente)}
+                      className="p-2 text-on-surface-variant hover:text-emerald-500 hover:bg-emerald-500/10 rounded-xl transition-colors shrink-0"
+                      title="Exportar a Excel (XLSX)"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => sharePresupuesto(p, cliente)}
+                      className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0"
+                      title="Compartir presupuesto (WhatsApp / Web Share)"
+                    >
+                      <Share2 className="w-4 h-4 text-primary" />
                     </button>
 
                     <button
                       type="button"
                       onClick={() => onEdit(p.id)}
-                      className="p-2.5 text-on-surface-variant hover:text-primary hover:bg-primary-container rounded-xl transition-colors shrink-0"
+                      className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0"
                       title="Editar presupuesto"
                     >
                       <Edit2 className="w-4 h-4" />
@@ -217,7 +238,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                     <button
                       type="button"
                       onClick={() => handleDuplicate(p)}
-                      className="p-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors shrink-0"
+                      className="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors shrink-0"
                       title="Duplicar como plantilla"
                     >
                       <Copy className="w-4 h-4" />
@@ -226,7 +247,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                     <button
                       type="button"
                       onClick={() => handleDelete(p.id)}
-                      className="p-2.5 text-on-surface-variant hover:text-error hover:bg-error-container rounded-xl transition-colors shrink-0"
+                      className="p-2 text-on-surface-variant hover:text-error hover:bg-error-container/30 rounded-xl transition-colors shrink-0"
                       title="Eliminar"
                     >
                       <Trash2 className="w-4 h-4" />

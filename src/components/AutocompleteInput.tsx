@@ -5,6 +5,8 @@ interface Option {
   id: string;
   label: string;
   subLabel?: string;
+  frecuenciaUso?: number;
+  ultimoUsoFecha?: string;
 }
 
 interface AutocompleteInputProps {
@@ -38,10 +40,18 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filteredOptions = options.filter(opt => 
-    opt.label.toLowerCase().includes(value.toLowerCase()) || 
-    (opt.subLabel && opt.subLabel.toLowerCase().includes(value.toLowerCase()))
-  );
+  const filteredOptions = options
+    .filter(opt => 
+      opt.label.toLowerCase().includes(value.toLowerCase()) || 
+      (opt.subLabel && opt.subLabel.toLowerCase().includes(value.toLowerCase()))
+    )
+    .sort((a, b) => {
+      const freqDiff = (b.frecuenciaUso || 0) - (a.frecuenciaUso || 0);
+      if (freqDiff !== 0) return freqDiff;
+      const dateA = a.ultimoUsoFecha ? new Date(a.ultimoUsoFecha).getTime() : 0;
+      const dateB = b.ultimoUsoFecha ? new Date(b.ultimoUsoFecha).getTime() : 0;
+      return dateB - dateA;
+    });
 
   return (
     <div className="relative w-full" ref={wrapperRef}>

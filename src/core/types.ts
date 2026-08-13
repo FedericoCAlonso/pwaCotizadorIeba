@@ -1,7 +1,5 @@
 // Core domain types for Cotizador Eléctrico (IEBA)
-// Nota: todos los IDs nuevos deben generarse con crypto.randomUUID() — auditoria #33
-
-// ─── Enums centralizados (auditoria #32: eliminar magic strings) ───────────────
+// Modelo reestructurado: CategoriaMaterial, Material, Producto, Oferta, Proveedor con Contactos y SolicitudCotizacion.
 
 export const ESTADO_PRESUPUESTO = {
   BORRADOR: 'borrador',
@@ -9,16 +7,6 @@ export const ESTADO_PRESUPUESTO = {
   APROBADO: 'aprobado',
   RECHAZADO: 'rechazado',
   VENCIDO: 'vencido'
-} as const;
-
-export const CATEGORIA_INSUMO = {
-  CABLEADO: 'cableado',
-  PROTECCIONES: 'protecciones',
-  CANALIZACIONES: 'canalizaciones',
-  CAJAS: 'cajas',
-  ILUMINACION: 'iluminacion',
-  ACCESORIOS: 'accesorios',
-  GENERAL: 'general'
 } as const;
 
 export const CATEGORIA_TAREA = {
@@ -49,8 +37,6 @@ export const TIPO_FACTURA_VALORES = {
   SIN_FACTURA: 'Presupuesto X (Sin Factura)'
 } as const;
 
-// ────────────────────────────────────────────────────────────────────────────────
-
 export type MotivoDesvio = 'material' | 'diseno_cliente' | 'clima' | 'error_calculo' | 'otro';
 export type TipoProveedor = 'material' | 'servicio' | 'ambos';
 
@@ -67,42 +53,143 @@ export interface IndiceReferencia {
   valor: number;
 }
 
-export interface PrecioHistorico {
-  fecha: string; // ISO string
-  precio: number;
-  fuente: string; // "Lista Proveedor", "Manual", "Ajuste %", etc.
-  indiceReferencia?: IndiceReferencia;
+// ─── 1. Categoría de Material ──────────────────────────────────────────────────
+export interface AtributoTemplate {
+  clave: string; // "seccion", "In", "Id", "polos", "norma"
+  etiqueta: string; // texto visible en el formulario
+  unidad?: string; // "mm²", "A", "mA"
+  tipo: 'texto' | 'numero';
 }
 
-export interface OfertaProveedor {
+export interface CategoriaMaterial {
   id: string;
-  proveedorId?: string;
-  nombreProveedor: string; // Free text or selected from Proveedores
+  nombre: string; // "Cables", "Protecciones", "Canalizaciones", etc.
+  atributosSugeridos: AtributoTemplate[];
+}
+
+// ─── 2. Material (Ficha técnico-normativa sin marca ni precio) ─────────────────
+export interface AtributoMaterial {
+  clave: string;
+  valor: string;
+}
+
+export interface Material {
+  id: string;
+  categoriaId: string;
+  nombre: string; // autogenerado desde atributos o editable a mano
+  norma?: string; // "IRAM-NM 247-3"
+  unidadVenta: string; // "m", "u", "kg", "rollo x100m"
+  atributos: AtributoMaterial[];
+  notas?: string;
+  activo: boolean; // false = obsoleto/discontinuado
+  requiereCotizacionDirecta?: boolean;
+  fichaIncompleta?: boolean; // Phase 2: Alta rápida pendiente de completar
+  urlMercadoLibre?: string; // Phase 2: Enlace directo opcional ML
+  frecuenciaUso?: number; // Phase 2: Smart autocomplete frecuencia
+  ultimoUsoFecha?: string; // Phase 2: ISO timestamp último uso
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Alias de compatibilidad
+export type Insumo = Material & {
+  categoria?: string;
+  unidad?: string;
+  codigoProveedor?: string;
+  precioActual?: number;
+  fechaActualizacion?: string;
+  historialPrecios?: { fecha: string; precio: number; fuente: string }[];
+  ofertas?: any[];
+};
+
+// ─── 3. Producto (Implementación de marca de un Material) ──────────────────────
+export interface Producto {
+  id: string;
+  materialId: string; // FK obligatorio
+  marca: string;
+  modelo: string;
+  codigoFabricante?: string;
+  tierCalidad?: 'premium' | 'estandar' | 'economico';
+  notas?: string;
+  esPreferido: boolean;
+  activo?: boolean; // false = obsoleto/discontinuado
+  urlMercadoLibre?: string; // Phase 2: Enlace directo a ML
+  frecuenciaUso?: number;
+  ultimoUsoFecha?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// ─── 4. Oferta (Precio de proveedor para un Producto o Material) ──────────────
+export interface Oferta {
+  id: string;
+  materialId: string; // FK siempre presente
+  productoId?: string; // FK opcional (null = precio genérico sin marca)
+  proveedorId: string;
   precio: number;
-  fechaActualizacion: string; // ISO string
+  fecha: string; // ISO String
+  fuente: 'indice' | 'manual' | 'cotizacion_directa' | 'importacion_excel';
+  tipoAjustePrecio?: string; // referencia a TIPOS_AJUSTE_PRECIO cuando fuente = 'indice'
+  solicitudCotizacionId?: string; // FK opcional si proviene de RFQ
   notas?: string;
 }
 
-export interface Insumo {
-  id: string;
-  nombre: string; // "Cable unipolar 2.5mm2 IRAM 247-3"
-  marca?: string;
-  modelo?: string;
-  unidad: string; // "m", "u", "kg", "rollo 100m", "juego"
-  categoria: string; // "cableado", "protecciones", "canalizaciones", "cajas", "iluminacion", "accesorios"
-  proveedorPreferido?: string; // Legacy / Fallback
-  codigoProveedor?: string;
-  precioActual: number; // Base/Reference price
-  fechaActualizacion: string; // ISO string
-  historialPrecios: PrecioHistorico[];
-  ofertas?: OfertaProveedor[];
-  requiereCotizacionDirecta?: boolean; // Flag para ítems tipo tableros especiales / excepciones de ajuste masivo
+// ─── 5. Proveedor & Contactos Dinámicos ────────────────────────────────────────
+export interface CanalContacto {
+  tipo: 'telefono' | 'whatsapp' | 'email' | 'web';
+  valor: string;
+  esPrincipal: boolean;
 }
 
+export interface Contacto {
+  id: string;
+  nombrePersona: string;
+  rol?: string; // "Ventas", "Administración", "Técnico"
+  canales: CanalContacto[];
+}
+
+export interface Proveedor {
+  id: string;
+  razonSocial: string;
+  nombre?: string; // Alias para razonSocial
+  cuit?: string;
+  tipoProveedor: TipoProveedor; // 'material', 'servicio', 'ambos'
+  contactos: Contacto[];
+  notas?: string;
+  // Campos legados opcionales
+  telefono?: string;
+  email?: string;
+  contacto?: string;
+  direccion?: string;
+}
+
+// ─── 6. Solicitud de Cotización (RFQ) ─────────────────────────────────────────
+export interface SolicitudCotizacionItem {
+  id: string;
+  materialId: string;
+  productoId?: string;
+  cantidad?: number;
+  precioRespuesta?: number; // cargado manualmente al recibir respuesta
+  ofertaGeneradaId?: string; // FK a Oferta creada al confirmar
+}
+
+export type EstadoSolicitudCotizacion = 'borrador' | 'enviada' | 'respondida' | 'vencida';
+
+export interface SolicitudCotizacion {
+  id: string;
+  proveedorId: string;
+  estado: EstadoSolicitudCotizacion;
+  fechaCreacion: string; // ISO string
+  fechaEnvio?: string;
+  items: SolicitudCotizacionItem[];
+  notas?: string;
+}
+
+// ─── 7. Mano de Obra y Costos Indirectos ───────────────────────────────────────
 export interface CategoriaManoDeObra {
   id: string;
-  nombre: string; // "Oficial Electricista", "Ayudante", "Técnico DCI", "Especialista Tableros"
-  costoHora: number; // Costo real por hora
+  nombre: string;
+  costoHora: number;
   fechaActualizacion: string;
 }
 
@@ -110,13 +197,16 @@ export type TipoCostoIndirecto = 'fijo_mensual' | 'porcentual_sobre_costo' | 'po
 
 export interface CostoIndirecto {
   id: string;
-  nombre: string; // "Combustible/Viáticos", "Amortización Herramientas", "Seguro/ART", "Monotributo"
+  nombre: string;
   tipo: TipoCostoIndirecto;
   valor: number;
 }
 
+// ─── 8. Tareas Tipo y Servicios Tercerizados ──────────────────────────────────
 export interface InsumoEnTarea {
-  insumoId: string;
+  materialId?: string;
+  insumoId?: string; // alias
+  productoId?: string;
   cantidad: number;
 }
 
@@ -127,13 +217,17 @@ export interface ManoObraEnTarea {
 
 export interface TareaTipo {
   id: string;
-  nombre: string; // "Boca de iluminación completa", "Punto TUG 20A", "Circuito completo TUG 10 bocas", "Tablero 12 módulos"
-  categoria: string; // "Bocas", "Circuitos", "Tableros", "Acometidas", "Medición"
+  nombre: string;
+  categoria: string;
   insumos: InsumoEnTarea[];
   manoObra: ManoObraEnTarea[];
-  unidad: string; // "u", "m", "punto", "obra"
-  notasTecnicas?: string; // Ej: "Norma AEA 90364-7-771"
-  factorCorreccion?: number; // Factor EMA de calibración (inicia en 1.0)
+  unidad: string;
+  notasTecnicas?: string;
+  factorCorreccion?: number;
+  frecuenciaUso?: number;
+  ultimoUsoFecha?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ServicioTercerizado {
@@ -142,20 +236,24 @@ export interface ServicioTercerizado {
   nombreProveedor?: string;
   descripcion: string;
   costo: number;
-  margenPropio?: number; // Override opcional del margen de la cotización
-  validezCotizacionTercero?: string; // ISO string de fecha de validez
-  hitoPagoSugerido?: string; // Ref de hito de pago
+  margenPropio?: number;
+  validezCotizacionTercero?: string;
+  hitoPagoSugerido?: string;
 }
 
-// Snapshots congelados al emitir el presupuesto (Inmutabilidad)
+// ─── 9. Snapshots e Ítems de Presupuesto ──────────────────────────────────────
 export interface InsumoSnapshot {
-  insumoId: string;
+  materialId?: string;
+  insumoId?: string;
+  productoId?: string;
+  ofertaId?: string;
   nombre: string;
+  marca?: string;
   unidad: string;
   cantidadTotal: number;
   precioUnitarioCongelado: number;
   subtotalInsumo: number;
-  esAdHoc?: boolean; // Ítem no catalogado en el maestro
+  esAdHoc?: boolean;
   requiereCotizacionDirecta?: boolean;
 }
 
@@ -178,32 +276,37 @@ export interface CostoIndirectoSnapshot {
 export interface ItemPresupuesto {
   id: string;
   tareaTipoId?: string;
+  materialId?: string;
+  productoId?: string;
+  ofertaId?: string;
+  precioManual?: number;
+
   descripcion: string;
   cantidad: number;
   unidad: string;
-  
-  // Detalle de costo al momento del armado
+
   insumosSnapshot: InsumoSnapshot[];
   manoObraSnapshot: ManoObraSnapshot[];
   serviciosTercerizados?: ServicioTercerizado[];
-  
+
   costoInsumos: number;
   costoManoObra: number;
   costoServiciosTercerizados?: number;
   costoDirectoTotal: number;
-  
+
   condicionTrabajo?: 'normal' | 'dificultosa' | 'favorable';
   esAdHoc?: boolean;
-  
+
   precioVentaUnitario: number;
   precioVentaTotal: number;
 }
 
+// ─── 10. Esquema de Pago, Clientes y Presupuesto ──────────────────────────────
 export interface HitoPago {
   id: string;
-  descripcion: string; // "Anticipo 50% materiales", "Certificado N°1 - 30%", "Saldo contra entrega"
-  condicionLiberacion: string; // "Contra firma de contrato", "Avance de obra 50%"
-  porcentaje: number; // % sobre el total
+  descripcion: string;
+  condicionLiberacion: string;
+  porcentaje: number;
   montoCalculado: number;
   medioPagoEsperado: 'efectivo' | 'transferencia' | 'cheque' | 'otro';
   plazoChequeDias?: number;
@@ -211,7 +314,7 @@ export interface HitoPago {
 
 export interface EsquemaPago {
   modalidad: 'pago_unico' | 'adelanto_saldo' | 'certificados_avance' | 'cuotas';
-  fondoReparoPct?: number; // Ej: 5% retenido hasta recepción final
+  fondoReparoPct?: number;
   hitos: HitoPago[];
 }
 
@@ -221,7 +324,7 @@ export type TipoFactura = 'Factura A' | 'Factura B' | 'Factura C' | 'Presupuesto
 
 export interface ImpuestoItem {
   id: string;
-  nombre: string; // "IVA (21%)", "Ingresos Brutos (IIBB)", "Tasa Municipal"
+  nombre: string;
   porcentaje: number;
   aplica: boolean;
   discriminar: boolean;
@@ -237,18 +340,6 @@ export interface Cliente {
   email?: string;
   direccion?: string;
   notas?: string;
-}
-
-export interface Proveedor {
-  id: string;
-  nombre: string;
-  cuit?: string;
-  telefono?: string;
-  email?: string;
-  contacto?: string;
-  direccion?: string;
-  notas?: string;
-  tipoProveedor?: TipoProveedor; // 'material', 'servicio', 'ambos'
 }
 
 export interface Proyecto {
@@ -269,47 +360,46 @@ export interface CostoIndirectoItemConfig {
 
 export interface Presupuesto {
   id: string;
-  numero: string; // Correlativo ej "IEBA-2026-0001"
+  numero: string;
   clienteId: string;
   proyectoId?: string;
-  fechaEmision: string; // ISO String
-  validezDias: number; // Ej: 15 días
-  
+  fechaEmision: string;
+  validezDias: number;
+
   tipoFactura: TipoFactura;
-  
+
   items: ItemPresupuesto[];
   costosIndirectosConfig?: CostoIndirectoItemConfig[];
   costosIndirectosAplicados: CostoIndirectoSnapshot[];
-  
+
   subtotalInsumos: number;
   subtotalManoObra: number;
   subtotalServiciosTercerizados?: number;
   subtotalCostosDirectos: number;
   subtotalCostosIndirectos: number;
   costoTotalObra: number;
-  
-  margenPorcentaje: number; // Ej: 35%
+
+  margenPorcentaje: number;
   montoGanancia: number;
-  
+
   impuestosDetalle: ImpuestoItem[];
-  impuestosPorcentaje: number; // Suma acumulada de % impuestos
+  impuestosPorcentaje: number;
   montoImpuestos: number;
-  
+
   totalARS: number;
-  
-  // Referencia Opcional Multimoneda (USD u otra)
+
   mostrarReferenciaMonedaExtranjera: boolean;
-  nombreMonedaExtranjera: string; // "USD Blue", "USD Oficial"
-  cotizacionMonedaExtranjera: number; // Valor de 1 USD en ARS (ej: 1350)
-  totalMonedaExtranjera?: number; // totalARS / cotizacion
-  
+  nombreMonedaExtranjera: string;
+  cotizacionMonedaExtranjera: number;
+  totalMonedaExtranjera?: number;
+
   condicionesPagoTexto: string;
   esquemaPago?: EsquemaPago;
-  
+
   estado: EstadoPresupuesto;
   notasInternas?: string;
   notasCliente?: string;
-  
+
   fechaModificacion: string;
 }
 
@@ -319,12 +409,12 @@ export interface RegistroTrabajo {
   proyectoId?: string;
   tareaTipoId?: string;
   descripcion: string;
-  fecha: string; // YYYY-MM-DD
+  fecha: string;
   horasReales: number;
   categoriaManoObraId: string;
-  cantidadEjecutada: number; // Ej: 8 bocas
+  cantidadEjecutada: number;
   condicion?: 'normal' | 'dificultosa' | 'favorable';
-  motivoDesvio?: MotivoDesvio; // Informativo para desvíos de horas
+  motivoDesvio?: MotivoDesvio;
   notas?: string;
 }
 
@@ -338,25 +428,25 @@ export interface AppConfig {
   telefono: string;
   email: string;
   direccion: string;
-  dolarReferenciaNombre: string; // "USD Blue"
-  dolarReferenciaValor: number; // Ej: 1350
+  dolarReferenciaNombre: string;
+  dolarReferenciaValor: number;
   mostrarDolarPorDefecto: boolean;
   monotributista: boolean;
   tipoFacturaPorDefecto: TipoFactura;
-  porcentajeIVAPorDefecto: number; // 21
-  porcentajeIIBBPorDefecto: number; // 3.5
+  porcentajeIVAPorDefecto: number;
+  porcentajeIIBBPorDefecto: number;
   margenPorDefectoPct: number;
   validezDiasPorDefecto: number;
-  prefijoPresupuesto: string; // "IEBA"
+  prefijoPresupuesto: string;
   siguienteNumeroCorrelativo: number;
   themeMode?: ThemeMode;
-  
-  // Ajustes especificación v2
-  alphaEmaManoObra?: number; // Factor EMA por defecto (0.3)
-  multiplicadorCondicionNormal?: number; // 1.0
-  multiplicadorCondicionDificultosa?: number; // 1.25
-  multiplicadorCondicionFavorable?: number; // 0.9
-  diasVencimientoPrecioVerde?: number; // 30 días
-  diasVencimientoPrecioAmarillo?: number; // 60 días
-  canastaElectricaValor?: number; // Valor canasta eléctrica propia
+
+  alphaEmaManoObra?: number;
+  multiplicadorCondicionNormal?: number;
+  multiplicadorCondicionDificultosa?: number;
+  multiplicadorCondicionFavorable?: number;
+  diasVencimientoPrecioVerde?: number;
+  diasVencimientoPrecioAmarillo?: number;
+  canastaElectricaValor?: number;
+  umbralMargenMinimoAdvertencia?: number; // Porcentaje configurable (default: 20%)
 }

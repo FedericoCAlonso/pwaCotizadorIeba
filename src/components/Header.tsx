@@ -19,10 +19,13 @@ import {
   Monitor,
   Cloud,
   CheckCircle2,
+  AlertCircle,
   RefreshCw,
   LogOut,
   User as UserIcon,
-  ShieldCheck
+  ShieldCheck,
+  Send,
+  ShoppingCart
 } from 'lucide-react';
 import { exportDatabaseJSON, importDatabaseJSON } from '../db/database';
 import { AppConfig, ThemeMode } from '../core/types';
@@ -98,12 +101,14 @@ export const Header: React.FC<HeaderProps> = ({
 
   const navItems = [
     { id: 'presupuestos', label: 'Presupuestos', icon: FileText },
-    { id: 'insumos', label: 'Materiales', icon: Package },
+    { id: 'insumos', label: 'Materiales & Precios', icon: Package },
     { id: 'manoObra', label: 'Mano de Obra', icon: Clock },
     { id: 'tareasTipo', label: 'Tareas Tipo', icon: Layers },
     { id: 'clientes', label: 'Clientes', icon: Users },
     { id: 'proveedores', label: 'Proveedores', icon: Truck },
-    { id: 'registroTrabajo', label: 'Registro', icon: HardHat }
+    { id: 'rfq', label: 'Solicitudes RFQ', icon: Send },
+    { id: 'registroTrabajo', label: 'Registro', icon: HardHat },
+    { id: 'logistica', label: 'Logística', icon: ShoppingCart }
   ];
 
   const cycleTheme = () => {
@@ -185,6 +190,10 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="hidden sm:inline max-w-[120px] truncate">{user.displayName || user.email?.split('@')[0]}</span>
                 {syncState === 'syncing' ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
+                ) : syncState === 'quota_exceeded' ? (
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                ) : syncState === 'error' ? (
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
                 ) : (
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                 )}
@@ -197,11 +206,25 @@ export const Header: React.FC<HeaderProps> = ({
                     <div className="px-4 pb-2 border-b border-outline-variant/20 mb-2">
                       <p className="text-xs font-semibold text-on-surface truncate">{user.displayName || 'Usuario IEBA'}</p>
                       <p className="text-[11px] text-on-surface-variant truncate">{user.email}</p>
-                      <div className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg">
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <div className={`mt-2 flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-lg ${
+                        syncState === 'quota_exceeded'
+                          ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10'
+                          : syncState === 'error'
+                          ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10'
+                          : 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
+                      }`}>
+                        {syncState === 'quota_exceeded' || syncState === 'error' ? (
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        ) : (
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        )}
                         <span>
                           {syncState === 'syncing'
                             ? 'Sincronizando...'
+                            : syncState === 'quota_exceeded'
+                            ? 'Cuota superada (Modo Local activo)'
+                            : syncState === 'error'
+                            ? 'Error de sincronización'
                             : lastSyncTime
                             ? `Sincronizado ${lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                             : 'Nube activa'}

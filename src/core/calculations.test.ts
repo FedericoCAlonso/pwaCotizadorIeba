@@ -19,9 +19,13 @@ const insumosMap = new Map<string, Insumo>([
     'ins-1',
     {
       id: 'ins-1',
+      categoriaId: 'cableado',
       nombre: 'Cable 2.5mm2',
+      unidadVenta: 'm',
       unidad: 'm',
       categoria: 'cableado',
+      atributos: [],
+      activo: true,
       precioActual: 800,
       fechaActualizacion: new Date().toISOString(),
       historialPrecios: []
@@ -31,9 +35,13 @@ const insumosMap = new Map<string, Insumo>([
     'ins-2',
     {
       id: 'ins-2',
+      categoriaId: 'protecciones',
       nombre: 'Termica 16A',
+      unidadVenta: 'u',
       unidad: 'u',
       categoria: 'protecciones',
+      atributos: [],
+      activo: true,
       precioActual: 12000,
       fechaActualizacion: new Date().toISOString(),
       historialPrecios: []

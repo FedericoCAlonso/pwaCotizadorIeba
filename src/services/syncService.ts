@@ -10,7 +10,7 @@ import {
 import { dbFirestore } from '../config/firebase';
 import { db } from '../db/database';
 
-export type SyncState = 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
+export type SyncState = 'idle' | 'syncing' | 'synced' | 'error' | 'offline' | 'quota_exceeded';
 
 const SYNCED_TABLES = [
   'presupuestos',
@@ -29,6 +29,28 @@ type TableName = typeof SYNCED_TABLES[number];
 let activeListeners: Unsubscribe[] = [];
 let currentUserId: string | null = null;
 let isApplyingRemoteChange = false;
+let isQuotaExceededSession = false;
+
+/**
+ * Checks if an error is a Firebase Firestore Quota Exceeded error.
+ */
+export function isQuotaError(err: any): boolean {
+  if (!err) return false;
+  return (
+    err.code === 'resource-exhausted' ||
+    err.status === 'RESOURCE_EXHAUSTED' ||
+    (typeof err.message === 'string' && (
+      err.message.includes('Quota exceeded') ||
+      err.message.includes('resource-exhausted') ||
+      err.message.includes('quota') ||
+      err.message.includes('Quota')
+    ))
+  );
+}
+
+export function resetQuotaExceededState(): void {
+  isQuotaExceededSession = false;
+}
 
 /**
  * Retorna una marca de tiempo numérico para comparar reciencia de registros.
@@ -48,6 +70,7 @@ function getItemTimestamp(item: any): number {
  * Envía una adición o actualización local hacia Firestore inmediatamente.
  */
 async function pushToFirestore(userId: string, tableName: string, id: string, data: any): Promise<void> {
+  if (isQuotaExceededSession) return;
   const firestore = dbFirestore;
   if (!firestore || !userId || isApplyingRemoteChange) return;
 
@@ -60,8 +83,12 @@ async function pushToFirestore(userId: string, tableName: string, id: string, da
       _syncedAt: new Date().toISOString()
     };
     await setDoc(docRef, payload, { merge: true });
-  } catch (err) {
+  } catch (err: any) {
     console.warn(`[Sync] Error al subir ${tableName}/${id} a Firestore:`, err);
+    if (isQuotaError(err)) {
+      isQuotaExceededSession = true;
+      stopRealtimeSync();
+    }
   }
 }
 
@@ -69,14 +96,19 @@ async function pushToFirestore(userId: string, tableName: string, id: string, da
  * Elimina un registro en Firestore cuando se borra localmente en Dexie.
  */
 async function deleteFromFirestore(userId: string, tableName: string, id: string): Promise<void> {
+  if (isQuotaExceededSession) return;
   const firestore = dbFirestore;
   if (!firestore || !userId || isApplyingRemoteChange) return;
 
   try {
     const docRef = doc(firestore, 'users', userId, tableName, id);
     await deleteDoc(docRef);
-  } catch (err) {
+  } catch (err: any) {
     console.warn(`[Sync] Error al eliminar ${tableName}/${id} en Firestore:`, err);
+    if (isQuotaError(err)) {
+      isQuotaExceededSession = true;
+      stopRealtimeSync();
+    }
   }
 }
 
@@ -92,14 +124,14 @@ export function setupDexieHooks(userId: string | null): void {
     if (!table || table._syncHooksAttached) return;
 
     table.hook('creating', (primKey: any, obj: any) => {
-      if (currentUserId && !isApplyingRemoteChange) {
+      if (currentUserId && !isApplyingRemoteChange && !isQuotaExceededSession) {
         const id = String(primKey || obj.id);
         pushToFirestore(currentUserId, tableName, id, obj);
       }
     });
 
     table.hook('updating', (modifications: any, primKey: any, obj: any) => {
-      if (currentUserId && !isApplyingRemoteChange) {
+      if (currentUserId && !isApplyingRemoteChange && !isQuotaExceededSession) {
         const id = String(primKey || obj.id);
         const updatedObj = { ...obj, ...modifications };
         pushToFirestore(currentUserId, tableName, id, updatedObj);
@@ -107,7 +139,7 @@ export function setupDexieHooks(userId: string | null): void {
     });
 
     table.hook('deleting', (primKey: any) => {
-      if (currentUserId && !isApplyingRemoteChange) {
+      if (currentUserId && !isApplyingRemoteChange && !isQuotaExceededSession) {
         const id = String(primKey);
         deleteFromFirestore(currentUserId, tableName, id);
       }
@@ -121,6 +153,9 @@ export function setupDexieHooks(userId: string | null): void {
  * Realiza la sincronización bidireccional inicial completa entre Dexie (IndexedDB) y Cloud Firestore.
  */
 export async function syncUserData(userId: string): Promise<void> {
+  if (isQuotaExceededSession) {
+    throw { code: 'resource-exhausted', message: 'Quota exceeded' };
+  }
   const firestore = dbFirestore;
   if (!firestore || !userId) return;
 
@@ -154,24 +189,29 @@ export async function syncUserData(userId: string): Promise<void> {
       }
 
       // 2. Aplicar en Dexie datos remotos de Firestore faltantes o más recientes
-      for (const [id, remoteItem] of remoteMap.entries()) {
-        const localItem = localMap.get(id);
-        const localTime = getItemTimestamp(localItem);
-        const remoteTime = getItemTimestamp(remoteItem);
+      isApplyingRemoteChange = true;
+      try {
+        for (const [id, remoteItem] of remoteMap.entries()) {
+          const localItem = localMap.get(id);
+          const localTime = getItemTimestamp(localItem);
+          const remoteTime = getItemTimestamp(remoteItem);
 
-        if (!localItem || remoteTime > localTime) {
-          isApplyingRemoteChange = true;
-          try {
+          if (!localItem || remoteTime > localTime) {
             const cleanItem = { ...remoteItem };
             delete cleanItem._syncedAt;
             await dexieTable.put(cleanItem);
-          } finally {
-            isApplyingRemoteChange = false;
           }
         }
+      } finally {
+        isApplyingRemoteChange = false;
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn(`[Sync] Error al sincronizar la tabla ${tableName}:`, err);
+      if (isQuotaError(err)) {
+        isQuotaExceededSession = true;
+        stopRealtimeSync();
+        throw err;
+      }
     }
   }
 }
@@ -179,8 +219,17 @@ export async function syncUserData(userId: string): Promise<void> {
 /**
  * Escucha cambios en tiempo real (onSnapshot) desde Firestore y los aplica en Dexie.
  */
-export function startRealtimeSync(userId: string, onUpdate?: () => void): () => void {
+export function startRealtimeSync(
+  userId: string,
+  onUpdate?: () => void,
+  onError?: (err: any) => void
+): () => void {
   stopRealtimeSync();
+
+  if (isQuotaExceededSession) {
+    if (onError) onError({ code: 'resource-exhausted', message: 'Quota exceeded' });
+    return () => {};
+  }
 
   const firestore = dbFirestore;
   if (!firestore || !userId) return () => {};
@@ -229,12 +278,24 @@ export function startRealtimeSync(userId: string, onUpdate?: () => void): () => 
         },
         (err) => {
           console.warn(`[Sync] Error en escucha en tiempo real para ${tableName}:`, err);
+          if (isQuotaError(err)) {
+            isQuotaExceededSession = true;
+            stopRealtimeSync();
+            if (onError) onError(err);
+          } else if (onError) {
+            onError(err);
+          }
         }
       );
 
       activeListeners.push(unsub);
-    } catch (err) {
+    } catch (err: any) {
       console.warn(`[Sync] Error al iniciar escucha para ${tableName}:`, err);
+      if (isQuotaError(err)) {
+        isQuotaExceededSession = true;
+        stopRealtimeSync();
+        if (onError) onError(err);
+      }
     }
   });
 
@@ -242,7 +303,14 @@ export function startRealtimeSync(userId: string, onUpdate?: () => void): () => 
 }
 
 export function stopRealtimeSync(): void {
-  activeListeners.forEach((unsub) => unsub());
+  activeListeners.forEach((unsub) => {
+    try {
+      unsub();
+    } catch {
+      // ignore
+    }
+  });
   activeListeners = [];
   currentUserId = null;
 }
+

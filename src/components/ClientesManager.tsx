@@ -20,7 +20,8 @@ import {
   XCircle,
   FileCheck,
   TrendingUp,
-  DollarSign
+  DollarSign,
+  UserPlus
 } from 'lucide-react';
 import { db, importClientesCSV } from '../db/database';
 import { Cliente, Presupuesto, EstadoPresupuesto } from '../core/types';
@@ -61,6 +62,27 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
   const handleOpenCreate = () => {
     setFormData({ nombre: '', cuitDni: '', telefono: '', email: '', direccion: '', notas: '' });
     setIsCreating(true);
+  };
+
+  const handleImportFromContacts = async () => {
+    if (!('contacts' in navigator && 'select' in (navigator as any).contacts)) {
+      alert('La importación de contactos desde la agenda no está disponible en este dispositivo/navegador. Puedes ingresar los datos manualmente.');
+      return;
+    }
+    try {
+      const contacts = await (navigator as any).contacts.select(['name', 'tel', 'email'], { multiple: false });
+      if (contacts && contacts.length > 0) {
+        const c = contacts[0];
+        setFormData(prev => ({
+          ...prev,
+          nombre: (c.name && c.name[0]) || prev.nombre || '',
+          telefono: (c.tel && c.tel[0]) || prev.telefono || '',
+          email: (c.email && c.email[0]) || prev.email || ''
+        }));
+      }
+    } catch (err) {
+      console.log('Contacto no seleccionado o no permitido:', err);
+    }
   };
 
   const handleOpenEdit = (c: Cliente) => {
@@ -557,9 +579,21 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-md shadow-2xl p-6 text-on-surface">
             <div className="flex items-center justify-between mb-5 border-b border-outline-variant/30 pb-3">
-              <h3 className="text-base font-semibold text-on-surface">
-                {isCreating ? 'Agregar Nuevo Cliente' : 'Editar Cliente'}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold text-on-surface">
+                  {isCreating ? 'Agregar Nuevo Cliente' : 'Editar Cliente'}
+                </h3>
+                {'contacts' in navigator && (
+                  <button
+                    type="button"
+                    onClick={handleImportFromContacts}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-full transition-colors"
+                    title="Importar de los contactos del teléfono"
+                  >
+                    <UserPlus className="w-3 h-3" /> Agenda
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => {
                   setIsCreating(false);

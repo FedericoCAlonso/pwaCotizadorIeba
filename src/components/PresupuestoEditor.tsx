@@ -18,7 +18,11 @@ import {
   ArrowLeft,
   Info,
   X,
-  RotateCcw
+  RotateCcw,
+  Star,
+  Zap,
+  Copy,
+  AlertCircle
 } from 'lucide-react';
 import { db } from '../db/database';
 import {
@@ -71,11 +75,29 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 }) => {
   const clientes = useLiveQuery(() => db.clientes.toArray()) || [];
   const tareasTipo = useLiveQuery(() => db.tareasTipo.toArray()) || [];
-  const insumos = useLiveQuery(() => db.insumos.toArray()) || [];
+  const favoriteTareas = [...tareasTipo].sort((a, b) => (b.frecuenciaUso || 0) - (a.frecuenciaUso || 0)).slice(0, 8);
+
+  const legacyInsumos = useLiveQuery(() => db.insumos.toArray()) || [];
+  const materiales = useLiveQuery(() => db.materiales.toArray()) || [];
+  const ofertas = useLiveQuery(() => db.ofertas.toArray()) || [];
   const manoObraList = useLiveQuery(() => db.manoObra.toArray()) || [];
   const costosIndirectos = useLiveQuery(() => db.costosIndirectos.toArray()) || [];
 
-  const insumosMap = new Map<string, Insumo>(insumos.map((i) => [i.id, i]));
+  const insumosMap = new Map<string, Insumo>();
+  legacyInsumos.forEach(i => insumosMap.set(i.id, i));
+  materiales.forEach(m => {
+    const oferta = ofertas.find(o => o.materialId === m.id);
+    insumosMap.set(m.id, {
+      ...m,
+      id: m.id,
+      nombre: m.nombre,
+      unidad: m.unidadVenta || 'u',
+      categoria: m.categoriaId,
+      precioActual: oferta ? oferta.precio : (m as any).precioActual || 0,
+      fechaActualizacion: oferta ? oferta.fecha : new Date().toISOString(),
+      historialPrecios: []
+    });
+  });
   const manoObraMap = new Map<string, CategoriaManoDeObra>(manoObraList.map((m) => [m.id, m]));
 
   const existingPresupuesto = useLiveQuery(
@@ -318,6 +340,12 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       precioVentaUnitario,
       precioVentaTotal: precioVentaUnitario
     };
+
+    // Incrementar índice de frecuencia de uso (Spec v2 §1.2)
+    db.tareasTipo.update(tarea.id, {
+      frecuenciaUso: (tarea.frecuenciaUso || 0) + 1,
+      ultimoUsoFecha: new Date().toISOString()
+    }).catch(() => {});
 
     setItems((prev) => [...prev, newItem]);
     setShowItemPickerModal(false);
@@ -733,6 +761,53 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               </div>
             </div>
 
+            {/* Favorites Bar / Accesos Directos Táctiles (Spec v2 §1.3) */}
+            {favoriteTareas.length > 0 && (
+              <div className="bg-surface-container/60 p-3 rounded-2xl border border-outline-variant/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1.5">
+                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" /> Accesos Directos (Tócalo en Obra)
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {favoriteTareas.map((tarea) => (
+                    <button
+                      key={tarea.id}
+                      type="button"
+                      onClick={() => handleAddTareaTipoItem(tarea)}
+                      className="px-3 py-1.5 bg-surface-container-highest hover:bg-primary/10 text-on-surface hover:text-primary border border-outline-variant/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 touch-manipulation shadow-2xs"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-primary" />
+                      <span>{tarea.nombre}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Alerta de Margen Bajo (Spec v2 §4.2) */}
+            {totales.totalARS > 0 && (
+              (() => {
+                const netMarginPct = ((totales.totalARS - totales.costoTotalObra) / totales.totalARS) * 100;
+                const umbralMinimo = config.umbralMargenMinimoAdvertencia ?? 20;
+                if (netMarginPct < umbralMinimo) {
+                  return (
+                    <div className="p-4 bg-amber-500/15 border border-amber-500/30 rounded-2xl text-amber-700 dark:text-amber-300 flex items-start gap-3 shadow-sm">
+                      <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                      <div className="text-xs space-y-1">
+                        <p className="font-bold text-sm">⚠️ Advertencia de Margen Bajo ({netMarginPct.toFixed(1)}%)</p>
+                        <p>
+                          El margen neto estimado de esta cotización está por debajo del umbral mínimo de seguridad configurado (<strong>{umbralMinimo}%</strong>).
+                        </p>
+                        <p className="text-[11px] opacity-90">Revisa los costos directos, mano de obra o incrementa el margen para resguardar la rentabilidad.</p>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()
+            )}
+
             {/* Items Table */}
             {items.length === 0 ? (
               <div className="text-center py-16 border-2 border-dashed border-outline-variant/50 rounded-2xl bg-surface-container">
@@ -796,16 +871,35 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                             </select>
                           </div>
 
-                          {/* Quantity */}
+                          {/* Quantity with Touch Stepper (Spec v2 §1.3) */}
                           <div className="flex items-center gap-1">
                             <span className="text-xs text-on-surface-variant">Cant:</span>
-                            <input
-                              type="number"
-                              step="0.1"
-                              value={item.cantidad}
-                              onChange={(e) => handleUpdateItemQuantity(idx, parseFloat(e.target.value) || 0)}
-                              className="w-16 bg-surface-container-highest border border-outline-variant/30 rounded-xl px-2 py-1 text-xs text-on-surface font-mono text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
-                            />
+                            <div className="flex items-center gap-0.5 bg-surface-container-highest border border-outline-variant/30 rounded-xl p-0.5">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateItemQuantity(idx, Math.max(0.1, item.cantidad - 1))}
+                                className="w-8 h-8 flex items-center justify-center font-bold text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors active:scale-95 touch-manipulation text-base"
+                                title="Restar 1"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                step="0.1"
+                                inputMode="decimal"
+                                value={item.cantidad}
+                                onChange={(e) => handleUpdateItemQuantity(idx, parseFloat(e.target.value) || 0)}
+                                className="w-12 bg-transparent border-none text-xs text-on-surface font-mono font-bold text-center focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateItemQuantity(idx, item.cantidad + 1)}
+                                className="w-8 h-8 flex items-center justify-center font-bold text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors active:scale-95 touch-manipulation text-base"
+                                title="Sumar 1"
+                              >
+                                +
+                              </button>
+                            </div>
                             <input
                               type="text"
                               value={item.unidad}
@@ -822,6 +916,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                               <input
                                 type="number"
                                 step="1"
+                                inputMode="decimal"
                                 value={item.precioVentaUnitario}
                                 onChange={(e) => handleUpdateItemUnitPrice(idx, parseFloat(e.target.value) || 0)}
                                 className="w-28 bg-surface-container-highest border border-outline-variant/30 rounded-xl pl-5 pr-2 py-1 text-xs text-primary font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"

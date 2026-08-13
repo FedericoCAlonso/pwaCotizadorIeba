@@ -9,7 +9,7 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../config/firebase';
-import { syncUserData, startRealtimeSync, setupDexieHooks, stopRealtimeSync, SyncState } from '../services/syncService';
+import { syncUserData, startRealtimeSync, setupDexieHooks, stopRealtimeSync, isQuotaError, resetQuotaExceededState, SyncState } from '../services/syncService';
 
 interface AuthContextType {
   user: User | null;
@@ -45,9 +45,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await syncUserData(currentUser.uid);
       setSyncState('synced');
       setLastSyncTime(new Date());
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error durante la sincronización con Firebase:', err);
-      setSyncState('error');
+      if (isQuotaError(err)) {
+        setSyncState('quota_exceeded');
+      } else {
+        setSyncState('error');
+      }
     }
   };
 
@@ -57,22 +61,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
 
+    let activeStopRealtimeListener: (() => void) | null = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       setLoading(false);
 
+      if (activeStopRealtimeListener) {
+        activeStopRealtimeListener();
+        activeStopRealtimeListener = null;
+      }
+
       if (currentUser) {
         setupDexieHooks(currentUser.uid);
         await handleSync(currentUser);
-        // Start realtime sync listener for multi-device sync
-        const stopListener = startRealtimeSync(currentUser.uid, () => {
-          setLastSyncTime(new Date());
-          setSyncState('synced');
-        });
 
-        return () => {
-          stopListener();
-        };
+        // Start realtime sync listener for multi-device sync
+        activeStopRealtimeListener = startRealtimeSync(
+          currentUser.uid,
+          () => {
+            setLastSyncTime(new Date());
+            setSyncState('synced');
+          },
+          (err) => {
+            if (isQuotaError(err)) {
+              setSyncState('quota_exceeded');
+            } else {
+              setSyncState('error');
+            }
+          }
+        );
       } else {
         setupDexieHooks(null);
         stopRealtimeSync();
@@ -91,6 +109,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return () => {
       unsubscribeAuth();
+      if (activeStopRealtimeListener) {
+        activeStopRealtimeListener();
+      }
+      stopRealtimeSync();
       window.removeEventListener('online', handleOnline);
     };
   }, []);
@@ -124,6 +146,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const triggerSync = async () => {
     if (user) {
+      resetQuotaExceededState();
       await handleSync(user);
     }
   };

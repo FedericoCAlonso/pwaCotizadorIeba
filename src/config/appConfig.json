@@ -113,94 +113,95 @@
     "multiplicadorCondicionFavorable": 0.9,
     "diasVencimientoPrecioVerde": 30,
     "diasVencimientoPrecioAmarillo": 60,
-    "canastaElectricaValor": 150000
+    "canastaElectricaValor": 150000,
+    "umbralMargenMinimoAdvertencia": 20
   },
-  "initialInsumos": [
+  "initialCategoriasMaterial": [
     {
-      "id": "ins-c25",
-      "nombre": "Cable Unipolar 2.5mm² IRAM 247-3 (Mortero/Prysmian)",
-      "unidad": "m",
-      "categoria": "cableado",
-      "proveedorPreferido": "Distribuidora Eléctrica Central",
-      "precioActual": 720
+      "id": "cat-sin-categoria",
+      "nombre": "Sin categoría (No asignado)",
+      "atributosSugeridos": []
     },
     {
-      "id": "ins-c15",
-      "nombre": "Cable Unipolar 1.5mm² IRAM 247-3",
-      "unidad": "m",
-      "categoria": "cableado",
-      "proveedorPreferido": "Distribuidora Eléctrica Central",
-      "precioActual": 480
+      "id": "cat-cables",
+      "nombre": "Cables & Conductores",
+      "atributosSugeridos": [
+        { "clave": "seccion", "etiqueta": "Sección", "unidad": "mm²", "tipo": "numero" },
+        { "clave": "norma", "etiqueta": "Norma IRAM", "unidad": "", "tipo": "texto" }
+      ]
     },
     {
-      "id": "ins-c40",
-      "nombre": "Cable Unipolar 4.0mm² IRAM 247-3",
-      "unidad": "m",
-      "categoria": "cableado",
-      "precioActual": 1150
+      "id": "cat-protecciones",
+      "nombre": "Protecciones Eléctricas",
+      "atributosSugeridos": [
+        { "clave": "In", "etiqueta": "Corriente Nominal", "unidad": "A", "tipo": "numero" },
+        { "clave": "polos", "etiqueta": "Cantidad de Polos", "unidad": "", "tipo": "numero" }
+      ]
     },
     {
-      "id": "ins-term-2x16",
-      "nombre": "Llave Termomagnética 2x16A 3kA (Schneider/ABB)",
-      "unidad": "u",
-      "categoria": "protecciones",
-      "precioActual": 14500
+      "id": "cat-canalizaciones",
+      "nombre": "Canalizaciones & Caños",
+      "atributosSugeridos": [
+        { "clave": "diametro", "etiqueta": "Diámetro", "unidad": "pulgadas", "tipo": "texto" }
+      ]
+    }
+  ],
+  "initialMateriales": [
+    {
+      "id": "mat-c25",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 2.5 mm² IRAM 247-3",
+      "norma": "IRAM-NM 247-3",
+      "unidadVenta": "m",
+      "atributos": [{ "clave": "seccion", "valor": "2.5" }, { "clave": "norma", "valor": "247-3" }],
+      "activo": true
     },
     {
-      "id": "ins-term-2x25",
-      "nombre": "Llave Termomagnética 2x25A 3kA (Schneider/ABB)",
-      "unidad": "u",
-      "categoria": "protecciones",
-      "precioActual": 15200
+      "id": "mat-term-2x16",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Llave Termomagnética 2x16A 3kA",
+      "norma": "IEC 60898",
+      "unidadVenta": "u",
+      "atributos": [{ "clave": "In", "valor": "16" }, { "clave": "polos", "valor": "2" }],
+      "activo": true
+    }
+  ],
+  "initialProductos": [
+    {
+      "id": "prod-c25-prysmian",
+      "materialId": "mat-c25",
+      "marca": "Prysmian",
+      "modelo": "Superastic 2.5",
+      "tierCalidad": "premium",
+      "esPreferido": true
     },
     {
-      "id": "ins-disy-2x40",
-      "nombre": "Interruptor Diferencial 2x40A 30mA (Schneider Superinmunizado/Clásico)",
-      "unidad": "u",
-      "categoria": "protecciones",
-      "precioActual": 42000
+      "id": "prod-term-schneider",
+      "materialId": "mat-term-2x16",
+      "marca": "Schneider Electric",
+      "modelo": "Easy9 2P 16A",
+      "tierCalidad": "premium",
+      "esPreferido": true
+    }
+  ],
+  "initialOfertas": [
+    {
+      "id": "of-1",
+      "materialId": "mat-c25",
+      "productoId": "prod-c25-prysmian",
+      "proveedorId": "prov-1",
+      "precio": 720,
+      "fecha": "2026-08-13T09:00:00.000Z",
+      "fuente": "manual"
     },
     {
-      "id": "ins-caja-octo",
-      "nombre": "Caja Octogonal Chapa Reforzada 18",
-      "unidad": "u",
-      "categoria": "cajas",
-      "precioActual": 980
-    },
-    {
-      "id": "ins-caja-rect",
-      "nombre": "Caja Rectangular 5x10 Chapa Reforzada",
-      "unidad": "u",
-      "categoria": "cajas",
-      "precioActual": 850
-    },
-    {
-      "id": "ins-caño-3/4",
-      "nombre": "Caño Corrugado Blanco Ignífugo 3/4\" (Rollo de 25m)",
-      "unidad": "m",
-      "categoria": "canalizaciones",
-      "precioActual": 450
-    },
-    {
-      "id": "ins-llave-armada",
-      "nombre": "Módulo Llave de Luz Armada 1 Tecla + Bastidor (Jeluz/Sica)",
-      "unidad": "u",
-      "categoria": "accesorios",
-      "precioActual": 3800
-    },
-    {
-      "id": "ins-toma-20a",
-      "nombre": "Tomacorriente 20A Reforzado Aire/Horno",
-      "unidad": "u",
-      "categoria": "accesorios",
-      "precioActual": 4900
-    },
-    {
-      "id": "ins-tablero-12m",
-      "nombre": "Gabinete Embutir/Exterior 12 Módulos IP40 con Din",
-      "unidad": "u",
-      "categoria": "cajas",
-      "precioActual": 18900
+      "id": "of-2",
+      "materialId": "mat-term-2x16",
+      "productoId": "prod-term-schneider",
+      "proveedorId": "prov-1",
+      "precio": 14500,
+      "fecha": "2026-08-13T09:00:00.000Z",
+      "fuente": "manual"
     }
   ],
   "initialManoObra": [
@@ -241,52 +242,13 @@
       "nombre": "Boca de Iluminación Completa (IUG)",
       "categoria": "Bocas",
       "unidad": "punto",
-      "notasTecnicas": "Incluye caja octogonal, 12m caño corrugado, 20m cable 1.5mm², caja 5x10 y armado de tecla.",
+      "notasTecnicas": "Incluye caja octogonal, caño corrugado, cable 1.5mm², caja 5x10 y armado de tecla.",
       "insumos": [
-        { "insumoId": "ins-caja-octo", "cantidad": 1 },
-        { "insumoId": "ins-caja-rect", "cantidad": 1 },
-        { "insumoId": "ins-caño-3/4", "cantidad": 12 },
-        { "insumoId": "ins-c15", "cantidad": 20 },
-        { "insumoId": "ins-llave-armada", "cantidad": 1 }
+        { "materialId": "mat-c25", "cantidad": 20 }
       ],
       "manoObra": [
         { "categoriaId": "mo-oficial", "horas": 1.2 },
         { "categoriaId": "mo-ayudante", "horas": 1.0 }
-      ]
-    },
-    {
-      "id": "tt-boca-tug",
-      "nombre": "Boca de Tomacorriente General (TUG)",
-      "categoria": "Bocas",
-      "unidad": "punto",
-      "notasTecnicas": "Caja rectangular 5x10, caño corrugado, cable 2.5mm² y bastidor armado.",
-      "insumos": [
-        { "insumoId": "ins-caja-rect", "cantidad": 1 },
-        { "insumoId": "ins-caño-3/4", "cantidad": 10 },
-        { "insumoId": "ins-c25", "cantidad": 24 },
-        { "insumoId": "ins-llave-armada", "cantidad": 1 }
-      ],
-      "manoObra": [
-        { "categoriaId": "mo-oficial", "horas": 1.0 },
-        { "categoriaId": "mo-ayudante", "horas": 0.8 }
-      ]
-    },
-    {
-      "id": "tt-tablero-12m",
-      "nombre": "Armado y Montaje de Tablero Seccional 12 Módulos",
-      "categoria": "Tableros",
-      "unidad": "u",
-      "notasTecnicas": "Gabinete 12M, 1 Disyuntor 2x40A, 2 Térmicas 2x16A/2x25A y peineta de interconexión.",
-      "insumos": [
-        { "insumoId": "ins-tablero-12m", "cantidad": 1 },
-        { "insumoId": "ins-disy-2x40", "cantidad": 1 },
-        { "insumoId": "ins-term-2x16", "cantidad": 1 },
-        { "insumoId": "ins-term-2x25", "cantidad": 1 },
-        { "insumoId": "ins-c40", "cantidad": 6 }
-      ],
-      "manoObra": [
-        { "categoriaId": "mo-oficial", "horas": 3.5 },
-        { "categoriaId": "mo-ayudante", "horas": 2.0 }
       ]
     }
   ],
@@ -300,38 +262,28 @@
       "email": "obras@estudiopalermo.com",
       "direccion": "Av. Coronel Díaz 2450, CABA",
       "notas": "Cliente corporativo recurrente. Pagos a 15 días."
-    },
-    {
-      "id": "cli-2",
-      "nombre": "Ing. Carlos Rossi (Residencial)",
-      "cuitDni": "20-18990011-4",
-      "condicionIVA": "Consumidor Final",
-      "telefono": "+54 9 11 6789-0123",
-      "email": "carlos.rossi@gmail.com",
-      "direccion": "Barrio Privado Los Olivos, Lote 45, Tigre",
-      "notas": "Casa en construcción 220m2."
     }
   ],
   "initialProveedores": [
     {
       "id": "prov-1",
+      "razonSocial": "Distribuidora Eléctrica Central SA",
       "nombre": "Distribuidora Eléctrica Central SA",
       "cuit": "30-68991122-3",
-      "telefono": "+54 9 11 4300-9900",
-      "email": "ventas@electricacentral.com.ar",
-      "contacto": "Mariano López (Asesor Comercial)",
+      "tipoProveedor": "material",
+      "contactos": [
+        {
+          "id": "cnt-1",
+          "nombrePersona": "Mariano López",
+          "rol": "Asesor Comercial",
+          "canales": [
+            { "tipo": "whatsapp", "valor": "+54 9 11 4300-9900", "esPrincipal": true },
+            { "tipo": "email", "valor": "ventas@electricacentral.com.ar", "esPrincipal": false }
+          ]
+        }
+      ],
       "direccion": "Av. Warnes 1540, CABA",
-      "notas": "Proveedor mayorista principal de cables IRAM y térmicas Schneider. Descuento 8% pago contado."
-    },
-    {
-      "id": "prov-2",
-      "nombre": "Electro Materiales Sur SRL",
-      "cuit": "30-70554433-1",
-      "telefono": "+54 9 11 4244-1122",
-      "email": "pedidos@electrosur.com.ar",
-      "contacto": "Guillermo Fernández",
-      "direccion": "Av. Hipólito Yrigoyen 8900, Lomas de Zamora",
-      "notas": "Especialista en canalizaciones, caño corrugado ignífugo y gabinetes."
+      "notas": "Proveedor mayorista principal."
     }
   ]
 }
