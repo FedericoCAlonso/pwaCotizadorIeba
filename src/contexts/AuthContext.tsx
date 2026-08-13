@@ -18,6 +18,7 @@ import {
   resetQuotaExceededState,
   resetSyncLock,
   isCircuitBreakerActive,
+  isQuotaError,
   getPendingSyncCount,
   SyncState
 } from '../services/syncService';
@@ -72,14 +73,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setSyncState('syncing');
       const resultState = await syncUserData(currentUser.uid);
-      setSyncState(resultState);
-      if (resultState === 'synced') {
-        setLastSyncTime(new Date());
+      if (isCircuitBreakerActive() || resultState === 'quota_exceeded') {
+        setSyncState('quota_exceeded');
+      } else {
+        setSyncState(resultState);
+        if (resultState === 'synced') {
+          setLastSyncTime(new Date());
+        }
       }
       await updatePendingCount();
     } catch (err: any) {
       console.error('Error durante la sincronización con Firebase:', err);
-      if (isCircuitBreakerActive()) {
+      if (isCircuitBreakerActive() || isQuotaError(err)) {
         setSyncState('quota_exceeded');
       } else {
         setSyncState('error');

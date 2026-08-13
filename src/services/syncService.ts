@@ -215,7 +215,7 @@ export async function flushPendingSync(userId: string): Promise<SyncState> {
   try {
     const pendingOps: { tableName: TableName; id: string; status: SyncStatus; data?: any }[] = [];
 
-    // 1. Recolectar registros con Dirty Flags en IndexedDB (incluyendo aquellos sin syncStatus inicial)
+    // 1. Recolectar registros con Dirty Flags en IndexedDB
     for (const tableName of SYNCED_TABLES) {
       const table = (db as any)[tableName];
       if (!table) continue;
@@ -297,7 +297,7 @@ export async function flushPendingSync(userId: string): Promise<SyncState> {
 export async function syncUserData(userId: string): Promise<SyncState> {
   setupDexieHooks(userId);
   const pushState = await flushPendingSync(userId);
-  if (pushState === 'quota_exceeded' || pushState === 'offline') {
+  if (pushState !== 'synced') {
     return pushState;
   }
 

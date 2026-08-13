@@ -64,28 +64,92 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
   if (!isOpen) return null;
 
   /**
-   * Genera y descarga la plantilla Excel (.xlsx) con 2 Hojas:
-   * - Hoja 1: Materiales (solo encabezados)
-   * - Hoja 2: Categorías_Disponibles (listado actual de la BD)
+   * Genera y descarga la plantilla Excel (.xlsx) con 2 Hojas estructuradas:
+   * - Hoja 1: Materiales (Tabla Oficial de Excel ListObject con Validación de Datos en columna Categoría)
+   * - Hoja 2: Categorías_Disponibles (Listado de referencia de la BD)
    */
   const handleDownloadExcelTemplate = async () => {
     try {
       const existingCats = await db.categoriasMaterial.toArray();
 
-      // Hoja 1: Materiales solo con encabezados
-      const headersSheet1 = [
+      // Hoja 1: Materiales con encabezados y filas de trabajo
+      const headersSheet1: any[][] = [
         ['Nombre / Descripción', 'Categoría', 'Unidad', 'Norma', 'Marca', 'Precio Unitario ARS', 'Proveedor']
       ];
+      // Agregar 30 filas base pre-formateadas
+      for (let i = 0; i < 30; i++) {
+        headersSheet1.push(['', '', 'u', '', '', '', '']);
+      }
+
       const ws1 = XLSX.utils.aoa_to_sheet(headersSheet1);
 
+      // Metadatos de Tabla Oficial de Excel (ListObject)
+      (ws1 as any)['!tables'] = [
+        {
+          name: 'TablaMaterialesIEBA',
+          ref: 'A1:G31',
+          headerRowCount: 1,
+          totalsRowCount: 0,
+          columns: [
+            { name: 'Nombre / Descripción' },
+            { name: 'Categoría' },
+            { name: 'Unidad' },
+            { name: 'Norma' },
+            { name: 'Marca' },
+            { name: 'Precio Unitario ARS' },
+            { name: 'Proveedor' }
+          ]
+        }
+      ];
+
+      // Regla de Validación de Datos de Excel (Dropdown de Categorías en columna B: B2 a B100)
+      const lastCatRow = Math.max(2, existingCats.length + 1);
+      (ws1 as any)['!dataValidation'] = [
+        {
+          type: 'list',
+          allowBlank: true,
+          sqref: 'B2:B100',
+          formula1: `'Categorias_Disponibles'!$B$2:$B$${lastCatRow}`
+        }
+      ];
+
+      // Anchos de columna optimizados
+      ws1['!cols'] = [
+        { wch: 42 }, // Nombre
+        { wch: 28 }, // Categoría
+        { wch: 10 }, // Unidad
+        { wch: 16 }, // Norma
+        { wch: 22 }, // Marca
+        { wch: 22 }, // Precio ARS
+        { wch: 32 }  // Proveedor
+      ];
+
       // Hoja 2: Categorías Disponibles
-      const catsSheet2 = [
+      const catsSheet2: any[][] = [
         ['ID Categoría', 'Nombre de la Categoría']
       ];
       existingCats.forEach(c => {
         catsSheet2.push([c.id, c.nombre]);
       });
       const ws2 = XLSX.utils.aoa_to_sheet(catsSheet2);
+
+      (ws2 as any)['!tables'] = [
+        {
+          name: 'TablaCategoriasDisponibles',
+          ref: `A1:B${catsSheet2.length}`,
+          headerRowCount: 1,
+          totalsRowCount: 0,
+          columns: [
+            { name: 'ID Categoría' },
+            { name: 'Nombre de la Categoría' }
+          ]
+        }
+      ];
+
+      ws2['!cols'] = [
+        { wch: 25 },
+        { wch: 35 }
+      ];
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws1, 'Materiales');
@@ -145,18 +209,19 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
     reader.onload = (event) => {
       try {
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
 
-        const jsonRows = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1 });
+        const jsonRows = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1, defval: '' });
         if (jsonRows.length === 0) {
           alert('El archivo está vacío.');
           return;
         }
 
         const extractedHeaders = (jsonRows[0] as string[]).map(h => String(h || '').trim()).filter(Boolean);
-        const dataRows = jsonRows.slice(1);
+        // Filtrar filas completamente vacías
+        const dataRows = jsonRows.slice(1).filter((r: any[]) => r && r.some(cell => String(cell || '').trim() !== ''));
 
         setHeaders(extractedHeaders);
         setRawRows(dataRows);
