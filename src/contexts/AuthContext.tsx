@@ -9,7 +9,17 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../config/firebase';
-import { syncUserData, startRealtimeSync, setupDexieHooks, stopRealtimeSync, isQuotaError, resetQuotaExceededState, SyncState } from '../services/syncService';
+import {
+  syncUserData,
+  flushPendingSync,
+  startSyncScheduler,
+  stopSyncScheduler,
+  setupDexieHooks,
+  resetQuotaExceededState,
+  isCircuitBreakerActive,
+  getPendingSyncCount,
+  SyncState
+} from '../services/syncService';
 
 interface AuthContextType {
   user: User | null;
@@ -17,6 +27,7 @@ interface AuthContextType {
   isConfigured: boolean;
   syncState: SyncState;
   lastSyncTime: Date | null;
+  pendingCount: number;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (e: string, p: string) => Promise<void>;
   signUpWithEmail: (e: string, p: string) => Promise<void>;
@@ -32,26 +43,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState<boolean>(true);
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [pendingCount, setPendingCount] = useState<number>(0);
   const isConfigured = isFirebaseConfigured();
+
+  const updatePendingCount = async () => {
+    try {
+      const count = await getPendingSyncCount();
+      setPendingCount(count);
+    } catch {
+      setPendingCount(0);
+    }
+  };
 
   const handleSync = async (currentUser: User) => {
     if (!navigator.onLine) {
       setSyncState('offline');
+      await updatePendingCount();
+      return;
+    }
+
+    if (isCircuitBreakerActive()) {
+      setSyncState('quota_exceeded');
+      await updatePendingCount();
       return;
     }
 
     try {
       setSyncState('syncing');
-      await syncUserData(currentUser.uid);
-      setSyncState('synced');
-      setLastSyncTime(new Date());
+      const resultState = await syncUserData(currentUser.uid);
+      setSyncState(resultState);
+      if (resultState === 'synced') {
+        setLastSyncTime(new Date());
+      }
+      await updatePendingCount();
     } catch (err: any) {
       console.error('Error durante la sincronización con Firebase:', err);
-      if (isQuotaError(err)) {
+      if (isCircuitBreakerActive()) {
         setSyncState('quota_exceeded');
       } else {
         setSyncState('error');
       }
+      await updatePendingCount();
     }
   };
 
@@ -61,44 +93,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
 
-    let activeStopRealtimeListener: (() => void) | null = null;
-
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       setLoading(false);
 
-      if (activeStopRealtimeListener) {
-        activeStopRealtimeListener();
-        activeStopRealtimeListener = null;
-      }
-
       if (currentUser) {
         setupDexieHooks(currentUser.uid);
+        startSyncScheduler(currentUser.uid, 5);
         await handleSync(currentUser);
-
-        // Start realtime sync listener for multi-device sync
-        activeStopRealtimeListener = startRealtimeSync(
-          currentUser.uid,
-          () => {
-            setLastSyncTime(new Date());
-            setSyncState('synced');
-          },
-          (err) => {
-            if (isQuotaError(err)) {
-              setSyncState('quota_exceeded');
-            } else {
-              setSyncState('error');
-            }
-          }
-        );
       } else {
         setupDexieHooks(null);
-        stopRealtimeSync();
+        stopSyncScheduler();
         setSyncState('idle');
+        setPendingCount(0);
       }
     });
 
-    // Network status change sync handler
     const handleOnline = () => {
       if (auth?.currentUser) {
         handleSync(auth.currentUser);
@@ -107,12 +117,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     window.addEventListener('online', handleOnline);
 
+    // Dynamic pending items counter polling (unintrusive every 10s)
+    const pendingTimer = setInterval(updatePendingCount, 10000);
+
     return () => {
       unsubscribeAuth();
-      if (activeStopRealtimeListener) {
-        activeStopRealtimeListener();
-      }
-      stopRealtimeSync();
+      stopSyncScheduler();
+      clearInterval(pendingTimer);
       window.removeEventListener('online', handleOnline);
     };
   }, []);
@@ -140,8 +151,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = async () => {
     if (!auth) return;
     setupDexieHooks(null);
-    stopRealtimeSync();
+    stopSyncScheduler();
     await firebaseSignOut(auth);
+    setSyncState('idle');
+    setPendingCount(0);
   };
 
   const triggerSync = async () => {
@@ -159,6 +172,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isConfigured,
         syncState,
         lastSyncTime,
+        pendingCount,
         signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,

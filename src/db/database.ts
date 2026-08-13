@@ -82,6 +82,25 @@ export class CotizadorDatabase extends Dexie {
       registrosTrabajo: 'id, presupuestoId, tareaTipoId, fecha',
       config: 'id'
     });
+
+    this.version(3).stores({
+      categoriasMaterial: 'id, nombre',
+      materiales: 'id, categoriaId, nombre, activo, syncStatus',
+      productos: 'id, materialId, marca, esPreferido, syncStatus',
+      ofertas: 'id, materialId, productoId, proveedorId, fecha, fuente, syncStatus',
+      solicitudesCotizacion: 'id, proveedorId, estado, fechaCreacion, syncStatus',
+
+      insumos: 'id, nombre, categoria, codigoProveedor, syncStatus',
+      manoObra: 'id, nombre, syncStatus',
+      costosIndirectos: 'id, nombre, tipo, syncStatus',
+      tareasTipo: 'id, nombre, categoria, syncStatus',
+      clientes: 'id, nombre, cuitDni, syncStatus',
+      proveedores: 'id, razonSocial, nombre, cuit, syncStatus',
+      proyectos: 'id, clienteId, nombre, syncStatus',
+      presupuestos: 'id, numero, clienteId, estado, fechaEmision, syncStatus',
+      registrosTrabajo: 'id, presupuestoId, tareaTipoId, fecha, syncStatus',
+      config: 'id, syncStatus'
+    });
   }
 }
 

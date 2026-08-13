@@ -420,6 +420,8 @@ export interface RegistroTrabajo {
 
 export type ThemeMode = 'dark' | 'light' | 'system';
 
+export type SyncStatus = 'synced' | 'pending_insert' | 'pending_update' | 'pending_delete';
+
 export interface AppConfig {
   id: string;
   nombreEmpresa: string;
@@ -449,4 +451,7 @@ export interface AppConfig {
   diasVencimientoPrecioAmarillo?: number;
   canastaElectricaValor?: number;
   umbralMargenMinimoAdvertencia?: number; // Porcentaje configurable (default: 20%)
+
+  autoSyncEnabled?: boolean; // Default true
+  syncIntervalMinutes?: number; // Default 5 mins
 }

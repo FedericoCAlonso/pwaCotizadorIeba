@@ -99,7 +99,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
 
           {/* Integración Firebase Nube */}
           <div>
-            <h3 className={`${sectionTitle} flex items-center gap-2`}><Cloud className="w-4 h-4 text-primary" />Sincronización Nube & Firebase</h3>
+            <h3 className={`${sectionTitle} flex items-center gap-2`}><Cloud className="w-4 h-4 text-primary" />Sincronización Nube & Frecuencia</h3>
             <div className="p-4 rounded-2xl bg-surface-container-highest border border-outline-variant/30 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -128,6 +128,41 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                   {firebaseConfigured ? 'Editar Claves' : 'Configurar Claves'}
                 </button>
               </div>
+
+              {firebaseConfigured && (
+                <div className="pt-3 border-t border-outline-variant/20 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-on-surface">
+                      <input
+                        type="checkbox"
+                        checked={formData.autoSyncEnabled ?? true}
+                        onChange={(e) => setFormData({ ...formData, autoSyncEnabled: e.target.checked })}
+                        className="w-4 h-4 text-primary rounded border-outline-variant bg-surface-container-highest focus:ring-primary"
+                      />
+                      <span>Sincronización Automática en Segundo Plano</span>
+                    </label>
+                    <p className="text-[10px] text-on-surface-variant/80 mt-0.5 pl-6">
+                      Sincroniza automáticamente por lotes al cambiar de pestaña o en intervalos.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-on-surface-variant mb-1">Intervalo de Sincronización</label>
+                    <select
+                      value={formData.syncIntervalMinutes ?? 5}
+                      onChange={(e) => setFormData({ ...formData, syncIntervalMinutes: parseInt(e.target.value) || 5 })}
+                      className={inputCls}
+                      disabled={formData.autoSyncEnabled === false}
+                    >
+                      <option value={1}>Cada 1 minuto (Redes rápidas)</option>
+                      <option value={3}>Cada 3 minutos</option>
+                      <option value={5}>Cada 5 minutos (Recomendado Spark)</option>
+                      <option value={10}>Cada 10 minutos (Ahorro cuota)</option>
+                      <option value={15}>Cada 15 minutos</option>
+                    </select>
+                  </div>
+                </div>
+              )}
 
               {localStorage.getItem('ieba_custom_firebase_config') && (
                 <div className="flex justify-end pt-1">

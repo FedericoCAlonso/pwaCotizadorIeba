@@ -34,6 +34,7 @@ import { exportDatabaseJSON, importDatabaseJSON } from '../db/database';
 import { AppConfig, ThemeMode } from '../core/types';
 import { useAuth } from '../contexts/AuthContext';
 import { AuthModal } from './AuthModal';
+import { ModalContainer } from './ModalContainer';
 
 interface HeaderProps {
   activeTab: string;
@@ -52,7 +53,7 @@ export const Header: React.FC<HeaderProps> = ({
   themeMode,
   onThemeModeChange
 }) => {
-  const { user, syncState, lastSyncTime, logout, triggerSync } = useAuth();
+  const { user, syncState, lastSyncTime, pendingCount, logout, triggerSync } = useAuth();
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showExportSuccess, setShowExportSuccess] = useState(false);
@@ -60,6 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showMobileDrawer, setShowMobileDrawer] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -133,6 +135,52 @@ export const Header: React.FC<HeaderProps> = ({
     return 'Tema Automático / Sistema (Clic para cambiar a Oscuro)';
   };
 
+  const renderSyncBadge = () => {
+    if (syncState === 'syncing') {
+      return (
+        <span className="flex items-center gap-1.5 text-xs text-primary font-medium">
+          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+          <span className="hidden sm:inline">Sincronizando...</span>
+        </span>
+      );
+    }
+    if (syncState === 'quota_exceeded') {
+      return (
+        <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          <span className="hidden sm:inline">Modo Local (Cuota)</span>
+          {pendingCount > 0 && (
+            <span className="font-mono bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+              {pendingCount}
+            </span>
+          )}
+        </span>
+      );
+    }
+    if (syncState === 'error') {
+      return (
+        <span className="flex items-center gap-1.5 text-xs text-rose-500 font-medium">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          <span className="hidden sm:inline">Error Sync</span>
+        </span>
+      );
+    }
+    if (pendingCount > 0) {
+      return (
+        <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
+          <Cloud className="w-3.5 h-3.5 shrink-0" />
+          <span className="hidden sm:inline font-mono">{pendingCount} pend.</span>
+        </span>
+      );
+    }
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+        <span className="hidden sm:inline">Nube al día</span>
+      </span>
+    );
+  };
+
   return (
     <header className="bg-surface sticky top-0 z-30 transition-colors shadow-sm border-b border-outline-variant/20">
       {/* Top App Bar area */}
@@ -178,7 +226,17 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Firebase Authentication & Cloud Sync Profile / Login */}
           {user ? (
-            <div className="relative">
+            <div className="relative flex items-center gap-2">
+              {/* Reactive Sync Badge Button */}
+              <button
+                type="button"
+                onClick={() => setShowSyncModal(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-surface-container-highest hover:bg-surface-variant border border-outline-variant/30 transition-all text-xs"
+                title="Estado de sincronización nube. Clic para ver detalles o reintentar."
+              >
+                {renderSyncBadge()}
+              </button>
+
               <button
                 onClick={() => setShowUserMenu((v) => !v)}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-container/40 text-on-primary-container hover:bg-primary-container/70 border border-primary/20 transition-all text-xs font-medium"
@@ -192,15 +250,6 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
                 )}
                 <span className="hidden sm:inline max-w-[120px] truncate">{user.displayName || user.email?.split('@')[0]}</span>
-                {syncState === 'syncing' ? (
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
-                ) : syncState === 'quota_exceeded' ? (
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                ) : syncState === 'error' ? (
-                  <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
-                ) : (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                )}
               </button>
 
               {showUserMenu && (
@@ -210,29 +259,14 @@ export const Header: React.FC<HeaderProps> = ({
                     <div className="px-4 pb-2 border-b border-outline-variant/20 mb-2">
                       <p className="text-xs font-semibold text-on-surface truncate">{user.displayName || 'Usuario IEBA'}</p>
                       <p className="text-[11px] text-on-surface-variant truncate">{user.email}</p>
-                      <div className={`mt-2 flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-lg ${
-                        syncState === 'quota_exceeded'
-                          ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10'
-                          : syncState === 'error'
-                          ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10'
-                          : 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
-                      }`}>
-                        {syncState === 'quota_exceeded' || syncState === 'error' ? (
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        ) : (
-                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                        )}
-                        <span>
-                          {syncState === 'syncing'
-                            ? 'Sincronizando...'
-                            : syncState === 'quota_exceeded'
-                            ? 'Cuota superada (Modo Local activo)'
-                            : syncState === 'error'
-                            ? 'Error de sincronización'
-                            : lastSyncTime
-                            ? `Sincronizado ${lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                            : 'Nube activa'}
-                        </span>
+                      <div
+                        onClick={() => {
+                          setShowSyncModal(true);
+                          setShowUserMenu(false);
+                        }}
+                        className="mt-2 cursor-pointer"
+                      >
+                        {renderSyncBadge()}
                       </div>
                     </div>
 
@@ -245,7 +279,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full flex items-center gap-3 px-4 py-2 text-xs text-on-surface hover:bg-surface-container-highest transition-colors"
                     >
                       <RefreshCw className={`w-4 h-4 text-primary ${syncState === 'syncing' ? 'animate-spin' : ''}`} />
-                      Sincronizar ahora
+                      Forzar Reintento Manual
                     </button>
 
                     <button
@@ -565,6 +599,99 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Auth Modal */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+
+      {/* M3 Cloud Sync Details Modal */}
+      <ModalContainer
+        isOpen={showSyncModal}
+        onClose={() => setShowSyncModal(false)}
+        title="Sincronización Nube (Delta Sync)"
+        subtitle="Gestión ligera de cambios por lotes y prevención de cuota Spark"
+        icon={<Cloud className="w-5 h-5 text-primary" />}
+        maxWidth="md"
+      >
+        <div className="space-y-4 text-on-surface">
+          {/* Main Status Banner */}
+          <div
+            className={`p-4 rounded-2xl border flex items-start gap-3 ${
+              syncState === 'quota_exceeded'
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
+                : syncState === 'error'
+                ? 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200'
+                : pendingCount > 0
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
+                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
+            }`}
+          >
+            {syncState === 'quota_exceeded' || syncState === 'error' ? (
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-emerald-500" />
+            )}
+
+            <div className="space-y-1 text-xs">
+              <h4 className="font-bold text-sm">
+                {syncState === 'quota_exceeded'
+                  ? 'Cuota Diaria Firebase Excedida (Circuit Breaker)'
+                  : syncState === 'error'
+                  ? 'Error de Red / Conexión'
+                  : pendingCount > 0
+                  ? 'Cambios Pendientes por Sincronizar'
+                  : 'Nube Sincronizada al Día'}
+              </h4>
+
+              <p className="leading-relaxed">
+                {syncState === 'quota_exceeded'
+                  ? 'Se alcanzó el límite diario del plan gratuito Spark de Firebase. La aplicación activó el Circuit Breaker de protección. Tus datos están 100% seguros en tu dispositivo (IndexedDB) y se subirán automáticamente al renovarse la cuota.'
+                  : pendingCount > 0
+                  ? `Tienes ${pendingCount} registro(s) pendiente(s) de subida. Se sincronizarán automáticamente por lotes o puedes forzar la subida manual.`
+                  : 'Todos tus presupuestos, materiales y configuraciones locales coinciden con tu espacio en la nube.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Sync Stats Info */}
+          <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 space-y-2 text-xs">
+            <div className="flex justify-between">
+              <span className="text-on-surface-variant">Registros pendientes localmente:</span>
+              <span className="font-mono font-bold text-primary">{pendingCount} registros</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-on-surface-variant">Última sincronización exitosa:</span>
+              <span className="font-mono text-on-surface">
+                {lastSyncTime ? lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Hoy'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-on-surface-variant">Estrategia de Sync:</span>
+              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">Delta Sync (Dirty Flags)</span>
+            </div>
+          </div>
+
+          {/* Manual Retry Action Button */}
+          <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowSyncModal(false)}
+              className="px-4 py-2 rounded-full text-xs font-semibold text-on-surface-variant hover:bg-surface-variant"
+            >
+              Cerrar
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                triggerSync();
+                setShowSyncModal(false);
+              }}
+              disabled={syncState === 'syncing'}
+              className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-full text-xs shadow-sm active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncState === 'syncing' ? 'animate-spin' : ''}`} />
+              <span>Forzar Reintento Manual</span>
+            </button>
+          </div>
+        </div>
+      </ModalContainer>
     </header>
   );
 };
