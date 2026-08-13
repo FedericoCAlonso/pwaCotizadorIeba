@@ -166,19 +166,18 @@ export async function getPendingSyncCount(): Promise<number> {
     const table = (db as any)[tableName];
     if (!table) continue;
     try {
-      const pending = await table
-        .filter((item: any) => item.syncStatus && item.syncStatus !== 'synced')
-        .count();
-      count += pending;
+      const items = await table.toArray();
+      const pending = items.filter((item: any) => !item.syncStatus || item.syncStatus !== 'synced');
+      count += pending.length;
     } catch {
-      // Ignorar fallback si aún no está indexado
+      // Fallback
     }
   }
   return count;
 }
 
 /**
- * Motor Delta Sync: Envía lotes (writeBatch) a Firestore únicamente con registros modificados.
+ * Motor Delta Sync: Envía lotes (writeBatch) a Firestore únicamente con registros modificados o sin sincronizar.
  */
 export async function flushPendingSync(userId: string): Promise<SyncState> {
   if (!navigator.onLine) return 'offline';
@@ -193,20 +192,19 @@ export async function flushPendingSync(userId: string): Promise<SyncState> {
   try {
     const pendingOps: { tableName: TableName; id: string; status: SyncStatus; data?: any }[] = [];
 
-    // 1. Recolectar registros con Dirty Flags en IndexedDB
+    // 1. Recolectar registros con Dirty Flags en IndexedDB (incluyendo aquellos sin syncStatus inicial)
     for (const tableName of SYNCED_TABLES) {
       const table = (db as any)[tableName];
       if (!table) continue;
 
-      const dirtyItems: any[] = await table
-        .filter((item: any) => item.syncStatus && item.syncStatus !== 'synced')
-        .toArray();
+      const allItems: any[] = await table.toArray();
+      const dirtyItems = allItems.filter((item: any) => !item.syncStatus || item.syncStatus !== 'synced');
 
       for (const item of dirtyItems) {
         pendingOps.push({
           tableName,
           id: String(item.id),
-          status: item.syncStatus as SyncStatus,
+          status: (item.syncStatus || 'pending_insert') as SyncStatus,
           data: item
         });
       }
@@ -217,7 +215,7 @@ export async function flushPendingSync(userId: string): Promise<SyncState> {
       return 'synced';
     }
 
-    // 2. Agrupar en batches de Firestore (límite máximo 450 ops por batch)
+    // 2. Agrupar en batches de Firestore (límite máximo 400 ops por batch)
     const BATCH_SIZE = 400;
     for (let i = 0; i < pendingOps.length; i += BATCH_SIZE) {
       const chunk = pendingOps.slice(i, i + BATCH_SIZE);
@@ -273,11 +271,57 @@ export async function flushPendingSync(userId: string): Promise<SyncState> {
 }
 
 /**
- * Realiza la sincronización bidireccional inicial en la sesión del usuario.
+ * Realiza la sincronización bidireccional inicial y pull remoto desde Firestore.
  */
 export async function syncUserData(userId: string): Promise<SyncState> {
   setupDexieHooks(userId);
-  return await flushPendingSync(userId);
+  const pushState = await flushPendingSync(userId);
+  if (pushState === 'quota_exceeded' || pushState === 'offline') {
+    return pushState;
+  }
+
+  const firestore = dbFirestore;
+  if (!firestore || !userId) return pushState;
+
+  // Pull remoto desde Firestore para datos que no están en Dexie
+  try {
+    for (const tableName of SYNCED_TABLES) {
+      const colRef = collection(firestore, 'users', userId, tableName);
+      const snapshot = await getDocs(colRef);
+      const table = (db as any)[tableName];
+      if (!table) continue;
+
+      isApplyingRemoteChange = true;
+      try {
+        for (const docSnap of snapshot.docs) {
+          const remoteData = docSnap.data();
+          const localItem = await table.get(docSnap.id);
+          if (!localItem) {
+            const cleanData: any = { ...remoteData, syncStatus: 'synced' };
+            delete cleanData._syncedAt;
+            await table.put(cleanData);
+          } else if (localItem.syncStatus === 'synced') {
+            const remoteTime = remoteData._updatedAt || 0;
+            const localTime = localItem._updatedAt || 0;
+            if (remoteTime > localTime) {
+              const cleanData: any = { ...remoteData, syncStatus: 'synced' };
+              delete cleanData._syncedAt;
+              await table.put(cleanData);
+            }
+          }
+        }
+      } finally {
+        isApplyingRemoteChange = false;
+      }
+    }
+    return 'synced';
+  } catch (err: any) {
+    if (isQuotaError(err)) {
+      activateCircuitBreaker();
+      return 'quota_exceeded';
+    }
+    return pushState;
+  }
 }
 
 /**
@@ -326,8 +370,8 @@ export function stopRealtimeSync(): void {
  */
 export function startRealtimeSync(
   userId: string,
-  onUpdate?: () => void,
-  onError?: (err: any) => void
+  _onUpdate?: () => void,
+  _onError?: (err: any) => void
 ): () => void {
   startSyncScheduler(userId, 5);
   return () => stopSyncScheduler();
