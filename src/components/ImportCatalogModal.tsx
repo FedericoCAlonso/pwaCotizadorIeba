@@ -62,119 +62,103 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
   if (!isOpen) return null;
 
   /**
-   * Genera y descarga la plantilla Excel (.xlsx) con 2 Hojas estructuradas:
-   * - Hoja 1: Materiales (Tabla Oficial de Excel ListObject con Validación de Datos en columna Categoría)
-   * - Hoja 2: Categorías_Disponibles (Listado de referencia de la BD)
+   * Genera y descarga la plantilla Excel (.xlsx) estructurada usando ExcelJS:
+   * - Hoja 1: "Materiales" (Tabla Oficial de Excel con Validación de Datos en columna Categoría)
+   * - Hoja 2: "Categorías" (Tabla Oficial de Excel con las categorías de Dexie)
    */
   const handleDownloadExcelTemplate = async () => {
     try {
+      const ExcelModule = await import('exceljs');
+      const ExcelJS = ExcelModule.default || ExcelModule;
+
       const existingCats = await db.categoriasMaterial.toArray();
-      const catNamesList = existingCats.map(c => String(c.nombre || '').replace(/"/g, ''));
-      // Fórmula de validación de datos en Excel (dropdown de lista)
-      const catDropdownFormula = `"${catNamesList.join(',')}"`;
 
-      // Hoja 1: Materiales con encabezados y filas de trabajo (Sin Proveedor)
-      const headersSheet1: any[][] = [
-        ['Nombre / Descripción', 'Categoría', 'Unidad', 'Norma', 'Marca', 'Precio Referencia ARS']
-      ];
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Cotizador IEBA';
+      workbook.created = new Date();
 
-      // Fila de ejemplo 1
-      headersSheet1.push([
-        'Cable Unipolar 2.5 mm² IRAM 247-3',
-        catNamesList[0] || 'Cables & Conductores',
-        'm',
-        'IRAM 247-3',
-        'Prysmian',
-        720
-      ]);
+      // Hoja 2: "Categorías"
+      const sheetCats = workbook.addWorksheet('Categorías');
 
-      // Filas base pre-formateadas
-      for (let i = 0; i < 25; i++) {
-        headersSheet1.push(['', '', 'u', '', '', '']);
-      }
+      const catTableRows = existingCats.map(c => [c.nombre]);
+      sheetCats.addTable({
+        name: 'TablaCategorias',
+        ref: 'A1',
+        headerRow: true,
+        totalsRow: false,
+        style: {
+          theme: 'TableStyleMedium2',
+          showRowStripes: true,
+        },
+        columns: [{ name: 'Nombre_Categoria', filterButton: true }],
+        rows: catTableRows.length > 0 ? catTableRows : [['Cables & Conductores'], ['Protecciones Eléctricas']]
+      });
+      sheetCats.getColumn(1).width = 38;
 
-      const ws1 = XLSX.utils.aoa_to_sheet(headersSheet1);
+      // Hoja 1: "Materiales"
+      const sheetMat = workbook.addWorksheet('Materiales');
 
-      // Metadatos de Tabla Oficial de Excel (ListObject)
-      (ws1 as any)['!tables'] = [
-        {
-          name: 'TablaMaterialesIEBA',
-          ref: 'A1:F27',
-          headerRowCount: 1,
-          totalsRowCount: 0,
-          columns: [
-            { name: 'Nombre / Descripción' },
-            { name: 'Categoría' },
-            { name: 'Unidad' },
-            { name: 'Norma' },
-            { name: 'Marca' },
-            { name: 'Precio Referencia ARS' }
-          ]
-        }
-      ];
+      const sampleCatName = existingCats[0]?.nombre || 'Cables & Conductores';
 
-      // Regla de Validación de Datos de Excel (Dropdown de Categorías en columna B: B2 a B100)
-      (ws1 as any)['!dataValidation'] = [
-        {
+      sheetMat.addTable({
+        name: 'TablaMateriales',
+        ref: 'A1',
+        headerRow: true,
+        totalsRow: false,
+        style: {
+          theme: 'TableStyleMedium9',
+          showRowStripes: true,
+        },
+        columns: [
+          { name: 'Nombre / Descripción', filterButton: true },
+          { name: 'Categoría', filterButton: true },
+          { name: 'Unidad', filterButton: true },
+          { name: 'Norma', filterButton: true },
+          { name: 'Marca', filterButton: true },
+          { name: 'Precio Referencia ARS', filterButton: true }
+        ],
+        rows: [
+          ['Cable Unipolar 2.5 mm² IRAM 247-3', sampleCatName, 'm', 'IRAM 247-3', 'Prysmian', 720]
+        ]
+      });
+
+      sheetMat.getColumn(1).width = 42;
+      sheetMat.getColumn(2).width = 32;
+      sheetMat.getColumn(3).width = 12;
+      sheetMat.getColumn(4).width = 16;
+      sheetMat.getColumn(5).width = 22;
+      sheetMat.getColumn(6).width = 22;
+
+      // Aplicar Validación de Datos (dataValidation dropdown list) en la columna Categoría (B2:B100)
+      const lastCatRow = Math.max(2, (catTableRows.length > 0 ? catTableRows.length : 2) + 1);
+      const catFormula = `'Categorías'!$A$2:$A$${lastCatRow}`;
+
+      for (let r = 2; r <= 100; r++) {
+        sheetMat.getCell(`B${r}`).dataValidation = {
           type: 'list',
           allowBlank: true,
-          sqref: 'B2:B100',
-          formula1: catDropdownFormula
-        }
-      ];
+          formulae: [catFormula]
+        };
+      }
 
-      // Anchos de columna optimizados
-      ws1['!cols'] = [
-        { wch: 42 }, // Nombre
-        { wch: 30 }, // Categoría
-        { wch: 10 }, // Unidad
-        { wch: 16 }, // Norma
-        { wch: 22 }, // Marca
-        { wch: 22 }  // Precio ARS
-      ];
-
-      // Hoja 2: Categorías Disponibles
-      const catsSheet2: any[][] = [
-        ['ID Categoría', 'Nombre de la Categoría']
-      ];
-      existingCats.forEach(c => {
-        catsSheet2.push([c.id, c.nombre]);
-      });
-      const ws2 = XLSX.utils.aoa_to_sheet(catsSheet2);
-
-      (ws2 as any)['!tables'] = [
-        {
-          name: 'TablaCategoriasDisponibles',
-          ref: `A1:B${catsSheet2.length}`,
-          headerRowCount: 1,
-          totalsRowCount: 0,
-          columns: [
-            { name: 'ID Categoría' },
-            { name: 'Nombre de la Categoría' }
-          ]
-        }
-      ];
-
-      ws2['!cols'] = [
-        { wch: 25 },
-        { wch: 35 }
-      ];
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws1, 'Materiales');
-      XLSX.utils.book_append_sheet(wb, ws2, 'Categorias_Disponibles');
-
-      XLSX.writeFile(wb, 'Plantilla_Importacion_Materiales_IEBA.xlsx');
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Plantilla_Importacion_Materiales_IEBA.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Error al generar plantilla Excel:', err);
+      console.error('Error al generar plantilla Excel con ExcelJS:', err);
       alert('Ocurrió un error al generar la plantilla Excel.');
     }
   };
 
   /**
-   * Genera y descarga 2 planillas CSV separadas (Sin Proveedor):
+   * Genera y descarga 2 planillas CSV separadas:
    * - Plantilla_Materiales.csv (solo encabezados)
-   * - Plantilla_Categorias_Disponibles.csv (listado de categorías)
+   * - Plantilla_Categorias.csv (listado de categorías)
    */
   const handleDownloadCSVTemplate = async () => {
     try {
@@ -190,14 +174,14 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       URL.revokeObjectURL(a1.href);
 
       // CSV 2: Categorías
-      let csvCats = 'ID Categoría,Nombre de la Categoría\n';
+      let csvCats = 'Nombre de la Categoría\n';
       existingCats.forEach(c => {
-        csvCats += `"${c.id}","${c.nombre.replace(/"/g, '""')}"\n`;
+        csvCats += `"${c.nombre.replace(/"/g, '""')}"\n`;
       });
       const blobCats = new Blob([csvCats], { type: 'text/csv;charset=utf-8;' });
       const a2 = document.createElement('a');
       a2.href = URL.createObjectURL(blobCats);
-      a2.download = 'Plantilla_Categorias_Disponibles.csv';
+      a2.download = 'Plantilla_Categorias.csv';
       setTimeout(() => {
         a2.click();
         URL.revokeObjectURL(a2.href);
@@ -235,7 +219,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
         setHeaders(extractedHeaders);
         setRawRows(dataRows);
 
-        // Smart Synonym Regex Matching (Sin Proveedor)
+        // Smart Synonym Regex Matching
         const autoMap = {
           nombre: extractedHeaders.find(h => /material|descrip|nombre|item|insumo|art|articulo|detalle|producto/i.test(h)) || extractedHeaders[0] || '',
           categoria: extractedHeaders.find(h => /cat|rubro|familia|tipo|grupo|linea/i.test(h)) || '',
@@ -298,7 +282,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
     const now = new Date().toISOString();
     const existingMatByNameMap = new Map(existingMaterials.map(m => [m.nombre.trim().toLowerCase(), m]));
 
-    // Matcher y creador dinámico de categorías
+    // Matcher y creación On-the-fly de categorías
     const resolveCategoryId = (excelCatName: string): string => {
       if (!excelCatName) return 'cat-sin-categoria';
       const normCat = excelCatName.trim().toLowerCase();
@@ -318,7 +302,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       if (normCat.includes('ilumin') || normCat.includes('lamp') || normCat.includes('led')) return 'cat-iluminacion';
       if (normCat.includes('medicion') || normCat.includes('jabalina') || normCat.includes('pat')) return 'cat-medicion';
 
-      // 3. Crear nueva categoría dinámicamente si no existe en la base de datos
+      // 3. Creación On-the-fly si el usuario tipeó una categoría nueva en el Excel
       const newCatId = `cat-${normCat.replace(/[^a-z0-9]/g, '_')}`;
       if (!catMap.has(newCatId)) {
         catMap.set(newCatId, {
@@ -419,7 +403,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
   const handleExecuteImport = async () => {
     try {
       await db.transaction('rw', [db.materiales, db.productos, db.ofertas, db.categoriasMaterial], async () => {
-        // 1. Guardar nuevas categorías creadas dinámicamente
+        // 1. Guardar nuevas categorías creadas On-the-fly
         if (parsedPreview.categoriasToCreate.length > 0) {
           await db.categoriasMaterial.bulkPut(parsedPreview.categoriasToCreate as CategoriaMaterial[]);
         }
@@ -434,7 +418,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
           await db.productos.bulkPut(parsedPreview.productosToCreate as Producto[]);
         }
 
-        // 4. Guardar Ofertas Referencia
+        // 4. Guardar Ofertas de Referencia
         if (parsedPreview.ofertasToCreate.length > 0) {
           await db.ofertas.bulkPut(parsedPreview.ofertasToCreate as Oferta[]);
         }
@@ -443,7 +427,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       alert(
         `¡Importación de materiales completada con éxito!\n\n` +
         `- ${parsedPreview.materialesToCreate.length} materiales procesados (${parsedPreview.updatedCount} actualizados, ${parsedPreview.newCount} nuevos).\n` +
-        (parsedPreview.categoriasToCreate.length > 0 ? `- ${parsedPreview.categoriasToCreate.length} nuevas categorías incorporadas al sistema.\n` : '') +
+        (parsedPreview.categoriasToCreate.length > 0 ? `- ${parsedPreview.categoriasToCreate.length} nuevas categorías creadas On-the-fly incorporadas al sistema.\n` : '') +
         `- ${parsedPreview.productosToCreate.length} marcas registradas.\n` +
         `- ${parsedPreview.ofertasToCreate.length} precios de referencia guardados.`
       );
@@ -465,8 +449,8 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-base text-on-surface">Importador Técnico de Materiales (Excel / CSV)</h3>
-              <p className="text-xs text-on-surface-variant">Importación directa de fichas de materiales, normas y precios de referencia.</p>
+              <h3 className="font-semibold text-base text-on-surface">Importador Técnico de Materiales (ExcelJS / CSV)</h3>
+              <p className="text-xs text-on-surface-variant">Generación avanzada con ExcelJS: Tablas Oficiales, Validación de Datos y Creación On-the-fly.</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant">
@@ -494,9 +478,9 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
               {/* Botones Descargar Plantillas */}
               <div className="p-4 bg-surface-container-high rounded-2xl border border-outline-variant/20 space-y-2 text-xs">
                 <div>
-                  <h5 className="font-semibold text-on-surface">¿Deseas descargar planillas de plantilla vacías?</h5>
+                  <h5 className="font-semibold text-on-surface">¿Deseas descargar planillas de plantilla estructuradas?</h5>
                   <p className="text-on-surface-variant text-[11px]">
-                    Descarga las plantillas en blanco con los encabezados exactos y el desplegable de categorías incorporado.
+                    Plantilla avanzada generada con ExcelJS (Tablas Oficiales + Validación de Datos desplegable vinculada a la hoja Categorías).
                   </p>
                 </div>
 
@@ -504,10 +488,10 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                   <button
                     type="button"
                     onClick={handleDownloadExcelTemplate}
-                    className="flex items-center gap-1.5 px-3.5 py-2 bg-secondary-container text-on-secondary-container hover:bg-secondary-container/80 rounded-xl font-semibold text-xs transition-colors"
+                    className="flex items-center gap-1.5 px-3.5 py-2 bg-secondary-container text-on-secondary-container hover:bg-secondary-container/80 rounded-xl font-semibold text-xs transition-colors shadow-xs"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Plantilla Excel (.xlsx con Desplegable)</span>
+                    <span>Plantilla Excel Avanzada (ExcelJS .xlsx)</span>
                   </button>
 
                   <button
@@ -639,7 +623,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     onChange={(e) => setMapping({ ...mapping, categoria: e.target.value })}
                     className="w-full p-2 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface"
                   >
-                    <option value="">-- Deducción / Creación Automática --</option>
+                    <option value="">-- Creación / Deducción On-the-fly --</option>
                     {headers.map(h => <option key={h} value={h}>{h}</option>)}
                   </select>
                   {getSampleValues(mapping.categoria) && (
@@ -700,7 +684,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                   <li><strong>{parsedPreview.materialesToCreate.length}</strong> Materiales listos ({parsedPreview.updatedCount} actualizados, {parsedPreview.newCount} nuevos).</li>
                   {parsedPreview.categoriasToCreate.length > 0 && (
                     <li className="text-primary font-bold">
-                      <strong>{parsedPreview.categoriasToCreate.length}</strong> nuevas categorías a crear en el sistema.
+                      <strong>{parsedPreview.categoriasToCreate.length}</strong> nuevas categorías creadas On-the-fly.
                     </li>
                   )}
                   <li><strong>{parsedPreview.productosToCreate.length}</strong> Productos / Marcas asociadas.</li>
