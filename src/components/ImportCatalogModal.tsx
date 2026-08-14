@@ -4,7 +4,7 @@ import {
   X, FileSpreadsheet, Upload, CheckCircle2, ArrowRight, Table, Download, RefreshCw
 } from 'lucide-react';
 import { db } from '../db/database';
-import { Material, Producto, Oferta, CategoriaMaterial, AtributoMaterial } from '../core/types';
+import { Material, Producto, Oferta, CategoriaMaterial, AtributoMaterial, Proveedor } from '../core/types';
 
 interface ImportCatalogModalProps {
   isOpen: boolean;
@@ -280,20 +280,31 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
   };
 
   const handleGeneratePreview = async () => {
-    const existingCategories = await db.categoriasMaterial.toArray();
-    const existingMaterials = await db.materiales.toArray();
+    const existingCategories = (await db.categoriasMaterial.toArray()).filter(c => !c.deleted);
+    const existingMaterials = (await db.materiales.toArray()).filter(m => !m.deleted);
+    const existingProducts = (await db.productos.toArray()).filter(p => !p.deleted);
+    const existingProveedores = (await db.proveedores.toArray()).filter(p => !p.deleted);
 
     const catIdx = headers.indexOf(mapping.categoria);
     const unitIdx = headers.indexOf(mapping.unidad);
+    const idIdx = headers.findIndex(h => /^(id|id material|codigo|código)$/i.test(h.trim()));
+    const marcaIdx = headers.findIndex(h => /^(marca|marca ofrecida|fabricante)$/i.test(h.trim()));
+    const provIdx = headers.findIndex(h => /^(proveedor|distribuidor|comercio)$/i.test(h.trim()));
+    const precioIdx = headers.findIndex(h => /^(precio|precio unitario|precio unitario \(ars\)|costo|importe)$/i.test(h.trim()));
 
     const matMap = new Map<string, Partial<Material>>();
+    const prodMap = new Map<string, Partial<Producto>>();
+    const ofertaList: Partial<Oferta>[] = [];
     const catMap = new Map<string, Partial<CategoriaMaterial>>();
+    const provMap = new Map<string, Partial<Proveedor>>();
+
     let ignored = 0;
     let updatedExistingCount = 0;
     let createdNewCount = 0;
 
     const now = new Date().toISOString();
     const existingMatByNameMap = new Map(existingMaterials.map(m => [m.nombre.trim().toLowerCase(), m]));
+    const existingMatByIdMap = new Map(existingMaterials.map(m => [m.id, m]));
 
     // Matcher y creación On-the-fly de categorías
     const resolveCategoryId = (excelCatName: string): string => {
@@ -319,18 +330,28 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
         catMap.set(newCatId, {
           id: newCatId,
           nombre: targetName.trim(),
-          atributosSugeridos: []
+          atributosSugeridos: [],
+          createdAt: now,
+          updatedAt: now,
+          deleted: false
         });
       }
       return newCatId;
     };
 
-    const mappedHeaderIndexes = new Set([catIdx, unitIdx].filter(i => i > -1));
+    const mappedHeaderIndexes = new Set([catIdx, unitIdx, idIdx, marcaIdx, provIdx, precioIdx].filter(i => i > -1));
 
     rawRows.forEach((row) => {
+      const rowId = idIdx > -1 ? String(row[idIdx] || '').trim() : '';
       const catName = catIdx > -1 ? String(row[catIdx] || '').trim() : mapping.categoria;
       const resolvedCatId = resolveCategoryId(catName);
       const unidadVal = unitIdx > -1 ? String(row[unitIdx] || '').trim() : 'u';
+      const marcaVal = marcaIdx > -1 ? String(row[marcaIdx] || '').trim() : '';
+      const provVal = provIdx > -1 ? String(row[provIdx] || '').trim() : '';
+      const precioVal = precioIdx > -1 ? parseFloat(String(row[precioIdx]).replace(/[^0-9.-]+/g, '')) || 0 : 0;
+
+      // Intentar vincular por ID existente si viene en la plantilla
+      let matchedMat = rowId ? existingMatByIdMap.get(rowId) : undefined;
 
       // Extraer todos los atributos dinámicos de las columnas de la fila
       const rowAttrs: AtributoMaterial[] = [];
@@ -344,36 +365,48 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
         }
       });
 
-      // Autogenerar siempre el Nombre Técnico en formato Pipe
-      const catObj = existingCategories.find(c => c.id === resolvedCatId) || catMap.get(resolvedCatId);
-      const catNameLabel = catObj?.nombre || 'Insumo';
-      const parts: string[] = [catNameLabel];
+      let nombreVal = '';
+      if (matchedMat) {
+        nombreVal = matchedMat.nombre;
+      } else {
+        const catObj = existingCategories.find(c => c.id === resolvedCatId) || catMap.get(resolvedCatId);
+        const catNameLabel = catObj?.nombre || 'Insumo';
+        const parts: string[] = [catNameLabel];
 
-      rowAttrs.forEach(attr => {
-        const tpl = catObj?.atributosSugeridos?.find(s => s.clave === attr.clave);
-        const label = tpl?.etiqueta || (attr.clave.charAt(0).toUpperCase() + attr.clave.slice(1).replace(/_/g, ' '));
-        const unit = tpl?.unidad ? ` ${tpl.unidad}` : '';
-        parts.push(`${label} = ${attr.valor}${unit}`);
-      });
+        rowAttrs.forEach(attr => {
+          const tpl = catObj?.atributosSugeridos?.find(s => s.clave === attr.clave);
+          const label = tpl?.etiqueta || (attr.clave.charAt(0).toUpperCase() + attr.clave.slice(1).replace(/_/g, ' '));
+          const unit = tpl?.unidad ? ` ${tpl.unidad}` : '';
+          parts.push(`${label} = ${attr.valor}${unit}`);
+        });
 
-      const nombreVal = parts.join(' | ');
+        nombreVal = parts.join(' | ');
+      }
 
-      if (!nombreVal || rowAttrs.length === 0) {
+      if (!nombreVal && rowAttrs.length === 0 && !matchedMat) {
         ignored++;
         return;
       }
 
-      const matKey = nombreVal.toLowerCase();
-      const existingMat = existingMatByNameMap.get(matKey);
+      const matKey = (nombreVal || rowId).toLowerCase();
+      const existingMat = matchedMat || existingMatByNameMap.get(matKey);
 
       let matId = '';
       if (importMode === 'merge' && existingMat) {
         matId = existingMat.id;
         updatedExistingCount++;
       } else {
-        matId = `mat-imp-${crypto.randomUUID()}`;
+        matId = rowId || `mat-imp-${crypto.randomUUID()}`;
         createdNewCount++;
       }
+
+      // Check if missing attributes compared to category
+      const targetCatObj = existingCategories.find(c => c.id === (existingMat ? existingMat.categoriaId : resolvedCatId)) || catMap.get(resolvedCatId);
+      const isFichaIncompleta = Boolean(
+        targetCatObj?.atributosSugeridos &&
+        targetCatObj.atributosSugeridos.length > 0 &&
+        rowAttrs.length < targetCatObj.atributosSugeridos.length
+      );
 
       if (!matMap.has(matKey)) {
         const mergedAttrs = existingMat ? [...existingMat.atributos] : [];
@@ -385,22 +418,88 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
 
         matMap.set(matKey, {
           id: matId,
-          categoriaId: resolvedCatId,
-          nombre: nombreVal,
+          categoriaId: existingMat ? existingMat.categoriaId : resolvedCatId,
+          nombre: nombreVal || existingMat?.nombre || 'Material Técnico',
           unidadVenta: unidadVal || (existingMat ? existingMat.unidadVenta : 'u'),
           atributos: mergedAttrs,
           activo: true,
-          fichaIncompleta: false,
+          fichaIncompleta: isFichaIncompleta,
           createdAt: existingMat ? existingMat.createdAt : now,
-          updatedAt: now
+          updatedAt: now,
+          deleted: false
+        });
+      }
+
+      // Procesar Producto (Marca) si vino en la fila
+      let prodId: string | undefined = undefined;
+      if (marcaVal) {
+        const prodKey = `${matId}_${marcaVal.toLowerCase()}`;
+        const existingProd = existingProducts.find(p => p.materialId === matId && p.marca.toLowerCase() === marcaVal.toLowerCase());
+        if (existingProd) {
+          prodId = existingProd.id;
+        } else if (prodMap.has(prodKey)) {
+          prodId = prodMap.get(prodKey)?.id;
+        } else {
+          prodId = `prod-${crypto.randomUUID()}`;
+          prodMap.set(prodKey, {
+            id: prodId,
+            materialId: matId,
+            marca: marcaVal,
+            modelo: '',
+            tierCalidad: 'estandar',
+            esPreferido: false,
+            createdAt: now,
+            updatedAt: now,
+            deleted: false
+          });
+        }
+      }
+
+      // Procesar Oferta si vino Precio y/o Proveedor
+      if (precioVal > 0) {
+        let provId = '';
+        if (provVal) {
+          const normProv = provVal.trim().toLowerCase();
+          const existingProv = existingProveedores.find(p => (p.razonSocial || p.nombre || '').toLowerCase() === normProv);
+          if (existingProv) {
+            provId = existingProv.id;
+          } else if (provMap.has(normProv)) {
+            provId = provMap.get(normProv)?.id || '';
+          } else {
+            provId = `prov-imp-${crypto.randomUUID()}`;
+            provMap.set(normProv, {
+              id: provId,
+              razonSocial: provVal.trim(),
+              nombre: provVal.trim(),
+              tipoProveedor: 'material',
+              createdAt: now,
+              updatedAt: now,
+              deleted: false
+            });
+          }
+        } else {
+          provId = existingProveedores[0]?.id || '';
+        }
+
+        ofertaList.push({
+          id: `of-imp-${crypto.randomUUID()}`,
+          materialId: matId,
+          productoId: prodId,
+          proveedorId: provId,
+          precio: precioVal,
+          fecha: now,
+          fuente: 'importacion_excel',
+          createdAt: now,
+          updatedAt: now,
+          deleted: false
         });
       }
     });
 
     setParsedPreview({
       materialesToCreate: Array.from(matMap.values()),
-      productosToCreate: [],
-      ofertasToCreate: [],
+      productosToCreate: Array.from(prodMap.values()),
+      ofertasToCreate: ofertaList,
       categoriasToCreate: Array.from(catMap.values()),
       ignoredCount: ignored,
       updatedCount: updatedExistingCount,
@@ -412,7 +511,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
 
   const handleExecuteImport = async () => {
     try {
-      await db.transaction('rw', [db.materiales, db.productos, db.ofertas, db.categoriasMaterial], async () => {
+      await db.transaction('rw', [db.materiales, db.productos, db.ofertas, db.categoriasMaterial, db.proveedores], async () => {
         // 1. Guardar nuevas categorías creadas On-the-fly
         if (parsedPreview.categoriasToCreate.length > 0) {
           await db.categoriasMaterial.bulkPut(parsedPreview.categoriasToCreate as CategoriaMaterial[]);
@@ -438,8 +537,8 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
         `¡Importación de materiales completada con éxito!\n\n` +
         `- ${parsedPreview.materialesToCreate.length} materiales procesados (${parsedPreview.updatedCount} actualizados, ${parsedPreview.newCount} nuevos).\n` +
         (parsedPreview.categoriasToCreate.length > 0 ? `- ${parsedPreview.categoriasToCreate.length} nuevas categorías creadas On-the-fly incorporadas al sistema.\n` : '') +
-        `- ${parsedPreview.productosToCreate.length} marcas registradas.\n` +
-        `- ${parsedPreview.ofertasToCreate.length} precios de referencia guardados.`
+        (parsedPreview.productosToCreate.length > 0 ? `- ${parsedPreview.productosToCreate.length} marcas registradas.\n` : '') +
+        (parsedPreview.ofertasToCreate.length > 0 ? `- ${parsedPreview.ofertasToCreate.length} precios de referencia guardados.\n` : '')
       );
       onSuccess();
       onClose();

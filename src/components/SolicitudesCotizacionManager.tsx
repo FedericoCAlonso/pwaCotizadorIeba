@@ -10,14 +10,14 @@ import {
   Save,
   Check
 } from 'lucide-react';
-import { db } from '../db/database';
+import { db, softDelete } from '../db/database';
 import { SolicitudCotizacion, SolicitudCotizacionItem, Oferta } from '../core/types';
 
 export const SolicitudCotizacionManager: React.FC = () => {
-  const solicitudes = useLiveQuery(() => db.solicitudesCotizacion.reverse().toArray()) || [];
-  const proveedores = useLiveQuery(() => db.proveedores.toArray()) || [];
-  const materiales = useLiveQuery(() => db.materiales.toArray()) || [];
-  const productos = useLiveQuery(() => db.productos.toArray()) || [];
+  const solicitudes = (useLiveQuery(() => db.solicitudesCotizacion.reverse().toArray()) || []).filter(s => !s.deleted);
+  const proveedores = (useLiveQuery(() => db.proveedores.toArray()) || []).filter(p => !p.deleted);
+  const materiales = (useLiveQuery(() => db.materiales.toArray()) || []).filter(m => !m.deleted);
+  const productos = (useLiveQuery(() => db.productos.toArray()) || []).filter(p => !p.deleted);
 
   const proveedoresMap = new Map(proveedores.map(p => [p.id, p]));
   const materialesMap = new Map(materiales.map(m => [m.id, m]));
@@ -145,7 +145,7 @@ export const SolicitudCotizacionManager: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (confirm('¿Eliminar esta solicitud de cotización?')) {
-      await db.solicitudesCotizacion.delete(id);
+      await softDelete('solicitudesCotizacion', id);
     }
   };
 

@@ -4,7 +4,7 @@ import {
   Package, Plus, Search, TrendingUp, FileSpreadsheet,
   Edit2, Trash2, X, Save, AlertCircle, Star, Tag, Layers, RefreshCw, Zap, ExternalLink, Copy, LayoutGrid, List, Sparkles
 } from 'lucide-react';
-import { db } from '../db/database';
+import { db, softDelete } from '../db/database';
 import { CategoriaMaterial, Material, Producto, Oferta } from '../core/types';
 import { formatARS, obtenerEstadoVencimientoOferta } from '../core/calculations';
 import { TIPOS_AJUSTE_PRECIO, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL } from '../core/sampleData';
@@ -13,11 +13,11 @@ import { ImportCatalogModal } from './ImportCatalogModal';
 const inputCls = "w-full px-3.5 py-2.5 text-base sm:text-xs rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]";
 
 export const InsumosManager: React.FC = () => {
-  const categorias = useLiveQuery(() => db.categoriasMaterial.toArray()) || [];
-  const materiales = useLiveQuery(() => db.materiales.toArray()) || [];
-  const productos = useLiveQuery(() => db.productos.toArray()) || [];
-  const ofertas = useLiveQuery(() => db.ofertas.reverse().toArray()) || [];
-  const proveedores = useLiveQuery(() => db.proveedores.toArray()) || [];
+  const categorias = (useLiveQuery(() => db.categoriasMaterial.toArray()) || []).filter(c => !c.deleted);
+  const materiales = (useLiveQuery(() => db.materiales.toArray()) || []).filter(m => !m.deleted);
+  const productos = (useLiveQuery(() => db.productos.toArray()) || []).filter(p => !p.deleted);
+  const ofertas = (useLiveQuery(() => db.ofertas.reverse().toArray()) || []).filter(o => !o.deleted);
+  const proveedores = (useLiveQuery(() => db.proveedores.toArray()) || []).filter(p => !p.deleted);
   const configs = useLiveQuery(() => db.config.toArray()) || [];
   const config = configs[0];
 
@@ -30,6 +30,7 @@ export const InsumosManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
   const [selectedVencimiento, setSelectedVencimiento] = useState<'todos' | 'verde' | 'amarillo' | 'rojo'>('todos');
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState<Set<string>>(new Set());
 
   // Modal Estados
   const [isCreatingMat, setIsCreatingMat] = useState(false);
@@ -505,22 +506,105 @@ export const InsumosManager: React.FC = () => {
   const [viewModeMat, setViewModeMat] = useState<'grid' | 'table'>('grid');
   const [editingOferta, setEditingOferta] = useState<Oferta | null>(null);
 
+  const handleToggleSelectMaterial = (id: string) => {
+    setSelectedMaterialIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedMaterialIds.size === filteredMateriales.length) {
+      setSelectedMaterialIds(new Set());
+    } else {
+      setSelectedMaterialIds(new Set(filteredMateriales.map(m => m.id)));
+    }
+  };
+
+  const handleExportForQuotation = async () => {
+    const targetMats = selectedMaterialIds.size > 0
+      ? materiales.filter(m => selectedMaterialIds.has(m.id))
+      : filteredMateriales;
+
+    if (targetMats.length === 0) {
+      alert('No hay materiales seleccionados para exportar.');
+      return;
+    }
+
+    try {
+      const ExcelModule = await import('exceljs');
+      const ExcelJS = ExcelModule.default || ExcelModule;
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Cotizador IEBA';
+      const ws = workbook.addWorksheet('Solicitud de Cotizacion', {
+        views: [{ showGridLines: true }]
+      });
+
+      ws.columns = [
+        { header: 'ID Material', key: 'id', width: 22 },
+        { header: 'Material / Descripción Técnica', key: 'material', width: 60 },
+        { header: 'Unidad', key: 'unidad', width: 12 },
+        { header: 'Marca Ofrecida', key: 'marca', width: 25 },
+        { header: 'Proveedor', key: 'proveedor', width: 30 },
+        { header: 'Precio Unitario (ARS)', key: 'precio', width: 22 }
+      ];
+
+      targetMats.forEach(m => {
+        ws.addRow({
+          id: m.id,
+          material: m.nombre,
+          unidad: m.unidadVenta || 'u',
+          marca: '',
+          proveedor: '',
+          precio: ''
+        });
+      });
+
+      const headerRow = ws.getRow(1);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF1E293B' }
+      };
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Cotizacion_Materiales_IEBA_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error al exportar para cotizar:', err);
+      alert('Error al generar planilla de cotización.');
+    }
+  };
+
   const handleDeleteMaterial = async (matId: string) => {
     const mat = materialesMap.get(matId);
     if (!confirm(`¿Eliminar el material "${mat?.nombre || 'seleccionado'}" y todas sus marcas y precios asociados?`)) return;
-    await db.transaction('rw', [db.materiales, db.productos, db.ofertas], async () => {
-      await db.materiales.delete(matId);
-      await db.productos.where('materialId').equals(matId).delete();
-      await db.ofertas.where('materialId').equals(matId).delete();
-    });
+    await softDelete('materiales', matId);
+    const relatedProds = productos.filter(p => p.materialId === matId);
+    for (const p of relatedProds) {
+      await softDelete('productos', p.id);
+    }
+    const relatedOfertas = ofertas.filter(o => o.materialId === matId);
+    for (const o of relatedOfertas) {
+      await softDelete('ofertas', o.id);
+    }
   };
 
   const handleDeleteProducto = async (prodId: string) => {
     if (!confirm('¿Eliminar esta marca/producto registrado?')) return;
-    await db.transaction('rw', [db.productos, db.ofertas], async () => {
-      await db.productos.delete(prodId);
-      await db.ofertas.where('productoId').equals(prodId).delete();
-    });
+    await softDelete('productos', prodId);
+    const relatedOfertas = ofertas.filter(o => o.productoId === prodId);
+    for (const o of relatedOfertas) {
+      await softDelete('ofertas', o.id);
+    }
   };
 
   // --- Handlers Ofertas ---
@@ -560,7 +644,8 @@ export const InsumosManager: React.FC = () => {
         proveedorId: formDataOferta.proveedorId || editingOferta.proveedorId,
         precio: formDataOferta.precio || 0,
         fuente: formDataOferta.fuente || 'manual',
-        tipoAjustePrecio: formDataOferta.tipoAjustePrecio
+        tipoAjustePrecio: formDataOferta.tipoAjustePrecio,
+        updatedAt: now
       });
       setEditingOferta(null);
     } else {
@@ -572,7 +657,10 @@ export const InsumosManager: React.FC = () => {
         precio: formDataOferta.precio || 0,
         fecha: now,
         fuente: formDataOferta.fuente || 'manual',
-        tipoAjustePrecio: formDataOferta.tipoAjustePrecio
+        tipoAjustePrecio: formDataOferta.tipoAjustePrecio,
+        createdAt: now,
+        updatedAt: now,
+        deleted: false
       };
       await db.ofertas.add(newOferta);
     }
@@ -581,7 +669,7 @@ export const InsumosManager: React.FC = () => {
 
   const handleDeleteOferta = async (ofertaId: string) => {
     if (confirm('¿Deseas eliminar esta oferta/precio cargado?')) {
-      await db.ofertas.delete(ofertaId);
+      await softDelete('ofertas', ofertaId);
     }
   };
 
@@ -655,6 +743,14 @@ export const InsumosManager: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {activeTab === 'materiales' && (
             <>
+              <button
+                onClick={handleExportForQuotation}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 bg-primary/10 text-primary hover:bg-primary/20 font-semibold rounded-xl text-xs transition-colors border border-primary/30 shadow-xs"
+                title="Exporta una plantilla Excel para enviar a proveedores"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-primary" />
+                <span>Exportar para Cotizar {selectedMaterialIds.size > 0 ? `(${selectedMaterialIds.size})` : ''}</span>
+              </button>
               <button
                 onClick={() => setShowImportCatalogModal(true)}
                 className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-semibold rounded-xl text-xs transition-colors border border-emerald-500/30 shadow-xs"
@@ -926,6 +1022,15 @@ export const InsumosManager: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead className="bg-surface-container-high border-b border-outline-variant/30 text-on-surface-variant font-semibold sticky top-0 z-10 shadow-sm">
                   <tr>
+                    <th className="p-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={filteredMateriales.length > 0 && selectedMaterialIds.size === filteredMateriales.length}
+                        onChange={handleToggleSelectAll}
+                        className="w-4 h-4 rounded text-primary border-outline-variant focus:ring-primary cursor-pointer"
+                        title="Seleccionar todos los materiales filtrados"
+                      />
+                    </th>
                     <th className="p-3">Material & Norma</th>
                     <th className="p-3">Categoría</th>
                     <th className="p-3">Marcas Registradas</th>
@@ -938,6 +1043,7 @@ export const InsumosManager: React.FC = () => {
                     const cat = categoriasMap.get(mat.categoriaId);
                     const prodsMat = productos.filter(p => p.materialId === mat.id);
                     const ofertaVigente = getOfertaVigente(mat.id);
+                    const isSelected = selectedMaterialIds.has(mat.id);
 
                     const estadoVenc = ofertaVigente
                       ? obtenerEstadoVencimientoOferta(
@@ -948,7 +1054,15 @@ export const InsumosManager: React.FC = () => {
                       : 'rojo';
 
                     return (
-                      <tr key={mat.id} className="hover:bg-surface-container/50">
+                      <tr key={mat.id} className={`hover:bg-surface-container/50 ${isSelected ? 'bg-primary/5' : ''}`}>
+                        <td className="p-3 w-10 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelectMaterial(mat.id)}
+                            className="w-4 h-4 rounded text-primary border-outline-variant focus:ring-primary cursor-pointer"
+                          />
+                        </td>
                         <td className="p-3">
                           <div className="flex items-center gap-2">
                             <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
@@ -1461,22 +1575,59 @@ export const InsumosManager: React.FC = () => {
                     </div>
 
                     {suggestedAttrs.length > 0 && (
-                      <div className="grid grid-cols-2 gap-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         {suggestedAttrs.map(attrTpl => {
-                          const attrVal = formDataMat.atributos?.find(a => a.clave === attrTpl.clave)?.valor || '';
+                          let isBlocked = false;
+                          let blockedVal = '';
+                          let availableOptions = attrTpl.opciones ? [...attrTpl.opciones] : [];
+
+                          if (attrTpl.dependencias) {
+                            for (const dep of attrTpl.dependencias) {
+                              const parentVal = formDataMat.atributos?.find(a => a.clave === dep.dependeVinculo)?.valor;
+                              if (parentVal && parentVal.includes(dep.valorEsperado)) {
+                                if (dep.bloqueado) {
+                                  isBlocked = true;
+                                  blockedVal = dep.valorFijo || '';
+                                }
+                                if (dep.opcionesFiltradas) {
+                                  availableOptions = dep.opcionesFiltradas;
+                                }
+                              }
+                            }
+                          }
+
+                          const currentRawVal = formDataMat.atributos?.find(a => a.clave === attrTpl.clave)?.valor || '';
+                          const attrVal = isBlocked ? blockedVal : currentRawVal;
+
                           return (
                             <div key={attrTpl.clave}>
-                              <label className="block text-[11px] text-on-surface-variant mb-1 truncate">
+                              <label className="block text-[11px] font-medium text-on-surface-variant mb-1 truncate">
                                 {attrTpl.etiqueta} {attrTpl.unidad ? `(${attrTpl.unidad})` : ''}
+                                {isBlocked && <span className="ml-1 text-[9px] text-amber-500 font-bold">(Fijo por norma)</span>}
                               </label>
-                              <input
-                                type={attrTpl.tipo === 'numero' ? 'number' : 'text'}
-                                step={attrTpl.tipo === 'numero' ? 'any' : undefined}
-                                value={attrVal}
-                                onChange={(e) => handleAttributeValueChange(attrTpl.clave, e.target.value)}
-                                className={inputCls}
-                                placeholder={attrTpl.unidad ? `Ej: 16 ${attrTpl.unidad}` : 'Valor...'}
-                              />
+                              {availableOptions.length > 0 ? (
+                                <select
+                                  value={attrVal}
+                                  disabled={isBlocked}
+                                  onChange={(e) => handleAttributeValueChange(attrTpl.clave, e.target.value)}
+                                  className={`${inputCls} text-xs`}
+                                >
+                                  <option value="">-- Seleccionar {attrTpl.etiqueta} --</option>
+                                  {availableOptions.map(opt => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type={attrTpl.tipo === 'numero' ? 'number' : 'text'}
+                                  step={attrTpl.tipo === 'numero' ? 'any' : undefined}
+                                  value={attrVal}
+                                  disabled={isBlocked}
+                                  onChange={(e) => handleAttributeValueChange(attrTpl.clave, e.target.value)}
+                                  className={`${inputCls} text-xs`}
+                                  placeholder={attrTpl.unidad ? `Ej: 16 ${attrTpl.unidad}` : 'Valor...'}
+                                />
+                              )}
                             </div>
                           );
                         })}

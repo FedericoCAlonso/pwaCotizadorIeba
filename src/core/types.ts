@@ -54,17 +54,30 @@ export interface IndiceReferencia {
 }
 
 // ─── 1. Categoría de Material ──────────────────────────────────────────────────
+export interface AtributoDependencia {
+  dependeVinculo: string; // ej: "norma"
+  valorEsperado: string;  // ej: "IRAM 247-3"
+  opcionesFiltradas?: string[]; // ej: ["1.5", "2.5", "4", "6", "10"]
+  bloqueado?: boolean;
+  valorFijo?: string;     // ej: conductores = "1"
+}
+
 export interface AtributoTemplate {
   clave: string; // "seccion", "In", "Id", "polos", "norma"
   etiqueta: string; // texto visible en el formulario
   unidad?: string; // "mm²", "A", "mA"
   tipo: 'texto' | 'numero';
+  opciones?: string[];
+  dependencias?: AtributoDependencia[];
 }
 
 export interface CategoriaMaterial {
   id: string;
   nombre: string; // "Cables", "Protecciones", "Canalizaciones", etc.
   atributosSugeridos: AtributoTemplate[];
+  createdAt?: string;
+  updatedAt?: string;
+  deleted?: boolean;
   syncStatus?: SyncStatus;
   _updatedAt?: number;
 }
@@ -90,6 +103,7 @@ export interface Material {
   ultimoUsoFecha?: string; // Phase 2: ISO timestamp último uso
   createdAt?: string;
   updatedAt?: string;
+  deleted?: boolean;
 }
 
 // Alias de compatibilidad
@@ -119,6 +133,7 @@ export interface Producto {
   ultimoUsoFecha?: string;
   createdAt?: string;
   updatedAt?: string;
+  deleted?: boolean;
 }
 
 // ─── 4. Oferta (Precio de proveedor para un Producto o Material) ──────────────
@@ -133,6 +148,9 @@ export interface Oferta {
   tipoAjustePrecio?: string; // referencia a TIPOS_AJUSTE_PRECIO cuando fuente = 'indice'
   solicitudCotizacionId?: string; // FK opcional si proviene de RFQ
   notas?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deleted?: boolean;
 }
 
 // ─── 5. Proveedor & Contactos Dinámicos ────────────────────────────────────────
@@ -162,6 +180,9 @@ export interface Proveedor {
   email?: string;
   contacto?: string;
   direccion?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deleted?: boolean;
 }
 
 // ─── 6. Solicitud de Cotización (RFQ) ─────────────────────────────────────────
@@ -184,6 +205,9 @@ export interface SolicitudCotizacion {
   fechaEnvio?: string;
   items: SolicitudCotizacionItem[];
   notas?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deleted?: boolean;
 }
 
 // ─── 7. Mano de Obra y Costos Indirectos ───────────────────────────────────────
@@ -192,6 +216,9 @@ export interface CategoriaManoDeObra {
   nombre: string;
   costoHora: number;
   fechaActualizacion: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deleted?: boolean;
 }
 
 export type TipoCostoIndirecto = 'fijo_mensual' | 'porcentual_sobre_costo' | 'por_visita';
@@ -201,6 +228,9 @@ export interface CostoIndirecto {
   nombre: string;
   tipo: TipoCostoIndirecto;
   valor: number;
+  createdAt?: string;
+  updatedAt?: string;
+  deleted?: boolean;
 }
 
 // ─── 8. Tareas Tipo y Servicios Tercerizados ──────────────────────────────────
@@ -229,6 +259,7 @@ export interface TareaTipo {
   ultimoUsoFecha?: string;
   createdAt?: string;
   updatedAt?: string;
+  deleted?: boolean;
 }
 
 export interface ServicioTercerizado {
@@ -343,6 +374,9 @@ export interface Cliente {
   email?: string;
   direccion?: string;
   notas?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deleted?: boolean;
 }
 
 export interface Proyecto {
@@ -351,6 +385,9 @@ export interface Proyecto {
   nombre: string;
   ubicacion?: string;
   descripcion?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deleted?: boolean;
 }
 
 export interface CostoIndirectoItemConfig {
@@ -404,6 +441,9 @@ export interface Presupuesto {
   notasCliente?: string;
 
   fechaModificacion: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deleted?: boolean;
 }
 
 export interface RegistroTrabajo {
@@ -419,11 +459,26 @@ export interface RegistroTrabajo {
   condicion?: 'normal' | 'dificultosa' | 'favorable';
   motivoDesvio?: MotivoDesvio;
   notas?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deleted?: boolean;
 }
 
 export type ThemeMode = 'dark' | 'light' | 'system';
 
 export type SyncStatus = 'synced' | 'pending_insert' | 'pending_update' | 'pending_delete';
+
+export type SyncProviderType = 'local_file' | 'google_drive' | 'manual_json';
+
+export interface SyncConfig {
+  providerType: SyncProviderType;
+  autoSync: boolean;
+  syncIntervalMinutes: number;
+  lastSyncTimestamp?: string;
+  localDirectoryName?: string;
+  googleDriveConnected?: boolean;
+  googleDriveUserEmail?: string;
+}
 
 export interface AppConfig {
   id: string;
@@ -455,6 +510,11 @@ export interface AppConfig {
   canastaElectricaValor?: number;
   umbralMargenMinimoAdvertencia?: number; // Porcentaje configurable (default: 20%)
 
+  syncConfig?: SyncConfig;
   autoSyncEnabled?: boolean; // Default true
   syncIntervalMinutes?: number; // Default 5 mins
+
+  createdAt?: string;
+  updatedAt?: string;
+  deleted?: boolean;
 }

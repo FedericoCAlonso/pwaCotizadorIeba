@@ -20,7 +20,7 @@ import {
   RefreshCw,
   Search
 } from 'lucide-react';
-import { db } from '../db/database';
+import { db, softDelete } from '../db/database';
 import {
   TareaTipo,
   Insumo,
@@ -41,12 +41,12 @@ import { ModalContainer } from './ModalContainer';
 const CATEGORIAS_TAREA_LIST = Object.values(CATEGORIA_TAREA);
 
 export const TareasTipoManager: React.FC = () => {
-  const tareasTipo = useLiveQuery(() => db.tareasTipo.toArray()) || [];
-  const legacyInsumos = useLiveQuery(() => db.insumos.toArray()) || [];
-  const materiales = useLiveQuery(() => db.materiales.toArray()) || [];
-  const ofertas = useLiveQuery(() => db.ofertas.toArray()) || [];
-  const manoObraList = useLiveQuery(() => db.manoObra.toArray()) || [];
-  const registrosTrabajo = useLiveQuery(() => db.registrosTrabajo.toArray()) || [];
+  const tareasTipo = (useLiveQuery(() => db.tareasTipo.toArray()) || []).filter((t) => !t.deleted);
+  const legacyInsumos = (useLiveQuery(() => db.insumos.toArray()) || []).filter((i) => !i.deleted);
+  const materiales = (useLiveQuery(() => db.materiales.toArray()) || []).filter((m) => !m.deleted);
+  const ofertas = (useLiveQuery(() => db.ofertas.toArray()) || []).filter((o) => !o.deleted);
+  const manoObraList = (useLiveQuery(() => db.manoObra.toArray()) || []).filter((m) => !m.deleted);
+  const registrosTrabajo = (useLiveQuery(() => db.registrosTrabajo.toArray()) || []).filter((r) => !r.deleted);
   const configs = useLiveQuery(() => db.config.toArray()) || [];
   const config = configs[0];
 
@@ -124,6 +124,7 @@ export const TareasTipoManager: React.FC = () => {
   const handleSaveTarea = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nombre.trim()) return;
+    const now = new Date().toISOString();
 
     if (isCreating) {
       await db.tareasTipo.add({
@@ -134,7 +135,10 @@ export const TareasTipoManager: React.FC = () => {
         notasTecnicas: formData.notasTecnicas.trim() || undefined,
         insumos: formData.insumos,
         manoObra: formData.manoObra,
-        factorCorreccion: 1.0
+        factorCorreccion: 1.0,
+        createdAt: now,
+        updatedAt: now,
+        deleted: false
       });
       setIsCreating(false);
     } else if (editingTarea) {
@@ -144,14 +148,17 @@ export const TareasTipoManager: React.FC = () => {
         unidad: formData.unidad.trim() || 'punto',
         notasTecnicas: formData.notasTecnicas.trim() || undefined,
         insumos: formData.insumos,
-        manoObra: formData.manoObra
+        manoObra: formData.manoObra,
+        updatedAt: now
       });
       setEditingTarea(null);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar esta tarea tipo del catálogo?')) await db.tareasTipo.delete(id);
+    if (confirm('¿Eliminar esta tarea tipo del catálogo?')) {
+      await softDelete('tareasTipo', id);
+    }
   };
 
   const handleDuplicateTarea = (t: TareaTipo) => {

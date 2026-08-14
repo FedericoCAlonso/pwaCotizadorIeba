@@ -22,7 +22,7 @@ import {
   TrendingUp,
   UserPlus
 } from 'lucide-react';
-import { db, importClientesCSV } from '../db/database';
+import { db, importClientesCSV, softDelete } from '../db/database';
 import { Cliente, Presupuesto, EstadoPresupuesto } from '../core/types';
 import { CONDICIONES_IVA } from '../core/sampleData';
 import { formatARS } from '../core/calculations';
@@ -40,8 +40,8 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
   onNewPresupuestoForCliente,
   onDuplicatePresupuesto
 }) => {
-  const clientes = useLiveQuery(() => db.clientes.toArray()) || [];
-  const presupuestos = useLiveQuery(() => db.presupuestos.toArray()) || [];
+  const clientes = (useLiveQuery(() => db.clientes.toArray()) || []).filter((c) => !c.deleted);
+  const presupuestos = (useLiveQuery(() => db.presupuestos.toArray()) || []).filter((p) => !p.deleted);
 
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -91,6 +91,7 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    const now = new Date().toISOString();
     if (isCreating) {
       await db.clientes.add({
         id: `cli-${crypto.randomUUID()}`,
@@ -100,7 +101,10 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
         telefono: formData.telefono,
         email: formData.email,
         direccion: formData.direccion,
-        notas: formData.notas
+        notas: formData.notas,
+        createdAt: now,
+        updatedAt: now,
+        deleted: false
       });
       setIsCreating(false);
     } else if (editingCliente) {
@@ -111,14 +115,17 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
         telefono: formData.telefono,
         email: formData.email,
         direccion: formData.direccion,
-        notas: formData.notas
+        notas: formData.notas,
+        updatedAt: now
       });
       setEditingCliente(null);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar este cliente?')) await db.clientes.delete(id);
+    if (confirm('¿Eliminar este cliente?')) {
+      await softDelete('clientes', id);
+    }
   };
 
   const handleImportCSV = async () => {

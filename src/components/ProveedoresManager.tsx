@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Truck, Plus, Edit2, Trash2, X, Save, Phone, Mail, User, FileSpreadsheet, MessageCircle, Globe, UserPlus } from 'lucide-react';
-import { db, importProveedoresCSV } from '../db/database';
+import { db, importProveedoresCSV, softDelete } from '../db/database';
 import { Proveedor } from '../core/types';
 import { TIPOS_PROVEEDOR } from '../core/sampleData';
 
 export const ProveedoresManager: React.FC = () => {
-  const proveedores = useLiveQuery(() => db.proveedores.toArray()) || [];
+  const proveedores = (useLiveQuery(() => db.proveedores.toArray()) || []).filter((p) => !p.deleted);
   const [editingProveedor, setEditingProveedor] = useState<Proveedor | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showCSVModal, setShowCSVModal] = useState(false);
@@ -38,22 +38,11 @@ export const ProveedoresManager: React.FC = () => {
           razonSocial: prev.razonSocial || nameVal,
           contacto: nameVal || prev.contacto,
           telefono: phoneVal || prev.telefono,
-          email: emailVal || prev.email,
-          contactos: [
-            {
-              id: crypto.randomUUID(),
-              nombrePersona: nameVal || 'Contacto Principal',
-              rol: 'Ventas',
-              canales: [
-                ...(phoneVal ? [{ tipo: 'whatsapp' as const, valor: phoneVal, esPrincipal: true }] : []),
-                ...(emailVal ? [{ tipo: 'email' as const, valor: emailVal, esPrincipal: false }] : [])
-              ]
-            }
-          ]
+          email: emailVal || prev.email
         }));
       }
     } catch (err) {
-      console.log('Contacto no seleccionado o no permitido:', err);
+      console.log('Contacto no seleccionado:', err);
     }
   };
 
@@ -62,17 +51,7 @@ export const ProveedoresManager: React.FC = () => {
       razonSocial: '',
       cuit: '',
       tipoProveedor: 'material',
-      contactos: [
-        {
-          id: crypto.randomUUID(),
-          nombrePersona: '',
-          rol: 'Ventas',
-          canales: [
-            { tipo: 'whatsapp', valor: '', esPrincipal: true },
-            { tipo: 'email', valor: '', esPrincipal: false }
-          ]
-        }
-      ],
+      contactos: [],
       notas: ''
     });
     setIsCreating(true);
@@ -80,30 +59,31 @@ export const ProveedoresManager: React.FC = () => {
 
   const handleOpenEdit = (p: Proveedor) => {
     setEditingProveedor(p);
-    const existingContactos = p.contactos && p.contactos.length > 0 ? p.contactos : [
-      {
-        id: crypto.randomUUID(),
-        nombrePersona: p.contacto || 'Contacto Principal',
-        rol: 'Ventas',
-        canales: [
-          ...(p.telefono ? [{ tipo: 'whatsapp' as const, valor: p.telefono, esPrincipal: true }] : []),
-          ...(p.email ? [{ tipo: 'email' as const, valor: p.email, esPrincipal: false }] : [])
-        ]
-      }
-    ];
+    setFormData({ ...p });
+  };
 
-    setFormData({
-      ...p,
-      razonSocial: p.razonSocial || p.nombre || '',
-      tipoProveedor: p.tipoProveedor || 'material',
-      contactos: existingContactos
-    });
+  const handleAddContacto = () => {
+    setFormData(prev => ({
+      ...prev,
+      contactos: [
+        ...(prev.contactos || []),
+        { id: `cnt-${crypto.randomUUID()}`, nombrePersona: '', rol: 'Ventas', canales: [{ tipo: 'telefono', valor: '', esPrincipal: true }] }
+      ]
+    }));
+  };
+
+  const handleRemoveContacto = (idx: number) => {
+    setFormData(prev => ({
+      ...prev,
+      contactos: (prev.contactos || []).filter((_, i) => i !== idx)
+    }));
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const razonSocial = formData.razonSocial || 'Nuevo Proveedor';
     const contactosClean = (formData.contactos || []).filter(c => c.nombrePersona.trim() || c.canales.some(cn => cn.valor.trim()));
+    const now = new Date().toISOString();
 
     if (isCreating) {
       await db.proveedores.add({
@@ -113,7 +93,10 @@ export const ProveedoresManager: React.FC = () => {
         cuit: formData.cuit,
         tipoProveedor: formData.tipoProveedor || 'material',
         contactos: contactosClean,
-        notas: formData.notas
+        notas: formData.notas,
+        createdAt: now,
+        updatedAt: now,
+        deleted: false
       });
       setIsCreating(false);
     } else if (editingProveedor) {
@@ -123,14 +106,17 @@ export const ProveedoresManager: React.FC = () => {
         cuit: formData.cuit,
         tipoProveedor: formData.tipoProveedor || 'material',
         contactos: contactosClean,
-        notas: formData.notas
+        notas: formData.notas,
+        updatedAt: now
       });
       setEditingProveedor(null);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar este proveedor?')) await db.proveedores.delete(id);
+    if (confirm('¿Eliminar este proveedor?')) {
+      await softDelete('proveedores', id);
+    }
   };
 
   const handleImportCSV = async () => {

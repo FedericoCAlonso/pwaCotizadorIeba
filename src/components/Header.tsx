@@ -55,7 +55,17 @@ export const Header: React.FC<HeaderProps> = ({
   themeMode,
   onThemeModeChange
 }) => {
-  const { user, syncState, syncErrorMessage, lastSyncTime, pendingCount, logout, triggerSync } = useAuth();
+  const {
+    user,
+    syncState,
+    syncErrorMessage,
+    lastSyncTime,
+    lastResult,
+    activeProvider,
+    setActiveProvider,
+    logout,
+    triggerSync
+  } = useAuth();
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showExportSuccess, setShowExportSuccess] = useState(false);
@@ -94,14 +104,12 @@ export const Header: React.FC<HeaderProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const content = event.target?.result as string;
+    reader.onload = async (ev) => {
+      const content = ev.target?.result as string;
+      if (content) {
         await importDatabaseJSON(content);
-        alert('¡Base de datos restaurada con éxito!');
+        setShowUtilsMenu(false);
         window.location.reload();
-      } catch (err) {
-        alert('Error al importar el archivo de respaldo: ' + err);
       }
     };
     reader.readAsText(file);
@@ -146,27 +154,6 @@ export const Header: React.FC<HeaderProps> = ({
         </span>
       );
     }
-    if (syncState === 'quota_exceeded') {
-      return (
-        <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-          <span className="hidden sm:inline">Modo Local (Cuota)</span>
-          {pendingCount > 0 && (
-            <span className="font-mono bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-              {pendingCount}
-            </span>
-          )}
-        </span>
-      );
-    }
-    if (syncState === 'permission_denied') {
-      return (
-        <span className="flex items-center gap-1.5 text-xs text-amber-500 font-medium">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-          <span className="hidden sm:inline">Reglas Firestore</span>
-        </span>
-      );
-    }
     if (syncState === 'error') {
       return (
         <span className="flex items-center gap-1.5 text-xs text-rose-500 font-medium">
@@ -175,18 +162,18 @@ export const Header: React.FC<HeaderProps> = ({
         </span>
       );
     }
-    if (pendingCount > 0) {
+    if (syncState === 'synced') {
       return (
-        <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
-          <Cloud className="w-3.5 h-3.5 shrink-0" />
-          <span className="hidden sm:inline font-mono">{pendingCount} pend.</span>
+        <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+          <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+          <span className="hidden sm:inline">Al día</span>
         </span>
       );
     }
     return (
-      <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-        <span className="hidden sm:inline">Nube al día</span>
+      <span className="flex items-center gap-1.5 text-xs text-on-surface-variant font-medium">
+        <Cloud className="w-3.5 h-3.5 shrink-0" />
+        <span className="hidden sm:inline">Local-First</span>
       </span>
     );
   };
@@ -637,101 +624,120 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Auth Modal */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
-      {/* M3 Cloud Sync Details Modal */}
+      {/* M3 Decentralized Sync Details Modal */}
       <ModalContainer
         isOpen={showSyncModal}
         onClose={() => setShowSyncModal(false)}
-        title="Sincronización Nube (Delta Sync)"
-        subtitle="Gestión ligera de cambios por lotes y prevención de cuota Spark"
+        title="Sincronización Descentralizada (Offline-First)"
+        subtitle="Sincroniza tus datos mediante Google Drive personal, Archivo Local o Respaldo JSON"
         icon={<Cloud className="w-5 h-5 text-primary" />}
         maxWidth="md"
       >
         <div className="space-y-4 text-on-surface">
+          {/* Provider Selection Tabs */}
+          <div className="flex bg-surface-container-high p-1 rounded-2xl gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveProvider('local_file')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
+                activeProvider === 'local_file'
+                  ? 'bg-surface text-primary shadow-sm'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              📁 Carpeta Local (PC)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveProvider('google_drive')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
+                activeProvider === 'google_drive'
+                  ? 'bg-surface text-primary shadow-sm'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              ☁️ Google Drive
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveProvider('manual_json')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
+                activeProvider === 'manual_json'
+                  ? 'bg-surface text-primary shadow-sm'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              💾 Respaldo JSON
+            </button>
+          </div>
+
           {/* Main Status Banner */}
           <div
             className={`p-4 rounded-2xl border flex items-start gap-3 ${
-              syncState === 'quota_exceeded' || syncState === 'permission_denied'
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
-                : syncState === 'error'
+              syncState === 'error'
                 ? 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200'
-                : pendingCount > 0
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
                 : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
             }`}
           >
-            {syncState === 'quota_exceeded' || syncState === 'permission_denied' || syncState === 'error' ? (
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            {syncState === 'error' ? (
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-500" />
             ) : (
               <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-emerald-500" />
             )}
 
             <div className="space-y-1 text-xs">
               <h4 className="font-bold text-sm">
-                {syncState === 'quota_exceeded'
-                  ? 'Cuota Diaria Firebase Excedida (Circuit Breaker)'
-                  : syncState === 'permission_denied'
-                  ? 'Permisos de Firestore Requeridos'
-                  : syncState === 'error'
-                  ? 'Error de Sincronización / Conexión'
-                  : pendingCount > 0
-                  ? 'Cambios Pendientes por Sincronizar'
-                  : 'Nube Sincronizada al Día'}
+                {syncState === 'error'
+                  ? 'Atención al Sincronizar'
+                  : syncState === 'syncing'
+                  ? 'Sincronizando registros...'
+                  : 'Almacenamiento Local-First Activo'}
               </h4>
 
               <p className="leading-relaxed">
-                {syncState === 'quota_exceeded'
-                  ? 'Se alcanzó el límite diario del plan gratuito Spark de Firebase. Tus datos están 100% seguros en tu dispositivo (IndexedDB) y se subirán automáticamente.'
-                  : syncState === 'permission_denied'
-                  ? 'Firebase denegó el acceso porque faltan las Reglas de Seguridad en tu consola de Firebase. Debes permitir lectura/escritura a usuarios autenticados.'
-                  : syncState === 'error'
-                  ? (syncErrorMessage || 'Ocurrió una interrupción al conectar con Firebase. Puede deberse a conexión inestable. Tus datos locales en IndexedDB están 100% a salvo y puedes reintentar cuando desees.')
-                  : pendingCount > 0
-                  ? `Tienes ${pendingCount} registro(s) pendiente(s) de subida. Se sincronizarán automáticamente por lotes o puedes forzar la subida manual.`
-                  : 'Todos tus presupuestos, materiales y configuraciones locales coinciden con tu espacio en la nube.'}
+                {syncState === 'error'
+                  ? (syncErrorMessage || 'Ocurrió un inconveniente al conectar con el proveedor seleccionado.')
+                  : activeProvider === 'local_file'
+                  ? 'Los cambios se fusionan automáticamente (Last-Write-Wins) con el archivo maestro en tu disco local o carpeta sincronizada (Dropbox, OneDrive, Google Drive Sync).'
+                  : activeProvider === 'google_drive'
+                  ? 'Los cambios se sincronizan directamente en tu cuenta personal de Google Drive sin intermediarios ni cuotas limitadas.'
+                  : 'Puedes exportar o restaurar el archivo JSON maestro con fusión inteligente de cambios.'}
               </p>
             </div>
           </div>
 
-          {/* Detailed Error Diagnostic Banner */}
-          {syncErrorMessage && syncState !== 'permission_denied' && (
-            <div className="p-3 bg-surface-container-highest rounded-2xl border border-outline-variant/30 text-[11px] space-y-1">
-              <span className="font-bold text-on-surface block">Detalle técnico del estado:</span>
-              <span className="font-mono text-on-surface-variant break-all">{syncErrorMessage}</span>
-            </div>
-          )}
-
-          {/* Firestore Rules Helper if permission_denied */}
-          {syncState === 'permission_denied' && (
-            <div className="p-3.5 bg-surface-container-low rounded-2xl border border-outline-variant/30 space-y-2 text-xs">
-              <p className="font-semibold text-on-surface">Copia y pega estas reglas en <strong>Firebase Console &gt; Firestore &gt; Reglas</strong>:</p>
-              <pre className="p-2.5 rounded-xl bg-surface-container-highest font-mono text-[10px] leading-relaxed text-on-surface overflow-x-auto select-all">
-{`rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}`}
-              </pre>
+          {/* Merge Result Statistics */}
+          {lastResult && lastResult.stats && (
+            <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 space-y-2 text-xs">
+              <span className="font-bold text-on-surface block">Estadísticas de la última sincronización:</span>
+              <div className="grid grid-cols-2 gap-2 text-on-surface-variant font-mono text-[11px]">
+                <div>Tablas sincronizadas: <strong className="text-on-surface">{lastResult.stats.tablesProcessed}</strong></div>
+                <div>Actualizados en dispositivo: <strong className="text-emerald-600 dark:text-emerald-400">{lastResult.stats.localUpdatedCount + lastResult.stats.localAddedCount}</strong></div>
+                <div>Novedades enviadas: <strong className="text-primary">{lastResult.stats.localNewerCount}</strong></div>
+                <div>Registros idénticos: <strong className="text-on-surface">{lastResult.stats.identicalCount}</strong></div>
+              </div>
             </div>
           )}
 
           {/* Sync Stats Info */}
           <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 space-y-2 text-xs">
             <div className="flex justify-between">
-              <span className="text-on-surface-variant">Registros pendientes localmente:</span>
-              <span className="font-mono font-bold text-primary">{pendingCount} registros</span>
+              <span className="text-on-surface-variant">Proveedor activo:</span>
+              <span className="font-semibold text-primary">
+                {activeProvider === 'local_file' ? '📁 Archivo en Disco Local' : activeProvider === 'google_drive' ? '☁️ Google Drive Personal' : '💾 Manual JSON'}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-on-surface-variant">Última sincronización exitosa:</span>
               <span className="font-mono text-on-surface">
-                {lastSyncTime ? lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Hoy'}
+                {lastSyncTime ? lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Nunca'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-on-surface-variant">Estrategia de Sync:</span>
-              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">Delta Sync (Dirty Flags)</span>
+              <span className="text-on-surface-variant">Motor de Fusión:</span>
+              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">Last-Write-Wins (LWW)</span>
             </div>
           </div>
 
@@ -747,15 +753,16 @@ service cloud.firestore {
 
             <button
               type="button"
-              onClick={() => {
-                triggerSync();
-                setShowSyncModal(false);
+              onClick={async () => {
+                try {
+                  await triggerSync();
+                } catch {}
               }}
               disabled={syncState === 'syncing'}
               className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-full text-xs shadow-sm active:scale-95 disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncState === 'syncing' ? 'animate-spin' : ''}`} />
-              <span>Forzar Reintento Manual</span>
+              <span>Sincronizar Ahora</span>
             </button>
           </div>
         </div>

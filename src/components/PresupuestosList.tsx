@@ -12,7 +12,7 @@ import {
   FileSpreadsheet,
   Share2,
 } from 'lucide-react';
-import { db } from '../db/database';
+import { db, softDelete } from '../db/database';
 import { Presupuesto, Cliente } from '../core/types';
 import { formatARS, formatUSD } from '../core/calculations';
 import { EstadoBadge } from './EstadoBadge';
@@ -29,8 +29,8 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
   onSelect,
   onEdit
 }) => {
-  const presupuestos = useLiveQuery(() => db.presupuestos.reverse().toArray()) || [];
-  const clientes = useLiveQuery(() => db.clientes.toArray()) || [];
+  const presupuestos = (useLiveQuery(() => db.presupuestos.reverse().toArray()) || []).filter((p) => !p.deleted);
+  const clientes = (useLiveQuery(() => db.clientes.toArray()) || []).filter((c) => !c.deleted);
   const clientesMap = new Map<string, Cliente>(clientes.map((c) => [c.id, c]));
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -56,13 +56,17 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
       await db.config.update(config.id, { siguienteNumeroCorrelativo: seq + 1 });
     }
 
+    const now = new Date().toISOString();
     const duplicated: Presupuesto = {
       ...p,
       id: `pres-${crypto.randomUUID()}`,
       numero: newNumero,
-      fechaEmision: new Date().toISOString(),
+      fechaEmision: now,
       estado: 'borrador',
-      fechaModificacion: new Date().toISOString()
+      fechaModificacion: now,
+      createdAt: now,
+      updatedAt: now,
+      deleted: false
     };
 
     await db.presupuestos.add(duplicated);
@@ -71,7 +75,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
 
   const handleDelete = async (id: string) => {
     if (confirm('¿Eliminar este presupuesto?')) {
-      await db.presupuestos.delete(id);
+      await softDelete('presupuestos', id);
     }
   };
 

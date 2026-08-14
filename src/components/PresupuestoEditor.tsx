@@ -63,15 +63,15 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   onBack,
   onSaved
 }) => {
-  const clientes = useLiveQuery(() => db.clientes.toArray()) || [];
-  const tareasTipo = useLiveQuery(() => db.tareasTipo.toArray()) || [];
+  const clientes = (useLiveQuery(() => db.clientes.toArray()) || []).filter(c => !c.deleted);
+  const tareasTipo = (useLiveQuery(() => db.tareasTipo.toArray()) || []).filter(t => !t.deleted);
   const favoriteTareas = [...tareasTipo].sort((a, b) => (b.frecuenciaUso || 0) - (a.frecuenciaUso || 0)).slice(0, 8);
 
-  const legacyInsumos = useLiveQuery(() => db.insumos.toArray()) || [];
-  const materiales = useLiveQuery(() => db.materiales.toArray()) || [];
-  const ofertas = useLiveQuery(() => db.ofertas.toArray()) || [];
-  const manoObraList = useLiveQuery(() => db.manoObra.toArray()) || [];
-  const costosIndirectos = useLiveQuery(() => db.costosIndirectos.toArray()) || [];
+  const legacyInsumos = (useLiveQuery(() => db.insumos.toArray()) || []).filter(i => !i.deleted);
+  const materiales = (useLiveQuery(() => db.materiales.toArray()) || []).filter(m => !m.deleted);
+  const ofertas = (useLiveQuery(() => db.ofertas.toArray()) || []).filter(o => !o.deleted);
+  const manoObraList = (useLiveQuery(() => db.manoObra.toArray()) || []).filter(m => !m.deleted);
+  const costosIndirectos = (useLiveQuery(() => db.costosIndirectos.toArray()) || []).filter(c => !c.deleted);
 
   const insumosMap = useMemo(() => {
     const latestOfertaMap = new Map<string, Oferta>();
@@ -592,7 +592,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       totalMonedaExtranjera: totales.totalMonedaExtranjera,
       condicionesPagoTexto,
       estado: targetEstado,
-      fechaModificacion: now
+      fechaModificacion: now,
+      createdAt: existingPresupuesto?.createdAt || now,
+      updatedAt: now,
+      deleted: false
     };
 
     await db.presupuestos.put(finalPresupuesto);

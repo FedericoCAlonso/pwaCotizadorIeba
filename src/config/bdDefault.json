@@ -9,16 +9,130 @@
       "id": "cat-cables",
       "nombre": "Cables & Conductores",
       "atributosSugeridos": [
-        { "clave": "seccion", "etiqueta": "Sección", "unidad": "mm²", "tipo": "numero" },
-        { "clave": "aislacion", "etiqueta": "Tipo de Aislación", "unidad": "", "tipo": "texto" }
+        {
+          "clave": "norma",
+          "etiqueta": "Norma Técnica",
+          "tipo": "texto",
+          "opciones": [
+            "IRAM 247-3 (Unipolar Flexible)",
+            "IRAM 2178 (Tipo Sintenax Subterráneo)",
+            "IRAM 62267 (Libre de Halógenos)",
+            "IRAM 2004 (Taller TPR)"
+          ]
+        },
+        {
+          "clave": "conductores",
+          "etiqueta": "Cantidad de Conductores",
+          "tipo": "numero",
+          "opciones": ["1", "2", "3", "4", "5"],
+          "dependencias": [
+            {
+              "dependeVinculo": "norma",
+              "valorEsperado": "IRAM 247-3 (Unipolar Flexible)",
+              "bloqueado": true,
+              "valorFijo": "1"
+            },
+            {
+              "dependeVinculo": "norma",
+              "valorEsperado": "IRAM 2178 (Tipo Sintenax Subterráneo)",
+              "opcionesFiltradas": ["1", "2", "3", "4", "5"]
+            },
+            {
+              "dependeVinculo": "norma",
+              "valorEsperado": "IRAM 2004 (Taller TPR)",
+              "opcionesFiltradas": ["2", "3", "4", "5"]
+            }
+          ]
+        },
+        {
+          "clave": "seccion",
+          "etiqueta": "Sección Nominal",
+          "unidad": "mm²",
+          "tipo": "numero",
+          "opciones": ["1.5", "2.5", "4", "6", "10", "16", "25", "35", "50", "70", "95", "120"]
+        },
+        {
+          "clave": "aislacion",
+          "etiqueta": "Tipo de Aislación",
+          "tipo": "texto",
+          "opciones": ["PVC", "XLPE", "LS0H (Baja Emisión de Humos)"]
+        }
       ]
     },
     {
       "id": "cat-protecciones",
       "nombre": "Protecciones Eléctricas",
       "atributosSugeridos": [
-        { "clave": "In", "etiqueta": "Corriente Nominal", "unidad": "A", "tipo": "numero" },
-        { "clave": "polos", "etiqueta": "Cantidad de Polos", "unidad": "", "tipo": "numero" }
+        {
+          "clave": "tipo_proteccion",
+          "etiqueta": "Tipo de Dispositivo",
+          "tipo": "texto",
+          "opciones": [
+            "Termomagnética (PIA)",
+            "Interruptor Diferencial (Disyuntor)",
+            "Guardamotor",
+            "Descargador Sobretensiones (DPS)"
+          ]
+        },
+        {
+          "clave": "polos",
+          "etiqueta": "Cantidad de Polos",
+          "tipo": "numero",
+          "opciones": ["1", "2", "3", "4"],
+          "dependencias": [
+            {
+              "dependeVinculo": "tipo_proteccion",
+              "valorEsperado": "Termomagnética (PIA)",
+              "opcionesFiltradas": ["1", "2", "3", "4"]
+            },
+            {
+              "dependeVinculo": "tipo_proteccion",
+              "valorEsperado": "Interruptor Diferencial (Disyuntor)",
+              "opcionesFiltradas": ["2", "4"]
+            }
+          ]
+        },
+        {
+          "clave": "In",
+          "etiqueta": "Corriente Nominal (In)",
+          "unidad": "A",
+          "tipo": "numero",
+          "opciones": ["6", "10", "16", "20", "25", "32", "40", "50", "63", "80", "100"]
+        },
+        {
+          "clave": "curva",
+          "etiqueta": "Curva de Disparo",
+          "tipo": "texto",
+          "opciones": ["Curva B", "Curva C", "Curva D"],
+          "dependencias": [
+            {
+              "dependeVinculo": "tipo_proteccion",
+              "valorEsperado": "Interruptor Diferencial (Disyuntor)",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            }
+          ]
+        },
+        {
+          "clave": "Id",
+          "etiqueta": "Sensibilidad Diferencial (IΔn)",
+          "unidad": "mA",
+          "tipo": "numero",
+          "opciones": ["10", "30", "300"],
+          "dependencias": [
+            {
+              "dependeVinculo": "tipo_proteccion",
+              "valorEsperado": "Termomagnética (PIA)",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_proteccion",
+              "valorEsperado": "Interruptor Diferencial (Disyuntor)",
+              "opcionesFiltradas": ["10", "30", "300"]
+            }
+          ]
+        }
       ]
     },
     {

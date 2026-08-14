@@ -6,37 +6,32 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  GoogleAuthProvider
 } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../config/firebase';
-import {
-  syncUserData,
-  startSyncScheduler,
-  stopSyncScheduler,
-  setupDexieHooks,
-  resetQuotaExceededState,
-  resetSyncLock,
-  isCircuitBreakerActive,
-  isQuotaError,
-  isPermissionError,
-  getPendingSyncCount,
-  SyncState
-} from '../services/syncService';
+import { syncEngine } from '../services/syncEngine';
+import { SyncProviderType } from '../core/types';
+import { SyncExecutionResult } from '../services/syncTypes';
+
+export type SyncStatusState = 'idle' | 'syncing' | 'synced' | 'error';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isConfigured: boolean;
-  syncState: SyncState;
+  syncState: SyncStatusState;
   syncErrorMessage: string | null;
   lastSyncTime: Date | null;
-  pendingCount: number;
+  lastResult?: SyncExecutionResult;
+  activeProvider: SyncProviderType;
+  setActiveProvider: (type: SyncProviderType) => void;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (e: string, p: string) => Promise<void>;
   signUpWithEmail: (e: string, p: string) => Promise<void>;
   resetPassword: (e: string) => Promise<void>;
   logout: () => Promise<void>;
-  triggerSync: () => Promise<void>;
+  triggerSync: (provider?: SyncProviderType) => Promise<SyncExecutionResult>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,116 +39,68 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [syncState, setSyncState] = useState<SyncStatusState>('idle');
   const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null);
-  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
-  const [pendingCount, setPendingCount] = useState<number>(0);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(() => {
+    try {
+      const saved = localStorage.getItem('ieba_last_sync_time');
+      return saved ? new Date(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [lastResult, setLastResult] = useState<SyncExecutionResult | undefined>(undefined);
+  const [activeProvider, setActiveProviderState] = useState<SyncProviderType>(() => syncEngine.getActiveProviderType());
   const isConfigured = isFirebaseConfigured();
 
-  const updatePendingCount = async () => {
-    try {
-      const count = await getPendingSyncCount();
-      setPendingCount(count);
-    } catch {
-      setPendingCount(0);
-    }
-  };
-
-  const handleSync = async (currentUser: User) => {
-    if (!navigator.onLine) {
-      setSyncState('offline');
-      setSyncErrorMessage('Dispositivo sin conexión a Internet.');
-      await updatePendingCount();
-      return;
-    }
-
-    if (isCircuitBreakerActive()) {
-      setSyncState('quota_exceeded');
-      setSyncErrorMessage('Límite diario de operaciones del plan gratuito Spark alcanzado (20k escrituras/día). Google restablece la cuota automáticamente a las 00:00 UTC (21:00 hs Arg).');
-      await updatePendingCount();
-      return;
-    }
-
-    try {
-      setSyncState('syncing');
-      setSyncErrorMessage(null);
-      const resultState = await syncUserData(currentUser.uid);
-
-      if (isCircuitBreakerActive() || resultState === 'quota_exceeded') {
-        setSyncState('quota_exceeded');
-        setSyncErrorMessage('Límite diario de operaciones del plan gratuito Spark alcanzado (20k escrituras/día). Google restablece la cuota automáticamente a las 00:00 UTC (21:00 hs Arg).');
-      } else if (resultState === 'permission_denied') {
-        setSyncState('permission_denied');
-        setSyncErrorMessage('Permiso denegado por las reglas de seguridad de Firestore en Firebase Console.');
-      } else {
-        setSyncState(resultState);
-        if (resultState === 'synced') {
-          setLastSyncTime(new Date());
-          setSyncErrorMessage(null);
-        }
-      }
-      await updatePendingCount();
-    } catch (err: any) {
-      console.warn('Error durante la sincronización con Firebase:', err);
-      const msg = err?.message || String(err);
-      if (isCircuitBreakerActive() || isQuotaError(err)) {
-        setSyncState('quota_exceeded');
-        setSyncErrorMessage('Límite diario de cuota Firebase Spark superado (20k escrituras). Se reinicia a las 00:00 UTC (21:00 hs Arg).');
-      } else if (isPermissionError(err)) {
-        setSyncState('permission_denied');
-        setSyncErrorMessage('Permiso denegado en Firestore. Revisa las reglas de seguridad en Firebase Console.');
-      } else {
-        setSyncState('error');
-        setSyncErrorMessage(msg);
-      }
-      await updatePendingCount();
-    }
+  const setActiveProvider = (type: SyncProviderType) => {
+    setActiveProviderState(type);
+    syncEngine.setActiveProviderType(type);
   };
 
   useEffect(() => {
+    const unsubscribeSync = syncEngine.subscribe(({ isSyncing, lastResult }) => {
+      if (isSyncing) {
+        setSyncState('syncing');
+      } else if (lastResult) {
+        setSyncState(lastResult.success ? 'synced' : 'error');
+        setLastResult(lastResult);
+        if (lastResult.success) {
+          setLastSyncTime(new Date(lastResult.timestamp));
+          setSyncErrorMessage(null);
+        } else {
+          setSyncErrorMessage(lastResult.message || lastResult.error || 'Error al sincronizar');
+        }
+      }
+    });
+
     if (!auth) {
       setLoading(false);
-      return;
+      return unsubscribeSync;
     }
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       setLoading(false);
-
-      if (currentUser) {
-        setupDexieHooks(currentUser.uid);
-        startSyncScheduler(currentUser.uid, 5);
-        await handleSync(currentUser);
-      } else {
-        setupDexieHooks(null);
-        stopSyncScheduler();
-        setSyncState('idle');
-        setPendingCount(0);
-      }
     });
 
-    const handleOnline = () => {
-      if (auth?.currentUser) {
-        handleSync(auth.currentUser);
-      }
-    };
-
-    window.addEventListener('online', handleOnline);
-
-    // Dynamic pending items counter polling (unintrusive every 10s)
-    const pendingTimer = setInterval(updatePendingCount, 10000);
-
     return () => {
+      unsubscribeSync();
       unsubscribeAuth();
-      stopSyncScheduler();
-      clearInterval(pendingTimer);
-      window.removeEventListener('online', handleOnline);
     };
   }, []);
 
   const signInWithGoogle = async () => {
     if (!auth) throw new Error('Firebase no está configurado');
-    await signInWithPopup(auth, googleProvider);
+    const result = await signInWithPopup(auth, googleProvider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (credential && credential.accessToken) {
+      syncEngine.getGoogleDriveProvider().setAccessToken(
+        credential.accessToken,
+        3600,
+        result.user.email || undefined
+      );
+    }
   };
 
   const signInWithEmail = async (email: string, pass: string) => {
@@ -173,18 +120,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     if (!auth) return;
-    setupDexieHooks(null);
-    stopSyncScheduler();
     await firebaseSignOut(auth);
+    syncEngine.getGoogleDriveProvider().disconnect();
     setSyncState('idle');
-    setPendingCount(0);
   };
 
-  const triggerSync = async () => {
-    if (user) {
-      resetSyncLock();
-      resetQuotaExceededState();
-      await handleSync(user);
+  const triggerSync = async (provider?: SyncProviderType): Promise<SyncExecutionResult> => {
+    setSyncState('syncing');
+    setSyncErrorMessage(null);
+    try {
+      const res = await syncEngine.executeSync(provider || activeProvider);
+      setSyncState('synced');
+      setLastSyncTime(new Date());
+      setLastResult(res);
+      return res;
+    } catch (err: any) {
+      setSyncState('error');
+      const msg = err.message || 'Error al ejecutar sincronización.';
+      setSyncErrorMessage(msg);
+      throw err;
     }
   };
 
@@ -197,7 +151,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         syncState,
         syncErrorMessage,
         lastSyncTime,
-        pendingCount,
+        lastResult,
+        activeProvider,
+        setActiveProvider,
         signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,

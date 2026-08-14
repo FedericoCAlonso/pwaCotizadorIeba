@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Clock, Plus, Edit2, Trash2, Save, Calculator } from 'lucide-react';
-import { db } from '../db/database';
+import { db, softDelete } from '../db/database';
 import { CategoriaManoDeObra, CostoIndirecto, TipoCostoIndirecto } from '../core/types';
 import { formatARS } from '../core/calculations';
 import { TIPOS_COSTO_INDIRECTO } from '../core/sampleData';
 import { ModalContainer } from './ModalContainer';
 
 export const ManoObraManager: React.FC = () => {
-  const manoObraList = useLiveQuery(() => db.manoObra.toArray()) || [];
-  const costosIndirectosList = useLiveQuery(() => db.costosIndirectos.toArray()) || [];
+  const manoObraList = (useLiveQuery(() => db.manoObra.toArray()) || []).filter((m) => !m.deleted);
+  const costosIndirectosList = (useLiveQuery(() => db.costosIndirectos.toArray()) || []).filter((c) => !c.deleted);
 
   const [editingMO, setEditingMO] = useState<CategoriaManoDeObra | null>(null);
   const [isCreatingMO, setIsCreatingMO] = useState(false);
@@ -31,45 +31,58 @@ export const ManoObraManager: React.FC = () => {
         id: `mo-${crypto.randomUUID()}`,
         nombre: moForm.nombre,
         costoHora: moForm.costoHora,
-        fechaActualizacion: now
+        fechaActualizacion: now,
+        createdAt: now,
+        updatedAt: now,
+        deleted: false
       });
       setIsCreatingMO(false);
     } else if (editingMO) {
       await db.manoObra.update(editingMO.id, {
         nombre: moForm.nombre,
         costoHora: moForm.costoHora,
-        fechaActualizacion: now
+        fechaActualizacion: now,
+        updatedAt: now
       });
       setEditingMO(null);
     }
   };
 
   const handleDeleteMO = async (id: string) => {
-    if (confirm('¿Eliminar esta categoría?')) await db.manoObra.delete(id);
+    if (confirm('¿Eliminar esta categoría?')) {
+      await softDelete('manoObra', id);
+    }
   };
 
   const handleSaveCI = async (e: React.FormEvent) => {
     e.preventDefault();
+    const now = new Date().toISOString();
     if (isCreatingCI) {
       await db.costosIndirectos.add({
         id: `ci-${crypto.randomUUID()}`,
         nombre: ciForm.nombre,
         tipo: ciForm.tipo,
-        valor: ciForm.valor
+        valor: ciForm.valor,
+        createdAt: now,
+        updatedAt: now,
+        deleted: false
       });
       setIsCreatingCI(false);
     } else if (editingCI) {
       await db.costosIndirectos.update(editingCI.id, {
         nombre: ciForm.nombre,
         tipo: ciForm.tipo,
-        valor: ciForm.valor
+        valor: ciForm.valor,
+        updatedAt: now
       });
       setEditingCI(null);
     }
   };
 
   const handleDeleteCI = async (id: string) => {
-    if (confirm('¿Eliminar este costo indirecto?')) await db.costosIndirectos.delete(id);
+    if (confirm('¿Eliminar este costo indirecto?')) {
+      await softDelete('costosIndirectos', id);
+    }
   };
 
   const inputCls =

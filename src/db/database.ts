@@ -74,28 +74,45 @@ export class CotizadorDatabase extends Dexie {
       config: 'id'
     });
 
-    this.version(3).stores({
-      categoriasMaterial: 'id, nombre',
-      materiales: 'id, categoriaId, nombre, activo, syncStatus',
-      productos: 'id, materialId, marca, esPreferido, syncStatus',
-      ofertas: 'id, materialId, productoId, proveedorId, fecha, fuente, syncStatus',
-      solicitudesCotizacion: 'id, proveedorId, estado, fechaCreacion, syncStatus',
+    this.version(4).stores({
+      categoriasMaterial: 'id, nombre, deleted, updatedAt',
+      materiales: 'id, categoriaId, nombre, activo, deleted, updatedAt',
+      productos: 'id, materialId, marca, esPreferido, deleted, updatedAt',
+      ofertas: 'id, materialId, productoId, proveedorId, fecha, fuente, deleted, updatedAt',
+      solicitudesCotizacion: 'id, proveedorId, estado, fechaCreacion, deleted, updatedAt',
 
-      insumos: 'id, nombre, categoria, codigoProveedor, syncStatus',
-      manoObra: 'id, nombre, syncStatus',
-      costosIndirectos: 'id, nombre, tipo, syncStatus',
-      tareasTipo: 'id, nombre, categoria, syncStatus',
-      clientes: 'id, nombre, cuitDni, syncStatus',
-      proveedores: 'id, razonSocial, nombre, cuit, syncStatus',
-      proyectos: 'id, clienteId, nombre, syncStatus',
-      presupuestos: 'id, numero, clienteId, estado, fechaEmision, syncStatus',
-      registrosTrabajo: 'id, presupuestoId, tareaTipoId, fecha, syncStatus',
-      config: 'id, syncStatus'
+      insumos: 'id, nombre, categoria, codigoProveedor, deleted, updatedAt',
+      manoObra: 'id, nombre, deleted, updatedAt',
+      costosIndirectos: 'id, nombre, tipo, deleted, updatedAt',
+      tareasTipo: 'id, nombre, categoria, deleted, updatedAt',
+      clientes: 'id, nombre, cuitDni, deleted, updatedAt',
+      proveedores: 'id, razonSocial, nombre, cuit, deleted, updatedAt',
+      proyectos: 'id, clienteId, nombre, deleted, updatedAt',
+      presupuestos: 'id, numero, clienteId, estado, fechaEmision, deleted, updatedAt',
+      registrosTrabajo: 'id, presupuestoId, tareaTipoId, fecha, deleted, updatedAt',
+      config: 'id, deleted, updatedAt'
     });
   }
 }
 
 export const db = new CotizadorDatabase();
+
+/**
+ * Realiza un borrado lógico (Tombstone) marcando deleted = true y actualizando updatedAt.
+ */
+export async function softDelete(
+  tableName: 'categoriasMaterial' | 'materiales' | 'productos' | 'ofertas' | 'solicitudesCotizacion' | 'insumos' | 'manoObra' | 'costosIndirectos' | 'tareasTipo' | 'clientes' | 'proveedores' | 'proyectos' | 'presupuestos' | 'registrosTrabajo' | 'config',
+  id: string
+): Promise<void> {
+  const table = db[tableName] as Table<any, string>;
+  if (!table) return;
+  const now = new Date().toISOString();
+  await table.update(id, {
+    deleted: true,
+    updatedAt: now,
+    _updatedAt: Date.now()
+  });
+}
 
 /**
  * Inicializa la base de datos con los datos semillas por defecto si está vacía.

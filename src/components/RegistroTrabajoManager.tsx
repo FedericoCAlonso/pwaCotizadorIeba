@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { HardHat, Plus, Save, Trash2, TrendingUp } from 'lucide-react';
-import { db } from '../db/database';
+import { db, softDelete } from '../db/database';
 import { RegistroTrabajo, TareaTipo, MotivoDesvio, MOTIVO_DESVIO_ETIQUETAS } from '../core/types';
 import { formatNumber, calcularNuevoFactorEMA } from '../core/calculations';
 import { CONDICIONES_TRABAJO, MOTIVOS_DESVIO } from '../core/sampleData';
 import { ModalContainer } from './ModalContainer';
 
 export const RegistroTrabajoManager: React.FC = () => {
-  const registros = useLiveQuery(() => db.registrosTrabajo.reverse().toArray()) || [];
-  const tareasTipo = useLiveQuery(() => db.tareasTipo.toArray()) || [];
-  const manoObraList = useLiveQuery(() => db.manoObra.toArray()) || [];
-  const presupuestos = useLiveQuery(() => db.presupuestos.reverse().toArray()) || [];
-  const clientes = useLiveQuery(() => db.clientes.toArray()) || [];
+  const allRegistros = useLiveQuery(() => db.registrosTrabajo.reverse().toArray()) || [];
+  const registros = allRegistros.filter(r => !r.deleted);
+  const tareasTipo = (useLiveQuery(() => db.tareasTipo.toArray()) || []).filter(t => !t.deleted);
+  const manoObraList = (useLiveQuery(() => db.manoObra.toArray()) || []).filter(m => !m.deleted);
+  const presupuestos = (useLiveQuery(() => db.presupuestos.reverse().toArray()) || []).filter(p => !p.deleted);
+  const clientes = (useLiveQuery(() => db.clientes.toArray()) || []).filter(c => !c.deleted);
   const configs = useLiveQuery(() => db.config.toArray()) || [];
   const config = configs[0];
 
@@ -79,19 +80,23 @@ export const RegistroTrabajoManager: React.FC = () => {
     const horasReales = formData.horasReales || 0.5;
     const cantidadEjecutada = formData.cantidadEjecutada || 1;
     const tareaId = formData.tareaTipoId;
+    const now = new Date().toISOString();
 
     await db.registrosTrabajo.add({
       id: `reg-${crypto.randomUUID()}`,
       presupuestoId: formData.presupuestoId || undefined,
       descripcion: formData.descripcion || 'Registro de Trabajo',
-      fecha: formData.fecha || new Date().toISOString().slice(0, 10),
+      fecha: formData.fecha || now.slice(0, 10),
       horasReales,
       categoriaManoObraId: formData.categoriaManoObraId || '',
       cantidadEjecutada,
       tareaTipoId: tareaId,
       condicion: formData.condicion || 'normal',
       motivoDesvio: formData.motivoDesvio,
-      notas: formData.notas
+      notas: formData.notas,
+      createdAt: now,
+      updatedAt: now,
+      deleted: false
     });
 
     // Recálculo incremental de factorCorreccion EMA por TareaTipo
@@ -105,7 +110,10 @@ export const RegistroTrabajoManager: React.FC = () => {
           const factorAnterior = tareaObj.factorCorreccion ?? 1.0;
           const factorNuevo = calcularNuevoFactorEMA(factorAnterior, horasReales, horasEstimadasTotales, alpha);
           
-          await db.tareasTipo.update(tareaId, { factorCorreccion: factorNuevo });
+          await db.tareasTipo.update(tareaId, {
+            factorCorreccion: factorNuevo,
+            updatedAt: now
+          });
         }
       }
     }
@@ -114,7 +122,9 @@ export const RegistroTrabajoManager: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar este registro de trabajo?')) await db.registrosTrabajo.delete(id);
+    if (confirm('¿Eliminar este registro de trabajo?')) {
+      await softDelete('registrosTrabajo', id);
+    }
   };
 
   const taskVariance = tareasTipo.map((tarea) => {
