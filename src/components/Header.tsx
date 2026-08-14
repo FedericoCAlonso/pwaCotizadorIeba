@@ -28,6 +28,7 @@ import {
   Menu,
   ChevronRight,
   X,
+  ExternalLink,
   HelpCircle
 } from 'lucide-react';
 import { exportDatabaseJSON, importDatabaseJSON } from '../db/database';
@@ -704,6 +705,33 @@ export const Header: React.FC<HeaderProps> = ({
                   ? 'Los cambios se sincronizan directamente en tu cuenta personal de Google Drive sin intermediarios ni cuotas limitadas.'
                   : 'Puedes exportar o restaurar el archivo JSON maestro con fusión inteligente de cambios.'}
               </p>
+
+              {syncState === 'error' && activeProvider === 'google_drive' && (
+                <div className="pt-2 flex flex-wrap gap-2">
+                  <a
+                    href="https://console.developers.google.com/apis/api/drive.googleapis.com/overview?project=1064181500067"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Habilitar Google Drive API en Google Cloud (1 clic)</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setActiveProvider('local_file');
+                      try {
+                        await triggerSync('local_file');
+                      } catch {}
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container-highest hover:bg-surface-variant text-on-surface rounded-xl text-xs font-semibold transition border border-outline-variant/30"
+                  >
+                    <span>📁 Cambiar a Carpeta Local (Sin APIs)</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
