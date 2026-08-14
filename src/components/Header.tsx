@@ -446,6 +446,7 @@ export const Header: React.FC<HeaderProps> = ({
       <nav
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-container-high/95 backdrop-blur-md border-t border-outline-variant/30 px-1 py-1.5 flex items-center justify-around pb-safe shadow-lg"
         aria-label="Navegación inferior móvil"
+        role="tablist"
       >
         {/* Primary 4 Mobile Navigation Items */}
         {navItems.slice(0, 4).map((item) => {
@@ -454,6 +455,10 @@ export const Header: React.FC<HeaderProps> = ({
           return (
             <button
               key={item.id}
+              role="tab"
+              aria-selected={isActive}
+              aria-controls={`panel-${item.id}`}
+              id={`tab-mobile-${item.id}`}
               onClick={() => {
                 setActiveTab(item.id);
                 setShowMobileDrawer(false);
@@ -482,6 +487,9 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* 5th Mobile Navigation Item: "Más" (Drawer Trigger) */}
         <button
+          role="tab"
+          aria-selected={['clientes', 'proveedores', 'rfq', 'registroTrabajo', 'logistica'].includes(activeTab)}
+          aria-haspopup="dialog"
           onClick={() => setShowMobileDrawer(true)}
           className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl min-w-[64px] min-h-[48px] transition-all"
           aria-label="Abrir menú de herramientas y más opciones"
@@ -515,20 +523,26 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setShowMobileDrawer(false)}
             aria-hidden="true"
           />
-          <div className="relative bg-surface-container border-t border-outline-variant/30 rounded-t-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh] z-10 pb-safe animate-in slide-in-from-bottom duration-300">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="drawer-title"
+            className="relative bg-surface-container border-t border-outline-variant/30 rounded-t-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh] z-10 pb-safe animate-in slide-in-from-bottom duration-300"
+          >
             {/* Drag handle pill */}
             <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto mt-3 mb-2 shrink-0" />
 
             <div className="px-5 py-3 border-b border-outline-variant/20 flex justify-between items-center bg-surface-container-low shrink-0">
               <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-primary" />
-                <h3 className="font-bold text-base text-on-surface">Herramientas & Módulos IEBA</h3>
+                <Zap className="w-5 h-5 text-primary" aria-hidden="true" />
+                <h3 id="drawer-title" className="font-bold text-base text-on-surface">Herramientas & Módulos IEBA</h3>
               </div>
               <button
                 onClick={() => setShowMobileDrawer(false)}
                 className="p-1.5 rounded-full text-on-surface-variant hover:bg-surface-variant"
+                aria-label="Cerrar menú"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 

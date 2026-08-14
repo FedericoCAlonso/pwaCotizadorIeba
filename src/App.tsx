@@ -126,51 +126,60 @@ export function App() {
           }}
         />
 
-        {activeTab === 'presupuestos' && (
-          <>
-            {viewMode === 'list' && (
-              <PresupuestosList
-                onNew={handleNewPresupuesto}
-                onSelect={handleSelectPresupuesto}
-                onEdit={handleEditPresupuesto}
-              />
-            )}
-            {viewMode === 'editor' && config && (
-              <PresupuestoEditor
-                presupuestoId={selectedPresupuestoId}
-                initialClienteId={initialClienteId}
-                config={config}
-                onBack={() => setViewMode('list')}
-                onSaved={handleSavedPresupuesto}
-              />
-            )}
-            {viewMode === 'detail' && selectedPresupuestoId && config && (
-              <PresupuestoDetail
-                presupuestoId={selectedPresupuestoId}
-                config={config}
-                onBack={() => setViewMode('list')}
-                onEdit={() => setViewMode('editor')}
-                onDuplicate={handleDuplicatePresupuesto}
-              />
-            )}
-          </>
-        )}
+        {/* Tab panel — role="tabpanel" vincula el contenido activo al tablist via aria-controls */}
+        <div
+          role="tabpanel"
+          id={`panel-${activeTab}`}
+          aria-labelledby={`tab-${activeTab}`}
+          tabIndex={0}
+          className="outline-none"
+        >
+          {activeTab === 'presupuestos' && (
+            <>
+              {viewMode === 'list' && (
+                <PresupuestosList
+                  onNew={handleNewPresupuesto}
+                  onSelect={handleSelectPresupuesto}
+                  onEdit={handleEditPresupuesto}
+                />
+              )}
+              {viewMode === 'editor' && config && (
+                <PresupuestoEditor
+                  presupuestoId={selectedPresupuestoId}
+                  initialClienteId={initialClienteId}
+                  config={config}
+                  onBack={() => setViewMode('list')}
+                  onSaved={handleSavedPresupuesto}
+                />
+              )}
+              {viewMode === 'detail' && selectedPresupuestoId && config && (
+                <PresupuestoDetail
+                  presupuestoId={selectedPresupuestoId}
+                  config={config}
+                  onBack={() => setViewMode('list')}
+                  onEdit={() => setViewMode('editor')}
+                  onDuplicate={handleDuplicatePresupuesto}
+                />
+              )}
+            </>
+          )}
 
-        {activeTab === 'insumos' && <InsumosManager />}
-        {activeTab === 'manoObra' && <ManoObraManager />}
-        {activeTab === 'tareasTipo' && <TareasTipoManager />}
-        {activeTab === 'clientes' && (
-          <ClientesManager
-            onSelectPresupuesto={handleSelectPresupuestoFromClientes}
-            onEditPresupuesto={handleEditPresupuestoFromClientes}
-            onNewPresupuestoForCliente={handleNewPresupuestoForCliente}
-            onDuplicatePresupuesto={handleDuplicatePresupuesto}
-          />
-        )}
-        {activeTab === 'proveedores' && <ProveedoresManager />}
-        {activeTab === 'rfq' && <SolicitudCotizacionManager />}
-        {activeTab === 'registroTrabajo' && <RegistroTrabajoManager />}
-        {activeTab === 'logistica' && <LogisticaManager />}
+          {activeTab === 'insumos' && <InsumosManager />}
+          {activeTab === 'manoObra' && <ManoObraManager />}
+          {activeTab === 'tareasTipo' && <TareasTipoManager />}
+          {activeTab === 'clientes' && (
+            <ClientesManager
+              onSelectPresupuesto={handleSelectPresupuestoFromClientes}
+              onEditPresupuesto={handleEditPresupuestoFromClientes}
+              onNewPresupuestoForCliente={handleNewPresupuestoForCliente}
+              onDuplicatePresupuesto={handleDuplicatePresupuesto}
+            />
+          )}
+          {activeTab === 'proveedores' && <ProveedoresManager />}
+          {activeTab === 'rfq' && <SolicitudCotizacionManager />}
+          {activeTab === 'registroTrabajo' && <RegistroTrabajoManager />}
+          {activeTab === 'logistica' && <LogisticaManager />}
+        </div>
       </main>
 
       {/* Footer */}

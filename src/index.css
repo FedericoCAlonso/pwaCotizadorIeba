@@ -103,6 +103,14 @@
   background: var(--md-sys-color-outline);
 }
 
+/* Safe Area Inset — iOS PWA notch / home indicator support */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 /* Remove number input spinners globally */
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {

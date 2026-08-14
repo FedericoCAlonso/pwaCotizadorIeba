@@ -456,10 +456,47 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     setItems((prev) => {
       const next = [...prev];
       const target = next[index];
+      const cantAnterior = Math.max(0.01, target.cantidad || 1);
       const cant = Math.max(0.1, cantidad);
-      
-      const itemRecalculado = congelarItemPresupuesto(target, cant);
-      next[index] = itemRecalculado;
+
+      // Normalizar snapshots a valores unitarios (÷ cantAnterior) y reescalar a la nueva cantidad.
+      // Esto evita el doble congelamiento: los snapshots siempre reflejan cant× el valor unitario exacto.
+      const insumosActualizados = target.insumosSnapshot.map(i => {
+        const cantUnitaria = i.cantidadTotal / cantAnterior;
+        return {
+          ...i,
+          cantidadTotal: roundMoney(cantUnitaria * cant),
+          subtotalInsumo: roundMoney(i.precioUnitarioCongelado * cantUnitaria * cant)
+        };
+      });
+
+      const manoObraActualizada = target.manoObraSnapshot.map(m => {
+        const horasUnitarias = m.horasTotales / cantAnterior;
+        return {
+          ...m,
+          horasTotales: roundMoney(horasUnitarias * cant),
+          subtotalManoObra: roundMoney(m.costoHoraCongelado * horasUnitarias * cant)
+        };
+      });
+
+      const costoInsumos = roundMoney(insumosActualizados.reduce((acc, i) => acc + i.subtotalInsumo, 0));
+      const costoManoObra = roundMoney(manoObraActualizada.reduce((acc, m) => acc + m.subtotalManoObra, 0));
+      const cServicios = Number(target.costoServiciosTercerizados) || 0;
+      const hasSnapshots = insumosActualizados.length > 0 || manoObraActualizada.length > 0;
+      const costoDirectoTotal = hasSnapshots
+        ? roundMoney(costoInsumos + costoManoObra + cServicios)
+        : roundMoney((Number(target.costoDirectoTotal) / cantAnterior) * cant);
+
+      next[index] = {
+        ...target,
+        cantidad: cant,
+        insumosSnapshot: insumosActualizados,
+        manoObraSnapshot: manoObraActualizada,
+        costoInsumos,
+        costoManoObra,
+        costoDirectoTotal,
+        precioVentaTotal: roundMoney(target.precioVentaUnitario * cant)
+      };
       return next;
     });
   };
@@ -524,8 +561,9 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       });
     }
 
-    // Freeze inmutable snapshots
-    const itemsFrozen = items.map((item) => congelarItemPresupuesto(item, item.cantidad));
+    // Los snapshots ya están correctamente escalados por handleUpdateItemQuantity.
+    // No se vuelve a llamar a congelarItemPresupuesto para evitar el doble congelamiento.
+    const itemsFrozen = items;
 
     const finalPresupuesto: Presupuesto = {
       id: existingPresupuesto?.id || `pres-${crypto.randomUUID()}`,

@@ -155,13 +155,50 @@ export async function initializeDatabaseSeed(): Promise<void> {
         }
       }
 
-      // 3. Inicializar configuración por defecto si la base está vacía
+      // 3. Migrar proveedores legacy (v1) que no tenían razonSocial como campo propio.
+      //    En v1 solo existía `nombre`; v2+ indexa razonSocial, por lo que registros
+      //    sin ese campo quedan fuera del índice y son invisibles en búsquedas.
+      const proveedores = await db.proveedores.toArray();
+      for (const p of proveedores) {
+        if (!p.razonSocial && p.nombre) {
+          await db.proveedores.update(p.id, { razonSocial: p.nombre });
+        }
+      }
+
+      // 4. Inicializar configuración por defecto si la base está vacía
       if (await db.config.count() === 0) await db.config.add(DEFAULT_APP_CONFIG);
     });
     console.log('Verificación e inicialización de semillas de BD completada.');
   } catch (err) {
     console.error('Error al inicializar semillas de BD:', err);
   }
+}
+
+/**
+ * Parser CSV compatible con RFC 4180: soporta campos entre comillas que pueden
+ * contener comas, saltos de línea y comillas escapadas ("").
+ */
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { current += '"'; i++; } // comilla escapada ""
+        else inQuotes = false;
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { result.push(current.trim()); current = ''; }
+      else { current += ch; }
+    }
+  }
+  result.push(current.trim());
+  return result;
 }
 
 /**
@@ -240,7 +277,7 @@ export async function importInsumosCSV(csvText: string): Promise<number> {
   const newInsumos: Insumo[] = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+    const cols = parseCSVLine(lines[i]);
     if (cols.length >= 4) {
       const nombre = cols[0];
       const unidad = cols[1] || 'u';
@@ -279,7 +316,7 @@ export async function importProveedoresCSV(csvText: string): Promise<number> {
 
   const newProveedores: Proveedor[] = [];
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+    const cols = parseCSVLine(lines[i]);
     if (cols.length >= 1) {
       const razonSocial = cols[0];
       newProveedores.push({
@@ -322,7 +359,7 @@ export async function importClientesCSV(csvText: string): Promise<number> {
 
   const newClientes: Cliente[] = [];
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+    const cols = parseCSVLine(lines[i]);
     if (cols.length >= 1) {
       newClientes.push({
         id: `cli-csv-${crypto.randomUUID()}`,
