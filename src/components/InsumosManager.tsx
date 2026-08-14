@@ -1042,12 +1042,6 @@ export const InsumosManager: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
-                onClick={handleRestoreDefaultCategories}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 rounded-full transition-colors border border-emerald-500/30"
-              >
-                <RefreshCw className="w-3.5 h-3.5" /> Restaurar Categorías Iniciales
-              </button>
-              <button
                 onClick={handleOpenCreateCat}
                 className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary text-xs font-semibold rounded-full shadow-sm transition-all"
               >
@@ -1065,14 +1059,8 @@ export const InsumosManager: React.FC = () => {
               </p>
               <div className="pt-2 flex flex-wrap justify-center gap-3">
                 <button
-                  onClick={handleRestoreDefaultCategories}
-                  className="px-5 py-2.5 bg-primary text-on-primary font-semibold text-xs rounded-full shadow-sm"
-                >
-                  Cargar Categorías por Defecto IEBA
-                </button>
-                <button
                   onClick={handleOpenCreateCat}
-                  className="px-5 py-2.5 bg-surface-container-high text-on-surface border border-outline-variant/30 font-semibold text-xs rounded-full"
+                  className="px-5 py-2.5 bg-primary text-on-primary font-semibold text-xs rounded-full shadow-sm"
                 >
                   + Crear Categoría Personalizada
                 </button>

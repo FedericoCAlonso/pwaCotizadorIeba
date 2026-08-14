@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { X, Save, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Save, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { AppConfig } from '../core/types';
 import { db } from '../db/database';
-import { TIPOS_FACTURA, DEFAULT_APP_CONFIG } from '../core/sampleData';
+import { TIPOS_FACTURA, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL } from '../core/sampleData';
 import { isFirebaseConfigured, getFirebaseConfig, clearCustomFirebaseConfig } from '../config/firebase';
 import { AuthModal } from './AuthModal';
 
@@ -26,6 +26,13 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
     await db.config.put(formData);
     onSave();
     onClose();
+  };
+
+  const handleRestoreDefaultCategories = async () => {
+    if (confirm('¿Estás seguro de restablecer las categorías iniciales? Esta acción se recomienda solo si tus categorías sufrieron alteraciones.')) {
+      await db.categoriasMaterial.bulkPut(INITIAL_CATEGORIAS_MATERIAL);
+      alert('Las categorías de materiales por defecto han sido restauradas.');
+    }
   };
 
   const inputCls = "w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-on-surface-variant/70 min-h-[44px] transition-shadow";
@@ -275,6 +282,30 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                 <label className="block text-xs text-on-surface-variant mb-1">Umbral Vencimiento Amarillo (días)</label>
                 <input type="number" value={formData.diasVencimientoPrecioAmarillo ?? DEFAULT_APP_CONFIG.diasVencimientoPrecioAmarillo} onChange={(e) => setFormData({ ...formData, diasVencimientoPrecioAmarillo: parseInt(e.target.value) || DEFAULT_APP_CONFIG.diasVencimientoPrecioAmarillo })} className={`${inputCls} font-mono`} />
               </div>
+            </div>
+          </div>
+
+          <hr className="border-outline-variant/30" />
+
+          {/* Mantenimiento de Datos de Fábrica */}
+          <div>
+            <h3 className={`${sectionTitle} flex items-center gap-2 text-rose-500`}>
+              <RefreshCw className="w-4 h-4 text-rose-500" /> Mantenimiento & Datos de Fábrica
+            </h3>
+            <div className="p-4 bg-rose-500/5 border border-rose-500/20 rounded-2xl space-y-3">
+              <div>
+                <h4 className="text-xs font-bold text-on-surface">Restaurar Categorías de Materiales por Defecto</h4>
+                <p className="text-[11px] text-on-surface-variant mt-0.5">
+                  Restablece el listado inicial de categorías (Cables, Protecciones, Canalizaciones, etc.) con sus atributos sugeridos. Usar con precaución.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleRestoreDefaultCategories}
+                className="px-4 py-2 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 font-semibold text-xs rounded-xl border border-rose-500/30 transition-colors"
+              >
+                Restaurar Categorías Iniciales IEBA
+              </button>
             </div>
           </div>
 
