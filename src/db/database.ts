@@ -115,9 +115,13 @@ export async function initializeDatabaseSeed(): Promise<void> {
       db.proveedores,
       db.config
     ], async () => {
-      // 1. Asegurar que todas las categorías semillas de bdDefault.json existan y tengan sus atributosSugeridos actualizados
+      // 1. Asegurar que las categorías semillas existan solo si la tabla está vacía o faltan
+      const existingCats = await db.categoriasMaterial.toArray();
+      const existingCatIds = new Set(existingCats.map(c => c.id));
       for (const cat of INITIAL_CATEGORIAS_MATERIAL) {
-        await db.categoriasMaterial.put(cat);
+        if (!existingCatIds.has(cat.id)) {
+          await db.categoriasMaterial.add({ ...cat, syncStatus: 'synced' });
+        }
       }
 
       // 2. Mapear y corregir materiales existentes con IDs de categoría antiguos o no coincidentes

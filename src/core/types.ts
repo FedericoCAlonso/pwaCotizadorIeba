@@ -65,6 +65,8 @@ export interface CategoriaMaterial {
   id: string;
   nombre: string; // "Cables", "Protecciones", "Canalizaciones", etc.
   atributosSugeridos: AtributoTemplate[];
+  syncStatus?: SyncStatus;
+  _updatedAt?: number;
 }
 
 // ─── 2. Material (Ficha técnico-normativa sin marca ni precio) ─────────────────

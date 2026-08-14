@@ -2,7 +2,9 @@ import {
   collection,
   doc,
   getDocs,
-  writeBatch
+  writeBatch,
+  query,
+  where
 } from 'firebase/firestore';
 import { dbFirestore } from '../config/firebase';
 import { db } from '../db/database';
@@ -344,35 +346,53 @@ export async function syncUserData(userId: string): Promise<SyncState> {
   syncLockTimestamp = Date.now();
 
   try {
-    // Pull remoto en paralelo para todas las colecciones
+    // Pull remoto incremental en paralelo para todas las colecciones (Delta Pull)
     const pullPromises = SYNCED_TABLES.map(async (tableName) => {
       const colRef = collection(firestore, 'users', userId, tableName);
-      const snapshot = await withTimeout(getDocs(colRef), NETWORK_TIMEOUT_MS, `Lectura ${tableName}`);
+      const cacheKey = `ieba_last_pull_${userId}_${tableName}`;
+      const lastPullStr = localStorage.getItem(cacheKey);
+      let snapshot;
+
+      if (lastPullStr) {
+        const lastPull = parseInt(lastPullStr, 10);
+        // Si ya se descargó previamente, solo leemos cambios remotos posteriores al último pull
+        const q = query(colRef, where('_updatedAt', '>', lastPull));
+        snapshot = await withTimeout(getDocs(q), NETWORK_TIMEOUT_MS, `Lectura incremental ${tableName}`);
+      } else {
+        // Primera sincronización en este dispositivo
+        snapshot = await withTimeout(getDocs(colRef), NETWORK_TIMEOUT_MS, `Lectura inicial ${tableName}`);
+      }
+
       const table = (db as any)[tableName];
       if (!table) return;
 
-      isApplyingRemoteChange = true;
-      try {
-        for (const docSnap of snapshot.docs) {
-          const remoteData = docSnap.data();
-          const localItem = await table.get(docSnap.id);
-          if (!localItem) {
-            const cleanData: any = { ...remoteData, syncStatus: 'synced' };
-            delete cleanData._syncedAt;
-            await table.put(cleanData);
-          } else if (localItem.syncStatus === 'synced') {
-            const remoteTime = remoteData._updatedAt || 0;
-            const localTime = localItem._updatedAt || 0;
-            if (remoteTime > localTime) {
+      if (snapshot && snapshot.docs.length > 0) {
+        isApplyingRemoteChange = true;
+        try {
+          for (const docSnap of snapshot.docs) {
+            const remoteData = docSnap.data();
+            const localItem = await table.get(docSnap.id);
+            if (!localItem) {
               const cleanData: any = { ...remoteData, syncStatus: 'synced' };
               delete cleanData._syncedAt;
               await table.put(cleanData);
+            } else if (localItem.syncStatus === 'synced') {
+              const remoteTime = remoteData._updatedAt || 0;
+              const localTime = localItem._updatedAt || 0;
+              if (remoteTime > localTime) {
+                const cleanData: any = { ...remoteData, syncStatus: 'synced' };
+                delete cleanData._syncedAt;
+                await table.put(cleanData);
+              }
             }
           }
+        } finally {
+          isApplyingRemoteChange = false;
         }
-      } finally {
-        isApplyingRemoteChange = false;
       }
+
+      // Guardamos la marca de tiempo de este pull exitoso para no volver a descargar los mismos documentos
+      localStorage.setItem(cacheKey, String(Date.now()));
     });
 
     const results = await Promise.allSettled(pullPromises);
