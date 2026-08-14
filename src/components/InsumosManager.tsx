@@ -26,7 +26,7 @@ export const InsumosManager: React.FC = () => {
   const materialesMap = new Map(materiales.map(m => [m.id, m]));
   const productosMap = new Map(productos.map(p => [p.id, p]));
 
-  const [activeTab, setActiveTab] = useState<'materiales' | 'ofertas' | 'categorias'>('materiales');
+  const [activeTab, setActiveTab] = useState<'materiales' | 'categorias'>('materiales');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
   const [selectedVencimiento, setSelectedVencimiento] = useState<'todos' | 'verde' | 'amarillo' | 'rojo'>('todos');
@@ -648,32 +648,39 @@ export const InsumosManager: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-xl font-semibold text-on-surface flex items-center gap-2">
-            <Package className="w-5 h-5 text-primary" />Catálogo Técnico de Materiales & Precios
+            <Package className="w-5 h-5 text-primary" />Catálogo Técnico de Materiales & Categorías
           </h2>
-          <p className="text-sm text-on-surface-variant mt-1">Gestión de fichas técnico-normativas, marcas de productos y ofertas de proveedores.</p>
+          <p className="text-sm text-on-surface-variant mt-1">Gestión de fichas técnico-normativas y definición de atributos por categoría.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-          <button
-            onClick={() => setShowImportCatalogModal(true)}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-semibold rounded-full text-xs transition-colors border border-emerald-500/30"
-            title="Importar lista de precios o catálogo desde Excel (.xlsx / .csv)"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-            <span>Importar Excel / CSV</span>
-          </button>
-          <button
-            onClick={handleOpenQuickCreateMat}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 font-semibold rounded-full text-xs transition-colors border border-amber-500/30"
-          >
-            <Zap className="w-4 h-4 text-amber-500" />
-            <span>Alta Rápida (Obra)</span>
-          </button>
-          <button onClick={() => setShowMassUpdateModal(true)} className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 text-on-surface-variant hover:bg-surface-variant rounded-full text-sm font-medium transition-colors border border-outline-variant/30">
-            <TrendingUp className="w-4 h-4 text-emerald-500" /><span>Aumento por Índice</span>
-          </button>
-          <button onClick={handleOpenCreateMat} className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-sm">
-            <Plus className="w-4 h-4" /><span>Nuevo Material</span>
-          </button>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {activeTab === 'materiales' && (
+            <>
+              <button
+                onClick={() => setShowImportCatalogModal(true)}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-semibold rounded-xl text-xs transition-colors border border-emerald-500/30 shadow-xs"
+                title="Importar catálogo de materiales desde Excel (.xlsx / .csv)"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                <span>Importar Fichas (Excel/CSV)</span>
+              </button>
+              <button
+                onClick={handleOpenQuickCreateMat}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 font-semibold rounded-xl text-xs transition-colors border border-amber-500/30"
+              >
+                <Zap className="w-4 h-4 text-amber-500" />
+                <span>Alta Rápida</span>
+              </button>
+              <button onClick={handleOpenCreateMat} className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-xl text-xs transition-all shadow-sm">
+                <Plus className="w-4 h-4" /><span>Nuevo Material</span>
+              </button>
+            </>
+          )}
+
+          {activeTab === 'categorias' && (
+            <button onClick={handleOpenCreateCat} className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-xl text-xs transition-all shadow-sm">
+              <Plus className="w-4 h-4" /><span>Nueva Categoría</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -685,15 +692,7 @@ export const InsumosManager: React.FC = () => {
             activeTab === 'materiales' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'
           }`}
         >
-          <Package className="w-4 h-4" /> Materiales & Productos ({materiales.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('ofertas')}
-          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
-            activeTab === 'ofertas' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          <Tag className="w-4 h-4" /> Ofertas & Precios ({ofertas.length})
+          <Package className="w-4 h-4" /> Fichas de Materiales ({materiales.length})
         </button>
         <button
           onClick={() => setActiveTab('categorias')}
@@ -1027,59 +1026,7 @@ export const InsumosManager: React.FC = () => {
         </>
       )}
 
-      {/* VISTA: OFERTAS & HISTORIAL */}
-      {activeTab === 'ofertas' && (
-        <div className="bg-surface-container-low border border-outline-variant/20 rounded-3xl overflow-hidden shadow-sm">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-surface-container-high border-b border-outline-variant/30 text-on-surface-variant font-semibold">
-              <tr>
-                <th className="p-3">Material</th>
-                <th className="p-3">Marca / Modelo</th>
-                <th className="p-3">Proveedor</th>
-                <th className="p-3">Fuente</th>
-                <th className="p-3">Fecha</th>
-                <th className="p-3 text-right">Precio ARS</th>
-                <th className="p-3 text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant/10 text-on-surface">
-              {ofertas.map((of) => {
-                const mat = materialesMap.get(of.materialId);
-                const prod = of.productoId ? productosMap.get(of.productoId) : undefined;
-                const prov = proveedoresMap.get(of.proveedorId);
-                return (
-                  <tr key={of.id} className="hover:bg-surface-container/50">
-                    <td className="p-3 font-semibold text-on-surface">{mat?.nombre || 'Material eliminado'}</td>
-                    <td className="p-3">{prod ? `${prod.marca} ${prod.modelo || ''}` : 'Genérico'}</td>
-                    <td className="p-3">{prov?.razonSocial || prov?.nombre || 'General'}</td>
-                    <td className="p-3 capitalize"><span className="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant font-mono">{of.fuente}</span></td>
-                    <td className="p-3 font-mono text-on-surface-variant">{new Date(of.fecha).toLocaleDateString('es-AR')}</td>
-                    <td className="p-3 text-right font-mono font-bold text-primary">{formatARS(of.precio)}</td>
-                    <td className="p-3">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => handleOpenEditOferta(of)}
-                          className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                          title="Editar oferta / precio"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteOferta(of.id)}
-                          className="p-1.5 text-on-surface-variant hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
-                          title="Eliminar oferta"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+
 
       {/* VISTA: CATEGORÍAS DE MATERIALES */}
       {activeTab === 'categorias' && (
