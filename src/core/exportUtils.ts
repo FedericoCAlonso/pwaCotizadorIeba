@@ -4,6 +4,8 @@ import { formatARS } from './calculations';
 
 export const exportPresupuestoToXLSX = (presupuesto: Presupuesto, cliente?: Cliente) => {
   const data: any[][] = [];
+  const mostrarDetalle = presupuesto.opcionesEmision?.mostrarDetalleCostos ?? false;
+  const mostrarItemizado = presupuesto.opcionesEmision?.mostrarItemizado ?? true;
 
   // Header
   data.push(['COTIZACIÓN DE INSTALACIONES ELÉCTRICAS - IEBA']);
@@ -13,31 +15,61 @@ export const exportPresupuestoToXLSX = (presupuesto: Presupuesto, cliente?: Clie
   data.push([]); // Empty row
 
   // Table Headers
-  data.push(['#', 'Descripción / Partida a Ejecutar', 'Unidad', 'Cantidad', 'Precio Unitario ARS', 'Subtotal ARS']);
+  data.push(['#', 'Descripción / Partida a Ejecutar', 'Unidad', 'Cantidad', 'Precio Venta Unitario ARS', 'Subtotal ARS']);
 
   // Items
-  presupuesto.items.forEach((item, idx) => {
+  if (mostrarItemizado) {
+    presupuesto.items.forEach((item, idx) => {
+      const pUnit = item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0;
+      const pTotal = item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit);
+      data.push([
+        idx + 1,
+        item.descripcion,
+        item.unidad || 'u',
+        item.cantidad,
+        pUnit,
+        pTotal
+      ]);
+    });
+  } else {
     data.push([
-      idx + 1,
-      item.descripcion,
-      item.unidad || 'punto',
-      item.cantidad,
-      item.precioVentaUnitario || 0,
-      (item.cantidad || 1) * (item.precioVentaUnitario || 0)
+      1,
+      'Provisión de materiales y mano de obra para instalaciones eléctricas según relevamiento',
+      'gl',
+      1,
+      presupuesto.subtotalSinImpuestos || presupuesto.totalARS,
+      presupuesto.subtotalSinImpuestos || presupuesto.totalARS
     ]);
-  });
+  }
 
   data.push([]); // Empty row
 
   // Summary Totals
-  data.push(['', '', '', '', 'Subtotal Insumos ARS:', presupuesto.subtotalInsumos || 0]);
-  data.push(['', '', '', '', 'Subtotal Mano de Obra ARS:', presupuesto.subtotalManoObra || 0]);
-  if (presupuesto.subtotalServiciosTercerizados) {
-    data.push(['', '', '', '', 'Servicios Tercerizados ARS:', presupuesto.subtotalServiciosTercerizados]);
+  if (mostrarDetalle) {
+    data.push(['', '', '', '', '1. Subtotal Insumos ARS:', presupuesto.subtotalInsumos || 0]);
+    data.push(['', '', '', '', '1. Subtotal Mano de Obra ARS:', presupuesto.subtotalManoObra || 0]);
+    if (presupuesto.subtotalServiciosTercerizados) {
+      data.push(['', '', '', '', '1. Servicios Tercerizados ARS:', presupuesto.subtotalServiciosTercerizados]);
+    }
+    data.push(['', '', '', '', 'Costo Directo Total (C) ARS:', presupuesto.costoGlobal || presupuesto.subtotalCostosDirectos || 0]);
+    data.push(['', '', '', '', '2. Gastos Generales (GG) ARS:', presupuesto.gastosGeneralesTotal || presupuesto.subtotalCostosIndirectos || 0]);
+    data.push(['', '', '', '', `3. Beneficio (${presupuesto.beneficioPorcentaje ?? presupuesto.margenPorcentaje}%) ARS:`, presupuesto.beneficioMonto || presupuesto.montoGanancia || 0]);
+    data.push(['', '', '', '', '4. Subtotal sin Impuestos (S) ARS:', presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - (presupuesto.montoImpuestos || 0))]);
+    if (presupuesto.montoImpuestosTotal || presupuesto.montoImpuestos) {
+      data.push(['', '', '', '', '5. Total Impuestos ARS:', presupuesto.montoImpuestosTotal || presupuesto.montoImpuestos || 0]);
+    }
+  } else {
+    data.push(['', '', '', '', 'Subtotal Trabajos ARS:', presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - (presupuesto.montoImpuestos || 0))]);
+    if (presupuesto.impuestosDetalle && presupuesto.impuestosDetalle.some(t => t.aplica && t.discriminar)) {
+      data.push(['', '', '', '', 'Impuestos Discriminados ARS:', presupuesto.montoImpuestosTotal || presupuesto.montoImpuestos || 0]);
+    }
   }
-  data.push(['', '', '', '', 'Costos Indirectos Aplicados ARS:', presupuesto.subtotalCostosIndirectos || 0]);
-  data.push(['', '', '', '', 'Ganancia / Margen ARS:', presupuesto.montoGanancia || 0]);
   data.push(['', '', '', '', 'TOTAL FINAL ARS:', presupuesto.totalARS || 0]);
+
+  if (presupuesto.opcionesEmision?.condicionesComerciales || presupuesto.condicionesPagoTexto) {
+    data.push([]);
+    data.push(['Condiciones Comerciales:', presupuesto.opcionesEmision?.condicionesComerciales || presupuesto.condicionesPagoTexto]);
+  }
 
   // Create sheet & workbook
   const ws = XLSX.utils.aoa_to_sheet(data);

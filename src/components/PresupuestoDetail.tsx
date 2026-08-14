@@ -94,6 +94,41 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Emission Options Toggles in Action Bar (no-print) */}
+          <div className="flex items-center gap-3 bg-surface-container-highest px-4 py-1.5 rounded-full text-xs font-medium text-on-surface">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={presupuesto.opcionesEmision?.mostrarItemizado ?? true}
+                onChange={async (e) => {
+                  const updated = {
+                    ...presupuesto.opcionesEmision,
+                    mostrarItemizado: e.target.checked
+                  };
+                  await db.presupuestos.update(presupuesto.id, { opcionesEmision: updated });
+                }}
+                className="w-3.5 h-3.5 text-primary rounded"
+              />
+              <span>Itemizado</span>
+            </label>
+
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={presupuesto.opcionesEmision?.mostrarDetalleCostos ?? false}
+                onChange={async (e) => {
+                  const updated = {
+                    ...presupuesto.opcionesEmision,
+                    mostrarDetalleCostos: e.target.checked
+                  };
+                  await db.presupuestos.update(presupuesto.id, { opcionesEmision: updated });
+                }}
+                className="w-3.5 h-3.5 text-primary rounded"
+              />
+              <span>Detalle Costos</span>
+            </label>
+          </div>
+
           {/* Status Changer */}
           <select
             value={presupuesto.estado}
@@ -123,7 +158,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                 }))
               );
               setSaveAsTemplateData({
-                nombre: `Presupuesto ${presupuesto.numero}`,
+                nombre: `Cotización ${presupuesto.numero}`,
                 insumos: allInsumos,
                 manoObra: allManoObra
               });
@@ -202,7 +237,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
         {/* Client Box */}
         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">PRESUNTANTE / CLIENTE</span>
+            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">PRESUPUESTO PARA / CLIENTE</span>
             <div className="font-bold text-slate-900 text-base mt-0.5">{cliente ? cliente.nombre : 'Cliente General'}</div>
             {cliente?.cuitDni && <div className="text-xs text-slate-600">CUIT/DNI: {cliente.cuitDni}</div>}
             {cliente?.condicionIVA && (
@@ -219,55 +254,60 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
           </div>
         </div>
 
-        {/* Items Table */}
+        {/* Items Table / Renglones de Cotización */}
         <div className="overflow-hidden border border-slate-300 rounded-xl">
           <table className="w-full text-left text-xs text-slate-800">
             <thead className="bg-slate-100 uppercase text-[10px] font-bold text-slate-600 border-b border-slate-300">
               <tr>
+                <th className="px-4 py-3">#</th>
                 <th className="px-4 py-3">Ítem / Descripción de Trabajo</th>
                 <th className="px-4 py-3 text-center">Cantidad</th>
-                <th className="px-4 py-3 text-right">Precio Unitario</th>
+                <th className="px-4 py-3 text-right">Precio Venta Unitario</th>
                 <th className="px-4 py-3 text-right">Subtotal</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {presupuesto.items.map((item, idx) => (
-                <React.Fragment key={idx}>
-                  <tr className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-semibold text-slate-900">
-                      {item.descripcion}
-                      {item.condicionTrabajo && item.condicionTrabajo !== 'normal' && (
-                        <span className="ml-2 text-[10px] text-slate-500 font-normal italic">
-                          (Condición Obra: {item.condicionTrabajo})
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center font-mono">
-                      {item.cantidad} {item.unidad}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono">{formatARS(item.precioVentaUnitario)}</td>
-                    <td className="px-4 py-3 text-right font-mono font-bold">{formatARS(item.precioVentaTotal)}</td>
-                  </tr>
-                  {/* Subcontratos / Servicios Tercerizados desglosados si existen (Spec v2 §3) */}
-                  {item.serviciosTercerizados && item.serviciosTercerizados.length > 0 && (
-                    <tr className="bg-slate-50/70">
-                      <td colSpan={4} className="px-6 py-2">
-                        <div className="text-[11px] font-semibold text-slate-700 mb-1">
-                          ↳ Subcontratos & Servicios Tercerizados Asociados:
-                        </div>
-                        <div className="space-y-1">
-                          {item.serviciosTercerizados.map((st) => (
-                            <div key={st.id} className="flex justify-between text-[10px] text-slate-600 font-mono">
-                              <span>· {st.descripcion} {st.nombreProveedor ? `(${st.nombreProveedor})` : ''}</span>
-                              <span>Costo Tercero: {formatARS(st.costo)} {st.validezCotizacionTercero ? `[Vence: ${st.validezCotizacionTercero}]` : ''}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
+              {(presupuesto.opcionesEmision?.mostrarItemizado ?? true) ? (
+                presupuesto.items.map((item, idx) => {
+                  const pUnit = item.precioVentaClienteUnitario ?? item.precioVentaUnitario;
+                  const pTotal = item.precioVentaClienteTotal ?? item.precioVentaTotal;
+
+                  return (
+                    <React.Fragment key={idx}>
+                      <tr className="hover:bg-slate-50">
+                        <td className="px-4 py-3 text-slate-400 font-mono text-center w-10">{idx + 1}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-900">
+                          {item.descripcion}
+                          {item.condicionTrabajo && item.condicionTrabajo !== 'normal' && (
+                            <span className="ml-2 text-[10px] text-slate-500 font-normal italic">
+                              (Condición Obra: {item.condicionTrabajo})
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center font-mono">
+                          {item.cantidad} {item.unidad}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono">{formatARS(pUnit)}</td>
+                        <td className="px-4 py-3 text-right font-mono font-bold">{formatARS(pTotal)}</td>
+                      </tr>
+                    </React.Fragment>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td className="px-4 py-4 text-slate-400 font-mono text-center w-10">1</td>
+                  <td className="px-4 py-4 font-semibold text-slate-900">
+                    Provisión de materiales y mano de obra para instalaciones eléctricas según relevamiento.
+                  </td>
+                  <td className="px-4 py-4 text-center font-mono">1 gl</td>
+                  <td className="px-4 py-4 text-right font-mono font-bold">
+                    {formatARS(presupuesto.subtotalSinImpuestos || presupuesto.totalARS)}
+                  </td>
+                  <td className="px-4 py-4 text-right font-mono font-bold">
+                    {formatARS(presupuesto.subtotalSinImpuestos || presupuesto.totalARS)}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -280,50 +320,79 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
               Condiciones de Comercialización & Pago
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
-              {presupuesto.condicionesPagoTexto}
+              {presupuesto.opcionesEmision?.condicionesComerciales || presupuesto.condicionesPagoTexto}
             </p>
 
             <p className="text-[11px] text-slate-500 italic pt-2 border-t border-slate-200">
-              * Los precios presupuestados se congelan a la fecha de emisión durante los {presupuesto.validezDias} días de validez.
+              * Los precios cotizados se congelan a la fecha de emisión durante los {presupuesto.validezDias} días de validez.
             </p>
           </div>
 
           {/* Grand Total Box */}
           <div className="bg-slate-100 p-6 rounded-2xl border border-slate-300 space-y-3 text-right">
-            <div className="space-y-1.5 text-xs text-slate-600 border-b border-slate-300 pb-3">
-              <div className="flex justify-between">
-                <span>Subtotal Insumos Materiales:</span>
-                <span className="font-mono">{formatARS(presupuesto.subtotalInsumos)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Subtotal Mano de Obra:</span>
-                <span className="font-mono">{formatARS(presupuesto.subtotalManoObra)}</span>
-              </div>
-              {presupuesto.subtotalServiciosTercerizados ? (
-                <div className="flex justify-between text-purple-900 dark:text-purple-300 font-medium">
-                  <span>Subtotal Servicios Tercerizados:</span>
-                  <span className="font-mono">{formatARS(presupuesto.subtotalServiciosTercerizados)}</span>
+            {(presupuesto.opcionesEmision?.mostrarDetalleCostos ?? false) ? (
+              <div className="space-y-1.5 text-xs text-slate-600 border-b border-slate-300 pb-3">
+                <div className="flex justify-between">
+                  <span>1. Costo Insumos:</span>
+                  <span className="font-mono">{formatARS(presupuesto.subtotalInsumos)}</span>
                 </div>
-              ) : null}
-
-              {presupuesto.impuestosDetalle && presupuesto.impuestosDetalle.length > 0 ? (
-                presupuesto.impuestosDetalle
-                  .filter((t) => t.aplica)
-                  .map((tax, idx) => (
-                    <div key={idx} className="flex justify-between text-slate-700">
-                      <span>{tax.nombre} ({tax.porcentaje}%):</span>
-                      <span className="font-mono">{formatARS(tax.montoCalculado)}</span>
-                    </div>
-                  ))
-              ) : (
-                presupuesto.montoImpuestos > 0 && (
+                <div className="flex justify-between">
+                  <span>1. Costo Mano de Obra:</span>
+                  <span className="font-mono">{formatARS(presupuesto.subtotalManoObra)}</span>
+                </div>
+                {presupuesto.subtotalServiciosTercerizados ? (
                   <div className="flex justify-between">
-                    <span>Impuestos ({presupuesto.impuestosPorcentaje}%):</span>
-                    <span className="font-mono">{formatARS(presupuesto.montoImpuestos)}</span>
+                    <span>1. Servicios Tercerizados:</span>
+                    <span className="font-mono">{formatARS(presupuesto.subtotalServiciosTercerizados)}</span>
                   </div>
-                )
-              )}
-            </div>
+                ) : null}
+                <div className="flex justify-between font-semibold border-t border-slate-200 pt-1">
+                  <span>Costo Directo Total (C):</span>
+                  <span className="font-mono">{formatARS(presupuesto.costoGlobal || presupuesto.subtotalCostosDirectos)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>2. Gastos Generales (GG):</span>
+                  <span className="font-mono">{formatARS(presupuesto.gastosGeneralesTotal || presupuesto.subtotalCostosIndirectos)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>3. Beneficio ({presupuesto.beneficioPorcentaje ?? presupuesto.margenPorcentaje}% s/C+GG):</span>
+                  <span className="font-mono">{formatARS(presupuesto.beneficioMonto || presupuesto.montoGanancia)}</span>
+                </div>
+                <div className="flex justify-between font-bold border-t border-slate-200 pt-1 text-slate-800">
+                  <span>4. Subtotal (S):</span>
+                  <span className="font-mono">{formatARS(presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - (presupuesto.montoImpuestos || 0)))}</span>
+                </div>
+
+                {presupuesto.impuestosDetalle && presupuesto.impuestosDetalle.length > 0 && (
+                  presupuesto.impuestosDetalle
+                    .filter((t) => t.aplica)
+                    .map((tax, idx) => (
+                      <div key={idx} className="flex justify-between text-slate-700">
+                        <span>5. {tax.nombre} ({tax.porcentaje}% s/S):</span>
+                        <span className="font-mono">{formatARS(tax.montoCalculado)}</span>
+                      </div>
+                    ))
+                )}
+              </div>
+            ) : (
+              /* Simplified summary without exposing raw costs or margins */
+              <div className="space-y-1.5 text-xs text-slate-600 border-b border-slate-300 pb-3">
+                <div className="flex justify-between font-medium">
+                  <span>Subtotal Trabajos:</span>
+                  <span className="font-mono">{formatARS(presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - (presupuesto.montoImpuestos || 0)))}</span>
+                </div>
+                {presupuesto.impuestosDetalle && presupuesto.impuestosDetalle.some(t => t.aplica && t.discriminar) && (
+                  presupuesto.impuestosDetalle
+                    .filter((t) => t.aplica && t.discriminar)
+                    .map((tax, idx) => (
+                      <div key={idx} className="flex justify-between text-slate-700">
+                        <span>{tax.nombre} ({tax.porcentaje}%):</span>
+                        <span className="font-mono">{formatARS(tax.montoCalculado)}</span>
+                      </div>
+                    ))
+                )}
+              </div>
+            )}
 
             <div>
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">

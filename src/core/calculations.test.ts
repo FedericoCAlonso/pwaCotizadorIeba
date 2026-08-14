@@ -10,7 +10,7 @@ import {
   obtenerEstadoVencimientoInsumo,
   calcularDispersionHorasTareaLegacy
 } from './calculations';
-import { Insumo, CategoriaManoDeObra, CostoIndirecto, TareaTipo, ItemPresupuesto } from './types';
+import { Insumo, CategoriaManoDeObra, CostoIndirecto, CostoIndirectoItemConfig, TareaTipo, ItemPresupuesto } from './types';
 
 // ─── Fixtures compartidas (auditoría #14) ────────────────────────────────────
 
@@ -195,9 +195,11 @@ describe('calcularCostoTareaTipo', () => {
 
 // ─── calcularTotalesPresupuesto ───────────────────────────────────────────────
 
+// ─── calcularTotalesPresupuesto (Nuevo Modelo C → GG → B → S → Impuestos → Precio Final & K) ───
+
 describe('calcularTotalesPresupuesto', () => {
-  it('calcula subtotales, margen, costos indirectos e impuestos correctamente (happy path)', () => {
-    const item = makeItem();
+  it('calcula la cadena estricta C → GG → B → S → Impuestos → Precio Final & K', () => {
+    const item = makeItem(); // costoDirectoTotal = 208500
     const indirectos: CostoIndirecto[] = [
       {
         id: 'ind-1',
@@ -210,105 +212,117 @@ describe('calcularTotalesPresupuesto', () => {
     const result = calcularTotalesPresupuesto({
       items: [item],
       costosIndirectosCatalog: indirectos,
-      margenPorcentaje: 40,
+      beneficioPorcentaje: 40,
       impuestosDetalle: [],
       cotizacionMonedaExtranjera: 1350
     });
 
+    // 1. C = 208500
+    expect(result.costoGlobal).toBe(208500);
     expect(result.subtotalCostosDirectos).toBe(208500);
-    expect(result.subtotalCostosIndirectos).toBe(20850);
+    // 2. GG = 10% de 208500 = 20850
+    expect(result.gastosGeneralesTotal).toBe(20850);
+    // C + GG = 229350
     expect(result.costoTotalObra).toBe(229350);
-    expect(result.precioVentaSinImpuestos).toBe(300000);
-    expect(result.montoGanancia).toBe(70650);
-    expect(result.totalARS).toBe(300000);
-    expect(result.totalMonedaExtranjera).toBeCloseTo(222.22, 2);
+    // 3. B = 40% sobre (C + GG) = 40% de 229350 = 91740
+    expect(result.beneficioMonto).toBe(91740);
+    // 4. S = C + GG + B = 229350 + 91740 = 321090
+    expect(result.subtotalSinImpuestos).toBe(321090);
+    // 5. Impuestos = 0 -> Precio Final = 321090
+    expect(result.precioFinalGlobal).toBe(321090);
+    expect(result.totalARS).toBe(321090);
+    // 6. K = 321090 / 208500 = 1.54
+    expect(result.coeficienteK).toBeCloseTo(1.54, 2);
+    // 7. Moneda extranjera
+    expect(result.totalMonedaExtranjera).toBeCloseTo(237.84, 2);
   });
 
   it('maneja lista de ítems vacía (edge case: presupuesto vacío)', () => {
     const result = calcularTotalesPresupuesto({
       items: [],
       costosIndirectosCatalog: [],
-      margenPorcentaje: 30,
+      beneficioPorcentaje: 30,
       impuestosDetalle: []
     });
 
+    expect(result.costoGlobal).toBe(0);
     expect(result.subtotalInsumos).toBe(0);
     expect(result.subtotalManoObra).toBe(0);
     expect(result.subtotalCostosDirectos).toBe(0);
     expect(result.costoTotalObra).toBe(0);
+    expect(result.beneficioMonto).toBe(0);
+    expect(result.subtotalSinImpuestos).toBe(0);
+    expect(result.precioFinalGlobal).toBe(0);
     expect(result.totalARS).toBe(0);
+    expect(result.coeficienteK).toBe(1);
     expect(result.totalMonedaExtranjera).toBeUndefined();
   });
 
-  it('costo indirecto tipo fijo_mensual — spec §1.3', () => {
-    const item = makeItem({ costoInsumos: 50000, costoManoObra: 50000, costoDirectoTotal: 100000 });
-    const indirectos: CostoIndirecto[] = [
-      { id: 'ci-fijo', nombre: 'Seguro ART', tipo: 'fijo_mensual', valor: 15000 }
-    ];
-
-    const result = calcularTotalesPresupuesto({
-      items: [item],
-      costosIndirectosCatalog: indirectos,
-      margenPorcentaje: 0,
-      impuestosDetalle: []
-    });
-
-    expect(result.subtotalCostosIndirectos).toBe(15000);
-    expect(result.costosIndirectosAplicados[0].montoCalculado).toBe(15000);
-  });
-
-  it('costo indirecto tipo por_visita — spec §1.3', () => {
-    const item = makeItem({ costoInsumos: 50000, costoManoObra: 50000, costoDirectoTotal: 100000 });
-    const indirectos: CostoIndirecto[] = [
-      { id: 'ci-visita', nombre: 'Combustible Visita', tipo: 'por_visita', valor: 5000 }
-    ];
-
-    const result = calcularTotalesPresupuesto({
-      items: [item],
-      costosIndirectosCatalog: indirectos,
-      margenPorcentaje: 0,
-      impuestosDetalle: []
-    });
-
-    expect(result.subtotalCostosIndirectos).toBe(5000);
-    expect(result.costosIndirectosAplicados[0].montoCalculado).toBe(5000);
-  });
-
-  it('costos indirectos se snapshottean (regla de oro §1.5 — auditoría #8)', () => {
-    // El snapshot guarda el monto calculado al momento de emitir.
-    // Modificar el catálogo DESPUÉS no debe afectar el snapshot ya calculado.
-    const item = makeItem();
-    const catalogOriginal: CostoIndirecto[] = [
-      { id: 'ci-1', nombre: 'Amortización', tipo: 'porcentual_sobre_costo', valor: 5 }
-    ];
-
-    const result = calcularTotalesPresupuesto({
-      items: [item],
-      costosIndirectosCatalog: catalogOriginal,
-      margenPorcentaje: 0,
-      impuestosDetalle: []
-    });
-
-    // Guardamos el snapshot
-    const snapshotGuardado = result.costosIndirectosAplicados[0].montoCalculado;
-
-    // Simulamos que alguien modifica el catálogo
-    catalogOriginal[0].valor = 50; // cambio drástico
-
-    // El snapshot guardado NO debe cambiar
-    expect(snapshotGuardado).toBe(roundMoney(208500 * 0.05)); // 10425
-  });
-
-  it('discrimina correctamente IVA e IIBB para Factura A', () => {
+  it('VALIDACIÓN 1: Un GG% y un GG absoluto combinados en la misma cotización dan el GG total correcto', () => {
     const item = makeItem({
       insumosSnapshot: [],
       manoObraSnapshot: [],
-      costoInsumos: 0,
-      costoManoObra: 0,
-      costoDirectoTotal: 100000,
-      precioVentaUnitario: 200000,
-      precioVentaTotal: 200000,
-      cantidad: 1
+      costoInsumos: 60000,
+      costoManoObra: 40000,
+      costoDirectoTotal: 100000
+    });
+
+    const indirectosConfig: CostoIndirectoItemConfig[] = [
+      { id: 'ci-pct', nombre: 'GG Porcentual', tipo: 'porcentual_sobre_costo', valor: 10, aplica: true }, // 10% de 100.000 = 10.000
+      { id: 'ci-fijo', nombre: 'Seguro Específico Obra', tipo: 'fijo_mensual', valor: 15000, aplica: true } // Monto fijo = 15.000
+    ];
+
+    const result = calcularTotalesPresupuesto({
+      items: [item],
+      costosIndirectosConfig: indirectosConfig,
+      beneficioPorcentaje: 0,
+      impuestosDetalle: []
+    });
+
+    expect(result.costoGlobal).toBe(100000);
+    // GG total = 10000 (GG%) + 15000 (GG fijo) = 25000
+    expect(result.gastosGeneralesTotal).toBe(25000);
+    expect(result.subtotalCostosIndirectos).toBe(25000);
+    expect(result.costosIndirectosAplicados.find(c => c.costoIndirectoId === 'ci-pct')?.montoCalculado).toBe(10000);
+    expect(result.costosIndirectosAplicados.find(c => c.costoIndirectoId === 'ci-fijo')?.montoCalculado).toBe(15000);
+  });
+
+  it('VALIDACIÓN 2: El Beneficio se calcula sobre (C + GG), no sobre C solo', () => {
+    const item = makeItem({
+      insumosSnapshot: [],
+      manoObraSnapshot: [],
+      costoInsumos: 60000,
+      costoManoObra: 40000,
+      costoDirectoTotal: 100000 // C = 100.000
+    });
+
+    const indirectosConfig: CostoIndirectoItemConfig[] = [
+      { id: 'ci-fijo', nombre: 'Seguro Obra', tipo: 'fijo_mensual', valor: 25000, aplica: true } // GG = 25.000
+    ];
+
+    const result = calcularTotalesPresupuesto({
+      items: [item],
+      costosIndirectosConfig: indirectosConfig,
+      beneficioPorcentaje: 20, // %beneficio = 20%
+      impuestosDetalle: []
+    });
+
+    // Base de cálculo = C + GG = 100.000 + 25.000 = 125.000
+    expect(result.costoTotalObra).toBe(125000);
+    // Beneficio = 20% de 125.000 = 25.000 (Si fuera sobre C solo daría 20.000)
+    expect(result.beneficioMonto).toBe(25000);
+    // Subtotal (S) = C + GG + B = 100.000 + 25.000 + 25.000 = 150.000
+    expect(result.subtotalSinImpuestos).toBe(150000);
+    expect(result.precioFinalGlobal).toBe(150000);
+  });
+
+  it('VALIDACIÓN 3: Los impuestos no se acumulan en cascada entre sí (todos sobre el mismo S)', () => {
+    const item = makeItem({
+      insumosSnapshot: [],
+      manoObraSnapshot: [],
+      costoInsumos: 50000,
+      costoManoObra: 50000,
+      costoDirectoTotal: 100000
     });
 
     const impuestosFacturaA = generarImpuestosPorDefecto('Factura A', 21, 3.5);
@@ -316,17 +330,82 @@ describe('calcularTotalesPresupuesto', () => {
     const result = calcularTotalesPresupuesto({
       items: [item],
       costosIndirectosCatalog: [],
-      margenPorcentaje: 50,
+      beneficioPorcentaje: 0,
       impuestosDetalle: impuestosFacturaA
     });
 
-    expect(result.precioVentaSinImpuestos).toBe(200000);
-    // IVA 21% de 200000 = 42000
-    // IIBB 3.5% de 200000 = 7000
-    expect(result.montoImpuestosTotal).toBe(49000);
-    expect(result.totalARS).toBe(249000);
-    expect(result.impuestosCalculados.find(t => t.nombre.includes('IVA'))?.montoCalculado).toBe(42000);
-    expect(result.impuestosCalculados.find(t => t.nombre.includes('IIBB'))?.montoCalculado).toBe(7000);
+    // C = 100000, GG = 0, B = 0 -> S = 100000
+    expect(result.subtotalSinImpuestos).toBe(100000);
+    // IVA: 21% sobre S (100.000) = 21.000
+    const iva = result.impuestosCalculados.find(t => t.id === 'tax-iva')?.montoCalculado;
+    expect(iva).toBe(21000);
+    // IIBB: 3.5% sobre S (100.000) = 3.500 (NO sobre S + IVA)
+    const iibb = result.impuestosCalculados.find(t => t.id === 'tax-iibb')?.montoCalculado;
+    expect(iibb).toBe(3500);
+
+    // Total Impuestos = 21.000 + 3.500 = 24.500
+    expect(result.montoImpuestosTotal).toBe(24500);
+    // Precio Final = S + Impuestos = 100.000 + 24.500 = 124.500
+    expect(result.precioFinalGlobal).toBe(124500);
+  });
+
+  it('VALIDACIÓN 4: El itemizado con 2+ ítems produce el mismo Precio Final Global que la versión no itemizada para el mismo conjunto de costos', () => {
+    // Versión Itemizada (2 renglones: 40k y 60k -> Costo Total = 100k)
+    const item1 = makeItem({ id: 'it-1', costoInsumos: 20000, costoManoObra: 20000, costoDirectoTotal: 40000, cantidad: 2, insumosSnapshot: [], manoObraSnapshot: [] });
+    const item2 = makeItem({ id: 'it-2', costoInsumos: 30000, costoManoObra: 30000, costoDirectoTotal: 60000, cantidad: 3, insumosSnapshot: [], manoObraSnapshot: [] });
+
+    const indirectos: CostoIndirecto[] = [{ id: 'ci-1', nombre: 'GG', tipo: 'porcentual_sobre_costo', valor: 15 }];
+    const impuestos = generarImpuestosPorDefecto('Factura A', 21, 3.5);
+
+    const resultadoItemizado = calcularTotalesPresupuesto({
+      items: [item1, item2],
+      costosIndirectosCatalog: indirectos,
+      beneficioPorcentaje: 25,
+      impuestosDetalle: impuestos
+    });
+
+    // Versión No Itemizada (1 solo renglón por el costo total de 100k)
+    const itemGlobal = makeItem({ id: 'it-global', costoInsumos: 50000, costoManoObra: 50000, costoDirectoTotal: 100000, cantidad: 1, insumosSnapshot: [], manoObraSnapshot: [] });
+
+    const resultadoGlobal = calcularTotalesPresupuesto({
+      items: [itemGlobal],
+      costosIndirectosCatalog: indirectos,
+      beneficioPorcentaje: 25,
+      impuestosDetalle: impuestos
+    });
+
+    expect(resultadoItemizado.costoGlobal).toBe(resultadoGlobal.costoGlobal);
+    expect(resultadoItemizado.gastosGeneralesTotal).toBe(resultadoGlobal.gastosGeneralesTotal);
+    expect(resultadoItemizado.beneficioMonto).toBe(resultadoGlobal.beneficioMonto);
+    expect(resultadoItemizado.subtotalSinImpuestos).toBe(resultadoGlobal.subtotalSinImpuestos);
+    expect(resultadoItemizado.montoImpuestosTotal).toBe(resultadoGlobal.montoImpuestosTotal);
+    expect(resultadoItemizado.precioFinalGlobal).toBe(resultadoGlobal.precioFinalGlobal);
+    expect(resultadoItemizado.coeficienteK).toBe(resultadoGlobal.coeficienteK);
+  });
+
+  it('VALIDACIÓN 5: La suma de los Precios de Venta individuales de los ítems (Costo de ítem × K) es matemáticamente igual al Precio Final Global', () => {
+    const item1 = makeItem({ id: 'it-1', costoInsumos: 15430, costoManoObra: 12500, costoDirectoTotal: 27930, cantidad: 2, insumosSnapshot: [], manoObraSnapshot: [] });
+    const item2 = makeItem({ id: 'it-2', costoInsumos: 48900, costoManoObra: 33200, costoDirectoTotal: 82100, cantidad: 5, insumosSnapshot: [], manoObraSnapshot: [] });
+    const item3 = makeItem({ id: 'it-3', costoInsumos: 12000, costoManoObra: 8000, costoDirectoTotal: 20000, cantidad: 1, insumosSnapshot: [], manoObraSnapshot: [] });
+
+    const indirectos: CostoIndirecto[] = [
+      { id: 'ci-1', nombre: 'GG Porcentual', tipo: 'porcentual_sobre_costo', valor: 12 },
+      { id: 'ci-2', nombre: 'Seguro Fijo', tipo: 'fijo_mensual', valor: 18500 }
+    ];
+    const impuestos = generarImpuestosPorDefecto('Factura A', 21, 3.5);
+
+    const result = calcularTotalesPresupuesto({
+      items: [item1, item2, item3],
+      costosIndirectosCatalog: indirectos,
+      beneficioPorcentaje: 35,
+      impuestosDetalle: impuestos
+    });
+
+    const sumaPreciosVentaItems = roundMoney(
+      result.itemsCalculados.reduce((acc, item) => acc + (item.precioVentaClienteTotal ?? item.precioVentaTotal), 0)
+    );
+
+    expect(sumaPreciosVentaItems).toBe(result.precioFinalGlobal);
   });
 });
 

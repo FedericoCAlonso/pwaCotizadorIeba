@@ -331,6 +331,12 @@ export interface ItemPresupuesto {
   condicionTrabajo?: 'normal' | 'dificultosa' | 'favorable';
   esAdHoc?: boolean;
 
+  // Nuevos campos del motor de cálculo itemizado
+  costoUnitario?: number; // Costo por unidad del renglón (insumos + MO + servicios)
+  costoTotal?: number; // Costo total del renglón = costoUnitario * cantidad
+  precioVentaClienteUnitario?: number; // Precio unitario de venta cerrado para el cliente = costoUnitario * K
+  precioVentaClienteTotal?: number; // Precio de venta cerrado total = costoTotal * K
+
   precioVentaUnitario: number;
   precioVentaTotal: number;
 }
@@ -363,6 +369,12 @@ export interface ImpuestoItem {
   aplica: boolean;
   discriminar: boolean;
   montoCalculado: number;
+}
+
+export interface OpcionesEmisionPresupuesto {
+  mostrarItemizado?: boolean;
+  mostrarDetalleCostos?: boolean;
+  condicionesComerciales?: string;
 }
 
 export interface Cliente {
@@ -412,6 +424,20 @@ export interface Presupuesto {
   costosIndirectosConfig?: CostoIndirectoItemConfig[];
   costosIndirectosAplicados: CostoIndirectoSnapshot[];
 
+  // ─── Nuevo Motor de Cálculo: C → GG → B → S → Impuestos → Precio Final & K ───
+  costoGlobal?: number; // C = Σ(Insumos + Mano de Obra + Servicios)
+  gastosGeneralesTotal?: number; // GG total = Σ(GG fijos) + Σ(GG% × C)
+  beneficioPorcentaje?: number; // % beneficio aplicado sobre (C + GG)
+  beneficioMonto?: number; // B = %beneficio × (C + GG)
+  subtotalSinImpuestos?: number; // S = C + GG + B
+  montoImpuestosTotal?: number; // Σ(impuesto_i% × S)
+  precioFinalGlobal?: number; // Precio Final = S + Impuestos
+  coeficienteK?: number; // K = Precio Final / Costo Global
+
+  // Opciones de Emisión y Presentación para el Cliente
+  opcionesEmision?: OpcionesEmisionPresupuesto;
+
+  // Campos de compatibilidad
   subtotalInsumos: number;
   subtotalManoObra: number;
   subtotalServiciosTercerizados?: number;

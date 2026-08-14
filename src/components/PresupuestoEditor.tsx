@@ -30,7 +30,8 @@ import {
   EstadoPresupuesto,
   TipoFactura,
   ImpuestoItem,
-  Oferta
+  Oferta,
+  OpcionesEmisionPresupuesto
 } from '../core/types';
 import {
   calcularCostoTareaTipo,
@@ -134,6 +135,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     '50% de anticipo al confirmar para acopio de materiales. 30% contra certificado de avance de obra. 20% saldo contra recepción final.'
   );
 
+  const [opcionesEmision, setOpcionesEmision] = useState<OpcionesEmisionPresupuesto>({
+    mostrarItemizado: true,
+    mostrarDetalleCostos: false,
+    condicionesComerciales: ''
+  });
+  const [showEmitirModal, setShowEmitirModal] = useState(false);
+
   const [items, setItems] = useState<ItemPresupuesto[]>([]);
   const [costosIndirectosConfig, setCostosIndirectosConfig] = useState<CostoIndirectoItemConfig[]>([]);
   const [_estado, setEstado] = useState<EstadoPresupuesto>('borrador');
@@ -179,11 +187,16 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         );
         setClienteId(existingPresupuesto.clienteId);
         setValidezDias(existingPresupuesto.validezDias);
-        setMargenPorcentaje(existingPresupuesto.margenPorcentaje);
+        setMargenPorcentaje(existingPresupuesto.beneficioPorcentaje ?? existingPresupuesto.margenPorcentaje);
         setMostrarDolar(existingPresupuesto.mostrarReferenciaMonedaExtranjera);
         setNombreDolar(existingPresupuesto.nombreMonedaExtranjera || 'USD Blue');
         setCotizacionDolar(existingPresupuesto.cotizacionMonedaExtranjera || 1350);
         setCondicionesPagoTexto(existingPresupuesto.condicionesPagoTexto);
+        setOpcionesEmision(existingPresupuesto.opcionesEmision || {
+          mostrarItemizado: true,
+          mostrarDetalleCostos: false,
+          condicionesComerciales: existingPresupuesto.condicionesPagoTexto || ''
+        });
         setItems(existingPresupuesto.items);
         setEstado(existingPresupuesto.estado);
 
@@ -325,13 +338,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     }
   };
 
-  // Live total calculations memoized for performance
+  // Live total calculations memoized for performance (C → GG → B → S → Impuestos → Precio Final & K)
   const totales = useMemo(() => {
     return calcularTotalesPresupuesto({
       items,
       costosIndirectosCatalog: costosIndirectos,
       costosIndirectosConfig,
-      margenPorcentaje,
+      beneficioPorcentaje: margenPorcentaje,
       impuestosDetalle,
       cotizacionMonedaExtranjera: mostrarDolar ? cotizacionDolar : undefined
     });
@@ -341,9 +354,9 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   const handleAddTareaTipoItem = (tarea: TareaTipo) => {
     const cost = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap);
     
-    // Default unit sale price includes base margin
+    // Default unit direct cost
     const costoDirectoUnitario = cost.costoDirectoUnitario;
-    const precioVentaUnitario = Math.round(costoDirectoUnitario * (1 + margenPorcentaje / 100));
+    const precioVentaUnitario = costoDirectoUnitario;
 
     const newItem: ItemPresupuesto = {
       id: `item-${crypto.randomUUID()}`,
@@ -356,6 +369,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       costoInsumos: cost.costoInsumosUnitario,
       costoManoObra: cost.costoManoObraUnitario,
       costoDirectoTotal: costoDirectoUnitario,
+      costoUnitario: costoDirectoUnitario,
+      costoTotal: costoDirectoUnitario,
       precioVentaUnitario,
       precioVentaTotal: precioVentaUnitario
     };
@@ -370,7 +385,6 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     setShowItemPickerModal(false);
   };
 
-  // Add Custom Free Text Item
   // Add Ad-Hoc / Non-Cataloged Item (Spec v2 §2.4)
   const handleAddAdHocItem = () => {
     const newItem: ItemPresupuesto = {
@@ -391,9 +405,11 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       costoInsumos: 5000,
       costoManoObra: 0,
       costoDirectoTotal: 5000,
+      costoUnitario: 5000,
+      costoTotal: 5000,
       esAdHoc: true,
-      precioVentaUnitario: Math.round(5000 * (1 + margenPorcentaje / 100)),
-      precioVentaTotal: Math.round(5000 * (1 + margenPorcentaje / 100))
+      precioVentaUnitario: 5000,
+      precioVentaTotal: 5000
     };
     setItems((prev) => [...prev, newItem]);
   };
@@ -410,6 +426,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       costoInsumos: 0,
       costoManoObra: 0,
       costoDirectoTotal: 0,
+      costoUnitario: 0,
+      costoTotal: 0,
       precioVentaUnitario: 10000,
       precioVentaTotal: 10000
     };
@@ -437,7 +455,6 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
       const costoManoObra = roundMoney(manoObraActualizada.reduce((acc, m) => acc + m.subtotalManoObra, 0));
       const costoDirectoTotal = roundMoney(target.costoInsumos + costoManoObra + (target.costoServiciosTercerizados || 0));
-      const precioVentaUnitario = Math.round(costoDirectoTotal * (1 + margenPorcentaje / 100));
 
       next[index] = {
         ...target,
@@ -445,105 +462,99 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         manoObraSnapshot: manoObraActualizada,
         costoManoObra,
         costoDirectoTotal,
-        precioVentaUnitario,
-        precioVentaTotal: precioVentaUnitario * target.cantidad
+        costoUnitario: roundMoney(costoDirectoTotal / (target.cantidad || 1)),
+        costoTotal: costoDirectoTotal
       };
       return next;
     });
   };
 
-  const handleUpdateItemQuantity = (index: number, cantidad: number) => {
+  const handleUpdateItemQuantity = (index: number, qty: number) => {
+    const safeQty = Math.max(0.01, qty);
     setItems((prev) => {
       const next = [...prev];
       const target = next[index];
-      const cantAnterior = Math.max(0.01, target.cantidad || 1);
-      const cant = Math.max(0.1, cantidad);
+      const prevQty = target.cantidad || 1;
 
-      // Normalizar snapshots a valores unitarios (÷ cantAnterior) y reescalar a la nueva cantidad.
-      // Esto evita el doble congelamiento: los snapshots siempre reflejan cant× el valor unitario exacto.
+      // Escalar insumos
       const insumosActualizados = target.insumosSnapshot.map(i => {
-        const cantUnitaria = i.cantidadTotal / cantAnterior;
+        const unitQty = i.cantidadUnitaria !== undefined ? i.cantidadUnitaria : i.cantidadTotal / prevQty;
+        const cantTotal = roundMoney(unitQty * safeQty);
         return {
           ...i,
-          cantidadTotal: roundMoney(cantUnitaria * cant),
-          subtotalInsumo: roundMoney(i.precioUnitarioCongelado * cantUnitaria * cant)
+          cantidadUnitaria: unitQty,
+          cantidadTotal: cantTotal,
+          subtotalInsumo: roundMoney(i.precioUnitarioCongelado * cantTotal)
         };
       });
 
+      // Escalar mano de obra
       const manoObraActualizada = target.manoObraSnapshot.map(m => {
-        const horasUnitarias = m.horasTotales / cantAnterior;
+        const unitHoras = m.horasUnitarias !== undefined ? m.horasUnitarias : m.horasTotales / prevQty;
+        const hTotales = roundMoney(unitHoras * safeQty);
         return {
           ...m,
-          horasTotales: roundMoney(horasUnitarias * cant),
-          subtotalManoObra: roundMoney(m.costoHoraCongelado * horasUnitarias * cant)
+          horasUnitarias: unitHoras,
+          horasTotales: hTotales,
+          subtotalManoObra: roundMoney(m.costoHoraCongelado * hTotales)
         };
       });
 
       const costoInsumos = roundMoney(insumosActualizados.reduce((acc, i) => acc + i.subtotalInsumo, 0));
       const costoManoObra = roundMoney(manoObraActualizada.reduce((acc, m) => acc + m.subtotalManoObra, 0));
-      const cServicios = Number(target.costoServiciosTercerizados) || 0;
-      const hasSnapshots = insumosActualizados.length > 0 || manoObraActualizada.length > 0;
+      const hasSnapshots = target.insumosSnapshot.length > 0 || target.manoObraSnapshot.length > 0;
       const costoDirectoTotal = hasSnapshots
-        ? roundMoney(costoInsumos + costoManoObra + cServicios)
-        : roundMoney((Number(target.costoDirectoTotal) / cantAnterior) * cant);
+        ? roundMoney(costoInsumos + costoManoObra + (target.costoServiciosTercerizados || 0))
+        : roundMoney((target.costoDirectoTotal / prevQty) * safeQty);
 
       next[index] = {
         ...target,
-        cantidad: cant,
+        cantidad: safeQty,
         insumosSnapshot: insumosActualizados,
         manoObraSnapshot: manoObraActualizada,
         costoInsumos,
         costoManoObra,
         costoDirectoTotal,
-        precioVentaTotal: roundMoney(target.precioVentaUnitario * cant)
+        costoUnitario: roundMoney(costoDirectoTotal / safeQty),
+        costoTotal: costoDirectoTotal
       };
       return next;
     });
   };
 
-  const handleUpdateItemUnitPrice = (index: number, precioUnitario: number) => {
+  const handleUpdateItemUnitPrice = (index: number, price: number) => {
     setItems((prev) => {
       const next = [...prev];
-      const target = next[index];
-      const pUnit = Math.max(0, precioUnitario);
       next[index] = {
-        ...target,
-        precioVentaUnitario: pUnit,
-        precioVentaTotal: pUnit * target.cantidad
+        ...next[index],
+        precioVentaUnitario: price,
+        precioVentaTotal: price * next[index].cantidad
       };
       return next;
     });
   };
 
-  const handleUpdateItemUnit = (index: number, unidad: string) => {
+  const handleUpdateItemUnit = (index: number, unit: string) => {
     setItems((prev) => {
       const next = [...prev];
-      next[index] = { ...next[index], unidad };
-      return next;
-    });
-  };
-
-  const handleUpdateItemDirectCost = (index: number, costoDirecto: number) => {
-    setItems((prev) => {
-      const next = [...prev];
-      const cDirecto = Math.max(0, costoDirecto);
-      next[index] = { ...next[index], costoDirectoTotal: cDirecto };
+      next[index] = {
+        ...next[index],
+        unidad: unit
+      };
       return next;
     });
   };
 
   const handleRemoveItem = (index: number) => {
-    setItems((prev) => prev.filter((_, i) => i !== index));
+    setItems((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  // Save / Emit Action
-  const handleSavePresupuesto = async (targetEstado: EstadoPresupuesto) => {
+  const handleSavePresupuesto = async (
+    targetEstado: EstadoPresupuesto = 'borrador',
+    customEmission?: OpcionesEmisionPresupuesto
+  ) => {
     if (!clienteId) {
       alert('Por favor selecciona un cliente para el presupuesto.');
-      return;
-    }
-    if (items.length === 0) {
-      alert('Agrega al menos un ítem o partida al presupuesto.');
       return;
     }
 
@@ -561,9 +572,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       });
     }
 
-    // Los snapshots ya están correctamente escalados por handleUpdateItemQuantity.
-    // No se vuelve a llamar a congelarItemPresupuesto para evitar el doble congelamiento.
-    const itemsFrozen = items;
+    const finalEmission = customEmission || opcionesEmision;
 
     const finalPresupuesto: Presupuesto = {
       id: existingPresupuesto?.id || `pres-${crypto.randomUUID()}`,
@@ -572,25 +581,39 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       fechaEmision: existingPresupuesto?.fechaEmision || now,
       validezDias,
       tipoFactura,
-      items: itemsFrozen,
+      items: totales.itemsCalculados,
       costosIndirectosConfig,
       costosIndirectosAplicados: totales.costosIndirectosAplicados,
+
+      // Nuevo Motor de Cálculo: C → GG → B → S → Impuestos → Precio Final & K
+      costoGlobal: totales.costoGlobal,
+      gastosGeneralesTotal: totales.gastosGeneralesTotal,
+      beneficioPorcentaje: margenPorcentaje,
+      beneficioMonto: totales.beneficioMonto,
+      subtotalSinImpuestos: totales.subtotalSinImpuestos,
+      montoImpuestosTotal: totales.montoImpuestosTotal,
+      precioFinalGlobal: totales.precioFinalGlobal,
+      coeficienteK: totales.coeficienteK,
+      opcionesEmision: finalEmission,
+
+      // Campos de compatibilidad
       subtotalInsumos: totales.subtotalInsumos,
       subtotalManoObra: totales.subtotalManoObra,
-      subtotalCostosDirectos: totales.subtotalCostosDirectos,
-      subtotalCostosIndirectos: totales.subtotalCostosIndirectos,
+      subtotalServiciosTercerizados: totales.subtotalServiciosTercerizados,
+      subtotalCostosDirectos: totales.costoGlobal,
+      subtotalCostosIndirectos: totales.gastosGeneralesTotal,
       costoTotalObra: totales.costoTotalObra,
       margenPorcentaje,
-      montoGanancia: totales.montoGanancia,
+      montoGanancia: totales.beneficioMonto,
       impuestosDetalle: totales.impuestosCalculados,
       impuestosPorcentaje: totales.impuestosPorcentajeTotal,
       montoImpuestos: totales.montoImpuestosTotal,
-      totalARS: totales.totalARS,
+      totalARS: totales.precioFinalGlobal,
       mostrarReferenciaMonedaExtranjera: mostrarDolar,
       nombreMonedaExtranjera: nombreDolar,
       cotizacionMonedaExtranjera: cotizacionDolar,
       totalMonedaExtranjera: totales.totalMonedaExtranjera,
-      condicionesPagoTexto,
+      condicionesPagoTexto: finalEmission.condicionesComerciales || condicionesPagoTexto,
       estado: targetEstado,
       fechaModificacion: now,
       createdAt: existingPresupuesto?.createdAt || now,
@@ -599,6 +622,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     };
 
     await db.presupuestos.put(finalPresupuesto);
+    setShowEmitirModal(false);
     onSaved(finalPresupuesto.id);
   };
 
@@ -1006,17 +1030,29 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                         </div>
                       </div>
 
-                      {/* Breakdown Cost Footer per Item */}
-                      <div className="bg-surface-container-highest/60 p-3 rounded-xl border border-outline-variant/20 flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <div className="flex items-center gap-3 text-on-surface-variant">
+                      {/* Breakdown Cost Footer per Item (Internal Cost vs. Client Sale Price with K) */}
+                      <div className="bg-surface-container-highest/60 p-3 rounded-xl border border-outline-variant/20 flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <div className="flex flex-wrap items-center gap-3 text-on-surface-variant">
                           {isCustom ? (
                             <div className="flex items-center gap-2">
-                              <span>Costo Base Estimado (Opcional):</span>
+                              <span>Costo Base Estimado (C):</span>
                               <input
                                 type="number"
                                 step="1"
                                 value={item.costoDirectoTotal}
-                                onChange={(e) => handleUpdateItemDirectCost(idx, parseFloat(e.target.value) || 0)}
+                                onChange={(e) => {
+                                  const c = parseFloat(e.target.value) || 0;
+                                  setItems(prev => {
+                                    const next = [...prev];
+                                    next[idx] = {
+                                      ...next[idx],
+                                      costoDirectoTotal: c,
+                                      costoUnitario: roundMoney(c / (next[idx].cantidad || 1)),
+                                      costoTotal: c
+                                    };
+                                    return next;
+                                  });
+                                }}
                                 className="w-24 bg-surface-container-highest border border-outline-variant/30 rounded-lg px-2 py-0.5 text-xs text-primary font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
                                 placeholder="0"
                               />
@@ -1026,20 +1062,32 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                               <span>
                                 Insumos: <strong className="text-on-surface">{formatARS(item.costoInsumos)}</strong>
                               </span>
-                              <span>|</span>
+                              <span>•</span>
                               <span>
                                 Mano Obra: <strong className="text-on-surface">{formatARS(item.costoManoObra)}</strong>
                               </span>
-                              <span>|</span>
+                              <span>•</span>
                               <span>
-                                Costo Directo Total: <strong className="text-primary font-bold">{formatARS(item.costoDirectoTotal)}</strong>
+                                Costo Directo (C): <strong className="text-on-surface font-mono font-bold">{formatARS(totales.itemsCalculados[idx]?.costoDirectoTotal ?? item.costoDirectoTotal)}</strong>
+                                <span className="text-[10px] text-on-surface-variant ml-1 font-normal">
+                                  ({formatARS(totales.itemsCalculados[idx]?.costoUnitario ?? (item.costoDirectoTotal / (item.cantidad || 1)))}/{item.unidad || 'u'})
+                                </span>
                               </span>
                             </>
                           )}
                         </div>
 
-                        <div className="font-mono font-bold text-primary text-sm">
-                          Subtotal Venta: {formatARS(item.precioVentaTotal)}
+                        {/* Client Sale Price calculated with K */}
+                        <div className="bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
+                            Venta Cliente (C × K):
+                          </span>
+                          <span className="font-mono font-bold text-primary text-sm">
+                            {formatARS(totales.itemsCalculados[idx]?.precioVentaClienteTotal ?? item.precioVentaTotal)}
+                          </span>
+                          <span className="text-[10px] text-primary/80 font-mono">
+                            ({formatARS(totales.itemsCalculados[idx]?.precioVentaClienteUnitario ?? (item.precioVentaTotal / (item.cantidad || 1)))}/{item.unidad || 'u'})
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1054,56 +1102,59 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             <h3 className="text-sm font-bold text-primary uppercase tracking-wide">
               Condiciones de Pago & Esquema de Cobro
             </h3>
-            <textarea
-              rows={3}
-              value={condicionesPagoTexto}
-              onChange={(e) => setCondicionesPagoTexto(e.target.value)}
-              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl p-4 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
+
+            <div>
+              <textarea
+                value={condicionesPagoTexto}
+                onChange={(e) => setCondicionesPagoTexto(e.target.value)}
+                rows={3}
+                className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl p-4 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="Ingresa las condiciones comerciales y plazos de pago acordados con el cliente..."
+              />
+            </div>
           </div>
         </div>
 
-        {/* Right Column: Live Financial Summary Panel & Indirect Costs */}
+        {/* Right Column: Dynamic Chain Calculation Sidebar (C → GG → B → S → Impuestos → Precio Final & K) */}
         <div className="space-y-6">
-          <div className="bg-surface-container-low border border-outline-variant/20 rounded-3xl p-6 space-y-6 sticky top-20 shadow-sm">
-            <div className="flex items-center justify-between border-b border-outline-variant/30 pb-3">
-              <h3 className="text-base font-bold text-on-surface flex items-center gap-2">
-                <Calculator className="w-5 h-5 text-primary" />
-                <span>Desglose & Costos Fijos</span>
+          <div className="bg-surface-container-low rounded-3xl p-6 space-y-5 border border-outline-variant/10 shadow-sm sticky top-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-primary uppercase tracking-wide flex items-center gap-2">
+                <Calculator className="w-4 h-4 text-primary" />
+                <span>Liquidación & Cadena de Precios</span>
               </h3>
-              <span className="text-[10px] text-on-surface-variant font-mono uppercase bg-surface-variant px-2.5 py-0.5 rounded-full">EN TIEMPO REAL</span>
             </div>
 
-            {/* Direct Costs Breakdown */}
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between text-on-surface-variant">
-                <span>Subtotal Insumos Materiales:</span>
-                <span className="font-mono font-semibold text-on-surface">{formatARS(totales.subtotalInsumos)}</span>
+            {/* 1. COSTO DIRECTO (C) */}
+            <div className="bg-surface-container-high/60 p-4 rounded-2xl border border-outline-variant/20 space-y-2">
+              <div className="flex justify-between items-center text-xs font-bold text-on-surface">
+                <span className="uppercase tracking-wider">1. Costo Directo Total (C):</span>
+                <span className="font-mono text-sm font-bold text-on-surface">{formatARS(totales.costoGlobal)}</span>
               </div>
-
-              <div className="flex justify-between text-on-surface-variant">
-                <span>Subtotal Mano de Obra:</span>
-                <span className="font-mono font-semibold text-on-surface">{formatARS(totales.subtotalManoObra)}</span>
-              </div>
-
-              <div className="flex justify-between text-primary font-bold pt-2 border-t border-outline-variant/20">
-                <span>Total Costos Directos:</span>
-                <span className="font-mono">{formatARS(totales.subtotalCostosDirectos)}</span>
+              <div className="grid grid-cols-3 gap-1 text-[10px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/10">
+                <div>Insumos: <strong className="text-on-surface block">{formatARS(totales.subtotalInsumos)}</strong></div>
+                <div>Mano Obra: <strong className="text-on-surface block">{formatARS(totales.subtotalManoObra)}</strong></div>
+                <div>Servicios: <strong className="text-on-surface block">{formatARS(totales.subtotalServiciosTercerizados)}</strong></div>
               </div>
             </div>
 
-            {/* Costos Indirectos / Fijos Propios del Presupuesto */}
-            <div className="space-y-3 pt-3 border-t border-outline-variant/30 text-xs">
+            {/* 2. GASTOS GENERALES (GG) */}
+            <div className="bg-surface-container-high/60 p-4 rounded-2xl border border-outline-variant/20 space-y-3">
               <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-on-surface uppercase tracking-wider">
-                  Costos Fijos / Indirectos ({costosIndirectosConfig.filter(c => c.aplica).length} activos)
-                </label>
+                <div>
+                  <label className="text-xs font-bold text-on-surface uppercase tracking-wider block">
+                    2. Gastos Generales (GG)
+                  </label>
+                  <span className="text-[10px] text-on-surface-variant">
+                    {costosIndirectosConfig.filter(c => c.aplica).length} activos (GG% se aplica sobre C)
+                  </span>
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={handleResetIndirectCosts}
                     className="p-1 text-on-surface-variant hover:text-primary transition-colors"
-                    title="Restablecer desde plantilla global"
+                    title="Restablecer desde catálogo global"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
@@ -1112,96 +1163,95 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                     onClick={handleAddCustomIndirectCost}
                     className="text-[11px] text-primary hover:underline font-semibold"
                   >
-                    + Nuevo Costo
+                    + Agregar GG
                   </button>
                 </div>
               </div>
 
               <div className="space-y-2">
-                {costosIndirectosConfig.map((ci, idx) => (
-                  <div key={ci.id || idx} className="bg-surface-container-highest/60 p-3 rounded-2xl border border-outline-variant/20 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <label className="flex items-center gap-2 cursor-pointer font-medium text-on-surface truncate">
-                        <input
-                          type="checkbox"
-                          checked={ci.aplica}
-                          onChange={() => handleToggleIndirectCost(idx)}
-                          className="w-4 h-4 text-primary rounded border-outline-variant bg-surface-container-highest focus:ring-primary"
-                        />
-                        <input
-                          type="text"
-                          value={ci.nombre}
-                          onChange={(e) => {
-                            const newName = e.target.value;
-                            setCostosIndirectosConfig((prev) => {
-                              const next = [...prev];
-                              next[idx] = { ...next[idx], nombre: newName };
-                              return next;
-                            });
-                          }}
-                          className="bg-transparent border-none p-0 text-xs font-medium text-on-surface focus:ring-0 truncate"
-                        />
-                      </label>
+                {costosIndirectosConfig.map((ci, idx) => {
+                  const montoCalculado = ci.tipo === 'porcentual_sobre_costo'
+                    ? roundMoney(totales.costoGlobal * (ci.valor / 100))
+                    : roundMoney(ci.valor);
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <div className="relative w-20">
-                          {ci.tipo !== 'porcentual_sobre_costo' && <span className="text-[10px] text-on-surface-variant absolute left-1.5 top-1 font-mono">$</span>}
+                  return (
+                    <div key={ci.id || idx} className="bg-surface-container p-2.5 rounded-xl border border-outline-variant/20 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="flex items-center gap-2 cursor-pointer font-medium text-xs text-on-surface truncate flex-1">
+                          <input
+                            type="checkbox"
+                            checked={ci.aplica}
+                            onChange={() => handleToggleIndirectCost(idx)}
+                            className="w-4 h-4 text-primary rounded border-outline-variant"
+                          />
+                          <input
+                            type="text"
+                            value={ci.nombre}
+                            onChange={(e) => {
+                              const newName = e.target.value;
+                              setCostosIndirectosConfig(prev => {
+                                const next = [...prev];
+                                next[idx] = { ...next[idx], nombre: newName };
+                                return next;
+                              });
+                            }}
+                            className="bg-transparent border-none p-0 text-xs font-medium text-on-surface focus:ring-0 truncate w-full"
+                          />
+                        </label>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          {ci.tipo !== 'porcentual_sobre_costo' && <span className="text-[10px] text-on-surface-variant font-mono">$</span>}
                           <input
                             type="number"
-                            step="0.1"
+                            step="0.5"
                             value={ci.valor}
                             onChange={(e) => handleUpdateIndirectCostValor(idx, parseFloat(e.target.value) || 0)}
-                            className={`w-full bg-surface-container-highest border border-outline-variant/30 rounded-lg px-1.5 py-0.5 text-xs text-right font-mono text-on-surface focus:outline-none focus:ring-1 focus:ring-primary ${ci.tipo !== 'porcentual_sobre_costo' ? 'pl-4' : 'pr-4'}`}
+                            className="w-16 bg-surface-container-highest border border-outline-variant/30 rounded-lg px-1.5 py-0.5 text-xs text-right font-mono"
                           />
-                          {ci.tipo === 'porcentual_sobre_costo' && <span className="text-[10px] text-on-surface-variant absolute right-1.5 top-1 font-bold">%</span>}
+                          {ci.tipo === 'porcentual_sobre_costo' && <span className="text-[10px] text-on-surface-variant font-bold">%</span>}
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveIndirectCost(idx)}
+                            className="text-on-surface-variant hover:text-error p-1 rounded-full transition-colors ml-1"
+                            title="Eliminar"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveIndirectCost(idx)}
-                          className="text-on-surface-variant hover:text-error p-1 rounded-full hover:bg-error-container/30 transition-colors"
-                          title="Eliminar costo fijo"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
                       </div>
+
+                      {ci.aplica && (
+                        <div className="flex justify-between items-center text-[11px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/10">
+                          <span>
+                            {ci.nombre} ({ci.tipo === 'porcentual_sobre_costo' ? `${ci.valor}% s/Costo` : 'Fijo'}):
+                          </span>
+                          <span className="font-bold text-primary">{formatARS(montoCalculado)}</span>
+                        </div>
+                      )}
                     </div>
-
-                    {ci.aplica && (
-                      <div className="flex justify-between items-center text-[11px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/20">
-                        <span className="capitalize text-[10px] bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-full">
-                          {ci.tipo === 'porcentual_sobre_costo' ? 'Porcentual' : ci.tipo === 'fijo_mensual' ? 'Fijo Mensual' : 'Por Visita'}
-                        </span>
-                        <span className="font-bold text-primary">
-                          {formatARS(
-                            ci.tipo === 'porcentual_sobre_costo'
-                              ? (totales.subtotalCostosDirectos * (ci.valor / 100))
-                              : ci.valor
-                          )}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
-              <div className="flex justify-between text-primary font-bold pt-1">
-                <span>Total Costos Indirectos Fijos:</span>
-                <span className="font-mono">{formatARS(totales.subtotalCostosIndirectos)}</span>
+              <div className="flex justify-between text-xs font-bold text-primary pt-1 border-t border-outline-variant/20">
+                <span>Total Gastos Generales (GG):</span>
+                <span className="font-mono">{formatARS(totales.gastosGeneralesTotal)}</span>
               </div>
             </div>
 
-            {/* Total Cost of Job */}
-            <div className="bg-surface-container p-3.5 rounded-2xl border border-outline-variant/30 flex justify-between items-center text-xs font-bold text-on-surface">
-              <span>COSTO TOTAL REAL OBRA:</span>
-              <span className="font-mono text-primary text-sm">{formatARS(totales.costoTotalObra)}</span>
-            </div>
-
-            {/* Margin Percentage Input */}
-            <div className="space-y-3 pt-2">
+            {/* 3. BENEFICIO (B) */}
+            <div className="bg-surface-container-high/60 p-4 rounded-2xl border border-outline-variant/20 space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-on-surface">Margen de Ganancia Neto (%):</label>
-                <div className="relative w-28">
+                <div>
+                  <label className="text-xs font-bold text-on-surface uppercase tracking-wider block">
+                    3. Beneficio (B)
+                  </label>
+                  <span className="text-[10px] text-on-surface-variant">
+                    Calculado sobre Costo + GG ({formatARS(totales.costoTotalObra)})
+                  </span>
+                </div>
+                <div className="relative w-24">
                   <input
                     type="number"
                     min="0"
@@ -1215,68 +1265,77 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 </div>
               </div>
 
-              <div className="flex justify-between text-xs text-on-surface-variant">
-                <span>Ganancia Estimada:</span>
-                <span className="font-mono font-semibold text-tertiary">{formatARS(totales.montoGanancia)}</span>
+              <div className="flex justify-between text-xs font-bold text-tertiary pt-1 border-t border-outline-variant/10">
+                <span>Monto Beneficio ({margenPorcentaje}%):</span>
+                <span className="font-mono font-semibold">{formatARS(totales.beneficioMonto)}</span>
               </div>
             </div>
 
-            {/* Itemized Taxes Breakdown Section */}
-            <div className="space-y-3 pt-3 border-t border-outline-variant/30 text-xs">
+            {/* 4. SUBTOTAL SIN IMPUESTOS (S = C + GG + B) */}
+            <div className="bg-surface-container p-3.5 rounded-2xl border border-outline-variant/30 flex justify-between items-center text-xs font-bold text-on-surface shadow-2xs">
+              <span className="uppercase tracking-wider">4. Subtotal sin Impuestos (S):</span>
+              <span className="font-mono text-primary text-sm">{formatARS(totales.subtotalSinImpuestos)}</span>
+            </div>
+
+            {/* 5. IMPUESTOS (independientes calculados sobre S) */}
+            <div className="bg-surface-container-high/60 p-4 rounded-2xl border border-outline-variant/20 space-y-3">
               <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-on-surface uppercase tracking-wider">
-                  Impuestos & Tasas ({tipoFactura})
-                </label>
+                <div>
+                  <label className="text-xs font-bold text-on-surface uppercase tracking-wider block">
+                    5. Impuestos ({tipoFactura})
+                  </label>
+                  <span className="text-[10px] text-on-surface-variant">
+                    Calculados sobre Subtotal (S), sin cascada
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={handleAddCustomTax}
                   className="text-[11px] text-primary hover:underline font-semibold"
                 >
-                  + Otro Impuesto
+                  + Impuesto
                 </button>
               </div>
 
               <div className="space-y-2">
                 {totales.impuestosCalculados.map((tax, idx) => (
-                  <div key={tax.id || idx} className="bg-surface-container-highest/60 p-3 rounded-2xl border border-outline-variant/20 space-y-2">
+                  <div key={tax.id || idx} className="bg-surface-container p-2.5 rounded-xl border border-outline-variant/20 space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <label className="flex items-center gap-2 cursor-pointer font-medium text-on-surface">
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-xs text-on-surface truncate flex-1">
                         <input
                           type="checkbox"
                           checked={tax.aplica}
                           onChange={() => handleToggleTax(idx)}
-                          className="w-4 h-4 text-primary rounded border-outline-variant bg-surface-container-highest focus:ring-primary"
+                          className="w-4 h-4 text-primary rounded border-outline-variant"
                         />
                         <span className="truncate">{tax.nombre}</span>
                       </label>
 
-                      <div className="flex items-center gap-1.5">
-                        <div className="relative w-16">
-                          <input
-                            type="number"
-                            step="0.1"
-                            value={tax.porcentaje}
-                            onChange={(e) => handleUpdateTaxPct(idx, parseFloat(e.target.value) || 0)}
-                            className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-lg px-1.5 py-0.5 text-xs text-right font-mono text-on-surface focus:outline-none focus:ring-1 focus:ring-primary pr-5"
-                          />
-                          <span className="text-[10px] text-on-surface-variant absolute right-1.5 top-1 font-bold">%</span>
-                        </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={tax.porcentaje}
+                          onChange={(e) => handleUpdateTaxPct(idx, parseFloat(e.target.value) || 0)}
+                          className="w-16 bg-surface-container-highest border border-outline-variant/30 rounded-lg px-1.5 py-0.5 text-xs text-right font-mono"
+                        />
+                        <span className="text-[10px] text-on-surface-variant font-bold">%</span>
 
                         {idx >= 2 && (
                           <button
                             type="button"
                             onClick={() => handleRemoveTax(idx)}
-                            className="text-on-surface-variant hover:text-error p-1 rounded-full hover:bg-error-container/30 transition-colors"
+                            className="text-on-surface-variant hover:text-error p-1 rounded-full transition-colors ml-1"
                           >
-                            <X className="w-3.5 h-3.5" />
+                            <X className="w-3 h-3" />
                           </button>
                         )}
                       </div>
                     </div>
 
                     {tax.aplica && (
-                      <div className="flex justify-between items-center text-[11px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/20">
-                        <span>Monto {tax.nombre}:</span>
+                      <div className="flex justify-between items-center text-[11px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/10">
+                        <span>{tax.nombre} ({tax.porcentaje}% s/S):</span>
                         <span className="font-bold text-primary">{formatARS(tax.montoCalculado)}</span>
                       </div>
                     )}
@@ -1284,21 +1343,30 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 ))}
               </div>
 
-              <div className="flex justify-between text-on-surface font-semibold pt-1">
-                <span>Total Impuestos:</span>
-                <span className="font-mono text-primary">{formatARS(totales.montoImpuestosTotal)}</span>
+              <div className="flex justify-between text-xs font-bold text-primary pt-1 border-t border-outline-variant/20">
+                <span>Total Impuestos ({totales.impuestosPorcentajeTotal}%):</span>
+                <span className="font-mono">{formatARS(totales.montoImpuestosTotal)}</span>
               </div>
             </div>
 
-            {/* Final Grand Total ARS & Foreign Currency */}
-            <div className="bg-primary-container/40 border border-primary/30 p-5 rounded-2xl space-y-2 text-center shadow-sm">
+            {/* 6. PRECIO FINAL GLOBAL & COEFICIENTE K */}
+            <div className="bg-primary-container/40 border border-primary/30 p-5 rounded-3xl space-y-2 text-center shadow-sm">
               <span className="text-xs uppercase tracking-wider font-bold text-primary block">
-                PRECIO TOTAL FINAL COTIZADO
+                6. PRECIO FINAL GLOBAL COTIZADO
               </span>
-              <div className="font-mono text-2xl font-black text-on-surface">{formatARS(totales.totalARS)}</div>
+              <div className="font-mono text-3xl font-black text-on-surface">{formatARS(totales.precioFinalGlobal)}</div>
+
+              <div className="pt-2 border-t border-primary/20 flex flex-col items-center justify-center gap-1">
+                <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
+                  Coeficiente de Venta K = {totales.coeficienteK.toFixed(4)}
+                </span>
+                <span className="text-[10px] text-on-surface-variant">
+                  Multiplicador aplicado a cada ítem para el cliente
+                </span>
+              </div>
 
               {mostrarDolar && totales.totalMonedaExtranjera && (
-                <div className="text-xs text-tertiary font-mono font-semibold pt-2 border-t border-primary/20">
+                <div className="text-xs text-tertiary font-mono font-semibold pt-1">
                   Equivalente: {formatUSD(totales.totalMonedaExtranjera, nombreDolar)}
                 </div>
               )}
@@ -1306,17 +1374,16 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
             <button
               type="button"
-              onClick={() => handleSavePresupuesto('enviado')}
-              className="w-full py-3 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full transition-all flex items-center justify-center gap-2 text-sm shadow-md hover:shadow-lg"
+              onClick={() => setShowEmitirModal(true)}
+              className="w-full py-3.5 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full transition-all flex items-center justify-center gap-2 text-sm shadow-md hover:shadow-lg active:scale-98 cursor-pointer"
             >
               <CheckCircle className="w-5 h-5 text-on-primary" />
-              <span>Emitir & Congelar Presupuesto</span>
+              <span>Emitir Presupuesto...</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Modal Item Picker (TareasTipo) */}
       {showItemPickerModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] text-on-surface">
@@ -1401,7 +1468,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => handleSavePresupuesto('enviado')}
+            onClick={() => setShowEmitirModal(true)}
             className="px-4 py-2 bg-primary text-on-primary rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1"
           >
             <Lock className="w-3.5 h-3.5" />
@@ -1409,6 +1476,114 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Modal de Opciones al Emitir Presupuesto */}
+      {showEmitirModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-on-surface">
+            <div className="px-6 py-4 border-b border-outline-variant/30 flex items-center justify-between bg-surface-container-high">
+              <div className="flex items-center gap-2.5">
+                <CheckCircle className="w-5 h-5 text-primary" />
+                <h3 className="font-bold text-on-surface text-base">
+                  Opciones de Emisión del Presupuesto
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowEmitirModal(false)}
+                className="text-on-surface-variant hover:text-on-surface p-1.5 rounded-full hover:bg-surface-variant transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
+                  Presentación para el Cliente (Documento / PDF)
+                </h4>
+
+                <label className="flex items-start gap-3 p-2 rounded-xl hover:bg-surface-container transition-colors cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={opcionesEmision.mostrarItemizado ?? true}
+                    onChange={(e) => setOpcionesEmision(prev => ({ ...prev, mostrarItemizado: e.target.checked }))}
+                    className="w-4 h-4 text-primary rounded border-outline mt-0.5"
+                  />
+                  <div>
+                    <span className="text-sm font-semibold text-on-surface block">Mostrar Itemizado (Precios por Renglón)</span>
+                    <span className="text-xs text-on-surface-variant">
+                      Si está activo, el cliente ve cada partida con su Precio de Venta unitario y total (Costo × K).
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-2 rounded-xl hover:bg-surface-container transition-colors cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={opcionesEmision.mostrarDetalleCostos ?? false}
+                    onChange={(e) => setOpcionesEmision(prev => ({ ...prev, mostrarDetalleCostos: e.target.checked }))}
+                    className="w-4 h-4 text-primary rounded border-outline mt-0.5"
+                  />
+                  <div>
+                    <span className="text-sm font-semibold text-on-surface block">Mostrar Detalle de Costos Internos</span>
+                    <span className="text-xs text-on-surface-variant">
+                      Si está desactivado (recomendado), oculta los costos puros de materiales, mano de obra, GG y margen, mostrando solo los Precios de Venta cerrados.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-primary block">
+                  Condiciones Comerciales y Aclaraciones
+                </label>
+                <textarea
+                  rows={4}
+                  value={opcionesEmision.condicionesComerciales ?? condicionesPagoTexto}
+                  onChange={(e) => setOpcionesEmision(prev => ({ ...prev, condicionesComerciales: e.target.value }))}
+                  className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl p-4 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="Notas, condiciones de pago, validez de la oferta o aclaraciones sobre el alcance de la obra..."
+                />
+                <p className="text-[11px] text-on-surface-variant">
+                  Estas notas se guardan como parte del snapshot inmutable de esta emisión.
+                </p>
+              </div>
+
+              {/* Summary box before emitting */}
+              <div className="bg-primary-container/30 border border-primary/20 p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                  <span className="text-xs text-on-surface-variant block">Precio Total Final a Facturar:</span>
+                  <span className="font-mono text-xl font-bold text-primary">{formatARS(totales.precioFinalGlobal)}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[11px] text-on-surface-variant block">Coeficiente K:</span>
+                  <span className="font-mono text-xs font-bold text-on-surface bg-surface-container px-2.5 py-0.5 rounded-full">
+                    {totales.coeficienteK.toFixed(4)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-outline-variant/30 flex justify-end gap-3 bg-surface-container-high">
+              <button
+                type="button"
+                onClick={() => setShowEmitirModal(false)}
+                className="px-4 py-2 text-sm font-semibold text-on-surface-variant hover:bg-surface-variant rounded-full transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSavePresupuesto('enviado', opcionesEmision)}
+                className="px-6 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold text-sm rounded-full transition-colors flex items-center gap-2 shadow-sm"
+              >
+                <Lock className="w-4 h-4" />
+                <span>Confirmar & Emitir</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SaveAsTareaTipoModal
         isOpen={showSaveAsTemplateModal}
