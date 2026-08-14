@@ -1,4 +1,6 @@
 import { SyncProvider, MasterDatabasePayload } from '../syncTypes';
+import { auth, googleProvider } from '../../config/firebase';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 
 const DRIVE_FILE_NAME = 'cotizador_ieba_master.json';
 const TOKEN_KEY = 'ieba_gdrive_access_token';
@@ -44,12 +46,29 @@ export class GoogleDriveProvider implements SyncProvider {
     const token = this.getAccessToken();
     if (token) return true;
 
-    // Si no hay token, solicitar autorización usando Google Identity Services si está disponible
-    return new Promise((resolve) => {
-      if (typeof (window as any).google?.accounts?.oauth2?.initTokenClient === 'function') {
+    // 1. Re-obtener token de Google mediante Firebase Auth Popup
+    if (auth) {
+      try {
+        const result = await signInWithPopup(auth, googleProvider);
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (credential?.accessToken) {
+          this.setAccessToken(credential.accessToken, 3600, result.user.email || undefined);
+          return true;
+        }
+      } catch (err: any) {
+        console.warn('[GoogleDriveProvider] Autenticación con Google cancelada o fallida:', err);
+        if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
+          return false;
+        }
+      }
+    }
+
+    // 2. Si Google Identity Services (GIS) está presente en window
+    if (typeof (window as any).google?.accounts?.oauth2?.initTokenClient === 'function') {
+      return new Promise((resolve) => {
         const client = (window as any).google.accounts.oauth2.initTokenClient({
           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '1088497258359-dummy.apps.googleusercontent.com',
-          scope: 'https://www.googleapis.com/auth/drive.file',
+          scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.appdata',
           callback: (response: any) => {
             if (response.access_token) {
               this.setAccessToken(response.access_token, response.expires_in || 3600);
@@ -61,17 +80,10 @@ export class GoogleDriveProvider implements SyncProvider {
           error_callback: () => resolve(false)
         });
         client.requestAccessToken();
-      } else {
-        // Fallback: Si el usuario ingresa su token o autentica con popup
-        const manualToken = prompt('Ingresa tu Google Drive OAuth Token (o inicia sesión con Google en la app):');
-        if (manualToken && manualToken.trim().length > 10) {
-          this.setAccessToken(manualToken.trim(), 3600);
-          resolve(true);
-        } else {
-          resolve(false);
-        }
-      }
-    });
+      });
+    }
+
+    return false;
   }
 
   async disconnect(): Promise<void> {
@@ -96,19 +108,19 @@ export class GoogleDriveProvider implements SyncProvider {
     }
 
     if (res.status === 403) {
-      if (detail.toLowerCase().includes('not been used') || detail.toLowerCase().includes('disabled')) {
+      if (detail.toLowerCase().includes('not been used') || detail.toLowerCase().includes('disabled') || detail.toLowerCase().includes('activation')) {
         throw new Error(
-          `Google Drive API no está habilitada en Google Cloud (${detail}). Habilita "Google Drive API" en tu consola de Google Cloud o cambia al proveedor "Archivo / Carpeta Local".`
+          `Google Drive API no está habilitada en tu proyecto de Google Cloud (${detail}). Puedes habilitarla en https://console.cloud.google.com o cambiar el método a "📁 Carpeta Local" para sincronizar sin APIs.`
         );
       }
       if (detail.toLowerCase().includes('scope') || detail.toLowerCase().includes('insufficient') || detail.toLowerCase().includes('permission')) {
         this.disconnect();
         throw new Error(
-          'Permisos insuficientes para Google Drive. Por favor cierra sesión y vuelve a iniciar sesión con Google para conceder permisos.'
+          'Permisos insuficientes para Google Drive. Vuelve a iniciar sesión con Google para conceder permisos de lectura y escritura.'
         );
       }
       throw new Error(
-        `Error 403 en Google Drive: ${detail || 'Permisos insuficientes o Google Drive API deshabilitada'}. Vuelve a iniciar sesión con Google o habilita Google Drive API en Google Cloud.`
+        `Error 403 en Google Drive: ${detail || 'Permisos insuficientes o API deshabilitada'}. Puedes usar "📁 Carpeta Local" para sincronizar tus datos en disco.`
       );
     }
 
@@ -137,7 +149,15 @@ export class GoogleDriveProvider implements SyncProvider {
   }
 
   async readMasterPayload(): Promise<MasterDatabasePayload | null> {
-    const token = this.getAccessToken();
+    let token = this.getAccessToken();
+    if (!token) {
+      const ok = await this.connect();
+      if (!ok) {
+        console.warn('[GDriveProvider] No se pudo obtener token para leer archivo maestro');
+        return null;
+      }
+      token = this.getAccessToken();
+    }
     if (!token) return null;
 
     try {
@@ -158,7 +178,7 @@ export class GoogleDriveProvider implements SyncProvider {
       return JSON.parse(text) as MasterDatabasePayload;
     } catch (err) {
       console.warn('[GDriveProvider] Error al leer payload desde Google Drive:', err);
-      return null;
+      throw err;
     }
   }
 
