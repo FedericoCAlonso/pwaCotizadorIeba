@@ -14,9 +14,11 @@ import {
   X,
   RotateCcw,
   Star,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from 'lucide-react';
 import { db } from '../db/database';
+import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
 import {
   Presupuesto,
   ItemPresupuesto,
@@ -124,6 +126,17 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
   const isInitializedRef = useRef<boolean>(false);
   const currentPresupuestoIdRef = useRef<string | undefined>(presupuestoId);
+
+  const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
+  const [saveAsTemplateData, setSaveAsTemplateData] = useState<{
+    nombre: string;
+    insumos: any[];
+    manoObra: any[];
+  }>({
+    nombre: '',
+    insumos: [],
+    manoObra: []
+  });
 
   // Reset initialization flag when switching presupuestoId
   if (currentPresupuestoIdRef.current !== presupuestoId) {
@@ -554,7 +567,37 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap">
+          <button
+            type="button"
+            onClick={() => {
+              const allInsumos = items.flatMap(it => 
+                (it.insumosSnapshot || []).map(ins => ({
+                  materialId: ins.materialId || ins.insumoId,
+                  productoId: ins.productoId,
+                  cantidad: ins.cantidadTotal
+                }))
+              );
+              const allManoObra = items.flatMap(it =>
+                (it.manoObraSnapshot || []).map(mo => ({
+                  categoriaId: mo.categoriaId,
+                  horas: mo.horasTotales
+                }))
+              );
+              setSaveAsTemplateData({
+                nombre: existingPresupuesto ? `Cotización ${existingPresupuesto.numero}` : 'Cotización Completa',
+                insumos: allInsumos,
+                manoObra: allManoObra
+              });
+              setShowSaveAsTemplateModal(true);
+            }}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2.5 bg-primary/10 text-primary hover:bg-primary/20 font-semibold rounded-full text-xs transition-colors border border-primary/30"
+            title="Guardar toda esta cotización como un Trabajo Tipo / Plantilla"
+          >
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span>Guardar como Trabajo Tipo</span>
+          </button>
+
           <button
             type="button"
             onClick={() => handleSavePresupuesto('borrador')}
@@ -860,6 +903,31 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                               />
                             </div>
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const itemInsumos = (item.insumosSnapshot || []).map(ins => ({
+                                materialId: ins.materialId || ins.insumoId,
+                                productoId: ins.productoId,
+                                cantidad: ins.cantidadTotal
+                              }));
+                              const itemManoObra = (item.manoObraSnapshot || []).map(mo => ({
+                                categoriaId: mo.categoriaId,
+                                horas: mo.horasTotales
+                              }));
+                              setSaveAsTemplateData({
+                                nombre: item.descripcion || 'Nueva Tarea Tipo',
+                                insumos: itemInsumos,
+                                manoObra: itemManoObra
+                              });
+                              setShowSaveAsTemplateModal(true);
+                            }}
+                            className="p-1.5 text-primary hover:bg-primary/10 rounded-xl transition-colors"
+                            title="Guardar este módulo/partida como Trabajo Tipo"
+                          >
+                            <Sparkles className="w-4 h-4 text-primary" />
+                          </button>
 
                           <button
                             type="button"
@@ -1275,6 +1343,14 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </button>
         </div>
       </div>
+
+      <SaveAsTareaTipoModal
+        isOpen={showSaveAsTemplateModal}
+        onClose={() => setShowSaveAsTemplateModal(false)}
+        defaultNombre={saveAsTemplateData.nombre}
+        insumos={saveAsTemplateData.insumos}
+        manoObra={saveAsTemplateData.manoObra}
+      />
     </div>
   );
 };

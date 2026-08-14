@@ -1,15 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   ArrowLeft,
   Printer,
   Copy,
-  Zap
+  Zap,
+  Sparkles
 } from 'lucide-react';
 import { db } from '../db/database';
-import { AppConfig, Presupuesto, EstadoPresupuesto } from '../core/types';
+import { AppConfig, Presupuesto, EstadoPresupuesto, InsumoEnTarea, ManoObraEnTarea } from '../core/types';
 import { formatARS, formatUSD } from '../core/calculations';
 import { ESTADOS_PRESUPUESTO } from '../core/sampleData';
+import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
 
 interface PresupuestoDetailProps {
   presupuestoId: string;
@@ -31,6 +33,17 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
     () => (presupuesto?.clienteId ? db.clientes.get(presupuesto.clienteId) : undefined),
     [presupuesto?.clienteId]
   );
+
+  const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
+  const [saveAsTemplateData, setSaveAsTemplateData] = useState<{
+    nombre: string;
+    insumos: InsumoEnTarea[];
+    manoObra: ManoObraEnTarea[];
+  }>({
+    nombre: '',
+    insumos: [],
+    manoObra: []
+  });
 
   if (!presupuesto) {
     return (
@@ -93,6 +106,35 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
               </option>
             ))}
           </select>
+
+          <button
+            onClick={() => {
+              const allInsumos = presupuesto.items.flatMap(it => 
+                (it.insumosSnapshot || []).map((ins: any) => ({
+                  materialId: ins.materialId || ins.insumoId,
+                  productoId: ins.productoId,
+                  cantidad: ins.cantidadTotal
+                }))
+              );
+              const allManoObra = presupuesto.items.flatMap(it =>
+                (it.manoObraSnapshot || []).map((mo: any) => ({
+                  categoriaId: mo.categoriaId,
+                  horas: mo.horasTotales
+                }))
+              );
+              setSaveAsTemplateData({
+                nombre: `Presupuesto ${presupuesto.numero}`,
+                insumos: allInsumos,
+                manoObra: allManoObra
+              });
+              setShowSaveAsTemplateModal(true);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-primary font-semibold hover:bg-primary/10 rounded-full text-xs transition-colors border border-primary/20"
+            title="Guardar este presupuesto completo como plantilla de Trabajo Tipo"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Guardar como Trabajo Tipo</span>
+          </button>
 
           <button
             onClick={() => onDuplicate(presupuesto)}
@@ -310,6 +352,14 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
           </div>
         </div>
       </div>
+
+      <SaveAsTareaTipoModal
+        isOpen={showSaveAsTemplateModal}
+        onClose={() => setShowSaveAsTemplateModal(false)}
+        defaultNombre={saveAsTemplateData.nombre}
+        insumos={saveAsTemplateData.insumos}
+        manoObra={saveAsTemplateData.manoObra}
+      />
     </div>
   );
 };
