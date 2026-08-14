@@ -318,7 +318,7 @@ export const InsumosManager: React.FC = () => {
       });
     }
 
-    return parts.join(' ');
+    return parts.join(' | ');
   };
 
   const handleAddCustomAttribute = () => {
@@ -1598,7 +1598,7 @@ export const InsumosManager: React.FC = () => {
                     ✨ Restablecer Formato
                   </button>
                 </div>
-                <input type="text" value={formDataMat.nombre || ''} onChange={(e) => setFormDataMat({ ...formDataMat, nombre: e.target.value })} className={inputCls} placeholder="Ej: Cables & Conductores Sección = 2.5 mm²" required />
+                <input type="text" value={formDataMat.nombre || ''} onChange={(e) => setFormDataMat({ ...formDataMat, nombre: e.target.value })} className={inputCls} placeholder="Ej: Cables & Conductores | Sección = 2,5 mm² | Norma = IRAM 247-3" required />
               </div>
 
               <div>
