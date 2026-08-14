@@ -10,7 +10,7 @@
       "nombre": "Cables & Conductores",
       "atributosSugeridos": [
         { "clave": "seccion", "etiqueta": "Sección", "unidad": "mm²", "tipo": "numero" },
-        { "clave": "norma", "etiqueta": "Norma IRAM", "unidad": "", "tipo": "texto" }
+        { "clave": "aislacion", "etiqueta": "Tipo de Aislación", "unidad": "", "tipo": "texto" }
       ]
     },
     {

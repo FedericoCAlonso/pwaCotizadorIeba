@@ -1488,7 +1488,8 @@ export const InsumosManager: React.FC = () => {
               {/* Dynamic Suggested Attributes Section */}
               {(() => {
                 const selectedCat = categoriasMap.get(formDataMat.categoriaId || '');
-                if (!selectedCat || !selectedCat.atributosSugeridos || selectedCat.atributosSugeridos.length === 0) return null;
+                const validSuggested = selectedCat?.atributosSugeridos?.filter(a => a.clave !== 'norma') || [];
+                if (!selectedCat || validSuggested.length === 0) return null;
                 return (
                   <div className="p-3.5 bg-surface-container-high border border-outline-variant/30 rounded-2xl space-y-2.5">
                     <div className="flex items-center justify-between">
@@ -1502,7 +1503,7 @@ export const InsumosManager: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-2 gap-2.5">
-                      {selectedCat.atributosSugeridos.map(attrTpl => {
+                      {validSuggested.map(attrTpl => {
                         const attrVal = formDataMat.atributos?.find(a => a.clave === attrTpl.clave)?.valor || '';
                         return (
                           <div key={attrTpl.clave}>
