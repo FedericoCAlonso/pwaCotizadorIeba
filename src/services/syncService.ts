@@ -20,9 +20,11 @@ const SYNCED_TABLES = [
   'proveedores',
   'registrosTrabajo',
   'solicitudesCotizacion',
+  'categoriasMaterial',
   'materiales',
   'productos',
   'ofertas',
+  'proyectos',
   'config'
 ] as const;
 
@@ -36,16 +38,16 @@ let syncIntervalTimer: any = null;
 let visibilityListenerAttached = false;
 
 const CIRCUIT_BREAKER_KEY = 'ieba_sync_blocked_until';
-const SYNC_LOCK_TIMEOUT_MS = 10000; // 10s máximo para evitar deadlocks
-const NETWORK_TIMEOUT_MS = 5000; // 5s máximo por llamada a Firestore
+const SYNC_LOCK_TIMEOUT_MS = 15000; // 15s máximo para evitar deadlocks
+const NETWORK_TIMEOUT_MS = 12000; // 12s máximo por llamada a Firestore
 
 /**
- * Enuelve una promesa con un timeout duro de red.
+ * Envuelve una promesa con un timeout de red realista.
  */
-function withTimeout<T>(promise: Promise<T>, ms = NETWORK_TIMEOUT_MS): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, ms = NETWORK_TIMEOUT_MS, label = 'Operación de red'): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error('RESOURCE_EXHAUSTED: Sync network timeout'));
+      reject(new Error(`Timeout de conexión (${ms / 1000}s) en: ${label}`));
     }, ms);
 
     promise
@@ -66,7 +68,7 @@ function withTimeout<T>(promise: Promise<T>, ms = NETWORK_TIMEOUT_MS): Promise<T
 export function isSyncLocked(): boolean {
   if (!isSyncingActive) return false;
   if (Date.now() - syncLockTimestamp > SYNC_LOCK_TIMEOUT_MS) {
-    console.warn('[DeltaSync] Lock de sincronización expirado (>10s). Reseteando estado.');
+    console.warn('[DeltaSync] Lock de sincronización expirado (>15s). Reseteando estado.');
     isSyncingActive = false;
     syncLockTimestamp = 0;
     return false;
@@ -83,22 +85,30 @@ export function resetSyncLock(): void {
 }
 
 /**
- * Detecta si un error proviene del agotamiento de cuota diaria de Firebase Spark o de timeout de cuota.
+ * Detecta si un error proviene genuinamente del agotamiento de cuota diaria de Firebase Spark.
+ * NO confunde timeouts locales de red con cuota agotada.
  */
 export function isQuotaError(err: any): boolean {
   if (!err) return false;
+  const code = err.code || err.status || '';
+  const message = typeof err.message === 'string' ? err.message : '';
+
   return (
-    err.code === 'resource-exhausted' ||
-    err.status === 'RESOURCE_EXHAUSTED' ||
-    (typeof err.message === 'string' && (
-      err.message.includes('Quota exceeded') ||
-      err.message.includes('resource-exhausted') ||
-      err.message.includes('RESOURCE_EXHAUSTED') ||
-      err.message.includes('quota') ||
-      err.message.includes('Quota') ||
-      err.message.includes('network timeout')
-    ))
+    code === 'resource-exhausted' ||
+    code === 'RESOURCE_EXHAUSTED' ||
+    (message.includes('Quota exceeded') && !message.includes('Timeout')) ||
+    (message.includes('RESOURCE_EXHAUSTED') && !message.includes('timeout'))
   );
+}
+
+/**
+ * Detecta si el error es por falta de permisos / reglas en Firestore.
+ */
+export function isPermissionError(err: any): boolean {
+  if (!err) return false;
+  const code = err.code || err.status || '';
+  const message = typeof err.message === 'string' ? err.message : '';
+  return code === 'permission-denied' || message.includes('Missing or insufficient permissions');
 }
 
 /**
@@ -126,11 +136,11 @@ export function isCircuitBreakerActive(): boolean {
 }
 
 /**
- * Activa el Circuit Breaker bloqueando intentos automáticos hasta el día siguiente.
+ * Activa el Circuit Breaker bloqueando intentos automáticos durante 1 hora si la cuota fue superada.
  */
-export function activateCircuitBreaker(): void {
+export function activateCircuitBreaker(durationMs = 60 * 60 * 1000): void {
   try {
-    const blockedUntil = Date.now() + 24 * 60 * 60 * 1000;
+    const blockedUntil = Date.now() + durationMs;
     localStorage.setItem(CIRCUIT_BREAKER_KEY, String(blockedUntil));
   } catch (err) {
     console.warn('[Sync] No se pudo guardar timestamp de Circuit Breaker:', err);
@@ -138,7 +148,7 @@ export function activateCircuitBreaker(): void {
 }
 
 /**
- * Desbloquea manualmente el Circuit Breaker para forzar reintento.
+ * Desbloquea manualmente el Circuit Breaker para forzar reintento inmediato.
  */
 export function resetQuotaExceededState(): void {
   try {
@@ -315,64 +325,96 @@ export async function flushPendingSync(userId: string): Promise<SyncState> {
 }
 
 /**
- * Realiza la sincronización bidireccional inicial y pull remoto desde Firestore.
+ * Realiza la sincronización bidireccional inicial y pull remoto desde Firestore en paralelo.
  */
 export async function syncUserData(userId: string): Promise<SyncState> {
   setupDexieHooks(userId);
   const pushState = await flushPendingSync(userId);
-  if (pushState !== 'synced') {
+  if (pushState !== 'synced' && pushState !== 'idle') {
     return pushState;
   }
 
   const firestore = dbFirestore;
   if (!firestore || !userId) return pushState;
 
-  // Pull remoto ligero con timeout por colección
-  try {
-    for (const tableName of SYNCED_TABLES) {
-      try {
-        const colRef = collection(firestore, 'users', userId, tableName);
-        const snapshot = await withTimeout(getDocs(colRef), 3000);
-        const table = (db as any)[tableName];
-        if (!table) continue;
+  isSyncingActive = true;
+  syncLockTimestamp = Date.now();
 
-        isApplyingRemoteChange = true;
-        try {
-          for (const docSnap of snapshot.docs) {
-            const remoteData = docSnap.data();
-            const localItem = await table.get(docSnap.id);
-            if (!localItem) {
+  try {
+    // Pull remoto en paralelo para todas las colecciones
+    const pullPromises = SYNCED_TABLES.map(async (tableName) => {
+      const colRef = collection(firestore, 'users', userId, tableName);
+      const snapshot = await withTimeout(getDocs(colRef), NETWORK_TIMEOUT_MS, `Lectura ${tableName}`);
+      const table = (db as any)[tableName];
+      if (!table) return;
+
+      isApplyingRemoteChange = true;
+      try {
+        for (const docSnap of snapshot.docs) {
+          const remoteData = docSnap.data();
+          const localItem = await table.get(docSnap.id);
+          if (!localItem) {
+            const cleanData: any = { ...remoteData, syncStatus: 'synced' };
+            delete cleanData._syncedAt;
+            await table.put(cleanData);
+          } else if (localItem.syncStatus === 'synced') {
+            const remoteTime = remoteData._updatedAt || 0;
+            const localTime = localItem._updatedAt || 0;
+            if (remoteTime > localTime) {
               const cleanData: any = { ...remoteData, syncStatus: 'synced' };
               delete cleanData._syncedAt;
               await table.put(cleanData);
-            } else if (localItem.syncStatus === 'synced') {
-              const remoteTime = remoteData._updatedAt || 0;
-              const localTime = localItem._updatedAt || 0;
-              if (remoteTime > localTime) {
-                const cleanData: any = { ...remoteData, syncStatus: 'synced' };
-                delete cleanData._syncedAt;
-                await table.put(cleanData);
-              }
             }
           }
-        } finally {
-          isApplyingRemoteChange = false;
         }
-      } catch (tableErr: any) {
-        console.warn(`[DeltaSync] Error o timeout al leer colección ${tableName}:`, tableErr);
-        if (isQuotaError(tableErr)) {
-          activateCircuitBreaker();
-          return 'quota_exceeded';
+      } finally {
+        isApplyingRemoteChange = false;
+      }
+    });
+
+    const results = await Promise.allSettled(pullPromises);
+
+    let hasQuotaError = false;
+    let hasPermissionError = false;
+    let hasOtherError = false;
+
+    for (const res of results) {
+      if (res.status === 'rejected') {
+        const err = res.reason;
+        console.warn('[DeltaSync] Error al leer colección:', err);
+        if (isQuotaError(err)) {
+          hasQuotaError = true;
+        } else if (isPermissionError(err)) {
+          hasPermissionError = true;
+        } else {
+          hasOtherError = true;
         }
       }
     }
+
+    if (hasQuotaError) {
+      activateCircuitBreaker();
+      return 'quota_exceeded';
+    }
+
+    if (hasPermissionError) {
+      console.error(
+        `[DeltaSync] Permiso denegado en Firestore. Asegúrate de que las reglas de seguridad en Firebase Console permitan lectura y escritura en: match /users/{userId}/{document=**} { allow read, write: if request.auth != null && request.auth.uid == userId; }`
+      );
+      return 'error';
+    }
+
+    if (hasOtherError && pushState !== 'synced') {
+      return 'error';
+    }
+
     return 'synced';
   } catch (err: any) {
     if (isQuotaError(err)) {
       activateCircuitBreaker();
       return 'quota_exceeded';
     }
-    return pushState;
+    return 'error';
   } finally {
     isSyncingActive = false;
     syncLockTimestamp = 0;

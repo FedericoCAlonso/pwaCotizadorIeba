@@ -71,14 +71,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
       setSyncState('syncing');
-
-      // Carrera con timeout de seguridad de 6s
-      const syncPromise = syncUserData(currentUser.uid);
-      const timeoutPromise = new Promise<SyncState>((_, reject) =>
-        setTimeout(() => reject(new Error('RESOURCE_EXHAUSTED: Sync UI timeout')), 6000)
-      );
-
-      const resultState = await Promise.race([syncPromise, timeoutPromise]);
+      const resultState = await syncUserData(currentUser.uid);
 
       if (isCircuitBreakerActive() || resultState === 'quota_exceeded') {
         setSyncState('quota_exceeded');
@@ -90,7 +83,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       await updatePendingCount();
     } catch (err: any) {
-      console.warn('Error o timeout durante la sincronización con Firebase:', err);
+      console.warn('Error durante la sincronización con Firebase:', err);
       if (isCircuitBreakerActive() || isQuotaError(err)) {
         setSyncState('quota_exceeded');
       } else {

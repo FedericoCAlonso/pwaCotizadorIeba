@@ -662,7 +662,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {syncState === 'quota_exceeded'
                   ? 'Cuota Diaria Firebase Excedida (Circuit Breaker)'
                   : syncState === 'error'
-                  ? 'Error de Red / Conexión'
+                  ? 'Error de Sincronización / Conexión'
                   : pendingCount > 0
                   ? 'Cambios Pendientes por Sincronizar'
                   : 'Nube Sincronizada al Día'}
@@ -671,6 +671,8 @@ export const Header: React.FC<HeaderProps> = ({
               <p className="leading-relaxed">
                 {syncState === 'quota_exceeded'
                   ? 'Se alcanzó el límite diario del plan gratuito Spark de Firebase. La aplicación activó el Circuit Breaker de protección. Tus datos están 100% seguros en tu dispositivo (IndexedDB) y se subirán automáticamente al renovarse la cuota.'
+                  : syncState === 'error'
+                  ? 'Ocurrió una interrupción al conectar con Firebase. Puede deberse a conexión inestable o a las reglas de seguridad de Firestore. Tus datos locales en IndexedDB están 100% a salvo y puedes reintentar cuando desees.'
                   : pendingCount > 0
                   ? `Tienes ${pendingCount} registro(s) pendiente(s) de subida. Se sincronizarán automáticamente por lotes o puedes forzar la subida manual.`
                   : 'Todos tus presupuestos, materiales y configuraciones locales coinciden con tu espacio en la nube.'}
