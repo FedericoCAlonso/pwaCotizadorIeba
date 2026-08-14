@@ -288,15 +288,45 @@ export const InsumosManager: React.FC = () => {
       const updatedCats = await db.categoriasMaterial.toArray();
       cat = updatedCats[0];
     }
+    const initialAttrs = cat?.atributosSugeridos ? cat.atributosSugeridos.map(a => ({ clave: a.clave, valor: '' })) : [];
+    const initialName = buildAutoName(cat?.id, initialAttrs, '');
+
     setFormDataMat({
       categoriaId: cat?.id || '',
-      nombre: '',
+      nombre: initialName || cat?.nombre || '',
       norma: '',
       unidadVenta: 'u',
-      atributos: cat?.atributosSugeridos ? cat.atributosSugeridos.map(a => ({ clave: a.clave, valor: '' })) : [],
+      atributos: initialAttrs,
       activo: true
     });
     setIsCreatingMat(true);
+  };
+
+  const buildAutoName = (
+    catId: string | undefined,
+    atributos: { clave: string; valor: string }[] | undefined,
+    norma: string | undefined
+  ): string => {
+    const cat = categoriasMap.get(catId || '');
+    if (!cat) return '';
+    const parts: string[] = [cat.nombre];
+
+    if (atributos && atributos.length > 0 && cat.atributosSugeridos) {
+      atributos.forEach(attr => {
+        if (attr.valor && attr.valor.trim() !== '') {
+          const tpl = cat.atributosSugeridos.find(s => s.clave === attr.clave);
+          const label = tpl?.etiqueta || attr.clave;
+          const unit = tpl?.unidad ? ` ${tpl.unidad}` : '';
+          parts.push(`${label} = ${attr.valor}${unit}`);
+        }
+      });
+    }
+
+    if (norma && norma.trim() !== '') {
+      parts.push(`(${norma.trim()})`);
+    }
+
+    return parts.join(' ');
   };
 
   const handleOpenEditMat = (mat: Material) => {
@@ -338,10 +368,13 @@ export const InsumosManager: React.FC = () => {
       return { clave: a.clave, valor: existing ? existing.valor : '' };
     }) || [];
 
+    const autoName = buildAutoName(catId, newAtributos, formDataMat.norma);
+
     setFormDataMat(prev => ({
       ...prev,
       categoriaId: catId,
-      atributos: newAtributos
+      atributos: newAtributos,
+      nombre: autoName || prev.nombre
     }));
   };
 
@@ -354,31 +387,35 @@ export const InsumosManager: React.FC = () => {
       } else {
         currentAttrs.push({ clave, valor });
       }
-      return { ...prev, atributos: currentAttrs };
+
+      const autoName = buildAutoName(prev.categoriaId, currentAttrs, prev.norma);
+
+      return {
+        ...prev,
+        atributos: currentAttrs,
+        nombre: autoName || prev.nombre
+      };
+    });
+  };
+
+  const handleNormaChange = (norma: string) => {
+    setFormDataMat(prev => {
+      const autoName = buildAutoName(prev.categoriaId, prev.atributos, norma);
+      return {
+        ...prev,
+        norma,
+        nombre: autoName || prev.nombre
+      };
     });
   };
 
   const handleAutoGenerateName = () => {
-    const cat = categoriasMap.get(formDataMat.categoriaId || '');
-    if (!cat) return;
-
-    const parts: string[] = [cat.nombre];
-    if (formDataMat.atributos && formDataMat.atributos.length > 0) {
-      formDataMat.atributos.forEach(attr => {
-        if (attr.valor && attr.valor.trim() !== '') {
-          const tpl = cat.atributosSugeridos?.find(s => s.clave === attr.clave);
-          const unit = tpl?.unidad ? ` ${tpl.unidad}` : '';
-          parts.push(`${attr.valor}${unit}`);
-        }
-      });
-    }
-    if (formDataMat.norma && formDataMat.norma.trim() !== '') {
-      parts.push(`(${formDataMat.norma})`);
-    }
+    const autoName = buildAutoName(formDataMat.categoriaId, formDataMat.atributos, formDataMat.norma);
+    if (!autoName) return;
 
     setFormDataMat(prev => ({
       ...prev,
-      nombre: parts.join(' ')
+      nombre: autoName
     }));
   };
 
@@ -1459,14 +1496,9 @@ export const InsumosManager: React.FC = () => {
                         <Sparkles className="w-3.5 h-3.5" />
                         Atributos Sugeridos ({selectedCat.nombre})
                       </span>
-                      <button
-                        type="button"
-                        onClick={handleAutoGenerateName}
-                        className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
-                        title="Auto-generar Nombre Técnico combinando la categoría y los atributos cargados"
-                      >
-                        ✨ Auto-generar Nombre
-                      </button>
+                      <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                        ⚡ Generación en tiempo real
+                      </span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2.5">
@@ -1495,22 +1527,23 @@ export const InsumosManager: React.FC = () => {
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs text-on-surface-variant">Nombre Técnico</label>
+                  <label className="block text-xs text-on-surface-variant">Nombre Técnico (Generado automáticamente)</label>
                   <button
                     type="button"
                     onClick={handleAutoGenerateName}
                     className="text-[11px] text-primary hover:underline font-semibold"
+                    title="Restablecer nombre formateado por defecto"
                   >
-                    ✨ Auto-generar
+                    ✨ Restablecer Formato
                   </button>
                 </div>
-                <input type="text" value={formDataMat.nombre || ''} onChange={(e) => setFormDataMat({ ...formDataMat, nombre: e.target.value })} className={inputCls} placeholder="Ej: Cable Unipolar 2.5 mm²" required />
+                <input type="text" value={formDataMat.nombre || ''} onChange={(e) => setFormDataMat({ ...formDataMat, nombre: e.target.value })} className={inputCls} placeholder="Ej: Cables & Conductores Sección = 2.5 mm²" required />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-on-surface-variant mb-1">Norma IRAM / IEC</label>
-                  <input type="text" value={formDataMat.norma || ''} onChange={(e) => setFormDataMat({ ...formDataMat, norma: e.target.value })} className={inputCls} placeholder="IRAM 247-3" />
+                  <input type="text" value={formDataMat.norma || ''} onChange={(e) => handleNormaChange(e.target.value)} className={inputCls} placeholder="IRAM 247-3" />
                 </div>
                 <div>
                   <label className="block text-xs text-on-surface-variant mb-1">Unidad Venta</label>
