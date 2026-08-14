@@ -341,13 +341,17 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       }
 
       if (!matMap.has(matKey)) {
+        const baseAttrs = existingMat ? [...existingMat.atributos] : [];
+        if (normaVal && !baseAttrs.some(a => a.clave === 'norma')) {
+          baseAttrs.push({ clave: 'norma', valor: normaVal });
+        }
+
         matMap.set(matKey, {
           id: matId,
           categoriaId: resolvedCatId,
           nombre: nombreVal,
-          norma: normaVal || (existingMat ? existingMat.norma : ''),
           unidadVenta: unidadVal || (existingMat ? existingMat.unidadVenta : 'u'),
-          atributos: existingMat ? existingMat.atributos : [],
+          atributos: baseAttrs,
           activo: true,
           fichaIncompleta: false,
           createdAt: existingMat ? existingMat.createdAt : now,

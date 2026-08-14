@@ -37,7 +37,6 @@ export const InsumosManager: React.FC = () => {
   const [formDataMat, setFormDataMat] = useState<Partial<Material>>({
     categoriaId: '',
     nombre: '',
-    norma: '',
     unidadVenta: 'u',
     atributos: [],
     activo: true
@@ -168,7 +167,6 @@ export const InsumosManager: React.FC = () => {
     setFormDataMat({
       categoriaId: mat.categoriaId,
       nombre: `${mat.nombre} (Copia)`,
-      norma: mat.norma || '',
       unidadVenta: mat.unidadVenta || 'u',
       atributos: mat.atributos ? mat.atributos.map(a => ({ ...a })) : [],
       urlMercadoLibre: mat.urlMercadoLibre || '',
@@ -289,12 +287,11 @@ export const InsumosManager: React.FC = () => {
       cat = updatedCats[0];
     }
     const initialAttrs = cat?.atributosSugeridos ? cat.atributosSugeridos.map(a => ({ clave: a.clave, valor: '' })) : [];
-    const initialName = buildAutoName(cat?.id, initialAttrs, '');
+    const initialName = buildAutoName(cat?.id, initialAttrs);
 
     setFormDataMat({
       categoriaId: cat?.id || '',
       nombre: initialName || cat?.nombre || '',
-      norma: '',
       unidadVenta: 'u',
       atributos: initialAttrs,
       activo: true
@@ -304,8 +301,7 @@ export const InsumosManager: React.FC = () => {
 
   const buildAutoName = (
     catId: string | undefined,
-    atributos: { clave: string; valor: string }[] | undefined,
-    norma: string | undefined
+    atributos: { clave: string; valor: string }[] | undefined
   ): string => {
     const cat = categoriasMap.get(catId || '');
     if (!cat) return '';
@@ -320,10 +316,6 @@ export const InsumosManager: React.FC = () => {
           parts.push(`${label} = ${attr.valor}${unit}`);
         }
       });
-    }
-
-    if (norma && norma.trim() !== '') {
-      parts.push(`(${norma.trim()})`);
     }
 
     return parts.join(' ');
@@ -350,7 +342,6 @@ export const InsumosManager: React.FC = () => {
     setFormDataMat({
       categoriaId: mat.categoriaId,
       nombre: mat.nombre,
-      norma: mat.norma || '',
       unidadVenta: mat.unidadVenta || 'u',
       atributos: mergedAttrs,
       urlMercadoLibre: mat.urlMercadoLibre || '',
@@ -368,7 +359,7 @@ export const InsumosManager: React.FC = () => {
       return { clave: a.clave, valor: existing ? existing.valor : '' };
     }) || [];
 
-    const autoName = buildAutoName(catId, newAtributos, formDataMat.norma);
+    const autoName = buildAutoName(catId, newAtributos);
 
     setFormDataMat(prev => ({
       ...prev,
@@ -388,7 +379,7 @@ export const InsumosManager: React.FC = () => {
         currentAttrs.push({ clave, valor });
       }
 
-      const autoName = buildAutoName(prev.categoriaId, currentAttrs, prev.norma);
+      const autoName = buildAutoName(prev.categoriaId, currentAttrs);
 
       return {
         ...prev,
@@ -398,19 +389,8 @@ export const InsumosManager: React.FC = () => {
     });
   };
 
-  const handleNormaChange = (norma: string) => {
-    setFormDataMat(prev => {
-      const autoName = buildAutoName(prev.categoriaId, prev.atributos, norma);
-      return {
-        ...prev,
-        norma,
-        nombre: autoName || prev.nombre
-      };
-    });
-  };
-
   const handleAutoGenerateName = () => {
-    const autoName = buildAutoName(formDataMat.categoriaId, formDataMat.atributos, formDataMat.norma);
+    const autoName = buildAutoName(formDataMat.categoriaId, formDataMat.atributos);
     if (!autoName) return;
 
     setFormDataMat(prev => ({
@@ -427,7 +407,6 @@ export const InsumosManager: React.FC = () => {
       await db.materiales.update(editingMat.id, {
         categoriaId: formDataMat.categoriaId || 'cat-sin-categoria',
         nombre: formDataMat.nombre?.trim() || editingMat.nombre,
-        norma: formDataMat.norma,
         unidadVenta: formDataMat.unidadVenta || 'u',
         atributos: formDataMat.atributos || [],
         activo: formDataMat.activo ?? true,
@@ -443,7 +422,6 @@ export const InsumosManager: React.FC = () => {
         id: `mat-${crypto.randomUUID()}`,
         categoriaId: formDataMat.categoriaId || 'cat-sin-categoria',
         nombre: formDataMat.nombre?.trim() || 'Nuevo Material',
-        norma: formDataMat.norma,
         unidadVenta: formDataMat.unidadVenta || 'u',
         atributos: formDataMat.atributos || [],
         activo: formDataMat.activo ?? true,
@@ -604,7 +582,7 @@ export const InsumosManager: React.FC = () => {
   const filteredMateriales = materiales.filter((m) => {
     const matchesSearch =
       m.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (m.norma && m.norma.toLowerCase().includes(searchTerm.toLowerCase()));
+      (m.atributos && m.atributos.some(a => a.valor.toLowerCase().includes(searchTerm.toLowerCase()) || a.clave.toLowerCase().includes(searchTerm.toLowerCase())));
 
     const matchesCategory = selectedCategory === 'todas' || m.categoriaId === selectedCategory;
 
@@ -790,7 +768,6 @@ export const InsumosManager: React.FC = () => {
                             )}
                           </div>
                           <h3 className="font-semibold text-on-surface text-base mt-0.5">{mat.nombre}</h3>
-                          {mat.norma && <span className="text-xs font-mono text-on-surface-variant block mt-0.5">Norma: {mat.norma}</span>}
                         </div>
 
                         <div className="flex items-center gap-1">
@@ -942,7 +919,6 @@ export const InsumosManager: React.FC = () => {
                             }`} title={`Estado precio: ${estadoVenc}`} />
                             <div>
                               <span className="font-semibold text-on-surface block">{mat.nombre}</span>
-                              {mat.norma && <span className="text-[10px] font-mono text-on-surface-variant">Norma: {mat.norma}</span>}
                             </div>
                           </div>
                         </td>
@@ -1541,15 +1517,9 @@ export const InsumosManager: React.FC = () => {
                 <input type="text" value={formDataMat.nombre || ''} onChange={(e) => setFormDataMat({ ...formDataMat, nombre: e.target.value })} className={inputCls} placeholder="Ej: Cables & Conductores Sección = 2.5 mm²" required />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-on-surface-variant mb-1">Norma IRAM / IEC</label>
-                  <input type="text" value={formDataMat.norma || ''} onChange={(e) => handleNormaChange(e.target.value)} className={inputCls} placeholder="IRAM 247-3" />
-                </div>
-                <div>
-                  <label className="block text-xs text-on-surface-variant mb-1">Unidad Venta</label>
-                  <input type="text" value={formDataMat.unidadVenta || 'u'} onChange={(e) => setFormDataMat({ ...formDataMat, unidadVenta: e.target.value })} className={inputCls} placeholder="m, u, kg" />
-                </div>
+              <div>
+                <label className="block text-xs text-on-surface-variant mb-1">Unidad Venta / Comercialización</label>
+                <input type="text" value={formDataMat.unidadVenta || 'u'} onChange={(e) => setFormDataMat({ ...formDataMat, unidadVenta: e.target.value })} className={inputCls} placeholder="m, u, kg, rollo x100m" required />
               </div>
 
               <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">

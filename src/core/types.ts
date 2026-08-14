@@ -77,7 +77,6 @@ export interface Material {
   id: string;
   categoriaId: string;
   nombre: string; // autogenerado desde atributos o editable a mano
-  norma?: string; // "IRAM-NM 247-3"
   unidadVenta: string; // "m", "u", "kg", "rollo x100m"
   atributos: AtributoMaterial[];
   notas?: string;
