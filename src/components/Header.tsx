@@ -27,7 +27,8 @@ import {
   ShoppingCart,
   Menu,
   ChevronRight,
-  X
+  X,
+  HelpCircle
 } from 'lucide-react';
 import { exportDatabaseJSON, importDatabaseJSON } from '../db/database';
 import { AppConfig, ThemeMode } from '../core/types';
@@ -40,6 +41,7 @@ interface HeaderProps {
   setActiveTab: (tab: string) => void;
   config: AppConfig | undefined;
   onOpenConfig: () => void;
+  onOpenHelp?: () => void;
   themeMode: ThemeMode;
   onThemeModeChange: (mode: ThemeMode) => void;
 }
@@ -49,6 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   config,
   onOpenConfig,
+  onOpenHelp,
   themeMode,
   onThemeModeChange
 }) => {
@@ -222,6 +225,19 @@ export const Header: React.FC<HeaderProps> = ({
           >
             {getThemeIcon()}
           </button>
+
+          {/* Help Center Button */}
+          {onOpenHelp && (
+            <button
+              type="button"
+              onClick={onOpenHelp}
+              className="p-2 rounded-full text-primary hover:bg-primary/10 transition-colors"
+              title="Centro de Ayuda y Guía de inicio"
+              aria-label="Abrir centro de ayuda"
+            >
+              <HelpCircle className="w-5 h-5" />
+            </button>
+          )}
 
           {/* Firebase Authentication & Cloud Sync Profile / Login */}
           {user ? (

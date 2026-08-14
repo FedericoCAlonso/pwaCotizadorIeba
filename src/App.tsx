@@ -16,6 +16,8 @@ import { PresupuestoDetail } from './components/PresupuestoDetail';
 import { RegistroTrabajoManager } from './components/RegistroTrabajoManager';
 import { LogisticaManager } from './components/LogisticaManager';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
+import { OnboardingBanner } from './components/OnboardingBanner';
+import { HelpCenterModal } from './components/HelpCenterModal';
 import { useTheme } from './hooks/useTheme';
 
 export function App() {
@@ -24,6 +26,7 @@ export function App() {
   const [selectedPresupuestoId, setSelectedPresupuestoId] = useState<string | undefined>(undefined);
   const [initialClienteId, setInitialClienteId] = useState<string | undefined>(undefined);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   const configs = useLiveQuery(() => db.config.toArray());
   const config: AppConfig | undefined = configs && configs.length > 0 ? configs[0] : undefined;
@@ -108,12 +111,21 @@ export function App() {
         }}
         config={config}
         onOpenConfig={() => setShowConfigModal(true)}
+        onOpenHelp={() => setShowHelpModal(true)}
         themeMode={themeMode}
         onThemeModeChange={setThemeMode}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-28 md:py-6">
+        {/* Onboarding Guidance Banner */}
+        <OnboardingBanner
+          onNavigateTab={(tab) => {
+            setActiveTab(tab);
+            setViewMode('list');
+          }}
+        />
+
         {activeTab === 'presupuestos' && (
           <>
             {viewMode === 'list' && (
@@ -175,6 +187,16 @@ export function App() {
           onSave={() => {}}
         />
       )}
+
+      {/* Help Center Modal */}
+      <HelpCenterModal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        onOpenImporter={() => {
+          setActiveTab('insumos');
+          setViewMode('list');
+        }}
+      />
 
       {/* PWA Notifications & Install Banner */}
       <PWAInstallBanner />
