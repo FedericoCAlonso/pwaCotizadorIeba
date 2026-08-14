@@ -1077,10 +1077,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                           )}
                         </div>
 
-                        {/* Client Sale Price calculated with K */}
+                        {/* Client Sale Price calculated with APU */}
                         <div className="bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg flex items-center gap-2">
                           <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
-                            Venta Cliente (C × K):
+                            Venta Cliente (APU):
                           </span>
                           <span className="font-mono font-bold text-primary text-sm">
                             {formatARS(totales.itemsCalculados[idx]?.precioVentaClienteTotal ?? item.precioVentaTotal)}
@@ -1089,6 +1089,16 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                             ({formatARS(totales.itemsCalculados[idx]?.precioVentaClienteUnitario ?? (item.precioVentaTotal / (item.cantidad || 1)))}/{item.unidad || 'u'})
                           </span>
                         </div>
+
+                        {/* APU Prorated Micro-Breakdown when GG absolutes exist */}
+                        {totales.itemsCalculados[idx]?.ggAbsolutoProrrateado ? (
+                          <div className="w-full flex flex-wrap items-center justify-between gap-2 text-[10px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/10">
+                            <span>Incidencia: {((totales.itemsCalculados[idx]?.incidencia || 0) * 100).toFixed(1)}%</span>
+                            <span>GG Fijo Prorr.: +{formatARS(totales.itemsCalculados[idx]?.ggAbsolutoProrrateado || 0)}</span>
+                            <span>Base APU: {formatARS(totales.itemsCalculados[idx]?.baseCostoItem || 0)}</span>
+                            <span>Beneficio: {formatARS(totales.itemsCalculados[idx]?.beneficioItem || 0)}</span>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   );

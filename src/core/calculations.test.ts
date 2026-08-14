@@ -280,10 +280,12 @@ describe('calcularTotalesPresupuesto', () => {
     });
 
     expect(result.costoGlobal).toBe(100000);
-    // GG total = 10000 (GG%) + 15000 (GG fijo) = 25000
-    expect(result.gastosGeneralesTotal).toBe(25000);
-    expect(result.subtotalCostosIndirectos).toBe(25000);
-    expect(result.costosIndirectosAplicados.find(c => c.costoIndirectoId === 'ci-pct')?.montoCalculado).toBe(10000);
+    // Base APU = C (100.000) + GG fijo (15.000) = 115.000
+    // GG% sobre Base (10% de 115.000) = 11.500
+    // GG total = 15000 (GG fijo) + 11500 (GG%) = 26500
+    expect(result.gastosGeneralesTotal).toBe(26500);
+    expect(result.subtotalCostosIndirectos).toBe(26500);
+    expect(result.costosIndirectosAplicados.find(c => c.costoIndirectoId === 'ci-pct')?.montoCalculado).toBe(11500);
     expect(result.costosIndirectosAplicados.find(c => c.costoIndirectoId === 'ci-fijo')?.montoCalculado).toBe(15000);
   });
 
@@ -406,6 +408,101 @@ describe('calcularTotalesPresupuesto', () => {
     );
 
     expect(sumaPreciosVentaItems).toBe(result.precioFinalGlobal);
+  });
+
+  it('ADENDA APU: Prorratea GG absolutos por incidencia de costo y calcula la cascada APU ítem por ítem', () => {
+    // 2 ítems: C1 = 40.000, C2 = 60.000 -> Costo Global C = 100.000
+    const item1 = makeItem({ id: 'it-1', costoInsumos: 20000, costoManoObra: 20000, costoDirectoTotal: 40000, cantidad: 2, insumosSnapshot: [], manoObraSnapshot: [] });
+    const item2 = makeItem({ id: 'it-2', costoInsumos: 30000, costoManoObra: 30000, costoDirectoTotal: 60000, cantidad: 3, insumosSnapshot: [], manoObraSnapshot: [] });
+
+    // GG Fijo: 20.000, GG%: 10%
+    const indirectosConfig: CostoIndirectoItemConfig[] = [
+      { id: 'ci-fijo', nombre: 'Seguro de Obra Fijo', tipo: 'fijo_mensual', valor: 20000, aplica: true },
+      { id: 'ci-pct', nombre: 'Gastos Generales %', tipo: 'porcentual_sobre_costo', valor: 10, aplica: true }
+    ];
+    const impuestos = [{ id: 'tax-iva', nombre: 'IVA', porcentaje: 21, montoCalculado: 0, aplica: true, discriminar: true }];
+
+    const result = calcularTotalesPresupuesto({
+      items: [item1, item2],
+      costosIndirectosConfig: indirectosConfig,
+      beneficioPorcentaje: 20,
+      impuestosDetalle: impuestos
+    });
+
+    const it1 = result.itemsCalculados[0];
+    const it2 = result.itemsCalculados[1];
+
+    // 1. Incidencia
+    expect(it1.incidencia).toBe(0.4);
+    expect(it2.incidencia).toBe(0.6);
+
+    // 2. GG Absoluto Prorrateado
+    expect(it1.ggAbsolutoProrrateado).toBe(8000); // 20.000 * 0.4
+    expect(it2.ggAbsolutoProrrateado).toBe(12000); // 20.000 * 0.6
+    expect(roundMoney(it1.ggAbsolutoProrrateado! + it2.ggAbsolutoProrrateado!)).toBe(20000);
+
+    // 3. Base de Costo del Ítem = Costo_item + GG_absoluto_item
+    expect(it1.baseCostoItem).toBe(48000); // 40.000 + 8.000
+    expect(it2.baseCostoItem).toBe(72000); // 60.000 + 12.000
+
+    // 4. GG Porcentual = Base_item * 10%
+    expect(it1.ggPorcentualItem).toBe(4800); // 48.000 * 0.10
+    expect(it2.ggPorcentualItem).toBe(7200); // 72.000 * 0.10
+
+    // 5. Beneficio = (Base_item + GG_porcentual_item) * 20%
+    expect(it1.beneficioItem).toBe(10560); // (48.000 + 4.800) * 0.20 = 52.800 * 0.20
+    expect(it2.beneficioItem).toBe(15840); // (72.000 + 7.200) * 0.20 = 79.200 * 0.20
+
+    // 6. Subtotal = Base + GG_pct + Beneficio
+    expect(it1.subtotalItem).toBe(63360); // 48.000 + 4.800 + 10.560
+    expect(it2.subtotalItem).toBe(95040); // 72.000 + 7.200 + 15.840
+    expect(result.subtotalSinImpuestos).toBe(158400); // 63.360 + 95.040
+
+    // 7. Impuestos = 21% sobre Subtotal
+    expect(it1.impuestosItem).toBe(13305.6); // 63.360 * 0.21
+    expect(it2.impuestosItem).toBe(19958.4); // 95.040 * 0.21
+
+    // 8. Precio Final del Ítem = Subtotal + Impuestos
+    expect(it1.precioFinalItem).toBe(76665.6);
+    expect(it2.precioFinalItem).toBe(114998.4);
+
+    // Validación de Integridad Estricta
+    expect(roundMoney(it1.precioFinalItem! + it2.precioFinalItem!)).toBe(result.precioFinalGlobal);
+    expect(result.precioFinalGlobal).toBe(191664);
+  });
+
+  it('ADENDA APU: Integridad con redondeo bancario y precisión flotante en divisiones inexactas', () => {
+    const item1 = makeItem({ id: 'it-1', costoInsumos: 11111.11, costoManoObra: 22222.22, costoDirectoTotal: 33333.33, cantidad: 1, insumosSnapshot: [], manoObraSnapshot: [] });
+    const item2 = makeItem({ id: 'it-2', costoInsumos: 11111.11, costoManoObra: 22222.22, costoDirectoTotal: 33333.33, cantidad: 2, insumosSnapshot: [], manoObraSnapshot: [] });
+    const item3 = makeItem({ id: 'it-3', costoInsumos: 11111.11, costoManoObra: 22222.23, costoDirectoTotal: 33333.34, cantidad: 3, insumosSnapshot: [], manoObraSnapshot: [] });
+
+    const indirectosConfig: CostoIndirectoItemConfig[] = [
+      { id: 'ci-fijo', nombre: 'Seguro Fijo', tipo: 'fijo_mensual', valor: 10000, aplica: true },
+      { id: 'ci-pct', nombre: 'GG %', tipo: 'porcentual_sobre_costo', valor: 7, aplica: true }
+    ];
+    const impuestos = generarImpuestosPorDefecto('Factura A', 21, 3.5);
+
+    const result = calcularTotalesPresupuesto({
+      items: [item1, item2, item3],
+      costosIndirectosConfig: indirectosConfig,
+      beneficioPorcentaje: 18,
+      impuestosDetalle: impuestos
+    });
+
+    const sumaItems = roundMoney(
+      result.itemsCalculados.reduce((acc, it) => acc + (it.precioFinalItem ?? 0), 0)
+    );
+    const sumaSubtotales = roundMoney(
+      result.itemsCalculados.reduce((acc, it) => acc + (it.subtotalItem ?? 0), 0)
+    );
+    const sumaGGAbs = roundMoney(
+      result.itemsCalculados.reduce((acc, it) => acc + (it.ggAbsolutoProrrateado ?? 0), 0)
+    );
+
+    // Integridad al centavo exacto
+    expect(sumaItems).toBe(result.precioFinalGlobal);
+    expect(sumaSubtotales).toBe(result.subtotalSinImpuestos);
+    expect(sumaGGAbs).toBe(10000);
   });
 });
 

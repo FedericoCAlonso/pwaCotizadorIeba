@@ -424,41 +424,41 @@ export function calcularTotalesPresupuesto(params: {
     costoGlobal = roundMoney(costoGlobal + itemCosto);
   }
 
-  // 2. Gastos Generales (GG): GG% sobre C, y GG absolutos como monto fijo
+  // 2. Gastos Generales (GG):
+  // - GG Absolutos: suma de montos fijos (seguros, fletes, etc.)
+  // - GG Porcentuales: suma de porcentajes a aplicar sobre la base (C + GG_absolutos)
+  let totalGGAbsolutos = 0;
+  let porcentajeGGPct = 0;
   const costosIndirectosAplicados: CostoIndirectoSnapshot[] = [];
-  let gastosGeneralesTotal = 0;
 
-  if (costosIndirectosConfig && costosIndirectosConfig.length > 0) {
-    for (const c of costosIndirectosConfig) {
-      if (c.aplica) {
-        let montoCalculado = 0;
-        if (c.tipo === 'porcentual_sobre_costo') {
-          montoCalculado = roundMoney(costoGlobal * (safeNum(c.valor) / 100));
-        } else {
-          // Fijo mensual / por visita / absoluto
-          montoCalculado = roundMoney(safeNum(c.valor));
-        }
+  const rawConfig = (costosIndirectosConfig && costosIndirectosConfig.length > 0)
+    ? costosIndirectosConfig
+    : costosIndirectosCatalog.map(c => ({ id: c.id, nombre: c.nombre, tipo: c.tipo, valor: c.valor, aplica: true }));
 
-        gastosGeneralesTotal = roundMoney(gastosGeneralesTotal + montoCalculado);
-        costosIndirectosAplicados.push({
-          costoIndirectoId: c.id,
-          nombre: c.nombre,
-          tipo: c.tipo,
-          valorAplicado: safeNum(c.valor),
-          montoCalculado
-        });
+  for (const c of rawConfig) {
+    if (c.aplica) {
+      if (c.tipo === 'porcentual_sobre_costo') {
+        porcentajeGGPct += safeNum(c.valor);
+      } else {
+        totalGGAbsolutos = roundMoney(totalGGAbsolutos + safeNum(c.valor));
       }
     }
-  } else {
-    for (const c of costosIndirectosCatalog) {
+  }
+
+  // Base global = C + Total_GG_absolutos
+  const baseGlobal = roundMoney(costoGlobal + totalGGAbsolutos);
+  const ggPorcentualGlobal = roundMoney(baseGlobal * (porcentajeGGPct / 100));
+  const gastosGeneralesTotal = roundMoney(totalGGAbsolutos + ggPorcentualGlobal);
+
+  // Registro de snapshots de costos indirectos
+  for (const c of rawConfig) {
+    if (c.aplica) {
       let montoCalculado = 0;
       if (c.tipo === 'porcentual_sobre_costo') {
-        montoCalculado = roundMoney(costoGlobal * (safeNum(c.valor) / 100));
+        montoCalculado = roundMoney(baseGlobal * (safeNum(c.valor) / 100));
       } else {
         montoCalculado = roundMoney(safeNum(c.valor));
       }
-
-      gastosGeneralesTotal = roundMoney(gastosGeneralesTotal + montoCalculado);
       costosIndirectosAplicados.push({
         costoIndirectoId: c.id,
         nombre: c.nombre,
@@ -469,7 +469,7 @@ export function calcularTotalesPresupuesto(params: {
     }
   }
 
-  // 3. Beneficio (B): %beneficio sobre (Costo + Gastos Generales)
+  // 3. Beneficio (B): %beneficio sobre (Base + GG_porcentual) = (C + GG_total)
   const beneficioPct = safeNum(beneficioInput !== undefined ? beneficioInput : margenPorcentaje);
   const baseCostoMasGG = roundMoney(costoGlobal + gastosGeneralesTotal);
   const beneficioMonto = roundMoney(baseCostoMasGG * (beneficioPct / 100));
@@ -500,23 +500,96 @@ export function calcularTotalesPresupuesto(params: {
   // 7. Coeficiente de Venta Global (K = Precio Final / Costo Global)
   const coeficienteK = costoGlobal > 0 ? precioFinalGlobal / costoGlobal : 1;
 
-  // 8. Precios de Venta por Ítem para el Cliente (CostoItem × K)
-  let accumulatedItemsSum = 0;
+  // 8. LÓGICA DE PRORRATEO APU (Análisis de Precios Unitarios en Cascada por Ítem)
+  let accumulatedGGAbs = 0;
+  let accumulatedBase = 0;
+  let accumulatedGGPct = 0;
+  let accumulatedBeneficio = 0;
+  let accumulatedSubtotal = 0;
+  let accumulatedImpuestos = 0;
+  let accumulatedPrecioFinal = 0;
+
+  const numItems = items.length;
+
   const itemsCalculados: ItemPresupuesto[] = items.map((item, idx) => {
     const cant = Math.max(0.0001, safeNum(item.cantidad) || 1);
     const itemC = itemCosts[idx];
-    let precioVentaClienteTotal = roundMoney(itemC * coeficienteK);
+    const isLast = idx === numItems - 1 && numItems > 1;
 
-    // Ajuste fino de centavos en el último ítem para garantizar igualdad matemática exacta con precioFinalGlobal
-    if (idx === items.length - 1 && items.length > 1 && costoGlobal > 0) {
-      const diff = roundMoney(precioFinalGlobal - (accumulatedItemsSum + precioVentaClienteTotal));
-      if (Math.abs(diff) <= 0.10) {
-        precioVentaClienteTotal = roundMoney(precioVentaClienteTotal + diff);
+    // 1. Incidencia de costo del ítem
+    const incidencia = costoGlobal > 0 ? (itemC / costoGlobal) : (numItems > 0 ? 1 / numItems : 1);
+
+    // 2. Prorrateo de GG Absoluto
+    let ggAbsolutoProrrateado = roundMoney(totalGGAbsolutos * incidencia);
+    if (isLast && totalGGAbsolutos > 0) {
+      const diffGGAbs = roundMoney(totalGGAbsolutos - (accumulatedGGAbs + ggAbsolutoProrrateado));
+      if (Math.abs(diffGGAbs) <= 0.10) {
+        ggAbsolutoProrrateado = roundMoney(ggAbsolutoProrrateado + diffGGAbs);
       }
     }
-    accumulatedItemsSum = roundMoney(accumulatedItemsSum + precioVentaClienteTotal);
+    accumulatedGGAbs = roundMoney(accumulatedGGAbs + ggAbsolutoProrrateado);
 
-    const precioVentaClienteUnitario = roundMoney(precioVentaClienteTotal / cant);
+    // 3. Nueva Base de Costo del Ítem
+    let baseCostoItem = roundMoney(itemC + ggAbsolutoProrrateado);
+    if (isLast && baseGlobal > 0) {
+      const diffBase = roundMoney(baseGlobal - (accumulatedBase + baseCostoItem));
+      if (Math.abs(diffBase) <= 0.10) {
+        baseCostoItem = roundMoney(baseCostoItem + diffBase);
+      }
+    }
+    accumulatedBase = roundMoney(accumulatedBase + baseCostoItem);
+
+    // 4. GG Porcentual del Ítem
+    let ggPorcentualItem = roundMoney(baseCostoItem * (porcentajeGGPct / 100));
+    if (isLast && ggPorcentualGlobal > 0) {
+      const diffGGPct = roundMoney(ggPorcentualGlobal - (accumulatedGGPct + ggPorcentualItem));
+      if (Math.abs(diffGGPct) <= 0.10) {
+        ggPorcentualItem = roundMoney(ggPorcentualItem + diffGGPct);
+      }
+    }
+    accumulatedGGPct = roundMoney(accumulatedGGPct + ggPorcentualItem);
+
+    // 5. Beneficio del Ítem = (Base_item + GG_porcentual_item) * porcentaje_Beneficio
+    let beneficioItem = roundMoney((baseCostoItem + ggPorcentualItem) * (beneficioPct / 100));
+    if (isLast && beneficioMonto > 0) {
+      const diffB = roundMoney(beneficioMonto - (accumulatedBeneficio + beneficioItem));
+      if (Math.abs(diffB) <= 0.10) {
+        beneficioItem = roundMoney(beneficioItem + diffB);
+      }
+    }
+    accumulatedBeneficio = roundMoney(accumulatedBeneficio + beneficioItem);
+
+    // 6. Subtotal del Ítem = Base_item + GG_porcentual_item + Beneficio_item
+    let subtotalItem = roundMoney(baseCostoItem + ggPorcentualItem + beneficioItem);
+    if (isLast && subtotalSinImpuestos > 0) {
+      const diffS = roundMoney(subtotalSinImpuestos - (accumulatedSubtotal + subtotalItem));
+      if (Math.abs(diffS) <= 0.10) {
+        subtotalItem = roundMoney(subtotalItem + diffS);
+      }
+    }
+    accumulatedSubtotal = roundMoney(accumulatedSubtotal + subtotalItem);
+
+    // 7. Impuestos del Ítem = Σ(impuesto_i% * Subtotal_item)
+    let impuestosItem = roundMoney(subtotalItem * (impuestosPorcentajeTotal / 100));
+    if (isLast && montoImpuestosTotal > 0) {
+      const diffImp = roundMoney(montoImpuestosTotal - (accumulatedImpuestos + impuestosItem));
+      if (Math.abs(diffImp) <= 0.10) {
+        impuestosItem = roundMoney(impuestosItem + diffImp);
+      }
+    }
+    accumulatedImpuestos = roundMoney(accumulatedImpuestos + impuestosItem);
+
+    // 8. Precio Final del Ítem = Subtotal_item + Impuestos_item
+    let precioFinalItem = roundMoney(subtotalItem + impuestosItem);
+    if (isLast && precioFinalGlobal > 0) {
+      const diffPF = roundMoney(precioFinalGlobal - (accumulatedPrecioFinal + precioFinalItem));
+      if (Math.abs(diffPF) <= 0.10) {
+        precioFinalItem = roundMoney(precioFinalItem + diffPF);
+      }
+    }
+    accumulatedPrecioFinal = roundMoney(accumulatedPrecioFinal + precioFinalItem);
+
+    const precioVentaUnitarioItem = roundMoney(precioFinalItem / cant);
 
     return {
       ...item,
@@ -526,10 +599,22 @@ export function calcularTotalesPresupuesto(params: {
       costoDirectoTotal: itemC,
       costoUnitario: roundMoney(itemC / cant),
       costoTotal: itemC,
-      precioVentaClienteTotal,
-      precioVentaClienteUnitario,
-      precioVentaTotal: precioVentaClienteTotal,
-      precioVentaUnitario: precioVentaClienteUnitario
+
+      // APU Prorrateado
+      incidencia: Math.round(incidencia * 10000) / 10000,
+      ggAbsolutoProrrateado,
+      baseCostoItem,
+      ggPorcentualItem,
+      beneficioItem,
+      subtotalItem,
+      impuestosItem,
+      precioFinalItem,
+
+      // Precios de Venta Finales del Renglón
+      precioVentaClienteTotal: precioFinalItem,
+      precioVentaClienteUnitario: precioVentaUnitarioItem,
+      precioVentaTotal: precioFinalItem,
+      precioVentaUnitario: precioVentaUnitarioItem
     };
   });
 

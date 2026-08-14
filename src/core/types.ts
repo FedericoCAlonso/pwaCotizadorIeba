@@ -331,11 +331,21 @@ export interface ItemPresupuesto {
   condicionTrabajo?: 'normal' | 'dificultosa' | 'favorable';
   esAdHoc?: boolean;
 
-  // Nuevos campos del motor de cálculo itemizado
+  // Campos de Análisis de Precios Unitarios (APU) y Prorrateo de GG Absolutos
+  incidencia?: number; // Incidencia = Costo_item / Costo_Total_Global
+  ggAbsolutoProrrateado?: number; // GG_absoluto_item = Total_GG_absolutos * incidencia
+  baseCostoItem?: number; // Base_item = Costo_item + GG_absoluto_item
+  ggPorcentualItem?: number; // GG_porcentual_item = Base_item * porcentaje_GG
+  beneficioItem?: number; // Beneficio_item = (Base_item + GG_porcentual_item) * porcentaje_Beneficio
+  subtotalItem?: number; // Subtotal_item = Base_item + GG_porcentual_item + Beneficio_item
+  impuestosItem?: number; // Impuestos_item = Σ(impuesto_i% * Subtotal_item)
+  precioFinalItem?: number; // Precio_Final_item = Subtotal_item + Impuestos_item
+
+  // Campos de venta al cliente
   costoUnitario?: number; // Costo por unidad del renglón (insumos + MO + servicios)
   costoTotal?: number; // Costo total del renglón = costoUnitario * cantidad
-  precioVentaClienteUnitario?: number; // Precio unitario de venta cerrado para el cliente = costoUnitario * K
-  precioVentaClienteTotal?: number; // Precio de venta cerrado total = costoTotal * K
+  precioVentaClienteUnitario?: number; // Precio unitario de venta cerrado para el cliente = Precio_Final_item / cantidad
+  precioVentaClienteTotal?: number; // Precio de venta cerrado total = Precio_Final_item
 
   precioVentaUnitario: number;
   precioVentaTotal: number;
