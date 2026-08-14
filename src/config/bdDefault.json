@@ -10,7 +10,6 @@
       "nombre": "Cables & Conductores",
       "atributosSugeridos": [
         { "clave": "seccion", "etiqueta": "Sección", "unidad": "mm²", "tipo": "numero" },
-        { "clave": "norma", "etiqueta": "Norma IRAM / IEC", "unidad": "", "tipo": "texto" },
         { "clave": "aislacion", "etiqueta": "Tipo de Aislación", "unidad": "", "tipo": "texto" }
       ]
     },
@@ -19,16 +18,14 @@
       "nombre": "Protecciones Eléctricas",
       "atributosSugeridos": [
         { "clave": "In", "etiqueta": "Corriente Nominal", "unidad": "A", "tipo": "numero" },
-        { "clave": "polos", "etiqueta": "Cantidad de Polos", "unidad": "", "tipo": "numero" },
-        { "clave": "norma", "etiqueta": "Norma IRAM / IEC", "unidad": "", "tipo": "texto" }
+        { "clave": "polos", "etiqueta": "Cantidad de Polos", "unidad": "", "tipo": "numero" }
       ]
     },
     {
       "id": "cat-canalizaciones",
       "nombre": "Canalizaciones & Caños",
       "atributosSugeridos": [
-        { "clave": "diametro", "etiqueta": "Diámetro", "unidad": "pulgadas", "tipo": "texto" },
-        { "clave": "norma", "etiqueta": "Norma IRAM / IEC", "unidad": "", "tipo": "texto" }
+        { "clave": "diametro", "etiqueta": "Diámetro", "unidad": "pulgadas", "tipo": "texto" }
       ]
     },
     {
@@ -44,8 +41,7 @@
       "nombre": "Tableros & Gabinetes",
       "atributosSugeridos": [
         { "clave": "modulos", "etiqueta": "Capacidad Módulos DIN", "unidad": "", "tipo": "numero" },
-        { "clave": "ip", "etiqueta": "Grado Protección IP", "unidad": "", "tipo": "texto" },
-        { "clave": "norma", "etiqueta": "Norma IRAM / IEC", "unidad": "", "tipo": "texto" }
+        { "clave": "ip", "etiqueta": "Grado Protección IP", "unidad": "", "tipo": "texto" }
       ]
     },
     {
@@ -60,8 +56,7 @@
       "id": "cat-medicion",
       "nombre": "Medición & Puesta a Tierra",
       "atributosSugeridos": [
-        { "clave": "longitud", "etiqueta": "Longitud", "unidad": "m", "tipo": "numero" },
-        { "clave": "norma", "etiqueta": "Norma IRAM / IEC", "unidad": "", "tipo": "texto" }
+        { "clave": "longitud", "etiqueta": "Longitud", "unidad": "m", "tipo": "numero" }
       ]
     },
     {

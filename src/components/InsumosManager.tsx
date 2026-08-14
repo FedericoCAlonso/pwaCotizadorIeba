@@ -307,11 +307,11 @@ export const InsumosManager: React.FC = () => {
     if (!cat) return '';
     const parts: string[] = [cat.nombre];
 
-    if (atributos && atributos.length > 0 && cat.atributosSugeridos) {
+    if (atributos && atributos.length > 0) {
       atributos.forEach(attr => {
         if (attr.valor && attr.valor.trim() !== '') {
-          const tpl = cat.atributosSugeridos.find(s => s.clave === attr.clave);
-          const label = tpl?.etiqueta || attr.clave;
+          const tpl = cat.atributosSugeridos?.find(s => s.clave === attr.clave);
+          const label = tpl?.etiqueta || (attr.clave.charAt(0).toUpperCase() + attr.clave.slice(1).replace(/_/g, ' '));
           const unit = tpl?.unidad ? ` ${tpl.unidad}` : '';
           parts.push(`${label} = ${attr.valor}${unit}`);
         }
@@ -319,6 +319,45 @@ export const InsumosManager: React.FC = () => {
     }
 
     return parts.join(' ');
+  };
+
+  const handleAddCustomAttribute = () => {
+    setFormDataMat(prev => {
+      const currentAttrs = prev.atributos ? [...prev.atributos] : [];
+      const newClave = `atributo_${currentAttrs.length + 1}`;
+      const updated = [...currentAttrs, { clave: newClave, valor: '' }];
+      return {
+        ...prev,
+        atributos: updated
+      };
+    });
+  };
+
+  const handleUpdateCustomAttrKey = (index: number, newClave: string) => {
+    setFormDataMat(prev => {
+      const currentAttrs = prev.atributos ? [...prev.atributos] : [];
+      if (currentAttrs[index]) {
+        currentAttrs[index] = { ...currentAttrs[index], clave: newClave };
+      }
+      const autoName = buildAutoName(prev.categoriaId, currentAttrs);
+      return {
+        ...prev,
+        atributos: currentAttrs,
+        nombre: autoName || prev.nombre
+      };
+    });
+  };
+
+  const handleRemoveAttribute = (clave: string) => {
+    setFormDataMat(prev => {
+      const currentAttrs = (prev.atributos || []).filter(a => a.clave !== clave);
+      const autoName = buildAutoName(prev.categoriaId, currentAttrs);
+      return {
+        ...prev,
+        atributos: currentAttrs,
+        nombre: autoName || prev.nombre
+      };
+    });
   };
 
   const handleOpenEditMat = (mat: Material) => {
@@ -1461,40 +1500,88 @@ export const InsumosManager: React.FC = () => {
                 )}
               </div>
 
-              {/* Dynamic Suggested Attributes Section */}
+              {/* Dynamic Suggested & Custom Attributes Section */}
               {(() => {
                 const selectedCat = categoriasMap.get(formDataMat.categoriaId || '');
                 const suggestedAttrs = selectedCat?.atributosSugeridos || [];
-                if (!selectedCat || suggestedAttrs.length === 0) return null;
+                const sugKeys = new Set(suggestedAttrs.map(s => s.clave));
+
+                const extraAttrs = (formDataMat.atributos || []).filter(a => !sugKeys.has(a.clave));
+
                 return (
-                  <div className="p-3.5 bg-surface-container-high border border-outline-variant/30 rounded-2xl space-y-2.5">
+                  <div className="p-3.5 bg-surface-container-high border border-outline-variant/30 rounded-2xl space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-primary flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5" />
-                        Atributos Sugeridos ({selectedCat.nombre})
+                        Atributos del Material {selectedCat ? `(${selectedCat.nombre})` : ''}
                       </span>
+                      <button
+                        type="button"
+                        onClick={handleAddCustomAttribute}
+                        className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
+                        title="Agregar atributo adicional no sugerido en la categoría"
+                      >
+                        + Atributo Extra
+                      </button>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {suggestedAttrs.map(attrTpl => {
-                        const attrVal = formDataMat.atributos?.find(a => a.clave === attrTpl.clave)?.valor || '';
-                        return (
-                          <div key={attrTpl.clave}>
-                            <label className="block text-[11px] text-on-surface-variant mb-1 truncate">
-                              {attrTpl.etiqueta} {attrTpl.unidad ? `(${attrTpl.unidad})` : ''}
-                            </label>
-                            <input
-                              type={attrTpl.tipo === 'numero' ? 'number' : 'text'}
-                              step={attrTpl.tipo === 'numero' ? 'any' : undefined}
-                              value={attrVal}
-                              onChange={(e) => handleAttributeValueChange(attrTpl.clave, e.target.value)}
-                              className={inputCls}
-                              placeholder={attrTpl.unidad ? `Ej: 16 ${attrTpl.unidad}` : 'Valor...'}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {suggestedAttrs.length > 0 && (
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {suggestedAttrs.map(attrTpl => {
+                          const attrVal = formDataMat.atributos?.find(a => a.clave === attrTpl.clave)?.valor || '';
+                          return (
+                            <div key={attrTpl.clave}>
+                              <label className="block text-[11px] text-on-surface-variant mb-1 truncate">
+                                {attrTpl.etiqueta} {attrTpl.unidad ? `(${attrTpl.unidad})` : ''}
+                              </label>
+                              <input
+                                type={attrTpl.tipo === 'numero' ? 'number' : 'text'}
+                                step={attrTpl.tipo === 'numero' ? 'any' : undefined}
+                                value={attrVal}
+                                onChange={(e) => handleAttributeValueChange(attrTpl.clave, e.target.value)}
+                                className={inputCls}
+                                placeholder={attrTpl.unidad ? `Ej: 16 ${attrTpl.unidad}` : 'Valor...'}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {extraAttrs.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-outline-variant/20">
+                        <span className="block text-[11px] font-semibold text-on-surface-variant">Atributos Adicionales</span>
+                        {extraAttrs.map((attr, idx) => {
+                          const actualIdx = (formDataMat.atributos || []).findIndex(a => a.clave === attr.clave);
+                          return (
+                            <div key={idx} className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={attr.clave}
+                                onChange={(e) => handleUpdateCustomAttrKey(actualIdx, e.target.value)}
+                                className={`${inputCls} w-1/3 text-[11px]`}
+                                placeholder="Nombre Atributo..."
+                              />
+                              <input
+                                type="text"
+                                value={attr.valor}
+                                onChange={(e) => handleAttributeValueChange(attr.clave, e.target.value)}
+                                className={`${inputCls} flex-1 text-[11px]`}
+                                placeholder="Valor..."
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAttribute(attr.clave)}
+                                className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
+                                title="Eliminar atributo"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
