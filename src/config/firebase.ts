@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { localFirebaseConfig } from './firebaseCredentials';
 
 export interface FirebaseConfigParams {
   apiKey: string;
@@ -11,7 +12,7 @@ export interface FirebaseConfigParams {
   appId: string;
 }
 
-// Default fallback config from env vars or localStorage custom config
+// Default fallback config from env vars, localStorage custom config, or localFirebaseConfig
 export const getFirebaseConfig = (): FirebaseConfigParams | null => {
   const savedCustomConfig = localStorage.getItem('ieba_custom_firebase_config');
   if (savedCustomConfig) {
@@ -36,6 +37,11 @@ export const getFirebaseConfig = (): FirebaseConfigParams | null => {
       messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
       appId
     };
+  }
+
+  // Fallback a configuración local si está disponible
+  if (typeof localFirebaseConfig !== 'undefined' && localFirebaseConfig.apiKey) {
+    return localFirebaseConfig;
   }
 
   return null;

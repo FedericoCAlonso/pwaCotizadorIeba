@@ -123,7 +123,27 @@ export const BarcodeScannerModal: React.FC<Props> = ({ onScan, onClose }) => {
 
     // Feedback háptico
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      try { navigator.vibrate(100); } catch (e) {}
+      try { navigator.vibrate(120); } catch (e) {}
+    }
+
+    // Feedback sonoro sintetizado (Web Audio API)
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.15);
+      }
+    } catch (e) {
+      // Ignorar restricciones de autoplay si aplican
     }
 
     // Detener scanner limpiamente

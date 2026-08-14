@@ -922,9 +922,9 @@ export const InsumosManager: React.FC = () => {
             </div>
           ) : (
             /* TABLA VISTA LISTA */
-            <div className="bg-surface-container-low border border-outline-variant/20 rounded-3xl overflow-hidden shadow-sm">
+            <div className="bg-surface-container-low border border-outline-variant/20 rounded-3xl overflow-auto max-h-[75vh] shadow-sm">
               <table className="w-full text-left text-xs">
-                <thead className="bg-surface-container-high border-b border-outline-variant/30 text-on-surface-variant font-semibold">
+                <thead className="bg-surface-container-high border-b border-outline-variant/30 text-on-surface-variant font-semibold sticky top-0 z-10 shadow-sm">
                   <tr>
                     <th className="p-3">Material & Norma</th>
                     <th className="p-3">Categoría</th>

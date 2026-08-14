@@ -618,9 +618,15 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 {existingPresupuesto ? `Editar Cotización ${existingPresupuesto.numero}` : 'Nueva Cotización Eléctrica'}
               </span>
             </h2>
-            <p className="text-sm text-on-surface-variant mt-1">
-              Cálculo de costos en capas (materiales, mano de obra, indirectos, margen, impuestos).
-            </p>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <p className="text-xs text-on-surface-variant">
+                Cálculo de costos en capas (materiales, mano de obra, indirectos, margen, impuestos).
+              </p>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Autoguardado local activo
+              </span>
+            </div>
           </div>
         </div>
 

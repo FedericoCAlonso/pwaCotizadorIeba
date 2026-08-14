@@ -498,9 +498,9 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
                     </div>
 
                     {/* Presupuestos Table */}
-                    <div className="border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm">
+                    <div className="border border-outline-variant/30 rounded-2xl overflow-auto max-h-[60vh] shadow-sm">
                       <table className="w-full text-left text-xs">
-                        <thead className="bg-surface-container-high text-on-surface-variant font-semibold border-b border-outline-variant/20">
+                        <thead className="bg-surface-container-high text-on-surface-variant font-semibold border-b border-outline-variant/20 sticky top-0 z-10 shadow-sm">
                           <tr>
                             <th className="p-3">Número</th>
                             <th className="p-3">Fecha</th>
