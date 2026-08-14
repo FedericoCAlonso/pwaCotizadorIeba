@@ -97,8 +97,8 @@
             "content": "El precio de cada ítem de presupuesto se calcula aplicando la fórmula estándar de ingeniería:",
             "bullets": [
               "Costo Directo = Insumos + Mano de Obra + Servicios Subcontratados.",
-              "Costo Total = Costo Directo + Gastos Indirectos (Supervisión, Fletes, Herramientas).",
-              "Precio Venta = Costo Total / (1 - Margen % / 100)."
+              "Precio Venta Ítem = Costo Directo × (1 + Margen % / 100).",
+              "Subtotal Obra = Suma de Precios de Venta + Gastos Indirectos."
             ]
           },
           {
