@@ -1464,8 +1464,8 @@ export const InsumosManager: React.FC = () => {
               {/* Dynamic Suggested Attributes Section */}
               {(() => {
                 const selectedCat = categoriasMap.get(formDataMat.categoriaId || '');
-                const validSuggested = selectedCat?.atributosSugeridos?.filter(a => a.clave !== 'norma') || [];
-                if (!selectedCat || validSuggested.length === 0) return null;
+                const suggestedAttrs = selectedCat?.atributosSugeridos || [];
+                if (!selectedCat || suggestedAttrs.length === 0) return null;
                 return (
                   <div className="p-3.5 bg-surface-container-high border border-outline-variant/30 rounded-2xl space-y-2.5">
                     <div className="flex items-center justify-between">
@@ -1473,13 +1473,10 @@ export const InsumosManager: React.FC = () => {
                         <Sparkles className="w-3.5 h-3.5" />
                         Atributos Sugeridos ({selectedCat.nombre})
                       </span>
-                      <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                        ⚡ Generación en tiempo real
-                      </span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2.5">
-                      {validSuggested.map(attrTpl => {
+                      {suggestedAttrs.map(attrTpl => {
                         const attrVal = formDataMat.atributos?.find(a => a.clave === attrTpl.clave)?.valor || '';
                         return (
                           <div key={attrTpl.clave}>
