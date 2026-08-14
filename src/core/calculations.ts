@@ -37,7 +37,7 @@ export function roundMoney(value: number): number {
 /**
  * Sanea un número: retorna 0 si es NaN, Infinity, null o undefined; y 0 si es negativo (por defecto).
  */
-function safeNum(value: unknown, allowNegative = false): number {
+export function safeNum(value: unknown, allowNegative = false): number {
   const n = Number(value);
   if (!isFinite(n) || isNaN(n)) return 0;
   if (!allowNegative && n < 0) return 0;

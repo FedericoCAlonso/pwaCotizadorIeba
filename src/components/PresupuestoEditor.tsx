@@ -15,7 +15,9 @@ import {
   RotateCcw,
   Star,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { db } from '../db/database';
 import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
@@ -41,7 +43,8 @@ import {
   congelarItemPresupuesto,
   generarImpuestosPorDefecto,
   obtenerMultiplicadorCondicion,
-  roundMoney
+  roundMoney,
+  safeNum
 } from '../core/calculations';
 import {
   TIPOS_FACTURA,
@@ -145,6 +148,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   const [items, setItems] = useState<ItemPresupuesto[]>([]);
   const [costosIndirectosConfig, setCostosIndirectosConfig] = useState<CostoIndirectoItemConfig[]>([]);
   const [_estado, setEstado] = useState<EstadoPresupuesto>('borrador');
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
 
   // Modal selector TareaTipo
   const [showItemPickerModal, setShowItemPickerModal] = useState(false);
@@ -186,18 +190,51 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               )
         );
         setClienteId(existingPresupuesto.clienteId);
-        setValidezDias(existingPresupuesto.validezDias);
-        setMargenPorcentaje(existingPresupuesto.beneficioPorcentaje ?? existingPresupuesto.margenPorcentaje);
-        setMostrarDolar(existingPresupuesto.mostrarReferenciaMonedaExtranjera);
+        setValidezDias(existingPresupuesto.validezDias || 15);
+        setMargenPorcentaje(
+          existingPresupuesto.beneficioPorcentaje !== undefined
+            ? existingPresupuesto.beneficioPorcentaje
+            : (existingPresupuesto.margenPorcentaje ?? config.margenPorDefectoPct ?? 30)
+        );
+        setMostrarDolar(existingPresupuesto.mostrarReferenciaMonedaExtranjera ?? false);
         setNombreDolar(existingPresupuesto.nombreMonedaExtranjera || 'USD Blue');
         setCotizacionDolar(existingPresupuesto.cotizacionMonedaExtranjera || 1350);
-        setCondicionesPagoTexto(existingPresupuesto.condicionesPagoTexto);
+        setCondicionesPagoTexto(existingPresupuesto.condicionesPagoTexto || '');
         setOpcionesEmision(existingPresupuesto.opcionesEmision || {
           mostrarItemizado: true,
           mostrarDetalleCostos: false,
           condicionesComerciales: existingPresupuesto.condicionesPagoTexto || ''
         });
-        setItems(existingPresupuesto.items);
+
+        // Normalizar ítems existentes (garantizando compatibilidad con cualquier versión previa)
+        const loadedItems: ItemPresupuesto[] = (existingPresupuesto.items || []).map((it) => {
+          const qty = safeNum(it.cantidad) || 1;
+          const cInsumos = safeNum(it.costoInsumos);
+          const cMO = safeNum(it.costoManoObra);
+          const cServ = safeNum(it.costoServiciosTercerizados);
+          const directCost = safeNum(it.costoDirectoTotal) || safeNum(it.costoTotal) || (cInsumos + cMO + cServ) || (safeNum(it.precioVentaUnitario) * qty);
+
+          return {
+            ...it,
+            cantidad: qty,
+            unidad: it.unidad || 'u',
+            insumosSnapshot: it.insumosSnapshot || [],
+            manoObraSnapshot: it.manoObraSnapshot || [],
+            serviciosTercerizados: it.serviciosTercerizados || [],
+            costoInsumos: cInsumos,
+            costoManoObra: cMO,
+            costoServiciosTercerizados: cServ,
+            costoDirectoTotal: directCost,
+            costoUnitario: it.costoUnitario !== undefined ? safeNum(it.costoUnitario) : roundMoney(directCost / qty),
+            costoTotal: directCost,
+            precioVentaClienteUnitario: safeNum(it.precioVentaClienteUnitario) || safeNum(it.precioVentaUnitario) || roundMoney(directCost / qty),
+            precioVentaClienteTotal: safeNum(it.precioVentaClienteTotal) || safeNum(it.precioVentaTotal) || directCost,
+            precioVentaUnitario: safeNum(it.precioVentaUnitario) || roundMoney(directCost / qty),
+            precioVentaTotal: safeNum(it.precioVentaTotal) || directCost
+          };
+        });
+
+        setItems(loadedItems);
         setEstado(existingPresupuesto.estado);
 
         // Cargar configuración de costos indirectos del presupuesto
@@ -416,6 +453,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
   // Add Custom Free Text Item
   const handleAddCustomItem = () => {
+    const defaultUnitCost = 10000;
     const newItem: ItemPresupuesto = {
       id: `item-${crypto.randomUUID()}`,
       descripcion: 'Trabajo / Partida Personalizada',
@@ -423,15 +461,42 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       unidad: 'u',
       insumosSnapshot: [],
       manoObraSnapshot: [],
+      serviciosTercerizados: [],
       costoInsumos: 0,
       costoManoObra: 0,
-      costoDirectoTotal: 0,
-      costoUnitario: 0,
-      costoTotal: 0,
-      precioVentaUnitario: 10000,
-      precioVentaTotal: 10000
+      costoServiciosTercerizados: 0,
+      costoDirectoTotal: defaultUnitCost,
+      costoUnitario: defaultUnitCost,
+      costoTotal: defaultUnitCost,
+      precioVentaUnitario: defaultUnitCost,
+      precioVentaTotal: defaultUnitCost
     };
     setItems((prev) => [...prev, newItem]);
+  };
+
+  const handleUpdateItemUnitDirectCost = (index: number, unitCost: number) => {
+    const safeCost = Math.max(0, safeNum(unitCost));
+    setItems((prev) => {
+      const next = [...prev];
+      const target = next[index];
+      const cant = target.cantidad || 1;
+      const totalDirectCost = roundMoney(safeCost * cant);
+
+      next[index] = {
+        ...target,
+        costoUnitario: safeCost,
+        costoDirectoTotal: totalDirectCost,
+        costoTotal: totalDirectCost
+      };
+      return next;
+    });
+  };
+
+  const handleToggleExpandItem = (itemId: string) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [itemId]: !prev[itemId]
+    }));
   };
 
   const handleUpdateItemCondicion = (index: number, condicion: 'normal' | 'dificultosa' | 'favorable') => {
@@ -444,8 +509,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         multiplicadorCondicionFavorable: config.multiplicadorCondicionFavorable
       });
 
+      const manoObraSnap = target.manoObraSnapshot || [];
+
       // Recalcular mano de obra con multiplicador de condición (Spec v2 §1.2)
-      const manoObraActualizada = target.manoObraSnapshot.map(mo => {
+      const manoObraActualizada = manoObraSnap.map(mo => {
         const horasAjustadas = mo.horasTotales * mult;
         return {
           ...mo,
@@ -454,7 +521,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       });
 
       const costoManoObra = roundMoney(manoObraActualizada.reduce((acc, m) => acc + m.subtotalManoObra, 0));
-      const costoDirectoTotal = roundMoney(target.costoInsumos + costoManoObra + (target.costoServiciosTercerizados || 0));
+      const costoInsumos = safeNum(target.costoInsumos);
+      const costoServicios = safeNum(target.costoServiciosTercerizados);
+      const hasSnapshots = (target.insumosSnapshot && target.insumosSnapshot.length > 0) || manoObraSnap.length > 0;
+
+      const costoDirectoTotal = hasSnapshots
+        ? roundMoney(costoInsumos + costoManoObra + costoServicios)
+        : safeNum(target.costoDirectoTotal);
 
       next[index] = {
         ...target,
@@ -470,14 +543,17 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   };
 
   const handleUpdateItemQuantity = (index: number, qty: number) => {
-    const safeQty = Math.max(0.01, qty);
+    const safeQty = Math.max(0.01, safeNum(qty) || 1);
     setItems((prev) => {
       const next = [...prev];
       const target = next[index];
       const prevQty = target.cantidad || 1;
 
+      const insumosSnap = target.insumosSnapshot || [];
+      const manoObraSnap = target.manoObraSnapshot || [];
+
       // Escalar insumos
-      const insumosActualizados = target.insumosSnapshot.map(i => {
+      const insumosActualizados = insumosSnap.map(i => {
         const unitQty = i.cantidadUnitaria !== undefined ? i.cantidadUnitaria : i.cantidadTotal / prevQty;
         const cantTotal = roundMoney(unitQty * safeQty);
         return {
@@ -489,7 +565,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       });
 
       // Escalar mano de obra
-      const manoObraActualizada = target.manoObraSnapshot.map(m => {
+      const manoObraActualizada = manoObraSnap.map(m => {
         const unitHoras = m.horasUnitarias !== undefined ? m.horasUnitarias : m.horasTotales / prevQty;
         const hTotales = roundMoney(unitHoras * safeQty);
         return {
@@ -502,10 +578,15 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
       const costoInsumos = roundMoney(insumosActualizados.reduce((acc, i) => acc + i.subtotalInsumo, 0));
       const costoManoObra = roundMoney(manoObraActualizada.reduce((acc, m) => acc + m.subtotalManoObra, 0));
-      const hasSnapshots = target.insumosSnapshot.length > 0 || target.manoObraSnapshot.length > 0;
+      const hasSnapshots = insumosSnap.length > 0 || manoObraSnap.length > 0;
+      
+      const unitDirectCost = target.costoUnitario !== undefined 
+        ? target.costoUnitario 
+        : roundMoney((target.costoDirectoTotal || 0) / prevQty);
+
       const costoDirectoTotal = hasSnapshots
-        ? roundMoney(costoInsumos + costoManoObra + (target.costoServiciosTercerizados || 0))
-        : roundMoney((target.costoDirectoTotal / prevQty) * safeQty);
+        ? roundMoney(costoInsumos + costoManoObra + safeNum(target.costoServiciosTercerizados))
+        : roundMoney(unitDirectCost * safeQty);
 
       next[index] = {
         ...target,
@@ -515,7 +596,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         costoInsumos,
         costoManoObra,
         costoDirectoTotal,
-        costoUnitario: roundMoney(costoDirectoTotal / safeQty),
+        costoUnitario: hasSnapshots ? roundMoney(costoDirectoTotal / safeQty) : unitDirectCost,
         costoTotal: costoDirectoTotal
       };
       return next;
@@ -523,12 +604,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   };
 
   const handleUpdateItemUnitPrice = (index: number, price: number) => {
+    const safePrice = Math.max(0, safeNum(price));
     setItems((prev) => {
       const next = [...prev];
       next[index] = {
         ...next[index],
-        precioVentaUnitario: price,
-        precioVentaTotal: price * next[index].cantidad
+        precioVentaUnitario: safePrice,
+        precioVentaTotal: roundMoney(safePrice * (next[index].cantidad || 1))
       };
       return next;
     });
@@ -698,7 +780,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
           <button
             type="button"
-            onClick={() => handleSavePresupuesto('enviado')}
+            onClick={() => setShowEmitirModal(true)}
             className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-sm hover:shadow-md"
           >
             <Lock className="w-4 h-4" />
@@ -890,7 +972,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             ) : (
               <div className="space-y-3">
                 {items.map((item, idx) => {
-                  const isCustom = !item.tareaTipoId || item.insumosSnapshot.length === 0;
+                  const hasSnapshots = (item.insumosSnapshot && item.insumosSnapshot.length > 0) || (item.manoObraSnapshot && item.manoObraSnapshot.length > 0);
+                  const isCustom = !item.tareaTipoId || !hasSnapshots;
+                  const isExpanded = !!expandedItems[item.id];
+                  const calcItem = totales.itemsCalculados[idx] || item;
 
                   return (
                     <div
@@ -978,21 +1063,49 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                             />
                           </div>
 
-                          {/* Unit Selling Price Input */}
+                          {/* Direct Unit Cost */}
                           <div className="flex items-center gap-1">
-                            <span className="text-xs text-on-surface-variant">Precio Unit:</span>
-                            <div className="relative">
-                              <span className="text-xs text-on-surface-variant absolute left-2 top-1.5">$</span>
-                              <input
-                                type="number"
-                                step="1"
-                                inputMode="decimal"
-                                value={item.precioVentaUnitario}
-                                onChange={(e) => handleUpdateItemUnitPrice(idx, parseFloat(e.target.value) || 0)}
-                                className="w-28 bg-surface-container-highest border border-outline-variant/30 rounded-xl pl-5 pr-2 py-1 text-xs text-primary font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
-                              />
-                            </div>
+                            <span className="text-xs text-on-surface-variant">Costo Unit:</span>
+                            {isCustom ? (
+                              <div className="relative">
+                                <span className="text-xs text-on-surface-variant absolute left-2 top-1.5">$</span>
+                                <input
+                                  type="number"
+                                  step="1"
+                                  inputMode="decimal"
+                                  value={item.costoUnitario !== undefined ? item.costoUnitario : roundMoney((item.costoDirectoTotal || 0) / (item.cantidad || 1))}
+                                  onChange={(e) => handleUpdateItemUnitDirectCost(idx, parseFloat(e.target.value) || 0)}
+                                  className="w-24 bg-surface-container-highest border border-outline-variant/30 rounded-xl pl-5 pr-2 py-1 text-xs text-primary font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                  placeholder="0"
+                                />
+                              </div>
+                            ) : (
+                              <span className="font-mono text-xs font-bold text-on-surface bg-surface-container px-2.5 py-1 rounded-xl border border-outline-variant/20">
+                                {formatARS(calcItem.costoUnitario ?? (item.costoDirectoTotal / (item.cantidad || 1)))}
+                              </span>
+                            )}
                           </div>
+
+                          {/* Client APU Sale Price Badge */}
+                          <div className="bg-primary/10 border border-primary/20 px-3 py-1 rounded-xl flex items-center gap-1.5 text-primary font-mono">
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Venta:</span>
+                            <span className="text-xs font-bold font-mono">
+                              {formatARS(calcItem.precioVentaClienteUnitario ?? item.precioVentaUnitario)}
+                            </span>
+                            <span className="text-[10px] opacity-75">/{item.unidad || 'u'}</span>
+                          </div>
+
+                          {/* Expand Breakdown Toggle (if has snapshots) */}
+                          {hasSnapshots && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleExpandItem(item.id)}
+                              className="p-1.5 text-on-surface-variant hover:text-primary rounded-xl hover:bg-surface-variant transition-colors"
+                              title={isExpanded ? 'Ocultar desglose de insumos y mano de obra' : 'Ver desglose de insumos y mano de obra'}
+                            >
+                              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </button>
+                          )}
 
                           <button
                             type="button"
@@ -1030,73 +1143,107 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                         </div>
                       </div>
 
+                      {/* Collapsible Insumos & Mano de Obra Snapshot Breakdown */}
+                      {isExpanded && hasSnapshots && (
+                        <div className="bg-surface-container-low/90 p-3.5 rounded-xl border border-outline-variant/30 space-y-3 text-xs">
+                          {/* Insumos Snapshot */}
+                          {item.insumosSnapshot && item.insumosSnapshot.length > 0 && (
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between items-center text-[10px] uppercase font-bold text-primary tracking-wider">
+                                <span>Materiales e Insumos ({item.insumosSnapshot.length})</span>
+                                <span className="font-mono">{formatARS(item.costoInsumos)}</span>
+                              </div>
+                              <div className="space-y-1 divide-y divide-outline-variant/10">
+                                {item.insumosSnapshot.map((ins, iIdx) => (
+                                  <div key={iIdx} className="pt-1 flex items-center justify-between text-on-surface-variant text-[11px]">
+                                    <span className="truncate flex-1">{ins.nombre}</span>
+                                    <div className="flex items-center gap-3 font-mono shrink-0 ml-2">
+                                      <span>{ins.cantidadTotal} {ins.unidad} × {formatARS(ins.precioUnitarioCongelado)}</span>
+                                      <strong className="text-on-surface font-semibold">{formatARS(ins.subtotalInsumo)}</strong>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Mano de Obra Snapshot */}
+                          {item.manoObraSnapshot && item.manoObraSnapshot.length > 0 && (
+                            <div className="space-y-1.5 pt-2 border-t border-outline-variant/20">
+                              <div className="flex justify-between items-center text-[10px] uppercase font-bold text-primary tracking-wider">
+                                <span>Mano de Obra ({item.manoObraSnapshot.length})</span>
+                                <span className="font-mono">{formatARS(item.costoManoObra)}</span>
+                              </div>
+                              <div className="space-y-1 divide-y divide-outline-variant/10">
+                                {item.manoObraSnapshot.map((mo, mIdx) => (
+                                  <div key={mIdx} className="pt-1 flex items-center justify-between text-on-surface-variant text-[11px]">
+                                    <span className="truncate flex-1">{mo.nombreCategoria}</span>
+                                    <div className="flex items-center gap-3 font-mono shrink-0 ml-2">
+                                      <span>{mo.horasTotales} hs × {formatARS(mo.costoHoraCongelado)}/h</span>
+                                      <strong className="text-on-surface font-semibold">{formatARS(mo.subtotalManoObra)}</strong>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Servicios Tercerizados Snapshot */}
+                          {item.serviciosTercerizados && item.serviciosTercerizados.length > 0 && (
+                            <div className="space-y-1.5 pt-2 border-t border-outline-variant/20">
+                              <div className="flex justify-between items-center text-[10px] uppercase font-bold text-purple-600 dark:text-purple-400 tracking-wider">
+                                <span>Servicios Tercerizados ({item.serviciosTercerizados.length})</span>
+                                <span className="font-mono">{formatARS(item.costoServiciosTercerizados || 0)}</span>
+                              </div>
+                              <div className="space-y-1 divide-y divide-outline-variant/10">
+                                {item.serviciosTercerizados.map((st, sIdx) => (
+                                  <div key={sIdx} className="pt-1 flex items-center justify-between text-on-surface-variant text-[11px]">
+                                    <span className="truncate flex-1">{st.descripcion} {st.nombreProveedor ? `(${st.nombreProveedor})` : ''}</span>
+                                    <strong className="text-on-surface font-mono font-semibold">{formatARS(st.costo)}</strong>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Breakdown Cost Footer per Item (Internal Cost vs. Client Sale Price with K) */}
                       <div className="bg-surface-container-highest/60 p-3 rounded-xl border border-outline-variant/20 flex flex-wrap items-center justify-between gap-3 text-xs">
                         <div className="flex flex-wrap items-center gap-3 text-on-surface-variant">
-                          {isCustom ? (
-                            <div className="flex items-center gap-2">
-                              <span>Costo Base Estimado (C):</span>
-                              <input
-                                type="number"
-                                step="1"
-                                value={item.costoDirectoTotal}
-                                onChange={(e) => {
-                                  const c = parseFloat(e.target.value) || 0;
-                                  setItems(prev => {
-                                    const next = [...prev];
-                                    next[idx] = {
-                                      ...next[idx],
-                                      costoDirectoTotal: c,
-                                      costoUnitario: roundMoney(c / (next[idx].cantidad || 1)),
-                                      costoTotal: c
-                                    };
-                                    return next;
-                                  });
-                                }}
-                                className="w-24 bg-surface-container-highest border border-outline-variant/30 rounded-lg px-2 py-0.5 text-xs text-primary font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                placeholder="0"
-                              />
-                            </div>
-                          ) : (
-                            <>
-                              <span>
-                                Insumos: <strong className="text-on-surface">{formatARS(item.costoInsumos)}</strong>
-                              </span>
-                              <span>•</span>
-                              <span>
-                                Mano Obra: <strong className="text-on-surface">{formatARS(item.costoManoObra)}</strong>
-                              </span>
-                              <span>•</span>
-                              <span>
-                                Costo Directo (C): <strong className="text-on-surface font-mono font-bold">{formatARS(totales.itemsCalculados[idx]?.costoDirectoTotal ?? item.costoDirectoTotal)}</strong>
-                                <span className="text-[10px] text-on-surface-variant ml-1 font-normal">
-                                  ({formatARS(totales.itemsCalculados[idx]?.costoUnitario ?? (item.costoDirectoTotal / (item.cantidad || 1)))}/{item.unidad || 'u'})
-                                </span>
-                              </span>
-                            </>
-                          )}
+                          <span>
+                            Insumos: <strong className="text-on-surface">{formatARS(item.costoInsumos)}</strong>
+                          </span>
+                          <span>•</span>
+                          <span>
+                            Mano Obra: <strong className="text-on-surface">{formatARS(item.costoManoObra)}</strong>
+                          </span>
+                          <span>•</span>
+                          <span>
+                            Costo Directo (C): <strong className="text-on-surface font-mono font-bold">{formatARS(calcItem.costoDirectoTotal ?? item.costoDirectoTotal)}</strong>
+                            <span className="text-[10px] text-on-surface-variant ml-1 font-normal">
+                              ({formatARS(calcItem.costoUnitario ?? (item.costoDirectoTotal / (item.cantidad || 1)))}/{item.unidad || 'u'})
+                            </span>
+                          </span>
                         </div>
 
                         {/* Client Sale Price calculated with APU */}
                         <div className="bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg flex items-center gap-2">
                           <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
-                            Venta Cliente (APU):
+                            Total Venta Renglón:
                           </span>
                           <span className="font-mono font-bold text-primary text-sm">
-                            {formatARS(totales.itemsCalculados[idx]?.precioVentaClienteTotal ?? item.precioVentaTotal)}
-                          </span>
-                          <span className="text-[10px] text-primary/80 font-mono">
-                            ({formatARS(totales.itemsCalculados[idx]?.precioVentaClienteUnitario ?? (item.precioVentaTotal / (item.cantidad || 1)))}/{item.unidad || 'u'})
+                            {formatARS(calcItem.precioVentaClienteTotal ?? item.precioVentaTotal)}
                           </span>
                         </div>
 
                         {/* APU Prorated Micro-Breakdown when GG absolutes exist */}
-                        {totales.itemsCalculados[idx]?.ggAbsolutoProrrateado ? (
+                        {calcItem.ggAbsolutoProrrateado ? (
                           <div className="w-full flex flex-wrap items-center justify-between gap-2 text-[10px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/10">
-                            <span>Incidencia: {((totales.itemsCalculados[idx]?.incidencia || 0) * 100).toFixed(1)}%</span>
-                            <span>GG Fijo Prorr.: +{formatARS(totales.itemsCalculados[idx]?.ggAbsolutoProrrateado || 0)}</span>
-                            <span>Base APU: {formatARS(totales.itemsCalculados[idx]?.baseCostoItem || 0)}</span>
-                            <span>Beneficio: {formatARS(totales.itemsCalculados[idx]?.beneficioItem || 0)}</span>
+                            <span>Incidencia: {((calcItem.incidencia || 0) * 100).toFixed(1)}%</span>
+                            <span>GG Fijo Prorr.: +{formatARS(calcItem.ggAbsolutoProrrateado || 0)}</span>
+                            <span>Base APU: {formatARS(calcItem.baseCostoItem || 0)}</span>
+                            <span>Beneficio: {formatARS(calcItem.beneficioItem || 0)}</span>
                           </div>
                         ) : null}
                       </div>
@@ -1180,9 +1327,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
               <div className="space-y-2">
                 {costosIndirectosConfig.map((ci, idx) => {
-                  const montoCalculado = ci.tipo === 'porcentual_sobre_costo'
-                    ? roundMoney(totales.costoGlobal * (ci.valor / 100))
-                    : roundMoney(ci.valor);
+                  const applied = totales.costosIndirectosAplicados.find(c => c.costoIndirectoId === ci.id);
+                  const montoCalculado = applied ? applied.montoCalculado : (ci.tipo === 'porcentual_sobre_costo' ? roundMoney(totales.costoGlobal * (ci.valor / 100)) : roundMoney(ci.valor));
 
                   return (
                     <div key={ci.id || idx} className="bg-surface-container p-2.5 rounded-xl border border-outline-variant/20 space-y-1.5">
@@ -1234,7 +1380,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                       {ci.aplica && (
                         <div className="flex justify-between items-center text-[11px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/10">
                           <span>
-                            {ci.nombre} ({ci.tipo === 'porcentual_sobre_costo' ? `${ci.valor}% s/Costo` : 'Fijo'}):
+                            {ci.nombre} ({ci.tipo === 'porcentual_sobre_costo' ? `${ci.valor}% s/Base APU` : 'Fijo'}):
                           </span>
                           <span className="font-bold text-primary">{formatARS(montoCalculado)}</span>
                         </div>
