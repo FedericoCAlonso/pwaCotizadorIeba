@@ -4,7 +4,7 @@ import {
   X, FileSpreadsheet, Upload, CheckCircle2, ArrowRight, Table, Download, RefreshCw
 } from 'lucide-react';
 import { db } from '../db/database';
-import { Material, Producto, Oferta, CategoriaMaterial } from '../core/types';
+import { Material, Producto, Oferta, CategoriaMaterial, AtributoMaterial } from '../core/types';
 
 interface ImportCatalogModalProps {
   isOpen: boolean;
@@ -59,6 +59,16 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
     newCount: 0
   });
 
+  // Category Specific Template Selection
+  const [selectedCatForDownload, setSelectedCatForDownload] = useState<string>('all');
+  const [dbCategories, setDbCategories] = useState<CategoriaMaterial[]>([]);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      db.categoriasMaterial.toArray().then(cats => setDbCategories(cats));
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   /**
@@ -77,9 +87,89 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       workbook.creator = 'Cotizador IEBA';
       workbook.created = new Date();
 
-      // Hoja 2: "Categorías"
-      const sheetCats = workbook.addWorksheet('Categorías');
+      if (selectedCatForDownload !== 'all') {
+        const targetCat = existingCats.find(c => c.id === selectedCatForDownload);
+        if (targetCat) {
+          // Hoja 2: "Metadatos" (Información de Categoría)
+          const sheetMeta = workbook.addWorksheet('Metadatos');
+          sheetMeta.addRow(['METADATO', 'VALOR']);
+          sheetMeta.addRow(['CATEGORIA_ID', targetCat.id]);
+          sheetMeta.addRow(['CATEGORIA_NOMBRE', targetCat.nombre]);
+          sheetMeta.getColumn(1).width = 25;
+          sheetMeta.getColumn(2).width = 35;
 
+          // Hoja 1: "Materiales"
+          const sheetMat = workbook.addWorksheet('Materiales');
+
+          const tableColumns: { name: string; filterButton: boolean }[] = [
+            { name: 'Nombre Técnico (Opcional)', filterButton: true }
+          ];
+
+          const sampleRow: any[] = ['']; // Dejar en blanco para autogeneración inteligente
+
+          targetCat.atributosSugeridos.forEach(attr => {
+            const headerLabel = attr.unidad ? `${attr.etiqueta} (${attr.unidad})` : attr.etiqueta;
+            tableColumns.push({ name: headerLabel, filterButton: true });
+            sampleRow.push(attr.tipo === 'numero' ? 2.5 : 'Ejemplo');
+          });
+
+          tableColumns.push({ name: 'Unidad Venta', filterButton: true });
+          sampleRow.push('m');
+
+          tableColumns.push({ name: 'Marca', filterButton: true });
+          sampleRow.push('Prysmian');
+
+          tableColumns.push({ name: 'Precio Referencia ARS', filterButton: true });
+          sampleRow.push(1250);
+
+          sheetMat.addTable({
+            name: `Tabla_${targetCat.id.replace(/[^a-zA-Z0-9]/g, '_')}`,
+            ref: 'A1',
+            headerRow: true,
+            totalsRow: false,
+            style: {
+              theme: 'TableStyleMedium9',
+              showRowStripes: true,
+            },
+            columns: tableColumns,
+            rows: [sampleRow]
+          });
+
+          // Formateo de ancho de columnas
+          sheetMat.getColumn(1).width = 44;
+          let colIdx = 2;
+          targetCat.atributosSugeridos.forEach(() => {
+            sheetMat.getColumn(colIdx).width = 24;
+            colIdx++;
+          });
+          sheetMat.getColumn(colIdx).width = 18; // Unidad Venta
+          sheetMat.getColumn(colIdx + 1).width = 22; // Marca
+          sheetMat.getColumn(colIdx + 2).width = 24; // Precio
+
+          // Aplicar Validación de Datos (Lista desplegable en Unidad Venta)
+          const unitColLetter = sheetMat.getColumn(colIdx).letter;
+          for (let r = 2; r <= 100; r++) {
+            sheetMat.getCell(`${unitColLetter}${r}`).dataValidation = {
+              type: 'list',
+              allowBlank: true,
+              formulae: ['"m,u,kg,rollo x100m,caja x100u,global"']
+            };
+          }
+
+          const buffer = await workbook.xlsx.writeBuffer();
+          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `Plantilla_${targetCat.nombre.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+          a.click();
+          URL.revokeObjectURL(url);
+          return;
+        }
+      }
+
+      // Plantilla Universal (Todas las Categorías)
+      const sheetCats = workbook.addWorksheet('Categorías');
       const catTableRows = existingCats.map(c => [c.nombre]);
       sheetCats.addTable({
         name: 'TablaCategorias',
@@ -95,13 +185,11 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       });
       sheetCats.getColumn(1).width = 38;
 
-      // Hoja 1: "Materiales"
       const sheetMat = workbook.addWorksheet('Materiales');
-
       const sampleCatName = existingCats[0]?.nombre || 'Cables & Conductores';
 
       sheetMat.addTable({
-        name: 'TablaMateriales',
+        name: 'TablaMaterialesUniversal',
         ref: 'A1',
         headerRow: true,
         totalsRow: false,
@@ -112,24 +200,21 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
         columns: [
           { name: 'Nombre / Descripción', filterButton: true },
           { name: 'Categoría', filterButton: true },
-          { name: 'Unidad', filterButton: true },
-          { name: 'Norma', filterButton: true },
+          { name: 'Unidad Venta', filterButton: true },
           { name: 'Marca', filterButton: true },
           { name: 'Precio Referencia ARS', filterButton: true }
         ],
         rows: [
-          ['Cable Unipolar 2.5 mm² IRAM 247-3', sampleCatName, 'm', 'IRAM 247-3', 'Prysmian', 720]
+          ['Cable Unipolar 2.5 mm² IRAM 247-3', sampleCatName, 'm', 'Prysmian', 720]
         ]
       });
 
       sheetMat.getColumn(1).width = 42;
       sheetMat.getColumn(2).width = 32;
-      sheetMat.getColumn(3).width = 12;
-      sheetMat.getColumn(4).width = 16;
-      sheetMat.getColumn(5).width = 22;
-      sheetMat.getColumn(6).width = 22;
+      sheetMat.getColumn(3).width = 16;
+      sheetMat.getColumn(4).width = 22;
+      sheetMat.getColumn(5).width = 24;
 
-      // Aplicar Validación de Datos (dataValidation dropdown list) en la columna Categoría (B2:B100)
       const lastCatRow = Math.max(2, (catTableRows.length > 0 ? catTableRows.length : 2) + 1);
       const catFormula = `'Categorías'!$A$2:$A$${lastCatRow}`;
 
@@ -139,6 +224,11 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
           allowBlank: true,
           formulae: [catFormula]
         };
+        sheetMat.getCell(`C${r}`).dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: ['"m,u,kg,rollo x100m,caja x100u,global"']
+        };
       }
 
       const buffer = await workbook.xlsx.writeBuffer();
@@ -146,7 +236,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'Plantilla_Importacion_Materiales_IEBA.xlsx';
+      a.download = 'Plantilla_Universal_Materiales_IEBA.xlsx';
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -314,19 +404,53 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       return newCatId;
     };
 
-    rawRows.forEach((row) => {
-      const nombreVal = nameIdx > -1 ? String(row[nameIdx] || '').trim() : '';
-      if (!nombreVal) {
-        ignored++;
-        return;
-      }
+    const mappedHeaderIndexes = new Set([nameIdx, catIdx, unitIdx, normaIdx, marcaIdx, precioIdx].filter(i => i > -1));
 
+    rawRows.forEach((row) => {
+      let nombreVal = nameIdx > -1 ? String(row[nameIdx] || '').trim() : '';
       const catName = catIdx > -1 ? String(row[catIdx] || '').trim() : '';
       const resolvedCatId = resolveCategoryId(catName);
       const unidadVal = unitIdx > -1 ? String(row[unitIdx] || '').trim() : 'u';
       const normaVal = normaIdx > -1 ? String(row[normaIdx] || '').trim() : '';
       const marcaVal = marcaIdx > -1 ? String(row[marcaIdx] || '').trim() : '';
       const precioVal = precioIdx > -1 ? parseFloat(String(row[precioIdx]).replace(/[^0-9.,]/g, '').replace(',', '.')) || 0 : 0;
+
+      // Extraer todos los atributos dinámicos de columnas adicionales
+      const rowAttrs: AtributoMaterial[] = [];
+      headers.forEach((h, idx) => {
+        if (!mappedHeaderIndexes.has(idx)) {
+          const val = String(row[idx] || '').trim();
+          if (val) {
+            const cleanKey = h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9_]/g, "_");
+            rowAttrs.push({ clave: cleanKey, valor: val });
+          }
+        }
+      });
+
+      if (normaVal && !rowAttrs.some(a => a.clave === 'norma')) {
+        rowAttrs.push({ clave: 'norma', valor: normaVal });
+      }
+
+      // Si el nombre técnico vino vacío, autogenerar con formato Pipe
+      if (!nombreVal) {
+        const catObj = existingCategories.find(c => c.id === resolvedCatId) || catMap.get(resolvedCatId);
+        const catNameLabel = catObj?.nombre || 'Insumo';
+        const parts: string[] = [catNameLabel];
+
+        rowAttrs.forEach(attr => {
+          const tpl = catObj?.atributosSugeridos?.find(s => s.clave === attr.clave);
+          const label = tpl?.etiqueta || (attr.clave.charAt(0).toUpperCase() + attr.clave.slice(1).replace(/_/g, ' '));
+          const unit = tpl?.unidad ? ` ${tpl.unidad}` : '';
+          parts.push(`${label} = ${attr.valor}${unit}`);
+        });
+
+        nombreVal = parts.join(' | ');
+      }
+
+      if (!nombreVal) {
+        ignored++;
+        return;
+      }
 
       const matKey = nombreVal.toLowerCase();
       const existingMat = existingMatByNameMap.get(matKey);
@@ -341,17 +465,19 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       }
 
       if (!matMap.has(matKey)) {
-        const baseAttrs = existingMat ? [...existingMat.atributos] : [];
-        if (normaVal && !baseAttrs.some(a => a.clave === 'norma')) {
-          baseAttrs.push({ clave: 'norma', valor: normaVal });
-        }
+        const mergedAttrs = existingMat ? [...existingMat.atributos] : [];
+        rowAttrs.forEach(ra => {
+          if (!mergedAttrs.some(ma => ma.clave === ra.clave)) {
+            mergedAttrs.push(ra);
+          }
+        });
 
         matMap.set(matKey, {
           id: matId,
           categoriaId: resolvedCatId,
           nombre: nombreVal,
           unidadVenta: unidadVal || (existingMat ? existingMat.unidadVenta : 'u'),
-          atributos: baseAttrs,
+          atributos: mergedAttrs,
           activo: true,
           fichaIncompleta: false,
           createdAt: existingMat ? existingMat.createdAt : now,
@@ -480,31 +606,38 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
               </div>
 
               {/* Botones Descargar Plantillas */}
-              <div className="p-4 bg-surface-container-high rounded-2xl border border-outline-variant/20 space-y-2 text-xs">
+              <div className="p-4 bg-surface-container-high rounded-2xl border border-outline-variant/20 space-y-3 text-xs">
                 <div>
-                  <h5 className="font-semibold text-on-surface">¿Deseas descargar planillas de plantilla estructuradas?</h5>
-                  <p className="text-on-surface-variant text-[11px]">
-                    Plantilla avanzada generada con ExcelJS (Tablas Oficiales + Validación de Datos desplegable vinculada a la hoja Categorías).
+                  <h5 className="font-semibold text-on-surface flex items-center gap-1.5">
+                    <Table className="w-4 h-4 text-primary" />
+                    Descargar Plantilla Excel por Categoría (`exceljs`)
+                  </h5>
+                  <p className="text-on-surface-variant text-[11px] mt-0.5">
+                    Genera una Tabla de Excel (.xlsx) estructurada con columnas de atributos específicas para la categoría seleccionada, formato de tabla y validación de datos por lista desplegable.
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={handleDownloadExcelTemplate}
-                    className="flex items-center gap-1.5 px-3.5 py-2 bg-secondary-container text-on-secondary-container hover:bg-secondary-container/80 rounded-xl font-semibold text-xs transition-colors shadow-xs"
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-1">
+                  <select
+                    value={selectedCatForDownload}
+                    onChange={(e) => setSelectedCatForDownload(e.target.value)}
+                    className="px-3 py-2 bg-surface-container border border-outline-variant/40 rounded-xl text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary flex-1"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Plantilla Excel Avanzada (ExcelJS .xlsx)</span>
-                  </button>
+                    <option value="all">Todas las Categorías (Planilla Universal)</option>
+                    {dbCategories.map(cat => (
+                      <option key={cat.id} value={cat.id}>
+                        Categoría: {cat.nombre}
+                      </option>
+                    ))}
+                  </select>
 
                   <button
                     type="button"
-                    onClick={handleDownloadCSVTemplate}
-                    className="flex items-center gap-1.5 px-3.5 py-2 bg-surface-container-highest text-on-surface hover:bg-surface-variant rounded-xl font-semibold text-xs transition-colors border border-outline-variant/30"
+                    onClick={handleDownloadExcelTemplate}
+                    className="flex items-center justify-center gap-1.5 px-4 py-2 bg-primary text-on-primary hover:bg-primary/90 rounded-xl font-semibold text-xs transition-colors shadow-sm shrink-0"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Plantillas CSV (2 Archivos .csv)</span>
+                    <Download className="w-4 h-4" />
+                    <span>Descargar Excel (.xlsx)</span>
                   </button>
                 </div>
               </div>
