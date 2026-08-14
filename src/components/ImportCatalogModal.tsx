@@ -101,11 +101,8 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
           // Hoja 1: "Materiales"
           const sheetMat = workbook.addWorksheet('Materiales');
 
-          const tableColumns: { name: string; filterButton: boolean }[] = [
-            { name: 'Nombre Técnico (Opcional)', filterButton: true }
-          ];
-
-          const sampleRow: any[] = ['']; // Dejar en blanco para autogeneración inteligente
+          const tableColumns: { name: string; filterButton: boolean }[] = [];
+          const sampleRow: any[] = [];
 
           targetCat.atributosSugeridos.forEach(attr => {
             const headerLabel = attr.unidad ? `${attr.etiqueta} (${attr.unidad})` : attr.etiqueta;
@@ -115,12 +112,6 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
 
           tableColumns.push({ name: 'Unidad Venta', filterButton: true });
           sampleRow.push('m');
-
-          tableColumns.push({ name: 'Marca', filterButton: true });
-          sampleRow.push('Prysmian');
-
-          tableColumns.push({ name: 'Precio Referencia ARS', filterButton: true });
-          sampleRow.push(1250);
 
           sheetMat.addTable({
             name: `Tabla_${targetCat.id.replace(/[^a-zA-Z0-9]/g, '_')}`,
@@ -136,15 +127,12 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
           });
 
           // Formateo de ancho de columnas
-          sheetMat.getColumn(1).width = 44;
-          let colIdx = 2;
+          let colIdx = 1;
           targetCat.atributosSugeridos.forEach(() => {
-            sheetMat.getColumn(colIdx).width = 24;
+            sheetMat.getColumn(colIdx).width = 26;
             colIdx++;
           });
-          sheetMat.getColumn(colIdx).width = 18; // Unidad Venta
-          sheetMat.getColumn(colIdx + 1).width = 22; // Marca
-          sheetMat.getColumn(colIdx + 2).width = 24; // Precio
+          sheetMat.getColumn(colIdx).width = 20; // Unidad Venta
 
           // Aplicar Validación de Datos (Lista desplegable en Unidad Venta)
           const unitColLetter = sheetMat.getColumn(colIdx).letter;
@@ -198,33 +186,27 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
           showRowStripes: true,
         },
         columns: [
-          { name: 'Nombre / Descripción', filterButton: true },
           { name: 'Categoría', filterButton: true },
-          { name: 'Unidad Venta', filterButton: true },
-          { name: 'Marca', filterButton: true },
-          { name: 'Precio Referencia ARS', filterButton: true }
+          { name: 'Unidad Venta', filterButton: true }
         ],
         rows: [
-          ['Cable Unipolar 2.5 mm² IRAM 247-3', sampleCatName, 'm', 'Prysmian', 720]
+          [sampleCatName, 'm']
         ]
       });
 
-      sheetMat.getColumn(1).width = 42;
-      sheetMat.getColumn(2).width = 32;
-      sheetMat.getColumn(3).width = 16;
-      sheetMat.getColumn(4).width = 22;
-      sheetMat.getColumn(5).width = 24;
+      sheetMat.getColumn(1).width = 36;
+      sheetMat.getColumn(2).width = 20;
 
       const lastCatRow = Math.max(2, (catTableRows.length > 0 ? catTableRows.length : 2) + 1);
       const catFormula = `'Categorías'!$A$2:$A$${lastCatRow}`;
 
       for (let r = 2; r <= 100; r++) {
-        sheetMat.getCell(`B${r}`).dataValidation = {
+        sheetMat.getCell(`A${r}`).dataValidation = {
           type: 'list',
           allowBlank: true,
           formulae: [catFormula]
         };
-        sheetMat.getCell(`C${r}`).dataValidation = {
+        sheetMat.getCell(`B${r}`).dataValidation = {
           type: 'list',
           allowBlank: true,
           formulae: ['"m,u,kg,rollo x100m,caja x100u,global"']
@@ -303,20 +285,29 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
         }
 
         const extractedHeaders = (jsonRows[0] as string[]).map(h => String(h || '').trim()).filter(Boolean);
-        // Filtrar filas completamente vacías
         const dataRows = jsonRows.slice(1).filter((r: any[]) => r && r.some(cell => String(cell || '').trim() !== ''));
+
+        // Extraer metadatos de categoría de la Hoja 2 si existe
+        let metaCategoryName = '';
+        if (workbook.SheetNames.includes('Metadatos')) {
+          const metaSheet = workbook.Sheets['Metadatos'];
+          const metaRows = XLSX.utils.sheet_to_json<any[]>(metaSheet, { header: 1 });
+          const catRow = metaRows?.find(r => r && r[0] === 'CATEGORIA_NOMBRE');
+          if (catRow && catRow[1]) {
+            metaCategoryName = String(catRow[1]).trim();
+          }
+        }
 
         setHeaders(extractedHeaders);
         setRawRows(dataRows);
 
-        // Smart Synonym Regex Matching
         const autoMap = {
-          nombre: extractedHeaders.find(h => /material|descrip|nombre|item|insumo|art|articulo|detalle|producto/i.test(h)) || extractedHeaders[0] || '',
-          categoria: extractedHeaders.find(h => /cat|rubro|familia|tipo|grupo|linea/i.test(h)) || '',
+          nombre: '',
+          categoria: metaCategoryName || extractedHeaders.find(h => /cat|rubro|familia|tipo|grupo|linea/i.test(h)) || '',
           unidad: extractedHeaders.find(h => /unidad|unid|medida|u\.m|pres|empaque/i.test(h)) || '',
-          norma: extractedHeaders.find(h => /norma|iram|iec/i.test(h)) || '',
-          marca: extractedHeaders.find(h => /marca|fabricante|modelo/i.test(h)) || '',
-          precio: extractedHeaders.find(h => /precio|costo|valor|p\.u|monto|p\.lista|pneto|neto|importe/i.test(h)) || ''
+          norma: '',
+          marca: '',
+          precio: ''
         };
 
         setMapping(autoMap);
@@ -346,25 +337,14 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
   };
 
   const handleGeneratePreview = async () => {
-    if (!mapping.nombre) {
-      alert('Debes mapear al menos la columna del Nombre / Descripción del Material.');
-      return;
-    }
-
     const existingCategories = await db.categoriasMaterial.toArray();
     const existingMaterials = await db.materiales.toArray();
 
-    const nameIdx = headers.indexOf(mapping.nombre);
     const catIdx = headers.indexOf(mapping.categoria);
     const unitIdx = headers.indexOf(mapping.unidad);
-    const normaIdx = headers.indexOf(mapping.norma);
-    const marcaIdx = headers.indexOf(mapping.marca);
-    const precioIdx = headers.indexOf(mapping.precio);
 
     const matMap = new Map<string, Partial<Material>>();
     const catMap = new Map<string, Partial<CategoriaMaterial>>();
-    const prodList: Partial<Producto>[] = [];
-    const ofertaList: Partial<Oferta>[] = [];
     let ignored = 0;
     let updatedExistingCount = 0;
     let createdNewCount = 0;
@@ -374,16 +354,15 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
 
     // Matcher y creación On-the-fly de categorías
     const resolveCategoryId = (excelCatName: string): string => {
-      if (!excelCatName) return 'cat-sin-categoria';
-      const normCat = excelCatName.trim().toLowerCase();
+      const targetName = excelCatName || mapping.categoria || '';
+      if (!targetName) return 'cat-sin-categoria';
+      const normCat = targetName.trim().toLowerCase();
 
-      // 1. Coincidencia exacta por ID o nombre
       const directMatch = existingCategories.find(c =>
         c.nombre.toLowerCase() === normCat || c.id.toLowerCase() === normCat
       );
       if (directMatch) return directMatch.id;
 
-      // 2. Coincidencia difusa por palabras clave estándar de electricidad
       if (normCat.includes('cable') || normCat.includes('conductor')) return 'cat-cables';
       if (normCat.includes('termic') || normCat.includes('disyuntor') || normCat.includes('protec')) return 'cat-protecciones';
       if (normCat.includes('caño') || normCat.includes('canal') || normCat.includes('ducto')) return 'cat-canalizaciones';
@@ -392,30 +371,25 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       if (normCat.includes('ilumin') || normCat.includes('lamp') || normCat.includes('led')) return 'cat-iluminacion';
       if (normCat.includes('medicion') || normCat.includes('jabalina') || normCat.includes('pat')) return 'cat-medicion';
 
-      // 3. Creación On-the-fly si el usuario tipeó una categoría nueva en el Excel
       const newCatId = `cat-${normCat.replace(/[^a-z0-9]/g, '_')}`;
       if (!catMap.has(newCatId)) {
         catMap.set(newCatId, {
           id: newCatId,
-          nombre: excelCatName.trim(),
+          nombre: targetName.trim(),
           atributosSugeridos: []
         });
       }
       return newCatId;
     };
 
-    const mappedHeaderIndexes = new Set([nameIdx, catIdx, unitIdx, normaIdx, marcaIdx, precioIdx].filter(i => i > -1));
+    const mappedHeaderIndexes = new Set([catIdx, unitIdx].filter(i => i > -1));
 
     rawRows.forEach((row) => {
-      let nombreVal = nameIdx > -1 ? String(row[nameIdx] || '').trim() : '';
-      const catName = catIdx > -1 ? String(row[catIdx] || '').trim() : '';
+      const catName = catIdx > -1 ? String(row[catIdx] || '').trim() : mapping.categoria;
       const resolvedCatId = resolveCategoryId(catName);
       const unidadVal = unitIdx > -1 ? String(row[unitIdx] || '').trim() : 'u';
-      const normaVal = normaIdx > -1 ? String(row[normaIdx] || '').trim() : '';
-      const marcaVal = marcaIdx > -1 ? String(row[marcaIdx] || '').trim() : '';
-      const precioVal = precioIdx > -1 ? parseFloat(String(row[precioIdx]).replace(/[^0-9.,]/g, '').replace(',', '.')) || 0 : 0;
 
-      // Extraer todos los atributos dinámicos de columnas adicionales
+      // Extraer todos los atributos dinámicos de las columnas de la fila
       const rowAttrs: AtributoMaterial[] = [];
       headers.forEach((h, idx) => {
         if (!mappedHeaderIndexes.has(idx)) {
@@ -427,27 +401,21 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
         }
       });
 
-      if (normaVal && !rowAttrs.some(a => a.clave === 'norma')) {
-        rowAttrs.push({ clave: 'norma', valor: normaVal });
-      }
+      // Autogenerar siempre el Nombre Técnico en formato Pipe
+      const catObj = existingCategories.find(c => c.id === resolvedCatId) || catMap.get(resolvedCatId);
+      const catNameLabel = catObj?.nombre || 'Insumo';
+      const parts: string[] = [catNameLabel];
 
-      // Si el nombre técnico vino vacío, autogenerar con formato Pipe
-      if (!nombreVal) {
-        const catObj = existingCategories.find(c => c.id === resolvedCatId) || catMap.get(resolvedCatId);
-        const catNameLabel = catObj?.nombre || 'Insumo';
-        const parts: string[] = [catNameLabel];
+      rowAttrs.forEach(attr => {
+        const tpl = catObj?.atributosSugeridos?.find(s => s.clave === attr.clave);
+        const label = tpl?.etiqueta || (attr.clave.charAt(0).toUpperCase() + attr.clave.slice(1).replace(/_/g, ' '));
+        const unit = tpl?.unidad ? ` ${tpl.unidad}` : '';
+        parts.push(`${label} = ${attr.valor}${unit}`);
+      });
 
-        rowAttrs.forEach(attr => {
-          const tpl = catObj?.atributosSugeridos?.find(s => s.clave === attr.clave);
-          const label = tpl?.etiqueta || (attr.clave.charAt(0).toUpperCase() + attr.clave.slice(1).replace(/_/g, ' '));
-          const unit = tpl?.unidad ? ` ${tpl.unidad}` : '';
-          parts.push(`${label} = ${attr.valor}${unit}`);
-        });
+      const nombreVal = parts.join(' | ');
 
-        nombreVal = parts.join(' | ');
-      }
-
-      if (!nombreVal) {
+      if (!nombreVal || rowAttrs.length === 0) {
         ignored++;
         return;
       }
@@ -460,7 +428,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
         matId = existingMat.id;
         updatedExistingCount++;
       } else {
-        matId = `mat-imp-${matKey.replace(/[^a-z0-9]/g, '_')}`;
+        matId = `mat-imp-${crypto.randomUUID()}`;
         createdNewCount++;
       }
 
@@ -484,43 +452,12 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
           updatedAt: now
         });
       }
-
-      if (marcaVal) {
-        const prodId = `prod-imp-${matId}_${marcaVal.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
-        prodList.push({
-          id: prodId,
-          materialId: matId,
-          marca: marcaVal,
-          esPreferido: true
-        });
-
-        if (precioVal > 0) {
-          ofertaList.push({
-            id: `oferta-imp-${crypto.randomUUID()}`,
-            materialId: matId,
-            productoId: prodId,
-            proveedorId: 'prov-general',
-            precio: precioVal,
-            fecha: now,
-            fuente: 'importacion_excel'
-          });
-        }
-      } else if (precioVal > 0) {
-        ofertaList.push({
-          id: `oferta-imp-${crypto.randomUUID()}`,
-          materialId: matId,
-          proveedorId: 'prov-general',
-          precio: precioVal,
-          fecha: now,
-          fuente: 'importacion_excel'
-        });
-      }
     });
 
     setParsedPreview({
       materialesToCreate: Array.from(matMap.values()),
-      productosToCreate: prodList,
-      ofertasToCreate: ofertaList,
+      productosToCreate: [],
+      ofertasToCreate: [],
       categoriasToCreate: Array.from(catMap.values()),
       ignoredCount: ignored,
       updatedCount: updatedExistingCount,
@@ -694,74 +631,27 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
               </div>
 
               <h4 className="font-semibold text-xs text-primary uppercase tracking-wider flex items-center gap-1.5">
-                <RefreshCw className="w-3.5 h-3.5 text-primary" /> Mapeo de Columnas con Previsualización
+                <RefreshCw className="w-3.5 h-3.5 text-primary" /> Configuración de Importación de Fichas de Material
               </h4>
 
+              <div className="p-3.5 bg-primary/5 border border-primary/20 rounded-2xl text-xs space-y-1">
+                <span className="font-semibold text-primary block">✨ Autogeneración de Nombres Técnicos</span>
+                <p className="text-on-surface-variant text-[11px]">
+                  Los nombres de los materiales se construirán automáticamente combinando la categoría y los atributos encontrados en las columnas del archivo usando el separador Pipe (ej. <code className="text-primary font-mono font-semibold">Cables & Conductores | Sección = 2,5 mm² | Norma = IRAM 247-3</code>).
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                {/* Nombre / Descripción */}
-                <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
-                  <label className="block font-semibold text-on-surface mb-1">Nombre / Descripción del Material *</label>
-                  <select
-                    value={mapping.nombre}
-                    onChange={(e) => setMapping({ ...mapping, nombre: e.target.value })}
-                    className="w-full p-2 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface"
-                  >
-                    <option value="">-- Seleccionar Columna --</option>
-                    {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                  {getSampleValues(mapping.nombre) && (
-                    <p className="text-[10px] text-on-surface-variant/80 mt-1 truncate">
-                      <span className="font-semibold">Muestra:</span> {getSampleValues(mapping.nombre)}
-                    </p>
-                  )}
-                </div>
-
-                {/* Precio Referencia */}
-                <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
-                  <label className="block font-semibold text-on-surface mb-1">Precio Referencia ARS</label>
-                  <select
-                    value={mapping.precio}
-                    onChange={(e) => setMapping({ ...mapping, precio: e.target.value })}
-                    className="w-full p-2 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface"
-                  >
-                    <option value="">-- No mapear --</option>
-                    {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                  {getSampleValues(mapping.precio) && (
-                    <p className="text-[10px] text-primary font-mono mt-1 truncate">
-                      <span className="font-semibold text-on-surface-variant font-sans">Muestra:</span> {getSampleValues(mapping.precio)}
-                    </p>
-                  )}
-                </div>
-
-                {/* Marca / Fabricante */}
-                <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
-                  <label className="block font-semibold text-on-surface mb-1">Marca / Fabricante</label>
-                  <select
-                    value={mapping.marca}
-                    onChange={(e) => setMapping({ ...mapping, marca: e.target.value })}
-                    className="w-full p-2 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface"
-                  >
-                    <option value="">-- No mapear --</option>
-                    {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                  {getSampleValues(mapping.marca) && (
-                    <p className="text-[10px] text-on-surface-variant/80 mt-1 truncate">
-                      <span className="font-semibold">Muestra:</span> {getSampleValues(mapping.marca)}
-                    </p>
-                  )}
-                </div>
-
                 {/* Categoría / Rubro */}
                 <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
-                  <label className="block font-semibold text-on-surface mb-1">Categoría / Rubro</label>
+                  <label className="block font-semibold text-on-surface mb-1">Categoría del Material</label>
                   <select
                     value={mapping.categoria}
                     onChange={(e) => setMapping({ ...mapping, categoria: e.target.value })}
                     className="w-full p-2 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface"
                   >
-                    <option value="">-- Creación / Deducción On-the-fly --</option>
-                    {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                    <option value="">-- Autodetectada desde Metadatos / Nombre --</option>
+                    {headers.map(h => <option key={h} value={h}>Columna: {h}</option>)}
                   </select>
                   {getSampleValues(mapping.categoria) && (
                     <p className="text-[10px] text-on-surface-variant/80 mt-1 truncate">
@@ -770,38 +660,20 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                   )}
                 </div>
 
-                {/* Unidad */}
+                {/* Unidad Venta */}
                 <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20 font-sans">
-                  <label className="block font-semibold text-on-surface mb-1">Unidad (m, u, kg)</label>
+                  <label className="block font-semibold text-on-surface mb-1">Unidad Venta (m, u, kg)</label>
                   <select
                     value={mapping.unidad}
                     onChange={(e) => setMapping({ ...mapping, unidad: e.target.value })}
                     className="w-full p-2 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface"
                   >
                     <option value="">-- Por defecto (u) --</option>
-                    {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                    {headers.map(h => <option key={h} value={h}>Columna: {h}</option>)}
                   </select>
                   {getSampleValues(mapping.unidad) && (
                     <p className="text-[10px] text-on-surface-variant/80 mt-1 truncate">
                       <span className="font-semibold">Muestra:</span> {getSampleValues(mapping.unidad)}
-                    </p>
-                  )}
-                </div>
-
-                {/* Norma */}
-                <div className="bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
-                  <label className="block font-semibold text-on-surface mb-1">Norma Técnico-Normativa</label>
-                  <select
-                    value={mapping.norma}
-                    onChange={(e) => setMapping({ ...mapping, norma: e.target.value })}
-                    className="w-full p-2 bg-surface-container-high border border-outline-variant/30 rounded-xl text-on-surface"
-                  >
-                    <option value="">-- No mapear --</option>
-                    {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                  {getSampleValues(mapping.norma) && (
-                    <p className="text-[10px] text-on-surface-variant/80 mt-1 truncate">
-                      <span className="font-semibold">Muestra:</span> {getSampleValues(mapping.norma)}
                     </p>
                   )}
                 </div>
