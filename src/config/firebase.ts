@@ -50,6 +50,8 @@ export const app = currentConfig
 export const auth = app ? getAuth(app) : null;
 export const dbFirestore = app ? getFirestore(app) : null;
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
+googleProvider.addScope('https://www.googleapis.com/auth/drive.appdata');
 
 export const isFirebaseConfigured = (): boolean => {
   return currentConfig !== null && auth !== null && dbFirestore !== null;

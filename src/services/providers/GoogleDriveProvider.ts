@@ -81,6 +81,40 @@ export class GoogleDriveProvider implements SyncProvider {
     this.cachedFileId = null;
   }
 
+  private async handleDriveError(res: Response, defaultAction: string): Promise<never> {
+    if (res.status === 401) {
+      this.disconnect();
+      throw new Error('Sesión de Google Drive expirada. Por favor vuelve a iniciar sesión con Google.');
+    }
+
+    let detail = '';
+    try {
+      const errJson = await res.json();
+      detail = errJson.error?.message || errJson.message || '';
+    } catch {
+      // ignore
+    }
+
+    if (res.status === 403) {
+      if (detail.toLowerCase().includes('not been used') || detail.toLowerCase().includes('disabled')) {
+        throw new Error(
+          `Google Drive API no está habilitada en Google Cloud (${detail}). Habilita "Google Drive API" en tu consola de Google Cloud o cambia al proveedor "Archivo / Carpeta Local".`
+        );
+      }
+      if (detail.toLowerCase().includes('scope') || detail.toLowerCase().includes('insufficient') || detail.toLowerCase().includes('permission')) {
+        this.disconnect();
+        throw new Error(
+          'Permisos insuficientes para Google Drive. Por favor cierra sesión y vuelve a iniciar sesión con Google para conceder permisos.'
+        );
+      }
+      throw new Error(
+        `Error 403 en Google Drive: ${detail || 'Permisos insuficientes o Google Drive API deshabilitada'}. Vuelve a iniciar sesión con Google o habilita Google Drive API en Google Cloud.`
+      );
+    }
+
+    throw new Error(`${defaultAction}: HTTP ${res.status}${detail ? ` (${detail})` : ''}`);
+  }
+
   private async findMasterFileId(token: string): Promise<string | null> {
     if (this.cachedFileId) return this.cachedFileId;
 
@@ -90,11 +124,7 @@ export class GoogleDriveProvider implements SyncProvider {
     });
 
     if (!res.ok) {
-      if (res.status === 401) {
-        this.disconnect();
-        throw new Error('Sesión de Google Drive expirada. Por favor vuelve a conectar tu cuenta.');
-      }
-      throw new Error(`Error al buscar archivo en Google Drive: HTTP ${res.status}`);
+      await this.handleDriveError(res, 'Error al buscar archivo en Google Drive');
     }
 
     const data = await res.json();
@@ -158,7 +188,7 @@ export class GoogleDriveProvider implements SyncProvider {
         });
 
         if (!res.ok) {
-          throw new Error(`Error al actualizar archivo en Google Drive: HTTP ${res.status}`);
+          await this.handleDriveError(res, 'Error al actualizar archivo en Google Drive');
         }
         return true;
       } else {
@@ -191,7 +221,7 @@ export class GoogleDriveProvider implements SyncProvider {
         });
 
         if (!res.ok) {
-          throw new Error(`Error al crear archivo en Google Drive: HTTP ${res.status}`);
+          await this.handleDriveError(res, 'Error al crear archivo en Google Drive');
         }
 
         const data = await res.json();
