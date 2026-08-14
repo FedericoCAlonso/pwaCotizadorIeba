@@ -18,6 +18,7 @@ import {
   resetSyncLock,
   isCircuitBreakerActive,
   isQuotaError,
+  isPermissionError,
   getPendingSyncCount,
   SyncState
 } from '../services/syncService';
@@ -86,6 +87,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.warn('Error durante la sincronización con Firebase:', err);
       if (isCircuitBreakerActive() || isQuotaError(err)) {
         setSyncState('quota_exceeded');
+      } else if (isPermissionError(err)) {
+        setSyncState('permission_denied');
       } else {
         setSyncState('error');
       }

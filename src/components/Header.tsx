@@ -159,6 +159,14 @@ export const Header: React.FC<HeaderProps> = ({
         </span>
       );
     }
+    if (syncState === 'permission_denied') {
+      return (
+        <span className="flex items-center gap-1.5 text-xs text-amber-500 font-medium">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          <span className="hidden sm:inline">Reglas Firestore</span>
+        </span>
+      );
+    }
     if (syncState === 'error') {
       return (
         <span className="flex items-center gap-1.5 text-xs text-rose-500 font-medium">
@@ -642,7 +650,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Main Status Banner */}
           <div
             className={`p-4 rounded-2xl border flex items-start gap-3 ${
-              syncState === 'quota_exceeded'
+              syncState === 'quota_exceeded' || syncState === 'permission_denied'
                 ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
                 : syncState === 'error'
                 ? 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200'
@@ -651,7 +659,7 @@ export const Header: React.FC<HeaderProps> = ({
                 : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
             }`}
           >
-            {syncState === 'quota_exceeded' || syncState === 'error' ? (
+            {syncState === 'quota_exceeded' || syncState === 'permission_denied' || syncState === 'error' ? (
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
             ) : (
               <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-emerald-500" />
@@ -661,6 +669,8 @@ export const Header: React.FC<HeaderProps> = ({
               <h4 className="font-bold text-sm">
                 {syncState === 'quota_exceeded'
                   ? 'Cuota Diaria Firebase Excedida (Circuit Breaker)'
+                  : syncState === 'permission_denied'
+                  ? 'Permisos de Firestore Requeridos'
                   : syncState === 'error'
                   ? 'Error de Sincronización / Conexión'
                   : pendingCount > 0
@@ -670,15 +680,34 @@ export const Header: React.FC<HeaderProps> = ({
 
               <p className="leading-relaxed">
                 {syncState === 'quota_exceeded'
-                  ? 'Se alcanzó el límite diario del plan gratuito Spark de Firebase. La aplicación activó el Circuit Breaker de protección. Tus datos están 100% seguros en tu dispositivo (IndexedDB) y se subirán automáticamente al renovarse la cuota.'
+                  ? 'Se alcanzó el límite diario del plan gratuito Spark de Firebase. Tus datos están 100% seguros en tu dispositivo (IndexedDB) y se subirán automáticamente.'
+                  : syncState === 'permission_denied'
+                  ? 'Firebase denegó el acceso porque faltan las Reglas de Seguridad en tu consola de Firebase. Debes permitir lectura/escritura a usuarios autenticados.'
                   : syncState === 'error'
-                  ? 'Ocurrió una interrupción al conectar con Firebase. Puede deberse a conexión inestable o a las reglas de seguridad de Firestore. Tus datos locales en IndexedDB están 100% a salvo y puedes reintentar cuando desees.'
+                  ? 'Ocurrió una interrupción al conectar con Firebase. Puede deberse a conexión inestable. Tus datos locales en IndexedDB están 100% a salvo y puedes reintentar cuando desees.'
                   : pendingCount > 0
                   ? `Tienes ${pendingCount} registro(s) pendiente(s) de subida. Se sincronizarán automáticamente por lotes o puedes forzar la subida manual.`
                   : 'Todos tus presupuestos, materiales y configuraciones locales coinciden con tu espacio en la nube.'}
               </p>
             </div>
           </div>
+
+          {/* Firestore Rules Helper if permission_denied */}
+          {syncState === 'permission_denied' && (
+            <div className="p-3.5 bg-surface-container-low rounded-2xl border border-outline-variant/30 space-y-2 text-xs">
+              <p className="font-semibold text-on-surface">Copia y pega estas reglas en <strong>Firebase Console &gt; Firestore &gt; Reglas</strong>:</p>
+              <pre className="p-2.5 rounded-xl bg-surface-container-highest font-mono text-[10px] leading-relaxed text-on-surface overflow-x-auto select-all">
+{`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}`}
+              </pre>
+            </div>
+          )}
 
           {/* Sync Stats Info */}
           <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 space-y-2 text-xs">

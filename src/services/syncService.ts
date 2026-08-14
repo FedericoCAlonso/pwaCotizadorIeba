@@ -8,7 +8,7 @@ import { dbFirestore } from '../config/firebase';
 import { db } from '../db/database';
 import { SyncStatus } from '../core/types';
 
-export type SyncState = 'idle' | 'syncing' | 'synced' | 'error' | 'offline' | 'quota_exceeded' | 'pending';
+export type SyncState = 'idle' | 'syncing' | 'synced' | 'error' | 'offline' | 'quota_exceeded' | 'pending' | 'permission_denied';
 
 const SYNCED_TABLES = [
   'presupuestos',
@@ -316,6 +316,9 @@ export async function flushPendingSync(userId: string): Promise<SyncState> {
     if (isQuotaError(err)) {
       activateCircuitBreaker();
       return 'quota_exceeded';
+    }
+    if (isPermissionError(err)) {
+      return 'permission_denied';
     }
     return 'error';
   } finally {
