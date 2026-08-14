@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   FileText,
@@ -29,7 +29,8 @@ import {
   CostoIndirectoItemConfig,
   EstadoPresupuesto,
   TipoFactura,
-  ImpuestoItem
+  ImpuestoItem,
+  Oferta
 } from '../core/types';
 import {
   calcularCostoTareaTipo,
@@ -72,22 +73,38 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   const manoObraList = useLiveQuery(() => db.manoObra.toArray()) || [];
   const costosIndirectos = useLiveQuery(() => db.costosIndirectos.toArray()) || [];
 
-  const insumosMap = new Map<string, Insumo>();
-  legacyInsumos.forEach(i => insumosMap.set(i.id, i));
-  materiales.forEach(m => {
-    const oferta = ofertas.find(o => o.materialId === m.id);
-    insumosMap.set(m.id, {
-      ...m,
-      id: m.id,
-      nombre: m.nombre,
-      unidad: m.unidadVenta || 'u',
-      categoria: m.categoriaId,
-      precioActual: oferta ? oferta.precio : (m as any).precioActual || 0,
-      fechaActualizacion: oferta ? oferta.fecha : new Date().toISOString(),
-      historialPrecios: []
+  const insumosMap = useMemo(() => {
+    const latestOfertaMap = new Map<string, Oferta>();
+    // Sort ofertas ascending by date so newest date stays in Map
+    const sortedOfertas = [...ofertas].sort((a, b) => new Date(a.fecha || 0).getTime() - new Date(b.fecha || 0).getTime());
+    sortedOfertas.forEach(o => {
+      if (o.materialId) {
+        latestOfertaMap.set(o.materialId, o);
+      }
     });
-  });
-  const manoObraMap = new Map<string, CategoriaManoDeObra>(manoObraList.map((m) => [m.id, m]));
+
+    const map = new Map<string, Insumo>();
+    legacyInsumos.forEach(i => map.set(i.id, i));
+    materiales.forEach(m => {
+      const oferta = latestOfertaMap.get(m.id);
+      map.set(m.id, {
+        ...m,
+        id: m.id,
+        nombre: m.nombre,
+        unidad: m.unidadVenta || 'u',
+        categoria: m.categoriaId,
+        precioActual: oferta ? oferta.precio : (m as any).precioActual || 0,
+        fechaActualizacion: oferta ? oferta.fecha : new Date().toISOString(),
+        historialPrecios: []
+      });
+    });
+    return map;
+  }, [legacyInsumos, materiales, ofertas]);
+
+  const manoObraMap = useMemo(
+    () => new Map<string, CategoriaManoDeObra>(manoObraList.map((m) => [m.id, m])),
+    [manoObraList]
+  );
 
   const existingPresupuesto = useLiveQuery(
     () => (presupuestoId ? db.presupuestos.get(presupuestoId) : undefined),
@@ -308,15 +325,17 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     }
   };
 
-  // Live total calculations
-  const totales = calcularTotalesPresupuesto({
-    items,
-    costosIndirectosCatalog: costosIndirectos,
-    costosIndirectosConfig,
-    margenPorcentaje,
-    impuestosDetalle,
-    cotizacionMonedaExtranjera: mostrarDolar ? cotizacionDolar : undefined
-  });
+  // Live total calculations memoized for performance
+  const totales = useMemo(() => {
+    return calcularTotalesPresupuesto({
+      items,
+      costosIndirectosCatalog: costosIndirectos,
+      costosIndirectosConfig,
+      margenPorcentaje,
+      impuestosDetalle,
+      cotizacionMonedaExtranjera: mostrarDolar ? cotizacionDolar : undefined
+    });
+  }, [items, costosIndirectos, costosIndirectosConfig, margenPorcentaje, impuestosDetalle, mostrarDolar, cotizacionDolar]);
 
   // Add Item from TareaTipo Template
   const handleAddTareaTipoItem = (tarea: TareaTipo) => {

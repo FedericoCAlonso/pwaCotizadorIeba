@@ -249,6 +249,7 @@ export interface InsumoSnapshot {
   nombre: string;
   marca?: string;
   unidad: string;
+  cantidadUnitaria?: number;
   cantidadTotal: number;
   precioUnitarioCongelado: number;
   subtotalInsumo: number;
@@ -259,6 +260,7 @@ export interface InsumoSnapshot {
 export interface ManoObraSnapshot {
   categoriaId: string;
   nombreCategoria: string;
+  horasUnitarias?: number;
   horasTotales: number;
   costoHoraCongelado: number;
   subtotalManoObra: number;

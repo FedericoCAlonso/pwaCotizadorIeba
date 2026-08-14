@@ -1,0 +1,306 @@
+=== MAPA DE ARQUITECTURA DE COMPONENTES ===
+Fecha: 2026-08-14T13:44:22.694Z
+Total componentes: 24
+
+--------------------------------------------------
+📁 ARCHIVO: AuthModal.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L11] export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+⚡ ESTADOS (useState):
+  • mode
+  • email
+  • password
+  • loading
+  • error
+  • successMsg
+  • cfgApiKey
+  • cfgAuthDomain
+  • cfgProjectId
+  • cfgAppId
+
+--------------------------------------------------
+📁 ARCHIVO: AutocompleteInput.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L21] export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
+⚡ ESTADOS (useState):
+  • isOpen
+  • isFocused
+
+--------------------------------------------------
+📁 ARCHIVO: BarcodeScannerModal.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L10] export const BarcodeScannerModal: React.FC<Props> = ({ onScan, onClose }) => {
+⚡ ESTADOS (useState):
+  • error
+  • cameras
+  • activeCameraIndex
+  • isTorchSupported
+  • isTorchOn
+  • manualCode
+  • showManualInput
+
+--------------------------------------------------
+📁 ARCHIVO: ClientesManager.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L37] export const ClientesManager: React.FC<ClientesManagerProps> = ({
+⚡ ESTADOS (useState):
+  • editingCliente
+  • isCreating
+  • showCSVModal
+  • csvContent
+  • selectedClienteForPresupuestos
+  • formData
+
+--------------------------------------------------
+📁 ARCHIVO: ConfigModal.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L16] export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClose, onSave }) => {
+⚡ ESTADOS (useState):
+  • formData
+  • showAuthSetup
+
+--------------------------------------------------
+📁 ARCHIVO: EstadoBadge.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L10] export const EstadoBadge: React.FC<EstadoBadgeProps> = ({ estado, size = 'sm' }) => {
+⚡ ESTADOS (useState): Ninguno (Componente sin estado interno).
+
+--------------------------------------------------
+📁 ARCHIVO: Header.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L49] export const Header: React.FC<HeaderProps> = ({
+⚡ ESTADOS (useState):
+  • isOnline
+  • showExportSuccess
+  • showUtilsMenu
+  • showUserMenu
+  • showAuthModal
+  • showMobileDrawer
+  • showSyncModal
+
+--------------------------------------------------
+📁 ARCHIVO: HelpCenterModal.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L14] export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
+⚡ ESTADOS (useState):
+  • selectedCatId
+  • searchQuery
+
+--------------------------------------------------
+📁 ARCHIVO: ImportCatalogModal.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L15] export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
+⚡ ESTADOS (useState):
+  • step
+  • fileName
+  • headers
+  • rawRows
+  • importMode
+  • mapping
+  • parsedPreview
+  • selectedCatForDownload
+  • dbCategories
+
+--------------------------------------------------
+📁 ARCHIVO: InsumosManager.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L15] export const InsumosManager: React.FC = () => {
+⚡ ESTADOS (useState):
+  • activeTab
+  • searchTerm
+  • selectedCategory
+  • selectedVencimiento
+  • isCreatingMat
+  • editingMat
+  • formDataMat
+  • isCreatingProd
+  • targetMatId
+  • formDataProd
+  • isCreatingOferta
+  • formDataOferta
+  • isCreatingCat
+  • editingCat
+  • formDataCat
+  • selectedFichaStatus
+  • isQuickCreateMat
+  • formDataQuickMat
+  • showMassUpdateModal
+  • showImportCatalogModal
+  • tipoAjusteIndice
+  • massPercentage
+  • modoCargaContinua
+  • viewModeMat
+  • editingOferta
+
+--------------------------------------------------
+📁 ARCHIVO: KPICard.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L11] export const KPICard: React.FC<KPICardProps> = ({
+⚡ ESTADOS (useState): Ninguno (Componente sin estado interno).
+
+--------------------------------------------------
+📁 ARCHIVO: LogisticaManager.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L22] export const LogisticaManager: React.FC = () => {
+⚡ ESTADOS (useState):
+  • selectedPresupuestoIds
+  • copiedSupplierId
+
+--------------------------------------------------
+📁 ARCHIVO: ManoObraManager.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L10] export const ManoObraManager: React.FC = () => {
+⚡ ESTADOS (useState):
+  • editingMO
+  • isCreatingMO
+  • moForm
+  • editingCI
+  • isCreatingCI
+  • ciForm
+
+--------------------------------------------------
+📁 ARCHIVO: ModalContainer.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L15] export const ModalContainer: React.FC<ModalContainerProps> = ({
+⚡ ESTADOS (useState): Ninguno (Componente sin estado interno).
+
+--------------------------------------------------
+📁 ARCHIVO: OnboardingBanner.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L13] export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onNavigateTab }) => {
+⚡ ESTADOS (useState):
+  • isDismissed
+
+--------------------------------------------------
+📁 ARCHIVO: PWAInstallBanner.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L10] export const PWAInstallBanner: React.FC = () => {
+⚡ ESTADOS (useState):
+  • deferredPrompt
+  • showInstallBanner
+  • needRefresh
+  • offlineReady
+  • updateSWFn
+  • isOffline
+  • showOfflineToast
+
+--------------------------------------------------
+📁 ARCHIVO: PresupuestoDetail.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L24] export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
+⚡ ESTADOS (useState):
+  • showSaveAsTemplateModal
+  • saveAsTemplateData
+
+--------------------------------------------------
+📁 ARCHIVO: PresupuestoEditor.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L58] export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
+⚡ ESTADOS (useState):
+  • tipoFactura
+  • impuestosDetalle
+  • clienteId
+  • validezDias
+  • margenPorcentaje
+  • mostrarDolar
+  • nombreDolar
+  • cotizacionDolar
+  • condicionesPagoTexto
+  • items
+  • costosIndirectosConfig
+  • _estado
+  • showItemPickerModal
+  • showSaveAsTemplateModal
+  • saveAsTemplateData
+
+--------------------------------------------------
+📁 ARCHIVO: PresupuestosList.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L27] export const PresupuestosList: React.FC<PresupuestosListProps> = ({
+⚡ ESTADOS (useState):
+  • searchTerm
+  • selectedEstado
+
+--------------------------------------------------
+📁 ARCHIVO: ProveedoresManager.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L8] export const ProveedoresManager: React.FC = () => {
+⚡ ESTADOS (useState):
+  • editingProveedor
+  • isCreating
+  • showCSVModal
+  • csvContent
+  • formData
+
+--------------------------------------------------
+📁 ARCHIVO: RegistroTrabajoManager.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L10] export const RegistroTrabajoManager: React.FC = () => {
+⚡ ESTADOS (useState):
+  • isCreating
+  • formData
+
+--------------------------------------------------
+📁 ARCHIVO: SaveAsTareaTipoModal.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L19] export const SaveAsTareaTipoModal: React.FC<SaveAsTareaTipoModalProps> = ({
+⚡ ESTADOS (useState):
+  • nombre
+  • categoria
+  • notasTecnicas
+  • isSaving
+
+--------------------------------------------------
+📁 ARCHIVO: SolicitudesCotizacionManager.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L16] export const SolicitudCotizacionManager: React.FC = () => {
+⚡ ESTADOS (useState):
+  • isCreating
+  • selectedSolicitud
+  • copiedTextId
+  • proveedorId
+  • items
+  • notas
+  • responseItems
+
+--------------------------------------------------
+📁 ARCHIVO: TareasTipoManager.tsx
+--------------------------------------------------
+🔹 FIRMAS PRINCIPALES:
+  [L43] export const TareasTipoManager: React.FC = () => {
+⚡ ESTADOS (useState):
+  • activeSubmodulo
+  • searchTerm
+  • selectedCategoryFilter
+  • simulatedTareaId
+  • simMaterialesPct
+  • simManoObraPct
+  • simHorasExtra
+  • simMargenPct
+  • editingTarea
+  • isCreating
+  • formData
+

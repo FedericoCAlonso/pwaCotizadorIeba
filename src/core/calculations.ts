@@ -128,18 +128,33 @@ export function congelarItemPresupuesto(
   cantidad: number
 ): ItemPresupuesto {
   const cantidadSana = safeNum(cantidad) || 1;
+  const cantAnterior = safeNum(item.cantidad) || 1;
 
-  const insumosCongelados = item.insumosSnapshot.map(i => ({
-    ...i,
-    cantidadTotal: roundMoney(i.cantidadTotal * cantidadSana),
-    subtotalInsumo: roundMoney(i.precioUnitarioCongelado * (i.cantidadTotal * cantidadSana))
-  }));
+  const insumosCongelados = item.insumosSnapshot.map(i => {
+    const unitQty = i.cantidadUnitaria !== undefined
+      ? i.cantidadUnitaria
+      : (cantAnterior > 0 ? i.cantidadTotal / cantAnterior : i.cantidadTotal);
+    const cantTotal = roundMoney(unitQty * cantidadSana);
+    return {
+      ...i,
+      cantidadUnitaria: unitQty,
+      cantidadTotal: cantTotal,
+      subtotalInsumo: roundMoney(i.precioUnitarioCongelado * cantTotal)
+    };
+  });
 
-  const manoObraCongelada = item.manoObraSnapshot.map(m => ({
-    ...m,
-    horasTotales: roundMoney(m.horasTotales * cantidadSana),
-    subtotalManoObra: roundMoney(m.costoHoraCongelado * (m.horasTotales * cantidadSana))
-  }));
+  const manoObraCongelada = item.manoObraSnapshot.map(m => {
+    const unitHoras = m.horasUnitarias !== undefined
+      ? m.horasUnitarias
+      : (cantAnterior > 0 ? m.horasTotales / cantAnterior : m.horasTotales);
+    const hTotales = roundMoney(unitHoras * cantidadSana);
+    return {
+      ...m,
+      horasUnitarias: unitHoras,
+      horasTotales: hTotales,
+      subtotalManoObra: roundMoney(m.costoHoraCongelado * hTotales)
+    };
+  });
 
   const costoInsumos = roundMoney(insumosCongelados.reduce((acc, i) => acc + i.subtotalInsumo, 0));
   const costoManoObra = roundMoney(manoObraCongelada.reduce((acc, m) => acc + m.subtotalManoObra, 0));
@@ -147,7 +162,7 @@ export function congelarItemPresupuesto(
   const hasSnapshots = item.insumosSnapshot.length > 0 || item.manoObraSnapshot.length > 0;
   const costoDirectoTotal = hasSnapshots
     ? roundMoney(costoInsumos + costoManoObra)
-    : roundMoney(safeNum(item.costoDirectoTotal) * cantidadSana);
+    : roundMoney((cantAnterior > 0 ? item.costoDirectoTotal / cantAnterior : item.costoDirectoTotal) * cantidadSana);
 
   const precioVentaTotal = roundMoney(safeNum(item.precioVentaUnitario) * cantidadSana);
 
@@ -262,8 +277,8 @@ export function calcularDispersionHorasTareaLegacy(
 
   const ratios = filtrados.map(r => r.horasReales / (r.cantidadEjecutada * horasEstimadasBase));
   const count = ratios.length;
-  const minRatio = Math.min(...ratios);
-  const maxRatio = Math.max(...ratios);
+  const minRatio = ratios.reduce((min, v) => (v < min ? v : min), ratios[0]);
+  const maxRatio = ratios.reduce((max, v) => (v > max ? v : max), ratios[0]);
   const sum = ratios.reduce((acc, v) => acc + v, 0);
   const avgRatio = sum / count;
 
@@ -645,12 +660,9 @@ export function auditarRentabilidadTareaTipo(
   const margenPctDefecto = safeNum(config?.margenPorDefectoPct) || 35;
   const umbralAdvertencia = safeNum(config?.umbralMargenMinimoAdvertencia) || 20;
 
-  // Precio de venta proyectado aplicando margen estándar
-  const factorMargen = 1 - (margenPctDefecto / 100);
-  const precioVentaSugerido = factorMargen > 0 ? roundMoney(costoDirecto / factorMargen) : roundMoney(costoDirecto * 1.35);
-  const margenPorcentajeProyectado = precioVentaSugerido > 0
-    ? roundMoney(((precioVentaSugerido - costoDirecto) / precioVentaSugerido) * 100)
-    : 0;
+  // Precio de venta proyectado aplicando margen estándar (markup sobre costo directo)
+  const precioVentaSugerido = roundMoney(costoDirecto * (1 + margenPctDefecto / 100));
+  const margenPorcentajeProyectado = margenPctDefecto;
 
   const alertas: string[] = [];
   const insumosInactivos: string[] = [];

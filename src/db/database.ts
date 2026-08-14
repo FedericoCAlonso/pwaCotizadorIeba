@@ -211,21 +211,21 @@ export async function importDatabaseJSON(jsonStr: string): Promise<void> {
     db.registrosTrabajo,
     db.config
   ], async () => {
-    if (data.categoriasMaterial) { await db.categoriasMaterial.clear(); await db.categoriasMaterial.bulkAdd(data.categoriasMaterial); }
-    if (data.materiales) { await db.materiales.clear(); await db.materiales.bulkAdd(data.materiales); }
-    if (data.productos) { await db.productos.clear(); await db.productos.bulkAdd(data.productos); }
-    if (data.ofertas) { await db.ofertas.clear(); await db.ofertas.bulkAdd(data.ofertas); }
-    if (data.solicitudesCotizacion) { await db.solicitudesCotizacion.clear(); await db.solicitudesCotizacion.bulkAdd(data.solicitudesCotizacion); }
-    if (data.insumos) { await db.insumos.clear(); await db.insumos.bulkAdd(data.insumos); }
-    if (data.manoObra) { await db.manoObra.clear(); await db.manoObra.bulkAdd(data.manoObra); }
-    if (data.costosIndirectos) { await db.costosIndirectos.clear(); await db.costosIndirectos.bulkAdd(data.costosIndirectos); }
-    if (data.tareasTipo) { await db.tareasTipo.clear(); await db.tareasTipo.bulkAdd(data.tareasTipo); }
-    if (data.clientes) { await db.clientes.clear(); await db.clientes.bulkAdd(data.clientes); }
-    if (data.proveedores) { await db.proveedores.clear(); await db.proveedores.bulkAdd(data.proveedores); }
-    if (data.proyectos) { await db.proyectos.clear(); await db.proyectos.bulkAdd(data.proyectos); }
-    if (data.presupuestos) { await db.presupuestos.clear(); await db.presupuestos.bulkAdd(data.presupuestos); }
-    if (data.registrosTrabajo) { await db.registrosTrabajo.clear(); await db.registrosTrabajo.bulkAdd(data.registrosTrabajo); }
-    if (data.config) { await db.config.clear(); await db.config.bulkAdd(data.config); }
+    if (data.categoriasMaterial) { await db.categoriasMaterial.clear(); await db.categoriasMaterial.bulkPut(data.categoriasMaterial); }
+    if (data.materiales) { await db.materiales.clear(); await db.materiales.bulkPut(data.materiales); }
+    if (data.productos) { await db.productos.clear(); await db.productos.bulkPut(data.productos); }
+    if (data.ofertas) { await db.ofertas.clear(); await db.ofertas.bulkPut(data.ofertas); }
+    if (data.solicitudesCotizacion) { await db.solicitudesCotizacion.clear(); await db.solicitudesCotizacion.bulkPut(data.solicitudesCotizacion); }
+    if (data.insumos) { await db.insumos.clear(); await db.insumos.bulkPut(data.insumos); }
+    if (data.manoObra) { await db.manoObra.clear(); await db.manoObra.bulkPut(data.manoObra); }
+    if (data.costosIndirectos) { await db.costosIndirectos.clear(); await db.costosIndirectos.bulkPut(data.costosIndirectos); }
+    if (data.tareasTipo) { await db.tareasTipo.clear(); await db.tareasTipo.bulkPut(data.tareasTipo); }
+    if (data.clientes) { await db.clientes.clear(); await db.clientes.bulkPut(data.clientes); }
+    if (data.proveedores) { await db.proveedores.clear(); await db.proveedores.bulkPut(data.proveedores); }
+    if (data.proyectos) { await db.proyectos.clear(); await db.proyectos.bulkPut(data.proyectos); }
+    if (data.presupuestos) { await db.presupuestos.clear(); await db.presupuestos.bulkPut(data.presupuestos); }
+    if (data.registrosTrabajo) { await db.registrosTrabajo.clear(); await db.registrosTrabajo.bulkPut(data.registrosTrabajo); }
+    if (data.config) { await db.config.clear(); await db.config.bulkPut(data.config); }
   });
 }
 
