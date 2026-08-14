@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Package, Plus, Search, TrendingUp, FileSpreadsheet,
-  Edit2, Trash2, X, Save, AlertCircle, Star, Tag, Layers, RefreshCw, Zap, ExternalLink, Copy, LayoutGrid, List
+  Edit2, Trash2, X, Save, AlertCircle, Star, Tag, Layers, RefreshCw, Zap, ExternalLink, Copy, LayoutGrid, List, Sparkles
 } from 'lucide-react';
 import { db } from '../db/database';
 import { CategoriaMaterial, Material, Producto, Oferta } from '../core/types';
@@ -301,12 +301,28 @@ export const InsumosManager: React.FC = () => {
 
   const handleOpenEditMat = (mat: Material) => {
     setEditingMat(mat);
+    const cat = categoriasMap.get(mat.categoriaId);
+    const existingAttrs = mat.atributos || [];
+    const mergedAttrs = cat?.atributosSugeridos ? cat.atributosSugeridos.map(s => {
+      const found = existingAttrs.find(a => a.clave === s.clave);
+      return { clave: s.clave, valor: found ? found.valor : '' };
+    }) : [...existingAttrs];
+
+    if (cat?.atributosSugeridos) {
+      const sugKeys = new Set(cat.atributosSugeridos.map(s => s.clave));
+      existingAttrs.forEach(a => {
+        if (!sugKeys.has(a.clave)) {
+          mergedAttrs.push(a);
+        }
+      });
+    }
+
     setFormDataMat({
       categoriaId: mat.categoriaId,
       nombre: mat.nombre,
       norma: mat.norma || '',
       unidadVenta: mat.unidadVenta || 'u',
-      atributos: mat.atributos ? [...mat.atributos] : [],
+      atributos: mergedAttrs,
       urlMercadoLibre: mat.urlMercadoLibre || '',
       activo: mat.activo ?? true,
       fichaIncompleta: mat.fichaIncompleta ?? false
@@ -326,6 +342,43 @@ export const InsumosManager: React.FC = () => {
       ...prev,
       categoriaId: catId,
       atributos: newAtributos
+    }));
+  };
+
+  const handleAttributeValueChange = (clave: string, valor: string) => {
+    setFormDataMat(prev => {
+      const currentAttrs = prev.atributos ? [...prev.atributos] : [];
+      const idx = currentAttrs.findIndex(a => a.clave === clave);
+      if (idx >= 0) {
+        currentAttrs[idx] = { ...currentAttrs[idx], valor };
+      } else {
+        currentAttrs.push({ clave, valor });
+      }
+      return { ...prev, atributos: currentAttrs };
+    });
+  };
+
+  const handleAutoGenerateName = () => {
+    const cat = categoriasMap.get(formDataMat.categoriaId || '');
+    if (!cat) return;
+
+    const parts: string[] = [cat.nombre];
+    if (formDataMat.atributos && formDataMat.atributos.length > 0) {
+      formDataMat.atributos.forEach(attr => {
+        if (attr.valor && attr.valor.trim() !== '') {
+          const tpl = cat.atributosSugeridos?.find(s => s.clave === attr.clave);
+          const unit = tpl?.unidad ? ` ${tpl.unidad}` : '';
+          parts.push(`${attr.valor}${unit}`);
+        }
+      });
+    }
+    if (formDataMat.norma && formDataMat.norma.trim() !== '') {
+      parts.push(`(${formDataMat.norma})`);
+    }
+
+    setFormDataMat(prev => ({
+      ...prev,
+      nombre: parts.join(' ')
     }));
   };
 
@@ -1395,8 +1448,62 @@ export const InsumosManager: React.FC = () => {
                 )}
               </div>
 
+              {/* Dynamic Suggested Attributes Section */}
+              {(() => {
+                const selectedCat = categoriasMap.get(formDataMat.categoriaId || '');
+                if (!selectedCat || !selectedCat.atributosSugeridos || selectedCat.atributosSugeridos.length === 0) return null;
+                return (
+                  <div className="p-3.5 bg-surface-container-high border border-outline-variant/30 rounded-2xl space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-primary flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Atributos Sugeridos ({selectedCat.nombre})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleAutoGenerateName}
+                        className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
+                        title="Auto-generar Nombre Técnico combinando la categoría y los atributos cargados"
+                      >
+                        ✨ Auto-generar Nombre
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {selectedCat.atributosSugeridos.map(attrTpl => {
+                        const attrVal = formDataMat.atributos?.find(a => a.clave === attrTpl.clave)?.valor || '';
+                        return (
+                          <div key={attrTpl.clave}>
+                            <label className="block text-[11px] text-on-surface-variant mb-1 truncate">
+                              {attrTpl.etiqueta} {attrTpl.unidad ? `(${attrTpl.unidad})` : ''}
+                            </label>
+                            <input
+                              type={attrTpl.tipo === 'numero' ? 'number' : 'text'}
+                              step={attrTpl.tipo === 'numero' ? 'any' : undefined}
+                              value={attrVal}
+                              onChange={(e) => handleAttributeValueChange(attrTpl.clave, e.target.value)}
+                              className={inputCls}
+                              placeholder={attrTpl.unidad ? `Ej: 16 ${attrTpl.unidad}` : 'Valor...'}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div>
-                <label className="block text-xs text-on-surface-variant mb-1">Nombre Técnico</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs text-on-surface-variant">Nombre Técnico</label>
+                  <button
+                    type="button"
+                    onClick={handleAutoGenerateName}
+                    className="text-[11px] text-primary hover:underline font-semibold"
+                  >
+                    ✨ Auto-generar
+                  </button>
+                </div>
                 <input type="text" value={formDataMat.nombre || ''} onChange={(e) => setFormDataMat({ ...formDataMat, nombre: e.target.value })} className={inputCls} placeholder="Ej: Cable Unipolar 2.5 mm²" required />
               </div>
 
