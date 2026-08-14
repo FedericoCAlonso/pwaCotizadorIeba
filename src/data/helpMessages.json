@@ -1,0 +1,156 @@
+{
+  "onboarding": {
+    "title": "Guía de Inicio Rápido",
+    "subtitle": "Configura los 4 pilares esenciales para cotizar con precisión profesional.",
+    "steps": [
+      {
+        "id": "insumos",
+        "title": "Catálogo de Materiales",
+        "description": "Carga tus materiales e insumos importando desde ExcelJS o agregándolos manualmente.",
+        "targetTab": "insumos",
+        "actionText": "Configurar Insumos"
+      },
+      {
+        "id": "manoObra",
+        "title": "Tarifa de Mano de Obra",
+        "description": "Define los costos por hora para las diferentes categorías del personal eléctrico.",
+        "targetTab": "manoObra",
+        "actionText": "Establecer Tarifas"
+      },
+      {
+        "id": "tareasTipo",
+        "title": "Laboratorio de Tareas",
+        "description": "Ensambla módulos tipo (ej. Boca de toma, Tablero) combinando materiales y tiempo.",
+        "targetTab": "tareasTipo",
+        "actionText": "Armar Ensambles"
+      },
+      {
+        "id": "presupuestos",
+        "title": "Emisión de Presupuesto",
+        "description": "Agrega ítems de obra, aplica coeficientes de utilidad y exporta la cotización en PDF.",
+        "targetTab": "presupuestos",
+        "actionText": "Crear Cotización"
+      }
+    ]
+  },
+  "helpCenter": {
+    "title": "Centro de Conocimiento y Guía de Uso",
+    "subtitle": "Manual de usuario interactivo y documentación técnica de la PWA.",
+    "categories": [
+      {
+        "id": "importacion",
+        "title": "Importación Masiva ExcelJS",
+        "iconName": "FileSpreadsheet",
+        "summary": "Cómo usar la plantilla oficial con tablas formateadas y validación desplegable.",
+        "sections": [
+          {
+            "heading": "Estructura de la Plantilla de 2 Hojas",
+            "content": "Al hacer clic en 'Descargar Plantilla Excel Avanzada', el sistema genera un archivo .xlsx nativo mediante ExcelJS compuesto por dos hojas coordinadas:",
+            "bullets": [
+              "Hoja 'Materiales': Tabla de Excel con columnas estandarizadas (Nombre / Descripción, Categoría, Unidad, Norma, Marca, Precio Referencia ARS).",
+              "Hoja 'Categorías': Listado automático de todas las categorías activas en tu base de datos local."
+            ]
+          },
+          {
+            "heading": "Validación de Datos en Línea",
+            "content": "La columna 'Categoría' de la hoja Materiales incluye un menú desplegable nativo de Excel que hace referencia a la hoja Categorías.",
+            "bullets": [
+              "Evita errores tipográficos seleccionando categorías directamente de la lista desplegable.",
+              "Creación On-the-fly: Si escribes una categoría nueva que no existe en tu base de datos, el importador la detectará y la creará automáticamente al importar el archivo."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "laboratorio",
+        "title": "Laboratorio de Tareas Tipo",
+        "iconName": "Layers",
+        "summary": "Creación de ensambles de instalación, costos directos y rendimientos de mano de obra.",
+        "sections": [
+          {
+            "heading": "Concepto de Ensamble o Tarea Tipo",
+            "content": "Una Tarea Tipo agrupa todos los recursos requeridos para ejecutar una unidad de trabajo eléctrico (ej. 1 Boca de Toma Monofásica 10A).",
+            "bullets": [
+              "Receta de Materiales: Asigna las cantidades exactas de insumos (cajas, caños, cables, llaves).",
+              "Rendimiento Horario: Especifica el tiempo estimado en horas por categoría de oficial/ayudante."
+            ]
+          },
+          {
+            "heading": "Auditoría de Salud de la Tarea",
+            "content": "El sistema audita continuamente cada tarea tipo e indica mediante alertas:",
+            "bullets": [
+              "Insumos obsoletos o descontinuados.",
+              "Materiales sin precio de lista actualizado.",
+              "Desvíos significativos detectados durante la ejecución real en obra."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "cotizacion",
+        "title": "Editor de Presupuestos y PDF",
+        "iconName": "FileText",
+        "summary": "Estructura de costos, indirectos, impuestos y exportación del documento comercial.",
+        "sections": [
+          {
+            "heading": "Composición del Precio de Venta",
+            "content": "El precio de cada ítem de presupuesto se calcula aplicando la fórmula estándar de ingeniería:",
+            "bullets": [
+              "Costo Directo = Insumos + Mano de Obra + Servicios Subcontratados.",
+              "Costo Total = Costo Directo + Gastos Indirectos (Supervisión, Fletes, Herramientas).",
+              "Precio Venta = Costo Total / (1 - Margen % / 100)."
+            ]
+          },
+          {
+            "heading": "Emisión de Documentos y PDF",
+            "content": "Desde el detalle del presupuesto puedes congelar precios, generar la vista previa limpia y descargar el PDF oficial listo para enviar al cliente.",
+            "bullets": [
+              "Generación de validez comercial y condiciones de pago configurables.",
+              "Conversión automática a moneda extranjera según cotización configurada."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "registroObra",
+        "title": "Registro de Obra y Métrica EMA",
+        "iconName": "Smartphone",
+        "summary": "Recolección rápida desde dispositivos móviles y cálculo de Media Móvil Exponencial.",
+        "sections": [
+          {
+            "heading": "Carga de Tiempos en Campo",
+            "content": "Diseñado para ingresar tiempos de ejecución desde el celular al finalizar la jornada o etapa de obra.",
+            "bullets": [
+              "Anota la cantidad de unidades completadas y las horas reales consumidas.",
+              "Registra desvíos por causas externas (clima, falta de material, interferencias de obra)."
+            ]
+          },
+          {
+            "heading": "Factor de Corrección EMA",
+            "content": "Utiliza la Media Móvil Exponencial (EMA) para suavizar desvíos históricos y ajustar automáticamente el factor de rendimiento sugerido para tus presupuestos futuros.",
+            "bullets": [
+              "Calcula varianza y desviación estándar sobre muestras reales de trabajo.",
+              "Ajusta el coeficiente de productividad recomendada para cotizaciones venideras."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "sync",
+        "title": "Offline-First & Sincronización Cloud",
+        "iconName": "Cloud",
+        "summary": "Persistencia local en Dexie/IndexedDB, Delta Sync y Circuit Breaker de cuotas.",
+        "sections": [
+          {
+            "heading": "Funcionamiento sin Conexión (Offline-First)",
+            "content": "Todos los datos se guardan de forma instantánea en tu dispositivo mediante Dexie.js (IndexedDB). No necesitas conexión a Internet para cotizar, editar o trabajar.",
+            "bullets": [
+              "Sincronización Delta (Dirty Flags): Al conectar a Internet, se transmiten únicamente las modificaciones locales.",
+              "Circuit Breaker de Cuota: Ante agotamiento de cuota diaria en la nube de Firebase, el sistema conmuta automáticamente a Modo Local sin trabar la pantalla ni interrumpir tu trabajo."
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

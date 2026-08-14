@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { X, HelpCircle, FileSpreadsheet, Layers, Smartphone, Cloud, ArrowRight, CheckCircle2, Download } from 'lucide-react';
+import {
+  X, HelpCircle, FileSpreadsheet, Layers, FileText, Smartphone, Cloud,
+  Download, Search, BookOpen, CheckCircle2
+} from 'lucide-react';
+import helpMessages from '../data/helpMessages.json';
 
 interface HelpCenterModalProps {
   isOpen: boolean;
@@ -12,203 +16,157 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
   onClose,
   onOpenImporter
 }) => {
-  const [activeTab, setActiveTab] = useState<'excel' | 'laboratorio' | 'obra' | 'sync'>('excel');
+  const [selectedCatId, setSelectedCatId] = useState<string>(
+    helpMessages.helpCenter.categories[0]?.id || 'importacion'
+  );
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   if (!isOpen) return null;
 
+  const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+    FileSpreadsheet,
+    Layers,
+    FileText,
+    Smartphone,
+    Cloud
+  };
+
+  const categories = helpMessages.helpCenter.categories;
+  const filteredCategories = categories.filter(cat => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      cat.title.toLowerCase().includes(q) ||
+      cat.summary.toLowerCase().includes(q) ||
+      cat.sections.some(s => s.heading.toLowerCase().includes(q) || s.content.toLowerCase().includes(q))
+    );
+  });
+
+  const activeCategory = categories.find(c => c.id === selectedCatId) || categories[0];
+  const ActiveIcon = activeCategory ? (iconMap[activeCategory.iconName] || BookOpen) : BookOpen;
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-3xl shadow-2xl p-6 text-on-surface max-h-[92vh] flex flex-col">
+      <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-4xl shadow-2xl p-6 text-on-surface max-h-[92vh] flex flex-col">
+        
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-outline-variant/30 pb-3 mb-4 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 text-primary rounded-xl">
+            <div className="p-2.5 bg-primary/10 text-primary rounded-2xl">
               <HelpCircle className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-base text-on-surface">Centro de Ayuda y Guía del Cotizador IEBA</h3>
-              <p className="text-xs text-on-surface-variant">Instructivo rápido de uso, importación masiva de materiales y recolección en obra.</p>
+              <h3 className="font-semibold text-base text-on-surface">{helpMessages.helpCenter.title}</h3>
+              <p className="text-xs text-on-surface-variant">{helpMessages.helpCenter.subtitle}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant">
+          <button onClick={onClose} className="p-1.5 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex border-b border-outline-variant/20 gap-2 mb-4 shrink-0 overflow-x-auto text-xs">
-          <button
-            onClick={() => setActiveTab('excel')}
-            className={`pb-2.5 px-3 font-semibold flex items-center gap-1.5 border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'excel'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>1. Importación ExcelJS</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('laboratorio')}
-            className={`pb-2.5 px-3 font-semibold flex items-center gap-1.5 border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'laboratorio'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            <span>2. Ensambles y Cotizador</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('obra')}
-            className={`pb-2.5 px-3 font-semibold flex items-center gap-1.5 border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'obra'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <Smartphone className="w-4 h-4" />
-            <span>3. Registro de Obra</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('sync')}
-            className={`pb-2.5 px-3 font-semibold flex items-center gap-1.5 border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'sync'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <Cloud className="w-4 h-4" />
-            <span>4. Modo Offline & Sincronización</span>
-          </button>
+        {/* Buscador de Ayuda */}
+        <div className="mb-4 shrink-0">
+          <div className="relative">
+            <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3" />
+            <input
+              type="text"
+              placeholder="Buscar tema en el centro de ayuda (ej: Excel, Tareas, Margen, Sync)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
         </div>
 
-        {/* Tab Contents */}
-        <div className="flex-1 overflow-y-auto space-y-4 pr-1 text-xs text-on-surface-variant leading-relaxed">
-          {activeTab === 'excel' && (
-            <div className="space-y-4">
-              <div className="p-4 bg-primary/10 border border-primary/20 rounded-2xl text-on-surface">
-                <h4 className="font-bold text-sm text-primary flex items-center gap-2 mb-1">
-                  <FileSpreadsheet className="w-4 h-4" />
-                  Importación Técnica Masiva de Catálogo de Materiales
-                </h4>
-                <p>
-                  El sistema genera plantillas inteligentes en formato <strong>.xlsx (ExcelJS)</strong> con dos hojas coordinadas para garantizar la calidad de datos sin errores de tipeo.
-                </p>
-              </div>
+        {/* Body Container (Categorías lateral + Contenido) */}
+        <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-12 gap-4">
+          
+          {/* Categorías Sidebar */}
+          <div className="md:col-span-4 overflow-y-auto space-y-1.5 pr-1 border-b md:border-b-0 md:border-r border-outline-variant/20 pb-3 md:pb-0">
+            {filteredCategories.map(cat => {
+              const Icon = iconMap[cat.iconName] || BookOpen;
+              const isSelected = cat.id === activeCategory.id;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCatId(cat.id)}
+                  className={`w-full text-left p-3 rounded-2xl border transition-all text-xs flex items-start gap-3 ${
+                    isSelected
+                      ? 'bg-primary-container/40 border-primary text-on-primary-container font-semibold shadow-xs'
+                      : 'bg-surface-container-low border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
+                  }`}
+                >
+                  <div className={`p-1.5 rounded-xl shrink-0 ${isSelected ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface-variant'}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="block font-medium text-xs text-on-surface">{cat.title}</span>
+                    <span className="text-[10px] opacity-80 line-clamp-1">{cat.summary}</span>
+                  </div>
+                </button>
+              );
+            })}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="p-3.5 bg-surface-container-low rounded-2xl border border-outline-variant/20 space-y-1">
-                  <span className="font-bold text-on-surface block text-xs">📊 Hoja 1: Materiales</span>
-                  <p>Contiene la Tabla Oficial de Excel con las columnas: <em>Nombre / Descripción, Categoría, Unidad, Norma, Marca y Precio Referencia ARS</em>.</p>
-                  <p className="text-primary font-medium pt-1">
-                    ✓ La columna Categoría cuenta con validación desplegable vinculada automáticamente a la lista de tu base de datos.
-                  </p>
+            {filteredCategories.length === 0 && (
+              <p className="text-xs text-on-surface-variant text-center py-4">No se encontraron temas con tu búsqueda.</p>
+            )}
+          </div>
+
+          {/* Secciones de Contenido Detallado */}
+          <div className="md:col-span-8 overflow-y-auto pr-1 space-y-4 text-xs leading-relaxed text-on-surface-variant">
+            {activeCategory && (
+              <div className="space-y-4">
+                <div className="p-4 bg-primary/10 border border-primary/20 rounded-2xl text-on-surface">
+                  <div className="flex items-center gap-2 mb-1">
+                    <ActiveIcon className="w-4 h-4 text-primary" />
+                    <h4 className="font-bold text-sm text-primary">{activeCategory.title}</h4>
+                  </div>
+                  <p className="text-xs">{activeCategory.summary}</p>
                 </div>
 
-                <div className="p-3.5 bg-surface-container-low rounded-2xl border border-outline-variant/20 space-y-1">
-                  <span className="font-bold text-on-surface block text-xs">🏷️ Hoja 2: Categorías (Disponibles)</span>
-                  <p>Enlista todas las categorías registradas en tu sistema local (ej. <em>Cables & Conductores, Protecciones, Canalizaciones</em>).</p>
-                  <p className="text-emerald-600 dark:text-emerald-400 font-medium pt-1">
-                    ⚡ Creación On-the-fly: Si tipeas una categoría nueva en el Excel, el sistema la creará automáticamente al importar.
-                  </p>
-                </div>
+                {activeCategory.sections.map((sec, idx) => (
+                  <div key={idx} className="p-4 bg-surface-container-low border border-outline-variant/20 rounded-2xl space-y-2">
+                    <h5 className="font-bold text-xs text-on-surface flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-primary" />
+                      {sec.heading}
+                    </h5>
+                    <p className="text-on-surface-variant">{sec.content}</p>
+
+                    {sec.bullets && sec.bullets.length > 0 && (
+                      <ul className="space-y-1.5 pt-1">
+                        {sec.bullets.map((bullet, bIdx) => (
+                          <li key={bIdx} className="flex items-start gap-2 text-[11px] text-on-surface">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                            <span>{bullet}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+
+                {activeCategory.id === 'importacion' && onOpenImporter && (
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onOpenImporter();
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary font-semibold text-xs rounded-full shadow-sm hover:bg-primary/90 transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Abrir Importador y Descargar Plantilla</span>
+                    </button>
+                  </div>
+                )}
               </div>
-
-              {onOpenImporter && (
-                <div className="pt-2 flex justify-end">
-                  <button
-                    onClick={() => {
-                      onClose();
-                      onOpenImporter();
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary font-semibold text-xs rounded-full shadow-sm hover:bg-primary/90"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Abrir Importador y Descargar Plantilla</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'laboratorio' && (
-            <div className="space-y-4">
-              <div className="p-4 bg-surface-container-high border border-outline-variant/20 rounded-2xl text-on-surface space-y-2">
-                <h4 className="font-bold text-sm text-primary flex items-center gap-2">
-                  <Layers className="w-4 h-4" />
-                  Laboratorio de Tareas Tipo (Ensambles Eléctricos)
-                </h4>
-                <p>
-                  Un ensamble o Tarea Tipo (ej. <em>"Punto de Toma Monofásico 10A"</em>) agrupa la lista de insumos necesarios y el tiempo de mano de obra estimado por unidad.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h5 className="font-bold text-on-surface">Pasos para armar un Presupuesto:</h5>
-                <ol className="list-decimal pl-5 space-y-1.5 font-mono text-[11px]">
-                  <li>Crea tus Tareas Tipo asignando materiales (ej. 1 caja, 1 módulo, 5m cable 2.5mm²) y horas de trabajo.</li>
-                  <li>Abre el <strong>Editor de Presupuestos</strong> y añade los ítems especificando las cantidades de obra.</li>
-                  <li>Aplica los márgenes de ganancia, costos indirectos e impuestos deseados.</li>
-                  <li>Haz clic en <strong>"Vista Previa & PDF"</strong> para generar el documento formal para tu cliente.</li>
-                </ol>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'obra' && (
-            <div className="space-y-4">
-              <div className="p-4 bg-surface-container-high border border-outline-variant/20 rounded-2xl text-on-surface space-y-2">
-                <h4 className="font-bold text-sm text-primary flex items-center gap-2">
-                  <Smartphone className="w-4 h-4" />
-                  Registro de Campo / Recolección en Obra (Mobile-First)
-                </h4>
-                <p>
-                  Diseñado para usar desde el teléfono celular al finalizar la jornada o estando en la calle.
-                </p>
-              </div>
-
-              <div className="p-3.5 bg-surface-container-low rounded-2xl border border-outline-variant/20 space-y-2">
-                <span className="font-bold text-on-surface block text-xs">Métricas de Rendimiento y Factor EMA:</span>
-                <p>
-                  Al anotar las horas reales ejecutadas por tarea, el sistema calcula automáticamente la Media Móvil Exponencial (EMA) para sugerirte correcciones de tiempo reales en tus presupuestos futuros.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'sync' && (
-            <div className="space-y-4">
-              <div className="p-4 bg-surface-container-high border border-outline-variant/20 rounded-2xl text-on-surface space-y-2">
-                <h4 className="font-bold text-sm text-primary flex items-center gap-2">
-                  <Cloud className="w-4 h-4" />
-                  Arquitectura Offline-First y Sincronización Delta
-                </h4>
-                <p>
-                  Tu aplicación funciona <strong>100% sin conexión a Internet</strong> guardando todos tus datos de forma segura en la base de datos local Dexie/IndexedDB de tu dispositivo.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="p-3 bg-surface-container-low rounded-2xl border border-outline-variant/20 space-y-1">
-                  <span className="font-bold text-on-surface block text-xs">🔄 Sincronización Delta Ligera</span>
-                  <p>Cuando te conectas a Internet, la PWA envía únicamente los registros modificados a la nube de Firebase, ahorrando más del 90% de consumo de datos y cuota.</p>
-                </div>
-
-                <div className="p-3 bg-surface-container-low rounded-2xl border border-outline-variant/20 space-y-1">
-                  <span className="font-bold text-on-surface block text-xs">⚠️ Circuit Breaker de Cuota</span>
-                  <p>Si la cuota de la nube se agota, el sistema conmuta automáticamente a <strong>Modo Local</strong> sin interrumpir tu trabajo ni trabar la pantalla.</p>
-                </div>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Modal Footer */}
-        <div className="pt-3 border-t border-outline-variant/30 flex justify-between items-center shrink-0">
+        <div className="pt-3 border-t border-outline-variant/30 flex justify-between items-center shrink-0 mt-2">
           <span className="text-[11px] text-on-surface-variant font-mono">Cotizador Eléctrico — IEBA v1.3.0</span>
           <button
             onClick={onClose}
@@ -217,6 +175,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
             Entendido, Cerrar
           </button>
         </div>
+
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
 import { Package, Users, Layers, FileText, CheckCircle2, ArrowRight, X, Sparkles } from 'lucide-react';
+import helpMessages from '../data/helpMessages.json';
 
 interface OnboardingBannerProps {
   onNavigateTab: (tab: 'insumos' | 'manoObra' | 'tareasTipo' | 'presupuestos' | 'clientes') => void;
@@ -19,40 +20,25 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onNavigateTa
   const tareasCount = useLiveQuery(() => db.tareasTipo.count()) || 0;
   const presupuestosCount = useLiveQuery(() => db.presupuestos.count()) || 0;
 
-  const steps = [
-    {
-      id: 'insumos',
-      label: 'Catálogo de Materiales',
-      description: 'Importa o agrega insumos de electricidad.',
-      icon: Package,
-      completed: materialesCount > 0,
-      targetTab: 'insumos' as const
-    },
-    {
-      id: 'manoObra',
-      label: 'Tarifa de Mano de Obra',
-      description: 'Define la tarifa horaria para tu equipo.',
-      icon: Users,
-      completed: manoObraCount > 0,
-      targetTab: 'manoObra' as const
-    },
-    {
-      id: 'tareasTipo',
-      label: 'Laboratorio de Tareas',
-      description: 'Configura ensambles tipo de instalación.',
-      icon: Layers,
-      completed: tareasCount > 0,
-      targetTab: 'tareasTipo' as const
-    },
-    {
-      id: 'presupuestos',
-      label: 'Emitir Presupuesto',
-      description: 'Crea tu primera cotización en PDF.',
-      icon: FileText,
-      completed: presupuestosCount > 0,
-      targetTab: 'presupuestos' as const
-    }
-  ];
+  const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+    insumos: Package,
+    manoObra: Users,
+    tareasTipo: Layers,
+    presupuestos: FileText
+  };
+
+  const countsMap: Record<string, number> = {
+    insumos: materialesCount,
+    manoObra: manoObraCount,
+    tareasTipo: tareasCount,
+    presupuestos: presupuestosCount
+  };
+
+  const steps = helpMessages.onboarding.steps.map(step => ({
+    ...step,
+    icon: iconMap[step.id] || Package,
+    completed: (countsMap[step.id] || 0) > 0
+  }));
 
   const completedCount = steps.filter(s => s.completed).length;
   const isAllCompleted = completedCount === steps.length;
@@ -68,7 +54,7 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onNavigateTa
     <div className="bg-gradient-to-r from-primary/10 via-surface-container-high to-surface-container-low border border-primary/20 rounded-3xl p-4 sm:p-5 shadow-sm text-on-surface mb-6 relative animate-in fade-in duration-300">
       <button
         onClick={handleDismiss}
-        className="absolute top-3 right-3 p-1.5 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50 transition-colors"
+        className="absolute top-3.5 right-3.5 p-1.5 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50 transition-colors"
         title="Descartar guía inicial"
       >
         <X className="w-4 h-4" />
@@ -81,7 +67,7 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onNavigateTa
           </div>
           <div>
             <h3 className="font-semibold text-sm sm:text-base text-on-surface flex items-center gap-2">
-              Guía de Configuración Inicial
+              {helpMessages.onboarding.title}
               {isAllCompleted && (
                 <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs rounded-full font-bold">
                   ¡100% Completado!
@@ -89,12 +75,12 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onNavigateTa
               )}
             </h3>
             <p className="text-xs text-on-surface-variant">
-              Completa los 4 pasos clave para emitir cotizaciones eléctricas precisas y rápidas.
+              {helpMessages.onboarding.subtitle}
             </p>
           </div>
         </div>
 
-        {/* Progress Bar */}
+        {/* Barra de progreso */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="w-32 bg-surface-container-highest rounded-full h-2 overflow-hidden border border-outline-variant/30">
             <div
@@ -108,14 +94,14 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onNavigateTa
         </div>
       </div>
 
-      {/* Steps Grid */}
+      {/* Cuadrícula de Pasos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {steps.map((step, idx) => {
           const Icon = step.icon;
           return (
             <div
               key={step.id}
-              onClick={() => onNavigateTab(step.targetTab)}
+              onClick={() => onNavigateTab(step.targetTab as any)}
               className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group ${
                 step.completed
                   ? 'bg-emerald-500/5 border-emerald-500/30 hover:bg-emerald-500/10'
@@ -139,7 +125,7 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onNavigateTa
                 </div>
 
                 <h4 className="font-semibold text-xs text-on-surface group-hover:text-primary transition-colors">
-                  {step.label}
+                  {step.title}
                 </h4>
                 <p className="text-[11px] text-on-surface-variant mt-0.5 line-clamp-2">
                   {step.description}
@@ -147,7 +133,7 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onNavigateTa
               </div>
 
               <div className="mt-3 flex items-center justify-end text-[11px] font-semibold text-primary group-hover:translate-x-0.5 transition-transform">
-                <span>{step.completed ? 'Ver lista' : 'Configurar'}</span>
+                <span>{step.completed ? 'Ver registros' : step.actionText}</span>
                 <ArrowRight className="w-3 h-3 ml-1" />
               </div>
             </div>
