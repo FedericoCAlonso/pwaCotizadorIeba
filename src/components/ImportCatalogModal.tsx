@@ -60,12 +60,17 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
   });
 
   // Category Specific Template Selection
-  const [selectedCatForDownload, setSelectedCatForDownload] = useState<string>('all');
+  const [selectedCatForDownload, setSelectedCatForDownload] = useState<string>('');
   const [dbCategories, setDbCategories] = useState<CategoriaMaterial[]>([]);
 
   React.useEffect(() => {
     if (isOpen) {
-      db.categoriasMaterial.toArray().then(cats => setDbCategories(cats));
+      db.categoriasMaterial.toArray().then(cats => {
+        setDbCategories(cats);
+        if (cats.length > 0 && !selectedCatForDownload) {
+          setSelectedCatForDownload(cats[0].id);
+        }
+      });
     }
   }, [isOpen]);
 
@@ -82,102 +87,41 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       const ExcelJS = ExcelModule.default || ExcelModule;
 
       const existingCats = await db.categoriasMaterial.toArray();
+      const targetCat = existingCats.find(c => c.id === selectedCatForDownload) || existingCats[0];
+      if (!targetCat) {
+        alert('Por favor selecciona una categoría válida.');
+        return;
+      }
 
       const workbook = new ExcelJS.Workbook();
       workbook.creator = 'Cotizador IEBA';
       workbook.created = new Date();
 
-      if (selectedCatForDownload !== 'all') {
-        const targetCat = existingCats.find(c => c.id === selectedCatForDownload);
-        if (targetCat) {
-          // Hoja 2: "Metadatos" (Información de Categoría)
-          const sheetMeta = workbook.addWorksheet('Metadatos');
-          sheetMeta.addRow(['METADATO', 'VALOR']);
-          sheetMeta.addRow(['CATEGORIA_ID', targetCat.id]);
-          sheetMeta.addRow(['CATEGORIA_NOMBRE', targetCat.nombre]);
-          sheetMeta.getColumn(1).width = 25;
-          sheetMeta.getColumn(2).width = 35;
+      // Hoja 2: "Metadatos" (Información de Categoría)
+      const sheetMeta = workbook.addWorksheet('Metadatos');
+      sheetMeta.addRow(['METADATO', 'VALOR']);
+      sheetMeta.addRow(['CATEGORIA_ID', targetCat.id]);
+      sheetMeta.addRow(['CATEGORIA_NOMBRE', targetCat.nombre]);
+      sheetMeta.getColumn(1).width = 25;
+      sheetMeta.getColumn(2).width = 35;
 
-          // Hoja 1: "Materiales"
-          const sheetMat = workbook.addWorksheet('Materiales');
-
-          const tableColumns: { name: string; filterButton: boolean }[] = [];
-          const sampleRow: any[] = [];
-
-          targetCat.atributosSugeridos.forEach(attr => {
-            const headerLabel = attr.unidad ? `${attr.etiqueta} (${attr.unidad})` : attr.etiqueta;
-            tableColumns.push({ name: headerLabel, filterButton: true });
-            sampleRow.push(attr.tipo === 'numero' ? 2.5 : 'Ejemplo');
-          });
-
-          tableColumns.push({ name: 'Unidad Venta', filterButton: true });
-          sampleRow.push('m');
-
-          sheetMat.addTable({
-            name: `Tabla_${targetCat.id.replace(/[^a-zA-Z0-9]/g, '_')}`,
-            ref: 'A1',
-            headerRow: true,
-            totalsRow: false,
-            style: {
-              theme: 'TableStyleMedium9',
-              showRowStripes: true,
-            },
-            columns: tableColumns,
-            rows: [sampleRow]
-          });
-
-          // Formateo de ancho de columnas
-          let colIdx = 1;
-          targetCat.atributosSugeridos.forEach(() => {
-            sheetMat.getColumn(colIdx).width = 26;
-            colIdx++;
-          });
-          sheetMat.getColumn(colIdx).width = 20; // Unidad Venta
-
-          // Aplicar Validación de Datos (Lista desplegable en Unidad Venta)
-          const unitColLetter = sheetMat.getColumn(colIdx).letter;
-          for (let r = 2; r <= 100; r++) {
-            sheetMat.getCell(`${unitColLetter}${r}`).dataValidation = {
-              type: 'list',
-              allowBlank: true,
-              formulae: ['"m,u,kg,rollo x100m,caja x100u,global"']
-            };
-          }
-
-          const buffer = await workbook.xlsx.writeBuffer();
-          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `Plantilla_${targetCat.nombre.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
-          a.click();
-          URL.revokeObjectURL(url);
-          return;
-        }
-      }
-
-      // Plantilla Universal (Todas las Categorías)
-      const sheetCats = workbook.addWorksheet('Categorías');
-      const catTableRows = existingCats.map(c => [c.nombre]);
-      sheetCats.addTable({
-        name: 'TablaCategorias',
-        ref: 'A1',
-        headerRow: true,
-        totalsRow: false,
-        style: {
-          theme: 'TableStyleMedium2',
-          showRowStripes: true,
-        },
-        columns: [{ name: 'Nombre_Categoria', filterButton: true }],
-        rows: catTableRows.length > 0 ? catTableRows : [['Cables & Conductores'], ['Protecciones Eléctricas']]
-      });
-      sheetCats.getColumn(1).width = 38;
-
+      // Hoja 1: "Materiales"
       const sheetMat = workbook.addWorksheet('Materiales');
-      const sampleCatName = existingCats[0]?.nombre || 'Cables & Conductores';
+
+      const tableColumns: { name: string; filterButton: boolean }[] = [];
+      const sampleRow: any[] = [];
+
+      targetCat.atributosSugeridos.forEach(attr => {
+        const headerLabel = attr.unidad ? `${attr.etiqueta} (${attr.unidad})` : attr.etiqueta;
+        tableColumns.push({ name: headerLabel, filterButton: true });
+        sampleRow.push(attr.tipo === 'numero' ? 2.5 : 'Ejemplo');
+      });
+
+      tableColumns.push({ name: 'Unidad Venta', filterButton: true });
+      sampleRow.push('m');
 
       sheetMat.addTable({
-        name: 'TablaMaterialesUniversal',
+        name: `Tabla_${targetCat.id.replace(/[^a-zA-Z0-9]/g, '_')}`,
         ref: 'A1',
         headerRow: true,
         totalsRow: false,
@@ -185,28 +129,25 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
           theme: 'TableStyleMedium9',
           showRowStripes: true,
         },
-        columns: [
-          { name: 'Categoría', filterButton: true },
+        columns: tableColumns.length > 1 ? tableColumns : [
+          { name: 'Descripción Atributo', filterButton: true },
           { name: 'Unidad Venta', filterButton: true }
         ],
-        rows: [
-          [sampleCatName, 'm']
-        ]
+        rows: sampleRow.length > 1 ? [sampleRow] : [['Detalle', 'm']]
       });
 
-      sheetMat.getColumn(1).width = 36;
-      sheetMat.getColumn(2).width = 20;
+      // Formateo de ancho de columnas
+      let colIdx = 1;
+      targetCat.atributosSugeridos.forEach(() => {
+        sheetMat.getColumn(colIdx).width = 26;
+        colIdx++;
+      });
+      sheetMat.getColumn(colIdx).width = 20; // Unidad Venta
 
-      const lastCatRow = Math.max(2, (catTableRows.length > 0 ? catTableRows.length : 2) + 1);
-      const catFormula = `'Categorías'!$A$2:$A$${lastCatRow}`;
-
+      // Aplicar Validación de Datos (Lista desplegable en Unidad Venta)
+      const unitColLetter = sheetMat.getColumn(colIdx).letter;
       for (let r = 2; r <= 100; r++) {
-        sheetMat.getCell(`A${r}`).dataValidation = {
-          type: 'list',
-          allowBlank: true,
-          formulae: [catFormula]
-        };
-        sheetMat.getCell(`B${r}`).dataValidation = {
+        sheetMat.getCell(`${unitColLetter}${r}`).dataValidation = {
           type: 'list',
           allowBlank: true,
           formulae: ['"m,u,kg,rollo x100m,caja x100u,global"']
@@ -218,7 +159,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'Plantilla_Universal_Materiales_IEBA.xlsx';
+      a.download = `Plantilla_${targetCat.nombre.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -228,39 +169,41 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
   };
 
   /**
-   * Genera y descarga 2 planillas CSV separadas:
-   * - Plantilla_Materiales.csv (solo encabezados)
-   * - Plantilla_Categorias.csv (listado de categorías)
+   * Genera y descarga la plantilla CSV (.csv) específica para la categoría seleccionada
    */
   const handleDownloadCSVTemplate = async () => {
     try {
       const existingCats = await db.categoriasMaterial.toArray();
+      const targetCat = existingCats.find(c => c.id === selectedCatForDownload) || existingCats[0];
+      if (!targetCat) {
+        alert('Por favor selecciona una categoría válida.');
+        return;
+      }
 
-      // CSV 1: Materiales
-      const csvMat = 'Nombre / Descripción,Categoría,Unidad,Norma,Marca,Precio Referencia ARS\n';
-      const blobMat = new Blob([csvMat], { type: 'text/csv;charset=utf-8;' });
-      const a1 = document.createElement('a');
-      a1.href = URL.createObjectURL(blobMat);
-      a1.download = 'Plantilla_Materiales.csv';
-      a1.click();
-      URL.revokeObjectURL(a1.href);
+      const headersList: string[] = [];
+      const sampleList: string[] = [];
 
-      // CSV 2: Categorías
-      let csvCats = 'Nombre de la Categoría\n';
-      existingCats.forEach(c => {
-        csvCats += `"${c.nombre.replace(/"/g, '""')}"\n`;
+      targetCat.atributosSugeridos.forEach(attr => {
+        const headerLabel = attr.unidad ? `${attr.etiqueta} (${attr.unidad})` : attr.etiqueta;
+        headersList.push(`"${headerLabel.replace(/"/g, '""')}"`);
+        sampleList.push(attr.tipo === 'numero' ? '2.5' : '"Ejemplo"');
       });
-      const blobCats = new Blob([csvCats], { type: 'text/csv;charset=utf-8;' });
-      const a2 = document.createElement('a');
-      a2.href = URL.createObjectURL(blobCats);
-      a2.download = 'Plantilla_Categorias.csv';
-      setTimeout(() => {
-        a2.click();
-        URL.revokeObjectURL(a2.href);
-      }, 300);
+
+      headersList.push('"Unidad Venta"');
+      sampleList.push('"m"');
+
+      const metaHeader = `# METADATO: CATEGORIA_ID=${targetCat.id}, CATEGORIA_NOMBRE=${targetCat.nombre}\n`;
+      const csvContent = metaHeader + headersList.join(',') + '\n' + sampleList.join(',') + '\n';
+
+      const blobMat = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blobMat);
+      a.download = `Plantilla_${targetCat.nombre.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
     } catch (err) {
-      console.error('Error al generar planillas CSV:', err);
-      alert('Ocurrió un error al generar las planillas CSV.');
+      console.error('Error al generar plantilla CSV:', err);
+      alert('Ocurrió un error al generar la plantilla CSV.');
     }
   };
 
@@ -542,40 +485,50 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                 </label>
               </div>
 
-              {/* Botones Descargar Plantillas */}
+              {/* Botones Descargar Plantillas por Categoría */}
               <div className="p-4 bg-surface-container-high rounded-2xl border border-outline-variant/20 space-y-3 text-xs">
                 <div>
                   <h5 className="font-semibold text-on-surface flex items-center gap-1.5">
                     <Table className="w-4 h-4 text-primary" />
-                    Descargar Plantilla Excel por Categoría (`exceljs`)
+                    Descargar Plantilla por Categoría Específica
                   </h5>
                   <p className="text-on-surface-variant text-[11px] mt-0.5">
-                    Genera una Tabla de Excel (.xlsx) estructurada con columnas de atributos específicas para la categoría seleccionada, formato de tabla y validación de datos por lista desplegable.
+                    Selecciona la categoría para descargar la planilla con sus atributos técnicos específicos. Si la categoría no existe, créala primero desde el gestor de categorías.
                   </p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-1">
+                <div className="space-y-2.5 pt-1">
                   <select
                     value={selectedCatForDownload}
                     onChange={(e) => setSelectedCatForDownload(e.target.value)}
-                    className="px-3 py-2 bg-surface-container border border-outline-variant/40 rounded-xl text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary flex-1"
+                    className="w-full px-3 py-2 bg-surface-container border border-outline-variant/40 rounded-xl text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary font-semibold"
                   >
-                    <option value="all">Todas las Categorías (Planilla Universal)</option>
                     {dbCategories.map(cat => (
                       <option key={cat.id} value={cat.id}>
-                        Categoría: {cat.nombre}
+                        Categoría: {cat.nombre} ({cat.atributosSugeridos?.length || 0} atributos)
                       </option>
                     ))}
                   </select>
 
-                  <button
-                    type="button"
-                    onClick={handleDownloadExcelTemplate}
-                    className="flex items-center justify-center gap-1.5 px-4 py-2 bg-primary text-on-primary hover:bg-primary/90 rounded-xl font-semibold text-xs transition-colors shadow-sm shrink-0"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Descargar Excel (.xlsx)</span>
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDownloadExcelTemplate}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-primary text-on-primary hover:bg-primary/90 rounded-xl font-semibold text-xs transition-colors shadow-sm"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Plantilla Excel (.xlsx)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadCSVTemplate}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-surface-container-highest text-on-surface hover:bg-surface-variant rounded-xl font-semibold text-xs transition-colors border border-outline-variant/30"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Plantilla CSV (.csv)</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
