@@ -38,7 +38,6 @@ export const TIPO_FACTURA_VALORES = {
 } as const;
 
 export type MotivoDesvio = 'material' | 'diseno_cliente' | 'clima' | 'error_calculo' | 'otro';
-export type TipoProveedor = 'material' | 'servicio' | 'ambos';
 
 export const MOTIVO_DESVIO_ETIQUETAS: Record<MotivoDesvio, string> = {
   material: 'Material',
@@ -153,37 +152,80 @@ export interface Oferta {
   deleted?: boolean;
 }
 
-// ─── 5. Proveedor & Contactos Dinámicos ────────────────────────────────────────
+// ─── 5. Directorio Unificado de Contactos (Clientes & Proveedores) ────────────
+export type RolContacto = 'cliente' | 'proveedor';
+export type TipoProveedor = 'material' | 'servicio' | 'ambos';
+export type CondicionIVA = 'Responsable Inscripto' | 'Monotributo' | 'Consumidor Final' | 'Exento';
+
 export interface CanalContacto {
   tipo: 'telefono' | 'whatsapp' | 'email' | 'web';
   valor: string;
   esPrincipal: boolean;
 }
 
-export interface Contacto {
+export interface PersonaContacto {
   id: string;
-  nombrePersona: string;
-  rol?: string; // "Ventas", "Administración", "Técnico"
-  canales: CanalContacto[];
-}
-
-export interface Proveedor {
-  id: string;
-  razonSocial: string;
-  nombre?: string; // Alias para razonSocial
-  cuit?: string;
-  tipoProveedor: TipoProveedor; // 'material', 'servicio', 'ambos'
-  contactos: Contacto[];
-  notas?: string;
-  // Campos legados opcionales
+  nombre?: string;
+  nombrePersona?: string; // compatibilidad
+  rol?: string; // "Titular", "Jefe de Obra", "Compras", "Pagos", "Ventas", "Técnico"
   telefono?: string;
   email?: string;
-  contacto?: string;
+  esPrincipal?: boolean;
+  canales?: CanalContacto[];
+}
+
+export interface DatosFinancierosContacto {
+  // Condiciones comerciales / cobro (como Cliente)
+  condicionesCobroHabitual?: string; // ej: "50% anticipo, 50% fin de obra", "30 días f.f."
+  descuentoHabitualPct?: number;     // % descuento acordado
+  limiteCreditoARS?: number;         // límite de crédito para obra
+  
+  // Condiciones de pago / bancarias (como Proveedor)
+  condicionesPagoHabitual?: string;  // ej: "Cuenta Corriente 30 días", "Contado contra entrega"
+  cbuCvuAlias?: string;              // CBU / CVU / Alias bancario
+  banco?: string;                    // ej: "Banco Galicia", "Mercado Pago"
+  titularCuenta?: string;            // Titular de la cuenta
+  cuitTitular?: string;              // CUIT del titular
+  diasPlazoPago?: number;            // Días de plazo de pago
+}
+
+export interface Contacto {
+  id: string;
+  razonSocial: string;               // Nombre o Razón Social principal
+  nombreFantasia?: string;           // Nombre comercial o alias
+  nombre?: string;                   // Alias de compatibilidad (= razonSocial)
+  cuitDni?: string;
+  cuit?: string;                     // Alias de compatibilidad (= cuitDni)
+  condicionIVA?: CondicionIVA;
+  
+  // Roles de negocio
+  roles: RolContacto[];              // ['cliente'], ['proveedor'] o ['cliente', 'proveedor']
+  tipoProveedor?: TipoProveedor;     // si roles.includes('proveedor')
+  
+  // Ubicación y Canales Generales
   direccion?: string;
+  localidad?: string;
+  provincia?: string;
+  telefono?: string;
+  email?: string;
+  contacto?: string;                 // Alias de compatibilidad
+  sitioWeb?: string;
+  contactos?: PersonaContacto[];     // Directorio de personas de la empresa
+  
+  // Módulo Financiero
+  financiero?: DatosFinancierosContacto;
+  
+  notas?: string;
   createdAt?: string;
   updatedAt?: string;
   deleted?: boolean;
+  syncStatus?: SyncStatus;
+  _updatedAt?: number;
 }
+
+// Alias de retrocompatibilidad
+export type Cliente = Contacto;
+export type Proveedor = Contacto;
 
 // ─── 6. Solicitud de Cotización (RFQ) ─────────────────────────────────────────
 export interface SolicitudCotizacionItem {
@@ -387,19 +429,6 @@ export interface OpcionesEmisionPresupuesto {
   condicionesComerciales?: string;
 }
 
-export interface Cliente {
-  id: string;
-  nombre: string;
-  cuitDni?: string;
-  condicionIVA?: 'Responsable Inscripto' | 'Monotributo' | 'Consumidor Final' | 'Exento';
-  telefono?: string;
-  email?: string;
-  direccion?: string;
-  notas?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  deleted?: boolean;
-}
 
 export interface Proyecto {
   id: string;

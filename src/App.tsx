@@ -7,8 +7,7 @@ import { ConfigModal } from './components/ConfigModal';
 import { InsumosManager } from './components/InsumosManager';
 import { ManoObraManager } from './components/ManoObraManager';
 import { TareasTipoManager } from './components/TareasTipoManager';
-import { ClientesManager } from './components/ClientesManager';
-import { ProveedoresManager } from './components/ProveedoresManager';
+import { ContactosManager } from './components/ContactosManager';
 import { SolicitudCotizacionManager } from './components/SolicitudesCotizacionManager';
 import { PresupuestosList } from './components/PresupuestosList';
 import { PresupuestoEditor } from './components/PresupuestoEditor';
@@ -167,15 +166,15 @@ export function App() {
           {activeTab === 'insumos' && <InsumosManager />}
           {activeTab === 'manoObra' && <ManoObraManager />}
           {activeTab === 'tareasTipo' && <TareasTipoManager />}
-          {activeTab === 'clientes' && (
-            <ClientesManager
+          {(activeTab === 'contactos' || activeTab === 'clientes' || activeTab === 'proveedores') && (
+            <ContactosManager
               onSelectPresupuesto={handleSelectPresupuestoFromClientes}
               onEditPresupuesto={handleEditPresupuestoFromClientes}
               onNewPresupuestoForCliente={handleNewPresupuestoForCliente}
               onDuplicatePresupuesto={handleDuplicatePresupuesto}
+              onNewRFQForProveedor={() => setActiveTab('rfq')}
             />
           )}
-          {activeTab === 'proveedores' && <ProveedoresManager />}
           {activeTab === 'rfq' && <SolicitudCotizacionManager />}
           {activeTab === 'registroTrabajo' && <RegistroTrabajoManager />}
           {activeTab === 'logistica' && <LogisticaManager />}

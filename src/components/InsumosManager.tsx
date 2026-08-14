@@ -1,11 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Package, Plus, Search, TrendingUp, FileSpreadsheet,
   Edit2, Trash2, X, Save, AlertCircle, Star, Tag, Layers, RefreshCw, Zap, ExternalLink, Copy, LayoutGrid, List, Sparkles
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
-import { CategoriaMaterial, Material, Producto, Oferta } from '../core/types';
+import { CategoriaMaterial, Material, Producto, Oferta, Contacto } from '../core/types';
 import { formatARS, obtenerEstadoVencimientoOferta } from '../core/calculations';
 import { TIPOS_AJUSTE_PRECIO, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL } from '../core/sampleData';
 import { ImportCatalogModal } from './ImportCatalogModal';
@@ -17,7 +17,13 @@ export const InsumosManager: React.FC = () => {
   const materiales = (useLiveQuery(() => db.materiales.toArray()) || []).filter(m => !m.deleted);
   const productos = (useLiveQuery(() => db.productos.toArray()) || []).filter(p => !p.deleted);
   const ofertas = (useLiveQuery(() => db.ofertas.reverse().toArray()) || []).filter(o => !o.deleted);
-  const proveedores = (useLiveQuery(() => db.proveedores.toArray()) || []).filter(p => !p.deleted);
+  const rawContactos = useLiveQuery(() => db.contactos.toArray()) || [];
+  const rawProveedores = useLiveQuery(() => db.proveedores.toArray()) || [];
+  const proveedores: Contacto[] = useMemo(() => {
+    const fromContactos = rawContactos.filter(c => !c.deleted && (c.roles?.includes('proveedor') || !c.roles?.length));
+    if (fromContactos.length > 0) return fromContactos;
+    return rawProveedores.filter(p => !p.deleted);
+  }, [rawContactos, rawProveedores]);
   const configs = useLiveQuery(() => db.config.toArray()) || [];
   const config = configs[0];
 

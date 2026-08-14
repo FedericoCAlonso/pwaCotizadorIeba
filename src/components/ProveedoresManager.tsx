@@ -82,7 +82,7 @@ export const ProveedoresManager: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const razonSocial = formData.razonSocial || 'Nuevo Proveedor';
-    const contactosClean = (formData.contactos || []).filter(c => c.nombrePersona.trim() || c.canales.some(cn => cn.valor.trim()));
+    const contactosClean = (formData.contactos || []).filter(c => (c.nombrePersona || c.nombre || '').trim() || (c.canales || []).some(cn => cn.valor.trim()));
     const now = new Date().toISOString();
 
     if (isCreating) {
@@ -90,7 +90,9 @@ export const ProveedoresManager: React.FC = () => {
         id: `prov-${crypto.randomUUID()}`,
         razonSocial,
         nombre: razonSocial,
+        roles: ['proveedor'],
         cuit: formData.cuit,
+        cuitDni: formData.cuit,
         tipoProveedor: formData.tipoProveedor || 'material',
         contactos: contactosClean,
         notas: formData.notas,
@@ -211,7 +213,7 @@ export const ProveedoresManager: React.FC = () => {
                         {cnt.rol && <span className="text-[10px] text-on-surface-variant/80 bg-surface-container px-2 py-0.5 rounded-full">{cnt.rol}</span>}
                       </div>
                       <div className="flex flex-wrap gap-2 pt-1">
-                        {cnt.canales.map((can, idx) => {
+                        {(cnt.canales || []).map((can, idx) => {
                           if (!can.valor) return null;
                           if (can.tipo === 'whatsapp') {
                             return (
@@ -348,14 +350,16 @@ export const ProveedoresManager: React.FC = () => {
                     </div>
 
                     {/* Canales de la persona */}
-                    {cnt.canales.map((can, canIdx) => (
+                    {(cnt.canales || []).map((can, canIdx) => (
                       <div key={canIdx} className="flex items-center gap-2">
                         <select
                           value={can.tipo}
                           onChange={(e) => {
                             const updated = [...(formData.contactos || [])];
-                            updated[cIdx].canales[canIdx].tipo = e.target.value as any;
-                            setFormData({ ...formData, contactos: updated });
+                            if (updated[cIdx].canales) {
+                              updated[cIdx].canales![canIdx].tipo = e.target.value as any;
+                              setFormData({ ...formData, contactos: updated });
+                            }
                           }}
                           className="bg-surface-container border border-outline-variant/30 rounded-xl px-2 py-1.5 text-xs text-on-surface"
                         >
@@ -370,8 +374,10 @@ export const ProveedoresManager: React.FC = () => {
                           value={can.valor}
                           onChange={(e) => {
                             const updated = [...(formData.contactos || [])];
-                            updated[cIdx].canales[canIdx].valor = e.target.value;
-                            setFormData({ ...formData, contactos: updated });
+                            if (updated[cIdx].canales) {
+                              updated[cIdx].canales![canIdx].valor = e.target.value;
+                              setFormData({ ...formData, contactos: updated });
+                            }
                           }}
                           className={`${inputCls} py-1 text-xs`}
                         />

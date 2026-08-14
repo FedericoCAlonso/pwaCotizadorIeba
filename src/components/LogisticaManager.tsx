@@ -148,7 +148,7 @@ export const LogisticaManager: React.FC = () => {
   const handleSendWhatsApp = (prov: Proveedor | undefined, items: ConsolidatedItem[], totalGroup: number) => {
     const provName = prov?.razonSocial || prov?.nombre || 'Proveedor';
     const text = buildOrderText(provName, items, totalGroup);
-    const phone = prov?.telefono || (prov?.contactos && prov.contactos[0]?.canales?.find(c => c.tipo === 'telefono')?.valor);
+    const phone = prov?.telefono || (prov?.contactos && (prov.contactos[0]?.telefono || prov.contactos[0]?.canales?.find(c => c.tipo === 'telefono')?.valor));
     const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : '';
     const url = cleanPhone
       ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`
@@ -159,7 +159,7 @@ export const LogisticaManager: React.FC = () => {
   const handleSendEmail = (prov: Proveedor | undefined, items: ConsolidatedItem[], totalGroup: number) => {
     const provName = prov?.razonSocial || prov?.nombre || 'Proveedor';
     const text = buildOrderText(provName, items, totalGroup);
-    const email = prov?.email || (prov?.contactos && prov.contactos[0]?.canales?.find(c => c.tipo === 'email')?.valor);
+    const email = prov?.email || (prov?.contactos && (prov.contactos[0]?.email || prov.contactos[0]?.canales?.find(c => c.tipo === 'email')?.valor));
     const subject = encodeURIComponent(`Solicitud de Pedido de Materiales - IEBA`);
     const body = encodeURIComponent(text);
     const url = email ? `mailto:${email}?subject=${subject}&body=${body}` : `mailto:?subject=${subject}&body=${body}`;

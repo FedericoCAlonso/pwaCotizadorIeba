@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   FileText,
@@ -30,8 +30,14 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
   onEdit
 }) => {
   const presupuestos = (useLiveQuery(() => db.presupuestos.reverse().toArray()) || []).filter((p) => !p.deleted);
-  const clientes = (useLiveQuery(() => db.clientes.toArray()) || []).filter((c) => !c.deleted);
-  const clientesMap = new Map<string, Cliente>(clientes.map((c) => [c.id, c]));
+  const rawContactos = useLiveQuery(() => db.contactos.toArray()) || [];
+  const rawClientes = useLiveQuery(() => db.clientes.toArray()) || [];
+  const clientesMap = useMemo(() => {
+    const map = new Map<string, any>();
+    rawClientes.filter((c) => !c.deleted).forEach((c) => map.set(c.id, c));
+    rawContactos.filter((c) => !c.deleted).forEach((c) => map.set(c.id, c));
+    return map;
+  }, [rawContactos, rawClientes]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEstado, setSelectedEstado] = useState<string>('todos');

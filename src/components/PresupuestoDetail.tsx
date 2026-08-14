@@ -30,7 +30,12 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
 }) => {
   const presupuesto = useLiveQuery(() => db.presupuestos.get(presupuestoId), [presupuestoId]);
   const cliente = useLiveQuery(
-    () => (presupuesto?.clienteId ? db.clientes.get(presupuesto.clienteId) : undefined),
+    async () => {
+      if (!presupuesto?.clienteId) return undefined;
+      const cto = await db.contactos.get(presupuesto.clienteId);
+      if (cto) return cto;
+      return db.clientes.get(presupuesto.clienteId);
+    },
     [presupuesto?.clienteId]
   );
 

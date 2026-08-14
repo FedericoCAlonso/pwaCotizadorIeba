@@ -8,6 +8,7 @@ import {
   CategoriaManoDeObra,
   CostoIndirecto,
   TareaTipo,
+  Contacto,
   Cliente,
   Proveedor,
   Proyecto,
@@ -31,6 +32,7 @@ export interface MasterDatabasePayload {
   manoObra: CategoriaManoDeObra[];
   costosIndirectos: CostoIndirecto[];
   tareasTipo: TareaTipo[];
+  contactos?: Contacto[];
   clientes: Cliente[];
   proveedores: Proveedor[];
   proyectos: Proyecto[];

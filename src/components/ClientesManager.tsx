@@ -95,7 +95,9 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
     if (isCreating) {
       await db.clientes.add({
         id: `cli-${crypto.randomUUID()}`,
+        razonSocial: formData.nombre || 'Nuevo Cliente',
         nombre: formData.nombre || 'Nuevo Cliente',
+        roles: ['cliente'],
         cuitDni: formData.cuitDni,
         condicionIVA: formData.condicionIVA || 'Consumidor Final',
         telefono: formData.telefono,

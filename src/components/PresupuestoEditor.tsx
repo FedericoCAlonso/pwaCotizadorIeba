@@ -67,7 +67,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   onBack,
   onSaved
 }) => {
-  const clientes = (useLiveQuery(() => db.clientes.toArray()) || []).filter(c => !c.deleted);
+  const rawContactos = useLiveQuery(() => db.contactos.toArray()) || [];
+  const rawClientes = useLiveQuery(() => db.clientes.toArray()) || [];
+  const clientes = useMemo(() => {
+    const fromContactos = rawContactos.filter(c => !c.deleted && (c.roles?.includes('cliente') || !c.roles?.length));
+    if (fromContactos.length > 0) return fromContactos;
+    return rawClientes.filter(c => !c.deleted);
+  }, [rawContactos, rawClientes]);
   const tareasTipo = (useLiveQuery(() => db.tareasTipo.toArray()) || []).filter(t => !t.deleted);
   const favoriteTareas = [...tareasTipo].sort((a, b) => (b.frecuenciaUso || 0) - (a.frecuenciaUso || 0)).slice(0, 8);
 

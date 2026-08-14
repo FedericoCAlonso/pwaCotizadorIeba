@@ -9,6 +9,8 @@ import {
   TareaTipo,
   Cliente,
   Proveedor,
+  Contacto,
+  RolContacto,
   AppConfig
 } from './types';
 import appConfigData from '../config/appConfig.json';
@@ -64,6 +66,29 @@ export const INITIAL_TAREAS_TIPO: TareaTipo[] = (bdDefaultData.tareasTipo || [])
 export const INITIAL_CLIENTES: Cliente[] = (bdDefaultData.clientes || []) as Cliente[];
 
 export const INITIAL_PROVEEDORES: Proveedor[] = (bdDefaultData.proveedores || []) as unknown as Proveedor[];
+
+export const INITIAL_CONTACTOS: Contacto[] = [
+  ...INITIAL_CLIENTES.map(c => ({
+    ...c,
+    razonSocial: c.nombre || c.razonSocial,
+    roles: ['cliente'] as RolContacto[],
+    contactos: c.telefono || c.email ? [{
+      id: `ct-${c.id}`,
+      nombre: c.nombre || 'Contacto Principal',
+      rol: 'Principal',
+      telefono: c.telefono || '',
+      email: c.email || '',
+      esPrincipal: true
+    }] : []
+  })),
+  ...INITIAL_PROVEEDORES.map(p => ({
+    ...p,
+    razonSocial: p.razonSocial || p.nombre || 'Proveedor',
+    roles: ['proveedor'] as RolContacto[],
+    tipoProveedor: p.tipoProveedor || 'material',
+    contactos: p.contactos || []
+  }))
+];
 
 export const BASE_CATEGORIES: string[] = appConfigData.categories;
 export const BASE_UNITS: string[] = appConfigData.units;

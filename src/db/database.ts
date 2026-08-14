@@ -9,6 +9,7 @@ import {
   CategoriaManoDeObra,
   CostoIndirecto,
   TareaTipo,
+  Contacto,
   Cliente,
   Proveedor,
   Proyecto,
@@ -18,7 +19,8 @@ import {
 } from '../core/types';
 import {
   DEFAULT_APP_CONFIG,
-  INITIAL_CATEGORIAS_MATERIAL
+  INITIAL_CATEGORIAS_MATERIAL,
+  INITIAL_CONTACTOS
 } from '../core/sampleData';
 
 export class CotizadorDatabase extends Dexie {
@@ -32,6 +34,7 @@ export class CotizadorDatabase extends Dexie {
   manoObra!: Table<CategoriaManoDeObra, string>;
   costosIndirectos!: Table<CostoIndirecto, string>;
   tareasTipo!: Table<TareaTipo, string>;
+  contactos!: Table<Contacto, string>;
   clientes!: Table<Cliente, string>;
   proveedores!: Table<Proveedor, string>;
   proyectos!: Table<Proyecto, string>;
@@ -92,6 +95,105 @@ export class CotizadorDatabase extends Dexie {
       registrosTrabajo: 'id, presupuestoId, tareaTipoId, fecha, deleted, updatedAt',
       config: 'id, deleted, updatedAt'
     });
+
+    this.version(5).stores({
+      categoriasMaterial: 'id, nombre, deleted, updatedAt',
+      materiales: 'id, categoriaId, nombre, activo, deleted, updatedAt',
+      productos: 'id, materialId, marca, esPreferido, deleted, updatedAt',
+      ofertas: 'id, materialId, productoId, proveedorId, fecha, fuente, deleted, updatedAt',
+      solicitudesCotizacion: 'id, proveedorId, estado, fechaCreacion, deleted, updatedAt',
+
+      insumos: 'id, nombre, categoria, codigoProveedor, deleted, updatedAt',
+      manoObra: 'id, nombre, deleted, updatedAt',
+      costosIndirectos: 'id, nombre, tipo, deleted, updatedAt',
+      tareasTipo: 'id, nombre, categoria, deleted, updatedAt',
+      contactos: 'id, razonSocial, nombre, cuitDni, *roles, tipoProveedor, deleted, updatedAt',
+      clientes: 'id, nombre, cuitDni, deleted, updatedAt',
+      proveedores: 'id, razonSocial, nombre, cuit, deleted, updatedAt',
+      proyectos: 'id, clienteId, nombre, deleted, updatedAt',
+      presupuestos: 'id, numero, clienteId, estado, fechaEmision, deleted, updatedAt',
+      registrosTrabajo: 'id, presupuestoId, tareaTipoId, fecha, deleted, updatedAt',
+      config: 'id, deleted, updatedAt'
+    }).upgrade(async (tx) => {
+      try {
+        const clientes = await tx.table('clientes').toArray();
+        const proveedores = await tx.table('proveedores').toArray();
+        const contactosTable = tx.table('contactos');
+
+        const map = new Map<string, any>();
+
+        for (const c of clientes) {
+          map.set(c.id, {
+            id: c.id,
+            razonSocial: c.nombre || 'Cliente',
+            nombre: c.nombre || 'Cliente',
+            cuitDni: c.cuitDni || '',
+            condicionIVA: c.condicionIVA || 'Consumidor Final',
+            direccion: c.direccion || '',
+            telefono: c.telefono || '',
+            email: c.email || '',
+            roles: ['cliente'],
+            contactos: (c.telefono || c.email) ? [{
+              id: `ct-${c.id}`,
+              nombre: c.nombre || 'Contacto Principal',
+              rol: 'Principal',
+              telefono: c.telefono || '',
+              email: c.email || '',
+              esPrincipal: true
+            }] : [],
+            notas: c.notas || '',
+            createdAt: c.createdAt || new Date().toISOString(),
+            updatedAt: c.updatedAt || new Date().toISOString(),
+            deleted: c.deleted || false
+          });
+        }
+
+        for (const p of proveedores) {
+          if (map.has(p.id)) {
+            const existing = map.get(p.id);
+            if (!existing.roles.includes('proveedor')) {
+              existing.roles.push('proveedor');
+            }
+            existing.tipoProveedor = p.tipoProveedor || 'material';
+            existing.cuitDni = existing.cuitDni || p.cuit;
+            if (p.contactos && p.contactos.length > 0) {
+              existing.contactos = [...existing.contactos, ...p.contactos];
+            }
+          } else {
+            map.set(p.id, {
+              id: p.id,
+              razonSocial: p.razonSocial || p.nombre || 'Proveedor',
+              nombre: p.razonSocial || p.nombre || 'Proveedor',
+              cuitDni: p.cuit || '',
+              condicionIVA: 'Responsable Inscripto',
+              direccion: p.direccion || '',
+              telefono: p.telefono || '',
+              email: p.email || '',
+              roles: ['proveedor'],
+              tipoProveedor: p.tipoProveedor || 'material',
+              contactos: p.contactos || ((p.telefono || p.email) ? [{
+                id: `ct-${p.id}`,
+                nombre: p.contacto || p.razonSocial || 'Contacto',
+                rol: 'Ventas',
+                telefono: p.telefono || '',
+                email: p.email || '',
+                esPrincipal: true
+              }] : []),
+              notas: p.notas || '',
+              createdAt: p.createdAt || new Date().toISOString(),
+              updatedAt: p.updatedAt || new Date().toISOString(),
+              deleted: p.deleted || false
+            });
+          }
+        }
+
+        for (const contacto of map.values()) {
+          await contactosTable.put(contacto);
+        }
+      } catch (e) {
+        console.warn('Upgrade a versión 5 (contactos):', e);
+      }
+    });
   }
 }
 
@@ -101,7 +203,7 @@ export const db = new CotizadorDatabase();
  * Realiza un borrado lógico (Tombstone) marcando deleted = true y actualizando updatedAt.
  */
 export async function softDelete(
-  tableName: 'categoriasMaterial' | 'materiales' | 'productos' | 'ofertas' | 'solicitudesCotizacion' | 'insumos' | 'manoObra' | 'costosIndirectos' | 'tareasTipo' | 'clientes' | 'proveedores' | 'proyectos' | 'presupuestos' | 'registrosTrabajo' | 'config',
+  tableName: 'categoriasMaterial' | 'materiales' | 'productos' | 'ofertas' | 'solicitudesCotizacion' | 'insumos' | 'manoObra' | 'costosIndirectos' | 'tareasTipo' | 'contactos' | 'clientes' | 'proveedores' | 'proyectos' | 'presupuestos' | 'registrosTrabajo' | 'config',
   id: string
 ): Promise<void> {
   const table = db[tableName] as Table<any, string>;
@@ -128,6 +230,7 @@ export async function initializeDatabaseSeed(): Promise<void> {
       db.manoObra,
       db.costosIndirectos,
       db.tareasTipo,
+      db.contactos,
       db.clientes,
       db.proveedores,
       db.config
@@ -177,8 +280,6 @@ export async function initializeDatabaseSeed(): Promise<void> {
       }
 
       // 3. Migrar proveedores legacy (v1) que no tenían razonSocial como campo propio.
-      //    En v1 solo existía `nombre`; v2+ indexa razonSocial, por lo que registros
-      //    sin ese campo quedan fuera del índice y son invisibles en búsquedas.
       const proveedores = await db.proveedores.toArray();
       for (const p of proveedores) {
         if (!p.razonSocial && p.nombre) {
@@ -186,7 +287,14 @@ export async function initializeDatabaseSeed(): Promise<void> {
         }
       }
 
-      // 4. Inicializar configuración por defecto si la base está vacía
+      // 4. Asegurar contactos iniciales si la tabla contactos está vacía
+      if (await db.contactos.count() === 0) {
+        for (const ct of INITIAL_CONTACTOS) {
+          await db.contactos.put(ct);
+        }
+      }
+
+      // 5. Inicializar configuración por defecto si la base está vacía
       if (await db.config.count() === 0) await db.config.add(DEFAULT_APP_CONFIG);
     });
     console.log('Verificación e inicialización de semillas de BD completada.');
@@ -236,6 +344,7 @@ export async function exportDatabaseJSON(): Promise<string> {
     manoObra: await db.manoObra.toArray(),
     costosIndirectos: await db.costosIndirectos.toArray(),
     tareasTipo: await db.tareasTipo.toArray(),
+    contactos: await db.contactos.toArray(),
     clientes: await db.clientes.toArray(),
     proveedores: await db.proveedores.toArray(),
     proyectos: await db.proyectos.toArray(),
@@ -262,6 +371,7 @@ export async function importDatabaseJSON(jsonStr: string): Promise<void> {
     db.manoObra,
     db.costosIndirectos,
     db.tareasTipo,
+    db.contactos,
     db.clientes,
     db.proveedores,
     db.proyectos,
@@ -278,6 +388,7 @@ export async function importDatabaseJSON(jsonStr: string): Promise<void> {
     if (data.manoObra) { await db.manoObra.clear(); await db.manoObra.bulkPut(data.manoObra); }
     if (data.costosIndirectos) { await db.costosIndirectos.clear(); await db.costosIndirectos.bulkPut(data.costosIndirectos); }
     if (data.tareasTipo) { await db.tareasTipo.clear(); await db.tareasTipo.bulkPut(data.tareasTipo); }
+    if (data.contactos) { await db.contactos.clear(); await db.contactos.bulkPut(data.contactos); }
     if (data.clientes) { await db.clientes.clear(); await db.clientes.bulkPut(data.clientes); }
     if (data.proveedores) { await db.proveedores.clear(); await db.proveedores.bulkPut(data.proveedores); }
     if (data.proyectos) { await db.proyectos.clear(); await db.proyectos.bulkPut(data.proyectos); }
@@ -344,29 +455,34 @@ export async function importProveedoresCSV(csvText: string): Promise<number> {
         id: `prov-csv-${crypto.randomUUID()}`,
         razonSocial,
         nombre: razonSocial,
+        cuitDni: cols[1] || undefined,
         cuit: cols[1] || undefined,
+        roles: ['proveedor'],
         tipoProveedor: 'material',
         contactos: [
           {
             id: crypto.randomUUID(),
+            nombre: cols[4] || 'Contacto Principal',
             nombrePersona: cols[4] || 'Contacto Principal',
-            canales: [
-              ...(cols[2] ? [{ tipo: 'telefono' as const, valor: cols[2], esPrincipal: true }] : []),
-              ...(cols[3] ? [{ tipo: 'email' as const, valor: cols[3], esPrincipal: false }] : [])
-            ]
+            telefono: cols[2] || undefined,
+            email: cols[3] || undefined,
+            esPrincipal: true
           }
         ],
         telefono: cols[2] || undefined,
         email: cols[3] || undefined,
         contacto: cols[4] || undefined,
         direccion: cols[5] || undefined,
-        notas: cols[6] || undefined
+        notas: cols[6] || undefined,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       });
     }
   }
 
   if (newProveedores.length > 0) {
     await db.proveedores.bulkAdd(newProveedores);
+    await db.contactos.bulkPut(newProveedores);
   }
   return newProveedores.length;
 }
@@ -384,19 +500,32 @@ export async function importClientesCSV(csvText: string): Promise<number> {
     if (cols.length >= 1) {
       newClientes.push({
         id: `cli-csv-${crypto.randomUUID()}`,
+        razonSocial: cols[0],
         nombre: cols[0],
         cuitDni: cols[1] || undefined,
+        cuit: cols[1] || undefined,
+        roles: ['cliente'],
         condicionIVA: (cols[2] as Cliente['condicionIVA']) || undefined,
         telefono: cols[3] || undefined,
         email: cols[4] || undefined,
         direccion: cols[5] || undefined,
-        notas: cols[6] || undefined
+        notas: cols[6] || undefined,
+        contactos: (cols[3] || cols[4]) ? [{
+          id: crypto.randomUUID(),
+          nombre: cols[0],
+          telefono: cols[3] || undefined,
+          email: cols[4] || undefined,
+          esPrincipal: true
+        }] : [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       });
     }
   }
 
   if (newClientes.length > 0) {
     await db.clientes.bulkAdd(newClientes);
+    await db.contactos.bulkPut(newClientes);
   }
   return newClientes.length;
 }

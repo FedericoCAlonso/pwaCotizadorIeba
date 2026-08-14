@@ -121,8 +121,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'tareasTipo', label: 'Laboratorio Tareas', icon: Layers },
     { id: 'registroTrabajo', label: 'Registro Obra', icon: HardHat },
     { id: 'manoObra', label: 'Mano de Obra', icon: Clock },
-    { id: 'clientes', label: 'Clientes', icon: Users },
-    { id: 'proveedores', label: 'Proveedores', icon: Truck },
+    { id: 'contactos', label: 'Contactos', icon: Users },
     { id: 'rfq', label: 'Solicitudes RFQ', icon: Send },
     { id: 'logistica', label: 'Logística', icon: ShoppingCart }
   ];

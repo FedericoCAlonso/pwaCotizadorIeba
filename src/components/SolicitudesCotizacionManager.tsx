@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Plus,
@@ -11,11 +11,17 @@ import {
   Check
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
-import { SolicitudCotizacion, SolicitudCotizacionItem, Oferta } from '../core/types';
+import { SolicitudCotizacion, SolicitudCotizacionItem, Oferta, Contacto } from '../core/types';
 
 export const SolicitudCotizacionManager: React.FC = () => {
   const solicitudes = (useLiveQuery(() => db.solicitudesCotizacion.reverse().toArray()) || []).filter(s => !s.deleted);
-  const proveedores = (useLiveQuery(() => db.proveedores.toArray()) || []).filter(p => !p.deleted);
+  const rawContactos = useLiveQuery(() => db.contactos.toArray()) || [];
+  const rawProveedores = useLiveQuery(() => db.proveedores.toArray()) || [];
+  const proveedores: Contacto[] = useMemo(() => {
+    const fromContactos = rawContactos.filter(c => !c.deleted && (c.roles?.includes('proveedor') || !c.roles?.length));
+    if (fromContactos.length > 0) return fromContactos;
+    return rawProveedores.filter(p => !p.deleted);
+  }, [rawContactos, rawProveedores]);
   const materiales = (useLiveQuery(() => db.materiales.toArray()) || []).filter(m => !m.deleted);
   const productos = (useLiveQuery(() => db.productos.toArray()) || []).filter(p => !p.deleted);
 
