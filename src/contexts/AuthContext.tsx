@@ -28,6 +28,7 @@ interface AuthContextType {
   loading: boolean;
   isConfigured: boolean;
   syncState: SyncState;
+  syncErrorMessage: string | null;
   lastSyncTime: Date | null;
   pendingCount: number;
   signInWithGoogle: () => Promise<void>;
@@ -44,6 +45,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [pendingCount, setPendingCount] = useState<number>(0);
   const isConfigured = isFirebaseConfigured();
@@ -60,37 +62,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const handleSync = async (currentUser: User) => {
     if (!navigator.onLine) {
       setSyncState('offline');
+      setSyncErrorMessage('Dispositivo sin conexión a Internet.');
       await updatePendingCount();
       return;
     }
 
     if (isCircuitBreakerActive()) {
       setSyncState('quota_exceeded');
+      setSyncErrorMessage('Límite diario de operaciones del plan gratuito Spark alcanzado (20k escrituras/día). Google restablece la cuota automáticamente a las 00:00 UTC (21:00 hs Arg).');
       await updatePendingCount();
       return;
     }
 
     try {
       setSyncState('syncing');
+      setSyncErrorMessage(null);
       const resultState = await syncUserData(currentUser.uid);
 
       if (isCircuitBreakerActive() || resultState === 'quota_exceeded') {
         setSyncState('quota_exceeded');
+        setSyncErrorMessage('Límite diario de operaciones del plan gratuito Spark alcanzado (20k escrituras/día). Google restablece la cuota automáticamente a las 00:00 UTC (21:00 hs Arg).');
+      } else if (resultState === 'permission_denied') {
+        setSyncState('permission_denied');
+        setSyncErrorMessage('Permiso denegado por las reglas de seguridad de Firestore en Firebase Console.');
       } else {
         setSyncState(resultState);
         if (resultState === 'synced') {
           setLastSyncTime(new Date());
+          setSyncErrorMessage(null);
         }
       }
       await updatePendingCount();
     } catch (err: any) {
       console.warn('Error durante la sincronización con Firebase:', err);
+      const msg = err?.message || String(err);
       if (isCircuitBreakerActive() || isQuotaError(err)) {
         setSyncState('quota_exceeded');
+        setSyncErrorMessage('Límite diario de cuota Firebase Spark superado (20k escrituras). Se reinicia a las 00:00 UTC (21:00 hs Arg).');
       } else if (isPermissionError(err)) {
         setSyncState('permission_denied');
+        setSyncErrorMessage('Permiso denegado en Firestore. Revisa las reglas de seguridad en Firebase Console.');
       } else {
         setSyncState('error');
+        setSyncErrorMessage(msg);
       }
       await updatePendingCount();
     }
@@ -181,6 +195,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loading,
         isConfigured,
         syncState,
+        syncErrorMessage,
         lastSyncTime,
         pendingCount,
         signInWithGoogle,

@@ -55,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
   themeMode,
   onThemeModeChange
 }) => {
-  const { user, syncState, lastSyncTime, pendingCount, logout, triggerSync } = useAuth();
+  const { user, syncState, syncErrorMessage, lastSyncTime, pendingCount, logout, triggerSync } = useAuth();
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showExportSuccess, setShowExportSuccess] = useState(false);
@@ -684,13 +684,21 @@ export const Header: React.FC<HeaderProps> = ({
                   : syncState === 'permission_denied'
                   ? 'Firebase denegó el acceso porque faltan las Reglas de Seguridad en tu consola de Firebase. Debes permitir lectura/escritura a usuarios autenticados.'
                   : syncState === 'error'
-                  ? 'Ocurrió una interrupción al conectar con Firebase. Puede deberse a conexión inestable. Tus datos locales en IndexedDB están 100% a salvo y puedes reintentar cuando desees.'
+                  ? (syncErrorMessage || 'Ocurrió una interrupción al conectar con Firebase. Puede deberse a conexión inestable. Tus datos locales en IndexedDB están 100% a salvo y puedes reintentar cuando desees.')
                   : pendingCount > 0
                   ? `Tienes ${pendingCount} registro(s) pendiente(s) de subida. Se sincronizarán automáticamente por lotes o puedes forzar la subida manual.`
                   : 'Todos tus presupuestos, materiales y configuraciones locales coinciden con tu espacio en la nube.'}
               </p>
             </div>
           </div>
+
+          {/* Detailed Error Diagnostic Banner */}
+          {syncErrorMessage && syncState !== 'permission_denied' && (
+            <div className="p-3 bg-surface-container-highest rounded-2xl border border-outline-variant/30 text-[11px] space-y-1">
+              <span className="font-bold text-on-surface block">Detalle técnico del estado:</span>
+              <span className="font-mono text-on-surface-variant break-all">{syncErrorMessage}</span>
+            </div>
+          )}
 
           {/* Firestore Rules Helper if permission_denied */}
           {syncState === 'permission_denied' && (

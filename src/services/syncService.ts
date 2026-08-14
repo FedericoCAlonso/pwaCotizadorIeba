@@ -424,7 +424,7 @@ export async function syncUserData(userId: string): Promise<SyncState> {
       console.error(
         `[DeltaSync] Permiso denegado en Firestore. Asegúrate de que las reglas de seguridad en Firebase Console permitan lectura y escritura en: match /users/{userId}/{document=**} { allow read, write: if request.auth != null && request.auth.uid == userId; }`
       );
-      return 'error';
+      return 'permission_denied';
     }
 
     if (hasOtherError && pushState !== 'synced') {
