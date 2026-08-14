@@ -15,7 +15,12 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onNavigateTa
     return localStorage.getItem(ONBOARDING_DISMISSED_KEY) === 'true';
   });
 
+  // Conteo reactivo de todas las tablas relevantes para cada paso
   const materialesCount = useLiveQuery(() => db.materiales.count()) || 0;
+  const insumosCount = useLiveQuery(() => db.insumos.count()) || 0;
+  const productosCount = useLiveQuery(() => db.productos.count()) || 0;
+  const totalInsumos = materialesCount + insumosCount + productosCount;
+
   const manoObraCount = useLiveQuery(() => db.manoObra.count()) || 0;
   const tareasCount = useLiveQuery(() => db.tareasTipo.count()) || 0;
   const presupuestosCount = useLiveQuery(() => db.presupuestos.count()) || 0;
@@ -28,17 +33,21 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onNavigateTa
   };
 
   const countsMap: Record<string, number> = {
-    insumos: materialesCount,
+    insumos: totalInsumos,
     manoObra: manoObraCount,
     tareasTipo: tareasCount,
     presupuestos: presupuestosCount
   };
 
-  const steps = helpMessages.onboarding.steps.map(step => ({
-    ...step,
-    icon: iconMap[step.id] || Package,
-    completed: (countsMap[step.id] || 0) > 0
-  }));
+  const steps = helpMessages.onboarding.steps.map(step => {
+    const currentCount = countsMap[step.id] || 0;
+    return {
+      ...step,
+      icon: iconMap[step.id] || Package,
+      count: currentCount,
+      completed: currentCount > 0
+    };
+  });
 
   const completedCount = steps.filter(s => s.completed).length;
   const isAllCompleted = completedCount === steps.length;
@@ -118,9 +127,16 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onNavigateTa
                     <Icon className="w-4 h-4" />
                   </div>
                   {step.completed ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        {step.count} cargados
+                      </span>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                    </div>
                   ) : (
-                    <span className="text-[10px] font-mono text-on-surface-variant/70">Paso {idx + 1}</span>
+                    <span className="text-[10px] font-mono text-on-surface-variant/70">
+                      0 registrados (Paso {idx + 1})
+                    </span>
                   )}
                 </div>
 
@@ -133,7 +149,7 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onNavigateTa
               </div>
 
               <div className="mt-3 flex items-center justify-end text-[11px] font-semibold text-primary group-hover:translate-x-0.5 transition-transform">
-                <span>{step.completed ? 'Ver registros' : step.actionText}</span>
+                <span>{step.completed ? 'Ver lista' : step.actionText}</span>
                 <ArrowRight className="w-3 h-3 ml-1" />
               </div>
             </div>
