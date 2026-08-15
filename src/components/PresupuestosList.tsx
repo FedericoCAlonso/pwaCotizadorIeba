@@ -274,7 +274,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
       <button
         type="button"
         onClick={onNew}
-        className="lg:hidden fixed bottom-20 right-4 px-4 py-3.5 bg-primary text-on-primary rounded-2xl shadow-md3-2 hover:shadow-md3-3 active:scale-95 transition-all z-30 flex items-center gap-2 font-semibold text-xs sm:text-sm"
+        className="lg:hidden fixed bottom-20 right-4 px-4 py-3.5 bg-primary text-on-primary rounded-2xl shadow-md3-2 hover:shadow-md3-3 active:scale-95 transition-all z-30 floating-action-btn flex items-center gap-2 font-semibold text-xs sm:text-sm"
         aria-label="Nueva cotización"
       >
         <Plus className="w-5 h-5" />

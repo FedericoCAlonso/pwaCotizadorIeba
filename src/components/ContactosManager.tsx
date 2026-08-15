@@ -21,7 +21,8 @@ import {
   ChevronUp,
   UserCheck,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Tag
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
 import {
@@ -68,6 +69,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContacto, setEditingContacto] = useState<Contacto | null>(null);
   const [modalActiveTab, setModalActiveTab] = useState<'general' | 'personas' | 'financiero' | 'notas'>('general');
+  const [tagInput, setTagInput] = useState('');
 
   // Form State
   const [formData, setFormData] = useState<{
@@ -77,6 +79,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
     condicionIVA: CondicionIVA;
     roles: RolContacto[];
     tipoProveedor: TipoProveedor;
+    etiquetas: string[];
     direccion: string;
     localidad: string;
     provincia: string;
@@ -93,6 +96,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
     condicionIVA: 'Consumidor Final',
     roles: ['cliente'],
     tipoProveedor: 'ambos',
+    etiquetas: [],
     direccion: '',
     localidad: '',
     provincia: '',
@@ -113,6 +117,45 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
     },
     notas: ''
   });
+
+  // Extract all unique tags across existing database contacts for autocomplete
+  const allUniqueTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    contactos.forEach((c) => {
+      (c.etiquetas || []).forEach((t) => {
+        const trimmed = t.trim();
+        if (trimmed) tagSet.add(trimmed);
+      });
+    });
+    return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
+  }, [contactos]);
+
+  // Autocomplete tag suggestions matching current input
+  const availableSuggestions = useMemo(() => {
+    const currentSet = new Set(formData.etiquetas.map((t) => t.toLowerCase()));
+    return allUniqueTags.filter((t) => {
+      if (currentSet.has(t.toLowerCase())) return false;
+      if (!tagInput.trim()) return true;
+      return t.toLowerCase().includes(tagInput.trim().toLowerCase());
+    });
+  }, [allUniqueTags, formData.etiquetas, tagInput]);
+
+  // Tag helper handlers
+  const handleAddTag = (tagToAdd?: string) => {
+    const val = (tagToAdd !== undefined ? tagToAdd : tagInput).trim();
+    if (!val) return;
+    if (!formData.etiquetas.some((t) => t.toLowerCase() === val.toLowerCase())) {
+      setFormData((prev) => ({ ...prev, etiquetas: [...prev.etiquetas, val] }));
+    }
+    setTagInput('');
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      etiquetas: prev.etiquetas.filter((t) => t.toLowerCase() !== tagToRemove.toLowerCase())
+    }));
+  };
 
   // Filtered list
   const filteredContactos = useMemo(() => {
@@ -136,11 +179,12 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
       const matchDir = (c.direccion || '').toLowerCase().includes(q);
       const matchTel = (c.telefono || '').toLowerCase().includes(q);
       const matchEmail = (c.email || '').toLowerCase().includes(q);
+      const matchTags = (c.etiquetas || []).some((t) => t.toLowerCase().includes(q));
       const matchPersonas = (c.contactos || []).some(
         (p) => p.nombre?.toLowerCase().includes(q) || p.rol?.toLowerCase().includes(q) || p.telefono?.includes(q)
       );
 
-      return matchName || matchAlias || matchCuit || matchLoc || matchDir || matchTel || matchEmail || matchPersonas;
+      return matchName || matchAlias || matchCuit || matchLoc || matchDir || matchTel || matchEmail || matchTags || matchPersonas;
     });
   }, [contactos, filterRole, searchQuery]);
 
@@ -162,6 +206,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
   // Open Modal for New
   const handleOpenNewModal = (preselectedRole: RolContacto = 'cliente') => {
     setEditingContacto(null);
+    setTagInput('');
     setFormData({
       razonSocial: '',
       nombreFantasia: '',
@@ -169,6 +214,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
       condicionIVA: preselectedRole === 'cliente' ? 'Consumidor Final' : 'Responsable Inscripto',
       roles: [preselectedRole],
       tipoProveedor: 'ambos',
+      etiquetas: [],
       direccion: '',
       localidad: '',
       provincia: '',
@@ -196,6 +242,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
   // Open Modal for Edit
   const handleOpenEditModal = (contacto: Contacto) => {
     setEditingContacto(contacto);
+    setTagInput('');
     setFormData({
       razonSocial: contacto.razonSocial || contacto.nombre || '',
       nombreFantasia: contacto.nombreFantasia || '',
@@ -203,6 +250,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
       condicionIVA: contacto.condicionIVA || 'Consumidor Final',
       roles: contacto.roles && contacto.roles.length > 0 ? contacto.roles : ['cliente'],
       tipoProveedor: contacto.tipoProveedor || 'ambos',
+      etiquetas: contacto.etiquetas || [],
       direccion: contacto.direccion || '',
       localidad: contacto.localidad || '',
       provincia: contacto.provincia || '',
@@ -251,6 +299,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
       condicionIVA: formData.condicionIVA,
       roles: formData.roles,
       tipoProveedor: formData.roles.includes('proveedor') ? formData.tipoProveedor : undefined,
+      etiquetas: formData.etiquetas && formData.etiquetas.length > 0 ? formData.etiquetas : undefined,
       direccion: formData.direccion.trim() || undefined,
       localidad: formData.localidad.trim() || undefined,
       provincia: formData.provincia.trim() || undefined,
@@ -334,78 +383,9 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container-low p-6 rounded-3xl border border-outline-variant/20 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-primary/10 text-primary rounded-xl">
-              <Users className="w-6 h-6" />
-            </div>
-            <h2 className="text-2xl font-extrabold text-on-surface tracking-tight">Directorio de Contactos</h2>
-          </div>
-          <p className="text-xs text-on-surface-variant mt-1">
-            Gestión unificada 360° de Clientes, Proveedores y Subcontratistas.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={() => handleOpenNewModal('cliente')}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-xs"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nuevo Contacto</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Summary KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-        <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/10 flex items-center gap-3">
-          <div className="p-2.5 bg-surface-variant rounded-xl text-on-surface">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Total Directorio</span>
-            <span className="text-lg font-bold text-on-surface font-mono">{counts.total}</span>
-          </div>
-        </div>
-
-        <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/10 flex items-center gap-3">
-          <div className="p-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl">
-            <Building className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Clientes</span>
-            <span className="text-lg font-bold text-on-surface font-mono">{counts.clis}</span>
-          </div>
-        </div>
-
-        <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/10 flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl">
-            <Truck className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Proveedores</span>
-            <span className="text-lg font-bold text-on-surface font-mono">{counts.provs}</span>
-          </div>
-        </div>
-
-        <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/10 flex items-center gap-3">
-          <div className="p-2.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-xl">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Ambos Roles</span>
-            <span className="text-lg font-bold text-on-surface font-mono">{counts.ambos}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter Chips & Search Bar */}
-      <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/10 space-y-3">
+    <div className="space-y-4 max-w-7xl mx-auto pb-24 md:pb-16">
+      {/* Top Filter & Search Bar — Minimalist M3 surface */}
+      <div className="bg-surface-container-low p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-outline-variant/20 space-y-3 shadow-xs">
         <div className="flex flex-col md:flex-row items-center justify-between gap-3">
           {/* Search Box */}
           <div className="relative w-full md:w-96">
@@ -414,28 +394,30 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por Razón Social, CUIT, persona, localidad, teléfono..."
-              className="w-full bg-surface-container-highest border-none rounded-full pl-9 pr-8 py-2 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+              placeholder="Buscar por Razón Social, CUIT, rubro/tag, teléfono..."
+              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-full pl-9 pr-8 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface"
+                className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface p-0.5"
+                aria-label="Limpiar búsqueda"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          {/* Filter Chips */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full md:w-auto">
+          {/* Filter Chips Container with invisible native horizontal scroll */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden w-full md:w-auto pb-1 md:pb-0 touch-pan-x overscroll-contain">
             <button
               type="button"
               onClick={() => setFilterRole('todos')}
               className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                 filterRole === 'todos'
-                  ? 'bg-secondary-container text-on-secondary-container'
-                  : 'bg-surface-variant text-on-surface-variant hover:bg-surface-container-highest'
+                  ? 'bg-secondary-container text-on-secondary-container shadow-xs'
+                  : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant'
               }`}
             >
               <span>Todos</span>
@@ -447,11 +429,11 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
               onClick={() => setFilterRole('cliente')}
               className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                 filterRole === 'cliente'
-                  ? 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/40'
-                  : 'bg-surface-variant text-on-surface-variant hover:bg-surface-container-highest'
+                  ? 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/40 shadow-xs'
+                  : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant'
               }`}
             >
-              <Building className="w-3 h-3" />
+              <Building className="w-3.5 h-3.5" />
               <span>Clientes</span>
               <span className="text-[10px] opacity-75 font-mono">({counts.clis})</span>
             </button>
@@ -461,11 +443,11 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
               onClick={() => setFilterRole('proveedor')}
               className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                 filterRole === 'proveedor'
-                  ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40'
-                  : 'bg-surface-variant text-on-surface-variant hover:bg-surface-container-highest'
+                  ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 shadow-xs'
+                  : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant'
               }`}
             >
-              <Truck className="w-3 h-3" />
+              <Truck className="w-3.5 h-3.5" />
               <span>Proveedores</span>
               <span className="text-[10px] opacity-75 font-mono">({counts.provs})</span>
             </button>
@@ -475,11 +457,11 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
               onClick={() => setFilterRole('ambos')}
               className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                 filterRole === 'ambos'
-                  ? 'bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/40'
-                  : 'bg-surface-variant text-on-surface-variant hover:bg-surface-container-highest'
+                  ? 'bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/40 shadow-xs'
+                  : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant'
               }`}
             >
-              <Sparkles className="w-3 h-3" />
+              <Sparkles className="w-3.5 h-3.5" />
               <span>Mixtos</span>
               <span className="text-[10px] opacity-75 font-mono">({counts.ambos})</span>
             </button>
@@ -493,15 +475,8 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           <Users className="w-12 h-12 text-outline-variant mx-auto mb-3" />
           <p className="text-base font-medium text-on-surface">No se encontraron contactos en esta vista.</p>
           <p className="text-xs text-on-surface-variant mt-1 max-w-sm mx-auto">
-            Prueba ajustando el término de búsqueda o crea un nuevo contacto usando el botón superior.
+            Prueba ajustando el término de búsqueda o usa el botón flotante (+) para crear un nuevo contacto.
           </p>
-          <button
-            type="button"
-            onClick={() => handleOpenNewModal('cliente')}
-            className="mt-4 px-4 py-2 bg-primary text-on-primary text-xs font-semibold rounded-full hover:bg-primary/90"
-          >
-            + Crear Primer Contacto
-          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -585,6 +560,21 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                       </p>
                     )}
                   </div>
+
+                  {/* Tags / Rubros Mini Chips */}
+                  {contacto.etiquetas && contacto.etiquetas.length > 0 && (
+                    <div className="mt-2.5 flex flex-wrap gap-1">
+                      {contacto.etiquetas.map((tag, tIdx) => (
+                        <span
+                          key={tIdx}
+                          className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-surface-variant/80 text-on-surface-variant border border-outline-variant/30 flex items-center gap-1"
+                        >
+                          <Tag className="w-2.5 h-2.5 text-primary" />
+                          <span>{tag}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Quick Channels / Links */}
                   <div className="mt-3 pt-3 border-t border-outline-variant/15 space-y-1.5 text-xs text-on-surface-variant">
@@ -687,7 +677,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
 
                       {/* Tab Content */}
                       {currentTab === 'presupuestos' && isCli && (
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1 no-scrollbar scrollbar-none">
                           {contactPresupuestos.length === 0 ? (
                             <p className="text-xs text-on-surface-variant py-2 text-center">Sin cotizaciones registradas.</p>
                           ) : (
@@ -716,7 +706,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                       )}
 
                       {currentTab === 'rfqs' && isProv && (
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1 no-scrollbar scrollbar-none">
                           {contactRFQs.length === 0 ? (
                             <p className="text-xs text-on-surface-variant py-2 text-center">Sin solicitudes RFQ enviadas.</p>
                           ) : (
@@ -817,21 +807,32 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
         </div>
       )}
 
+      {/* Material Design 3 Floating Action Button (FAB) for New Contact */}
+      <button
+        type="button"
+        onClick={() => handleOpenNewModal(filterRole === 'proveedor' ? 'proveedor' : 'cliente')}
+        className="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-30 floating-action-btn w-14 h-14 rounded-2xl md:rounded-3xl bg-primary hover:bg-primary/90 text-on-primary shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center transition-all"
+        aria-label="Crear Nuevo Contacto"
+        title="Nuevo Contacto (Cliente / Proveedor)"
+      >
+        <Plus className="w-7 h-7" />
+      </button>
+
       {/* Modal Dialog for New / Edit Contact */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-surface rounded-3xl max-w-2xl w-full p-6 space-y-5 border border-outline-variant/20 shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+          <div className="bg-surface rounded-3xl max-w-2xl w-full p-5 sm:p-6 space-y-4 border border-outline-variant/20 shadow-2xl max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-center pb-2 border-b border-outline-variant/20">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-primary/10 text-primary rounded-xl">
                   <Users className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-on-surface">
+                  <h3 className="text-base sm:text-lg font-bold text-on-surface">
                     {editingContacto ? 'Editar Contacto' : 'Nuevo Contacto'}
                   </h3>
                   <p className="text-xs text-on-surface-variant">
-                    Configura identidad, roles, personas y condiciones comerciales.
+                    Configura identidad, rubros/etiquetas, roles y datos fiscales.
                   </p>
                 </div>
               </div>
@@ -839,28 +840,29 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                 type="button"
                 onClick={() => setIsModalOpen(false)}
                 className="p-1.5 text-on-surface-variant hover:text-on-surface rounded-full"
+                aria-label="Cerrar modal"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Tabs */}
-            <div className="flex items-center gap-2 border-b border-outline-variant/15 pb-2">
+            <div className="flex items-center gap-2 border-b border-outline-variant/15 pb-2 overflow-x-auto no-scrollbar scrollbar-none">
               <button
                 type="button"
                 onClick={() => setModalActiveTab('general')}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
                   modalActiveTab === 'general'
                     ? 'bg-secondary-container text-on-secondary-container'
                     : 'text-on-surface-variant hover:bg-surface-variant'
                 }`}
               >
-                1. Identidad & Roles
+                1. Identidad & Rubros
               </button>
               <button
                 type="button"
                 onClick={() => setModalActiveTab('personas')}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
                   modalActiveTab === 'personas'
                     ? 'bg-secondary-container text-on-secondary-container'
                     : 'text-on-surface-variant hover:bg-surface-variant'
@@ -871,7 +873,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
               <button
                 type="button"
                 onClick={() => setModalActiveTab('financiero')}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
                   modalActiveTab === 'financiero'
                     ? 'bg-secondary-container text-on-secondary-container'
                     : 'text-on-surface-variant hover:bg-surface-variant'
@@ -882,7 +884,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
               <button
                 type="button"
                 onClick={() => setModalActiveTab('notas')}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
                   modalActiveTab === 'notas'
                     ? 'bg-secondary-container text-on-secondary-container'
                     : 'text-on-surface-variant hover:bg-surface-variant'
@@ -892,8 +894,11 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
               </button>
             </div>
 
-            {/* Form Scrollable Body */}
-            <form onSubmit={handleSave} className="flex-1 overflow-y-auto space-y-4 pr-1">
+            {/* Form Scrollable Body with Clean Hidden Scrollbar */}
+            <form
+              onSubmit={handleSave}
+              className="flex-1 overflow-y-auto space-y-4 pr-1 no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            >
               {modalActiveTab === 'general' && (
                 <div className="space-y-4">
                   {/* Roles Selection */}
@@ -916,7 +921,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                           className="w-4 h-4 text-primary rounded"
                         />
                         <Building className="w-4 h-4 text-blue-600" />
-                        <span>Es Cliente (Emisión de cotizaciones y obras)</span>
+                        <span>Es Cliente (Cotizaciones y obras)</span>
                       </label>
 
                       <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-on-surface">
@@ -943,7 +948,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                         <select
                           value={formData.tipoProveedor}
                           onChange={(e) => setFormData((prev) => ({ ...prev, tipoProveedor: e.target.value as any }))}
-                          className="bg-surface-container-highest rounded-lg px-2.5 py-1 text-xs text-on-surface border-none"
+                          className="bg-surface-container-high rounded-xl px-3 py-1.5 text-xs text-on-surface border border-outline-variant/30 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                         >
                           <option value="material">Materiales / Insumos</option>
                           <option value="servicio">Servicios Tercerizados / Grúas</option>
@@ -953,7 +958,99 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                     )}
                   </div>
 
-                  {/* Identification */}
+                  {/* Sistema de Etiquetas / Tags (M3 Input Chips) */}
+                  <div className="bg-surface-container p-3.5 rounded-2xl border border-outline-variant/20 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5 text-primary" />
+                        <span>Etiquetas & Rubros (Tags)</span>
+                      </label>
+                      <span className="text-[11px] text-on-surface-variant">Escribe y presiona Enter</span>
+                    </div>
+
+                    {/* Input Field + Add Button */}
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddTag();
+                            }
+                          }}
+                          placeholder="ej: Iluminación, Tableristas, Urgencias, Cableado..."
+                          className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl pl-3.5 pr-8 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[40px] transition-all"
+                        />
+                        {tagInput && (
+                          <button
+                            type="button"
+                            onClick={() => setTagInput('')}
+                            className="absolute right-2.5 top-2.5 text-on-surface-variant hover:text-on-surface p-0.5"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleAddTag()}
+                        disabled={!tagInput.trim()}
+                        className="px-3.5 py-2 bg-primary text-on-primary font-semibold text-xs rounded-xl hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1 shrink-0 min-h-[40px]"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Agregar</span>
+                      </button>
+                    </div>
+
+                    {/* Active Chips List */}
+                    {formData.etiquetas.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {formData.etiquetas.map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-secondary-container text-on-secondary-container text-xs font-semibold rounded-full border border-primary/20 shadow-xs animate-in fade-in zoom-in duration-150"
+                          >
+                            <span>{tag}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTag(tag)}
+                              className="p-0.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-on-secondary-container transition"
+                              aria-label={`Eliminar etiqueta ${tag}`}
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Autocomplete / Suggested Tags from Database */}
+                    {availableSuggestions.length > 0 && (
+                      <div className="pt-1.5 border-t border-outline-variant/15 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider mr-1">
+                          Sugerencias ({availableSuggestions.length}):
+                        </span>
+                        {availableSuggestions.slice(0, 8).map((sug) => (
+                          <button
+                            key={sug}
+                            type="button"
+                            onClick={() => handleAddTag(sug)}
+                            className="text-[11px] px-2.5 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-on-surface font-medium rounded-full border border-outline-variant/30 transition flex items-center gap-1 active:scale-95"
+                            title={`Agregar etiqueta "${sug}"`}
+                          >
+                            <Plus className="w-3 h-3 text-primary" />
+                            <span>{sug}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Identification — M3 Text Fields */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-on-surface-variant mb-1">
@@ -964,7 +1061,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                         required
                         value={formData.razonSocial}
                         onChange={(e) => setFormData((prev) => ({ ...prev, razonSocial: e.target.value }))}
-                        className="w-full bg-surface-container-highest border-none rounded-xl px-3.5 py-2 text-xs text-on-surface focus:ring-2 focus:ring-primary/50"
+                        className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3.5 py-2.5 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[42px] transition-all"
                         placeholder="ej: Electro Norte S.R.L. o Juan Pérez"
                       />
                     </div>
@@ -977,7 +1074,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                         type="text"
                         value={formData.nombreFantasia}
                         onChange={(e) => setFormData((prev) => ({ ...prev, nombreFantasia: e.target.value }))}
-                        className="w-full bg-surface-container-highest border-none rounded-xl px-3.5 py-2 text-xs text-on-surface focus:ring-2 focus:ring-primary/50"
+                        className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3.5 py-2.5 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[42px] transition-all"
                         placeholder="ej: ElectroNorte"
                       />
                     </div>
@@ -988,7 +1085,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                         type="text"
                         value={formData.cuitDni}
                         onChange={(e) => setFormData((prev) => ({ ...prev, cuitDni: e.target.value }))}
-                        className="w-full bg-surface-container-highest border-none rounded-xl px-3.5 py-2 text-xs text-on-surface font-mono focus:ring-2 focus:ring-primary/50"
+                        className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3.5 py-2.5 text-xs text-on-surface font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[42px] transition-all"
                         placeholder="ej: 30-71234567-8"
                       />
                     </div>
@@ -998,7 +1095,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                       <select
                         value={formData.condicionIVA}
                         onChange={(e) => setFormData((prev) => ({ ...prev, condicionIVA: e.target.value as any }))}
-                        className="w-full bg-surface-container-highest border-none rounded-xl px-3.5 py-2 text-xs text-on-surface focus:ring-2 focus:ring-primary/50"
+                        className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3.5 py-2.5 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[42px] transition-all"
                       >
                         {CONDICIONES_IVA.map((c) => (
                           <option key={c} value={c}>
@@ -1009,15 +1106,15 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                     </div>
                   </div>
 
-                  {/* General Contact Info */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  {/* General Contact Info — M3 Text Fields */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                     <div>
                       <label className="block text-xs font-semibold text-on-surface-variant mb-1">Teléfono Principal</label>
                       <input
                         type="tel"
                         value={formData.telefono}
                         onChange={(e) => setFormData((prev) => ({ ...prev, telefono: e.target.value }))}
-                        className="w-full bg-surface-container-highest border-none rounded-xl px-3.5 py-2 text-xs text-on-surface font-mono focus:ring-2 focus:ring-primary/50"
+                        className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3.5 py-2.5 text-xs text-on-surface font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[42px] transition-all"
                         placeholder="ej: 11 4567-8900"
                       />
                     </div>
@@ -1028,7 +1125,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                         type="email"
                         value={formData.email}
                         onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-                        className="w-full bg-surface-container-highest border-none rounded-xl px-3.5 py-2 text-xs text-on-surface focus:ring-2 focus:ring-primary/50"
+                        className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3.5 py-2.5 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[42px] transition-all"
                         placeholder="ej: contacto@empresa.com"
                       />
                     </div>
@@ -1039,7 +1136,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                         type="text"
                         value={formData.direccion}
                         onChange={(e) => setFormData((prev) => ({ ...prev, direccion: e.target.value }))}
-                        className="w-full bg-surface-container-highest border-none rounded-xl px-3.5 py-2 text-xs text-on-surface focus:ring-2 focus:ring-primary/50"
+                        className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3.5 py-2.5 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[42px] transition-all"
                         placeholder="ej: Av. Libertador 1234"
                       />
                     </div>
@@ -1050,7 +1147,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                         type="text"
                         value={formData.localidad}
                         onChange={(e) => setFormData((prev) => ({ ...prev, localidad: e.target.value }))}
-                        className="w-full bg-surface-container-highest border-none rounded-xl px-3.5 py-2 text-xs text-on-surface focus:ring-2 focus:ring-primary/50"
+                        className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3.5 py-2.5 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[42px] transition-all"
                         placeholder="ej: Vicente López, Buenos Aires"
                       />
                     </div>
@@ -1086,7 +1183,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                             <button
                               type="button"
                               onClick={() => handleRemovePersona(idx)}
-                              className="text-on-surface-variant hover:text-error text-xs"
+                              className="text-on-surface-variant hover:text-error text-xs p-1"
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -1098,28 +1195,28 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                               value={persona.nombre}
                               onChange={(e) => handleUpdatePersona(idx, 'nombre', e.target.value)}
                               placeholder="Nombre completo *"
-                              className="bg-surface-container-highest border-none rounded-lg px-2.5 py-1.5 text-xs text-on-surface"
+                              className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
                             />
                             <input
                               type="text"
                               value={persona.rol || ''}
                               onChange={(e) => handleUpdatePersona(idx, 'rol', e.target.value)}
                               placeholder="Cargo (ej: Jefe de Obra, Compras)"
-                              className="bg-surface-container-highest border-none rounded-lg px-2.5 py-1.5 text-xs text-on-surface"
+                              className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
                             />
                             <input
                               type="tel"
                               value={persona.telefono || ''}
                               onChange={(e) => handleUpdatePersona(idx, 'telefono', e.target.value)}
                               placeholder="Teléfono / WhatsApp"
-                              className="bg-surface-container-highest border-none rounded-lg px-2.5 py-1.5 text-xs text-on-surface font-mono"
+                              className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-2.5 py-1.5 text-xs text-on-surface font-mono focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
                             />
                             <input
                               type="email"
                               value={persona.email || ''}
                               onChange={(e) => handleUpdatePersona(idx, 'email', e.target.value)}
                               placeholder="Email directo"
-                              className="bg-surface-container-highest border-none rounded-lg px-2.5 py-1.5 text-xs text-on-surface"
+                              className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
                             />
                           </div>
                         </div>
@@ -1150,7 +1247,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                               financiero: { ...prev.financiero, condicionesCobroHabitual: e.target.value }
                             }))
                           }
-                          className="w-full bg-surface-container-highest border-none rounded-xl px-3 py-2 text-xs text-on-surface"
+                          className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                           placeholder="ej: 50% anticipo al iniciar, 50% con certificado final"
                         />
                       </div>
@@ -1169,7 +1266,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                               financiero: { ...prev.financiero, descuentoHabitualPct: parseFloat(e.target.value) || 0 }
                             }))
                           }
-                          className="w-full bg-surface-container-highest border-none rounded-xl px-3 py-2 text-xs text-on-surface font-mono"
+                          className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                           placeholder="0"
                         />
                       </div>
@@ -1188,7 +1285,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                               financiero: { ...prev.financiero, limiteCreditoARS: parseFloat(e.target.value) || 0 }
                             }))
                           }
-                          className="w-full bg-surface-container-highest border-none rounded-xl px-3 py-2 text-xs text-on-surface font-mono"
+                          className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                           placeholder="0"
                         />
                       </div>
@@ -1214,7 +1311,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                               financiero: { ...prev.financiero, condicionesPagoHabitual: e.target.value }
                             }))
                           }
-                          className="w-full bg-surface-container-highest border-none rounded-xl px-3 py-2 text-xs text-on-surface"
+                          className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                           placeholder="ej: Cuenta corriente a 30 días, Cheque 60 días"
                         />
                       </div>
@@ -1232,7 +1329,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                               financiero: { ...prev.financiero, cbuCvuAlias: e.target.value }
                             }))
                           }
-                          className="w-full bg-surface-container-highest border-none rounded-xl px-3 py-2 text-xs text-on-surface font-mono font-bold"
+                          className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface font-mono font-bold focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                           placeholder="ej: 0720... o electro.pagos.mp"
                         />
                       </div>
@@ -1248,7 +1345,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                               financiero: { ...prev.financiero, banco: e.target.value }
                             }))
                           }
-                          className="w-full bg-surface-container-highest border-none rounded-xl px-3 py-2 text-xs text-on-surface"
+                          className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                           placeholder="ej: Banco Galicia / Mercado Pago"
                         />
                       </div>
@@ -1264,7 +1361,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                               financiero: { ...prev.financiero, titularCuenta: e.target.value }
                             }))
                           }
-                          className="w-full bg-surface-container-highest border-none rounded-xl px-3 py-2 text-xs text-on-surface"
+                          className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                           placeholder="ej: Electro Norte S.R.L."
                         />
                       </div>
@@ -1282,7 +1379,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
                     rows={6}
                     value={formData.notas}
                     onChange={(e) => setFormData((prev) => ({ ...prev, notas: e.target.value }))}
-                    className="w-full bg-surface-container-highest border-none rounded-2xl p-4 text-xs text-on-surface focus:ring-2 focus:ring-primary/50"
+                    className="w-full bg-surface-container-high border border-outline-variant/40 rounded-2xl p-4 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     placeholder="Escribe aquí acuerdos especiales, horarios de atención, personas clave o cualquier dato relevante..."
                   />
                 </div>

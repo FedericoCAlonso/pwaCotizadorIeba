@@ -194,6 +194,10 @@ export class CotizadorDatabase extends Dexie {
         console.warn('Upgrade a versión 5 (contactos):', e);
       }
     });
+
+    this.version(6).stores({
+      contactos: 'id, razonSocial, nombre, cuitDni, *roles, *etiquetas, tipoProveedor, deleted, updatedAt'
+    });
   }
 }
 

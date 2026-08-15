@@ -761,7 +761,7 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
       <button
         type="button"
         onClick={handleOpenCreate}
-        className="sm:hidden fixed bottom-20 right-4 px-4 py-3.5 bg-primary text-on-primary rounded-2xl shadow-md3-2 hover:shadow-md3-3 active:scale-95 transition-all z-30 flex items-center gap-2 font-semibold text-xs"
+        className="sm:hidden fixed bottom-20 right-4 px-4 py-3.5 bg-primary text-on-primary rounded-2xl shadow-md3-2 hover:shadow-md3-3 active:scale-95 transition-all z-30 floating-action-btn flex items-center gap-2 font-semibold text-xs"
         aria-label="Nuevo Cliente"
       >
         <Plus className="w-5 h-5" />

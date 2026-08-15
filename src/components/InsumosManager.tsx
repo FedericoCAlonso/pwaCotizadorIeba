@@ -2,7 +2,8 @@ import React, { useState, useRef, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Package, Plus, Search, TrendingUp, FileSpreadsheet,
-  Edit2, Trash2, X, Save, AlertCircle, Star, Tag, Layers, RefreshCw, Zap, ExternalLink, Copy, LayoutGrid, List, Sparkles
+  Edit2, Trash2, X, Save, AlertCircle, Star, Tag, Layers, RefreshCw, Zap, ExternalLink, Copy, LayoutGrid, List, Sparkles,
+  SlidersHorizontal, MoreVertical, FileText, Check
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
 import { CategoriaMaterial, Material, Producto, Oferta, Contacto } from '../core/types';
@@ -38,6 +39,9 @@ export const InsumosManager: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
   const [selectedVencimiento, setSelectedVencimiento] = useState<'todos' | 'verde' | 'amarillo' | 'rojo'>('todos');
   const [selectedMaterialIds, setSelectedMaterialIds] = useState<Set<string>>(new Set());
+  const [showFilters, setShowFilters] = useState(false);
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false);
+  const [isSpeedDialOpen, setIsSpeedDialOpen] = useState(false);
 
   // Modal Estados
   const [isCreatingMat, setIsCreatingMat] = useState(false);
@@ -738,140 +742,300 @@ export const InsumosManager: React.FC = () => {
     return matchesSearch && matchesCategory && matchesVenc && matchesFicha;
   });
 
+  const activeFiltersCount = (selectedCategory !== 'todas' ? 1 : 0) +
+    (selectedFichaStatus !== 'todas' ? 1 : 0) +
+    (selectedVencimiento !== 'todos' ? 1 : 0);
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-4 max-w-7xl mx-auto pb-24 md:pb-16">
+      {/* Header Bar with Tabs & Contextual Overflow Menu */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-low p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-outline-variant/20 shadow-xs">
         <div>
-          <h2 className="text-xl font-semibold text-on-surface flex items-center gap-2">
-            <Package className="w-5 h-5 text-primary" />Catálogo Técnico de Materiales & Categorías
-          </h2>
-          <p className="text-sm text-on-surface-variant mt-1">Gestión de fichas técnico-normativas y definición de atributos por categoría.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          {activeTab === 'materiales' && (
-            <>
-              <button
-                onClick={handleExportForQuotation}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 bg-primary/10 text-primary hover:bg-primary/20 font-semibold rounded-xl text-xs transition-colors border border-primary/30 shadow-xs"
-                title="Exporta una plantilla Excel para enviar a proveedores"
-              >
-                <FileSpreadsheet className="w-4 h-4 text-primary" />
-                <span>Exportar para Cotizar {selectedMaterialIds.size > 0 ? `(${selectedMaterialIds.size})` : ''}</span>
-              </button>
-              <button
-                onClick={() => setShowImportCatalogModal(true)}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-semibold rounded-xl text-xs transition-colors border border-emerald-500/30 shadow-xs"
-                title="Importar catálogo de materiales desde Excel (.xlsx / .csv)"
-              >
-                <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-                <span>Importar Fichas (Excel/CSV)</span>
-              </button>
-              <button
-                onClick={handleOpenQuickCreateMat}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 font-semibold rounded-xl text-xs transition-colors border border-amber-500/30"
-              >
-                <Zap className="w-4 h-4 text-amber-500" />
-                <span>Alta Rápida</span>
-              </button>
-              <button onClick={handleOpenCreateMat} className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-xl text-xs transition-all shadow-sm">
-                <Plus className="w-4 h-4" /><span>Nuevo Material</span>
-              </button>
-            </>
-          )}
-
-          {activeTab === 'categorias' && (
-            <button onClick={handleOpenCreateCat} className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-xl text-xs transition-all shadow-sm">
-              <Plus className="w-4 h-4" /><span>Nueva Categoría</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex border-b border-outline-variant/30 gap-6">
-        <button
-          onClick={() => setActiveTab('materiales')}
-          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
-            activeTab === 'materiales' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          <Package className="w-4 h-4" /> Fichas de Materiales ({materiales.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('categorias')}
-          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
-            activeTab === 'categorias' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          <Layers className="w-4 h-4" /> Categorías de Materiales ({categorias.length})
-        </button>
-      </div>
-
-      {/* Filtros para materiales u ofertas */}
-      {activeTab !== 'categorias' && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
-          <div className="relative w-full sm:w-64">
-            <Search className="w-4 h-4 text-on-surface-variant absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Buscar material o norma..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`${inputCls} pl-9`}
-            />
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-primary/10 text-primary rounded-xl">
+              <Package className="w-5 h-5" />
+            </div>
+            <h2 className="text-lg sm:text-xl font-bold text-on-surface tracking-tight">
+              Catálogo Técnico de Materiales
+            </h2>
           </div>
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className={`${inputCls} capitalize w-auto`}
-            >
-              <option value="todas">Todas las categorías</option>
-              {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
+          <p className="text-xs text-on-surface-variant mt-1">
+            Fichas técnico-normativas, atributos por rubro y control de precios vigentes.
+          </p>
+        </div>
 
-            <select
-              value={selectedFichaStatus}
-              onChange={(e) => setSelectedFichaStatus(e.target.value as any)}
-              className={`${inputCls} w-auto`}
+        {/* Tab Switcher & Contextual Overflow Menu */}
+        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-outline-variant/15">
+          {/* Tabs */}
+          <div className="flex bg-surface-container-high p-1 rounded-2xl gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('materiales')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                activeTab === 'materiales'
+                  ? 'bg-surface text-primary shadow-xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
             >
-              <option value="todas">Fichas: Todas</option>
-              <option value="completas">Fichas completas</option>
-              <option value="incompletas">⚡ Alta Rápida (Pendientes)</option>
-            </select>
-
-            <select
-              value={selectedVencimiento}
-              onChange={(e) => setSelectedVencimiento(e.target.value as any)}
-              className={`${inputCls} w-auto`}
+              <Package className="w-3.5 h-3.5" />
+              <span>Materiales ({materiales.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('categorias')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                activeTab === 'categorias'
+                  ? 'bg-surface text-primary shadow-xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
             >
-              <option value="todos">Vencimiento: Todos</option>
-              <option value="verde">🟢 Vigente (≤ 30 días)</option>
-              <option value="amarillo">🟡 Alerta (31-60 días)</option>
-              <option value="rojo">🔴 Vencido (&gt; 60 días)</option>
-            </select>
+              <Layers className="w-3.5 h-3.5" />
+              <span>Categorías ({categorias.length})</span>
+            </button>
+          </div>
 
-            {activeTab === 'materiales' && (
-              <div className="flex items-center gap-1 bg-surface-container-highest p-1 rounded-xl border border-outline-variant/30 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setViewModeMat('grid')}
-                  className={`p-1.5 rounded-lg transition-colors ${viewModeMat === 'grid' ? 'bg-primary text-on-primary shadow-xs' : 'text-on-surface-variant hover:text-on-surface'}`}
-                  title="Vista Tarjetas"
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewModeMat('table')}
-                  className={`p-1.5 rounded-lg transition-colors ${viewModeMat === 'table' ? 'bg-primary text-on-primary shadow-xs' : 'text-on-surface-variant hover:text-on-surface'}`}
-                  title="Vista Lista / Tabla"
-                >
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
+          {/* Contextual Overflow Menu (3 dots ⋮) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowOverflowMenu((prev) => !prev)}
+              className="p-2 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-variant border border-outline-variant/30 transition-colors"
+              title="Más opciones de catálogo (Exportar, Importar, Aumentos)"
+              aria-label="Menú contextual de opciones"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+
+            {showOverflowMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowOverflowMenu(false)}
+                />
+                <div className="absolute right-0 top-full mt-2 z-50 bg-surface-container-high rounded-2xl shadow-xl py-2 min-w-[240px] border border-outline-variant/30 text-on-surface animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-4 py-1.5 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
+                    Acciones de Catálogo
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOverflowMenu(false);
+                      handleExportForQuotation();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-on-surface hover:bg-surface-container-highest transition-colors text-left"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-primary" />
+                    <div className="flex-1">
+                      <span className="font-semibold block">Exportar para Cotizar</span>
+                      <span className="text-[10px] text-on-surface-variant">
+                        Plantilla Excel para proveedores {selectedMaterialIds.size > 0 ? `(${selectedMaterialIds.size} selec.)` : ''}
+                      </span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOverflowMenu(false);
+                      setShowImportCatalogModal(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-on-surface hover:bg-surface-container-highest transition-colors text-left"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <div className="flex-1">
+                      <span className="font-semibold block">Importar Fichas (Excel/CSV)</span>
+                      <span className="text-[10px] text-on-surface-variant">
+                        Carga masiva inteligente con mapeador
+                      </span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOverflowMenu(false);
+                      setShowMassUpdateModal(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-on-surface hover:bg-surface-container-highest transition-colors text-left"
+                  >
+                    <TrendingUp className="w-4 h-4 text-amber-500" />
+                    <div className="flex-1">
+                      <span className="font-semibold block">Aumento Masivo por Índice</span>
+                      <span className="text-[10px] text-on-surface-variant">
+                        Ajuste porcentual o por inflación
+                      </span>
+                    </div>
+                  </button>
+
+                  <hr className="border-outline-variant/30 my-1" />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOverflowMenu(false);
+                      handleRestoreDefaultCategories();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container-highest transition-colors text-left"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Restaurar Categorías Iniciales</span>
+                  </button>
+                </div>
+              </>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Main Search & Collapsible Filters Bar (Only in materiales tab) */}
+      {activeTab === 'materiales' && (
+        <div className="bg-surface-container-low p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-outline-variant/20 space-y-3 shadow-xs">
+          <div className="flex items-center gap-2">
+            {/* Search Box — expands nicely */}
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3" />
+              <input
+                type="text"
+                placeholder="Buscar material, norma, atributo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-full pl-9 pr-8 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all min-h-[40px]"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface p-0.5"
+                  aria-label="Limpiar búsqueda"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Collapsible Filter Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setShowFilters((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold border transition-all shrink-0 min-h-[40px] ${
+                showFilters || activeFiltersCount > 0
+                  ? 'bg-primary-container text-on-primary-container border-primary/40 shadow-xs'
+                  : 'bg-surface-container-high text-on-surface hover:bg-surface-variant border-outline-variant/30'
+              }`}
+              title="Mostrar / Ocultar selectores de filtro"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Filtros</span>
+              {activeFiltersCount > 0 && (
+                <span className="w-4 h-4 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+
+            {/* View Mode Toggle (Tarjetas / Lista) */}
+            <div className="flex items-center gap-0.5 bg-surface-container-highest p-1 rounded-full border border-outline-variant/30 shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewModeMat('grid')}
+                className={`p-1.5 rounded-full transition-colors ${
+                  viewModeMat === 'grid'
+                    ? 'bg-primary text-on-primary shadow-xs'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+                title="Vista Tarjetas"
+                aria-label="Vista Tarjetas"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewModeMat('table')}
+                className={`p-1.5 rounded-full transition-colors ${
+                  viewModeMat === 'table'
+                    ? 'bg-primary text-on-primary shadow-xs'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+                title="Vista Lista / Tabla"
+                aria-label="Vista Lista"
+              >
+                <List className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Collapsible Filters Panel — Saves vertical space when closed! */}
+          {showFilters && (
+            <div className="pt-3 border-t border-outline-variant/20 grid grid-cols-1 sm:grid-cols-3 gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+              {/* Category Filter */}
+              <div>
+                <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
+                  Categoría
+                </label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full bg-surface-container-high border border-outline-variant/30 rounded-xl px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="todas">Todas las categorías</option>
+                  {categorias.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Ficha Status Filter */}
+              <div>
+                <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
+                  Estado de Ficha
+                </label>
+                <select
+                  value={selectedFichaStatus}
+                  onChange={(e) => setSelectedFichaStatus(e.target.value as any)}
+                  className="w-full bg-surface-container-high border border-outline-variant/30 rounded-xl px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="todas">Todas las fichas</option>
+                  <option value="completas">Fichas técnicas completas</option>
+                  <option value="incompletas">⚡ Alta Rápida (Pendientes)</option>
+                </select>
+              </div>
+
+              {/* Price Freshness / Expiration Filter */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
+                    Vigencia de Precio
+                  </label>
+                  {activeFiltersCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory('todas');
+                        setSelectedFichaStatus('todas');
+                        setSelectedVencimiento('todos');
+                      }}
+                      className="text-[10px] text-primary hover:underline font-semibold"
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
+                <select
+                  value={selectedVencimiento}
+                  onChange={(e) => setSelectedVencimiento(e.target.value as any)}
+                  className="w-full bg-surface-container-high border border-outline-variant/30 rounded-xl px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="todos">Todos los vencimientos</option>
+                  <option value="verde">🟢 Vigente (≤ 30 días)</option>
+                  <option value="amarillo">🟡 Alerta (31-60 días)</option>
+                  <option value="rojo">🔴 Vencido (&gt; 60 días)</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1798,16 +1962,103 @@ export const InsumosManager: React.FC = () => {
         }}
       />
 
-      {/* Mobile M3 Extended FAB for Material creation */}
-      <button
-        type="button"
-        onClick={handleOpenQuickCreateMat}
-        className="sm:hidden fixed bottom-20 right-4 px-4 py-3.5 bg-primary text-on-primary rounded-2xl shadow-md3-2 hover:shadow-md3-3 active:scale-95 transition-all z-30 flex items-center gap-2 font-semibold text-xs"
-        aria-label="Alta Rápida de Material"
-      >
-        <Zap className="w-5 h-5 text-amber-300" />
-        <span>Alta Rápida</span>
-      </button>
+      {/* Material Design 3 Speed Dial Floating Action Button */}
+      <div className="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-30 floating-action-btn flex flex-col items-end gap-2.5">
+        {/* Backdrop dismiss overlay */}
+        {isSpeedDialOpen && (
+          <div
+            className="fixed inset-0 bg-slate-950/40 backdrop-blur-2xs z-20"
+            onClick={() => setIsSpeedDialOpen(false)}
+          />
+        )}
+
+        {/* Speed Dial Upward Actions */}
+        {isSpeedDialOpen && (
+          <div className="flex flex-col items-end gap-2.5 z-30 animate-in fade-in slide-in-from-bottom-3 duration-200">
+            {/* Option 1: Alta Rápida */}
+            <div className="flex items-center gap-2.5">
+              <span className="px-3 py-1.5 rounded-xl bg-surface-container-high text-xs font-semibold text-on-surface shadow-md border border-outline-variant/30 select-none">
+                Alta Rápida (1 Clic)
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  handleOpenQuickCreateMat();
+                  setIsSpeedDialOpen(false);
+                }}
+                className="w-12 h-12 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center shadow-lg active:scale-95 transition-all"
+                title="Alta Rápida de Material"
+                aria-label="Alta Rápida de Material"
+              >
+                <Zap className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Option 2: Ficha Técnica Completa */}
+            <div className="flex items-center gap-2.5">
+              <span className="px-3 py-1.5 rounded-xl bg-surface-container-high text-xs font-semibold text-on-surface shadow-md border border-outline-variant/30 select-none">
+                Ficha Técnica Completa
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  handleOpenCreateMat();
+                  setIsSpeedDialOpen(false);
+                }}
+                className="w-12 h-12 rounded-2xl bg-primary hover:bg-primary/90 text-on-primary flex items-center justify-center shadow-lg active:scale-95 transition-all"
+                title="Nuevo Material (Ficha Completa)"
+                aria-label="Nuevo Material Ficha Completa"
+              >
+                <FileText className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Option 3 (In Categorías Tab): Nueva Categoría */}
+            {activeTab === 'categorias' && (
+              <div className="flex items-center gap-2.5">
+                <span className="px-3 py-1.5 rounded-xl bg-surface-container-high text-xs font-semibold text-on-surface shadow-md border border-outline-variant/30 select-none">
+                  Nueva Categoría
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenCreateCat();
+                    setIsSpeedDialOpen(false);
+                  }}
+                  className="w-12 h-12 rounded-2xl bg-secondary hover:bg-secondary/90 text-on-secondary flex items-center justify-center shadow-lg active:scale-95 transition-all"
+                  title="Nueva Categoría"
+                  aria-label="Nueva Categoría"
+                >
+                  <Layers className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Primary Trigger FAB */}
+        <button
+          type="button"
+          onClick={() => {
+            if (activeTab === 'categorias' && !isSpeedDialOpen) {
+              setIsSpeedDialOpen(true);
+            } else {
+              setIsSpeedDialOpen((prev) => !prev);
+            }
+          }}
+          className={`w-14 h-14 rounded-2xl md:rounded-3xl bg-primary hover:bg-primary/90 text-on-primary shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center transition-all z-30 ${
+            isSpeedDialOpen ? 'bg-primary-container text-on-primary-container' : ''
+          }`}
+          aria-label={isSpeedDialOpen ? 'Cerrar opciones' : 'Nuevo material o ficha'}
+          title="Nuevo Material / Alta Rápida"
+        >
+          <Plus
+            className={`w-7 h-7 transition-transform duration-200 ${
+              isSpeedDialOpen ? 'rotate-45' : ''
+            }`}
+          />
+        </button>
+      </div>
     </div>
   );
 };

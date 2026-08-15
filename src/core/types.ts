@@ -202,6 +202,9 @@ export interface Contacto {
   roles: RolContacto[];              // ['cliente'], ['proveedor'] o ['cliente', 'proveedor']
   tipoProveedor?: TipoProveedor;     // si roles.includes('proveedor')
   
+  // Sistema de Etiquetas / Tags (M3 Chips)
+  etiquetas?: string[];
+  
   // Ubicación y Canales Generales
   direccion?: string;
   localidad?: string;

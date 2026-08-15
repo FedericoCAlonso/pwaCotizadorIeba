@@ -87,6 +87,17 @@ export const Header: React.FC<HeaderProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (showMobileDrawer) {
+      document.body.classList.add('mobile-drawer-open');
+    } else {
+      document.body.classList.remove('mobile-drawer-open');
+    }
+    return () => {
+      document.body.classList.remove('mobile-drawer-open');
+    };
+  }, [showMobileDrawer]);
+
   const handleExportJSON = async () => {
     const json = await exportDatabaseJSON();
     const blob = new Blob([json], { type: 'application/json' });
@@ -522,7 +533,7 @@ export const Header: React.FC<HeaderProps> = ({
             role="dialog"
             aria-modal="true"
             aria-labelledby="drawer-title"
-            className="relative bg-surface-container border-t border-outline-variant/30 rounded-t-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh] z-10 pb-safe animate-in slide-in-from-bottom duration-300"
+            className="relative bg-surface-container border-t border-outline-variant/30 rounded-t-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh] z-10 pb-safe pb-8 animate-in slide-in-from-bottom duration-300"
           >
             {/* Drag handle pill */}
             <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto mt-3 mb-2 shrink-0" />

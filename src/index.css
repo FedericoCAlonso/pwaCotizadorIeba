@@ -103,6 +103,28 @@
   background: var(--md-sys-color-outline);
 }
 
+/* Hidden scrollbar utilities */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+}
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Material Design 3 FAB Transitions & Bottom Sheet Collision Avoidance */
+.floating-action-btn {
+  transition: transform 220ms cubic-bezier(0.2, 0, 0, 1), opacity 200ms cubic-bezier(0.2, 0, 0, 1), box-shadow 200ms cubic-bezier(0.2, 0, 0, 1) !important;
+  transform-origin: center center;
+}
+body.mobile-drawer-open .floating-action-btn {
+  transform: scale(0) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 /* Safe Area Inset — iOS PWA notch / home indicator support */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
