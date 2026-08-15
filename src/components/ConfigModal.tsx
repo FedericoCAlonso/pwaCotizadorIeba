@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Save, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { AppConfig } from '../core/types';
 import { db } from '../db/database';
-import { TIPOS_FACTURA, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL } from '../core/sampleData';
+import { TIPOS_FACTURA, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL, DEFAULT_MOTORES_BUSQUEDA } from '../core/sampleData';
 import { isFirebaseConfigured, getFirebaseConfig, clearCustomFirebaseConfig } from '../config/firebase';
 import { AuthModal } from './AuthModal';
 
@@ -310,6 +310,118 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Umbral Vencimiento Amarillo (días)</label>
                 <input type="number" value={formData.diasVencimientoPrecioAmarillo ?? DEFAULT_APP_CONFIG.diasVencimientoPrecioAmarillo} onChange={(e) => setFormData({ ...formData, diasVencimientoPrecioAmarillo: parseInt(e.target.value) || DEFAULT_APP_CONFIG.diasVencimientoPrecioAmarillo })} className={`${inputCls} font-mono`} />
+              </div>
+            </div>
+          </div>
+
+          <hr className="border-outline-variant/30" />
+
+          {/* Motores de Búsqueda de Precios Online */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className={`${sectionTitle} mb-0`}>Buscadores de Precios Online (Mercado Libre, Google, Tiendas)</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData(prev => ({
+                    ...prev,
+                    motoresBusquedaOnline: DEFAULT_MOTORES_BUSQUEDA
+                  }));
+                }}
+                className="text-[11px] text-primary hover:underline"
+              >
+                Restablecer Predeterminados
+              </button>
+            </div>
+            <p className="text-[11px] text-on-surface-variant mb-3">
+              Activa o desactiva las plataformas donde consultar precios en 1 clic. Puedes agregar la URL de búsqueda de cualquier proveedor usando <code className="bg-surface-container-highest px-1.5 py-0.5 rounded font-mono text-[10px]">{"{query}"}</code>.
+            </p>
+
+            <div className="space-y-2">
+              {(formData.motoresBusquedaOnline || DEFAULT_MOTORES_BUSQUEDA).map((engine, idx) => (
+                <div key={engine.id || idx} className="p-3 bg-surface-container-highest/60 border border-outline-variant/20 rounded-2xl flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <input
+                      type="checkbox"
+                      checked={engine.activo}
+                      onChange={(e) => {
+                        const next = [...(formData.motoresBusquedaOnline || DEFAULT_MOTORES_BUSQUEDA)];
+                        next[idx] = { ...next[idx], activo: e.target.checked };
+                        setFormData({ ...formData, motoresBusquedaOnline: next });
+                      }}
+                      className="w-4 h-4 text-primary rounded border-outline-variant focus:ring-primary"
+                    />
+                    <div className="min-w-0">
+                      <span className="font-semibold text-on-surface block truncate">{engine.nombre}</span>
+                      <span className="text-[10px] text-on-surface-variant font-mono truncate block opacity-75">{engine.urlTemplate}</span>
+                    </div>
+                  </div>
+
+                  {engine.id !== 'mercadolibre' && engine.id !== 'google_shopping' && engine.id !== 'google_web' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = (formData.motoresBusquedaOnline || DEFAULT_MOTORES_BUSQUEDA).filter((_, i) => i !== idx);
+                        setFormData({ ...formData, motoresBusquedaOnline: next });
+                      }}
+                      className="p-1.5 text-on-surface-variant hover:text-rose-500 rounded-lg transition-colors"
+                      title="Eliminar buscador personalizado"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Formulario para agregar nuevo motor */}
+            <div className="mt-3 p-3 bg-surface-container border border-dashed border-outline-variant/30 rounded-2xl space-y-2">
+              <span className="text-[11px] font-bold text-on-surface uppercase tracking-wider block">+ Agregar Tienda o Distribuidor</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="Nombre (ej: Easy, Distribuidora Eléctrica)"
+                  id="new-engine-name"
+                  className={`${inputCls} py-1.5 text-xs min-h-[38px]`}
+                />
+                <input
+                  type="text"
+                  placeholder="URL con {query} (ej: https://tienda.com/search?q={query})"
+                  id="new-engine-url"
+                  className={`${inputCls} py-1.5 text-xs min-h-[38px] font-mono`}
+                />
+              </div>
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nameInput = document.getElementById('new-engine-name') as HTMLInputElement;
+                    const urlInput = document.getElementById('new-engine-url') as HTMLInputElement;
+                    const name = nameInput?.value.trim();
+                    const url = urlInput?.value.trim();
+                    if (!name || !url) {
+                      alert('Ingresa el nombre y la URL con el comodín {query}');
+                      return;
+                    }
+                    if (!url.includes('{query}')) {
+                      alert('La URL debe contener el comodín {query}, por ejemplo: https://tienda.com/buscar?q={query}');
+                      return;
+                    }
+                    const newEngine = {
+                      id: `eng-${Date.now()}`,
+                      nombre: name,
+                      urlTemplate: url,
+                      activo: true
+                    };
+                    const next = [...(formData.motoresBusquedaOnline || DEFAULT_MOTORES_BUSQUEDA), newEngine];
+                    setFormData({ ...formData, motoresBusquedaOnline: next });
+                    nameInput.value = '';
+                    urlInput.value = '';
+                  }}
+                  className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs rounded-xl transition"
+                >
+                  + Agregar Buscador
+                </button>
               </div>
             </div>
           </div>

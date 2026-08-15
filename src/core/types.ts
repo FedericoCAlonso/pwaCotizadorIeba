@@ -578,8 +578,18 @@ export interface AppConfig {
   syncConfig?: SyncConfig;
   autoSyncEnabled?: boolean; // Default true
   syncIntervalMinutes?: number; // Default 5 mins
+  motoresBusquedaOnline?: MotorBusquedaEcommerce[];
 
   createdAt?: string;
   updatedAt?: string;
   deleted?: boolean;
+}
+
+export interface MotorBusquedaEcommerce {
+  id: string;
+  nombre: string;
+  urlTemplate: string; // Plantilla con {query}
+  activo: boolean;
+  icono?: string;
+  esPredeterminado?: boolean;
 }

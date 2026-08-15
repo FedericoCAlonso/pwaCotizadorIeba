@@ -11,6 +11,7 @@ import {
   Proveedor,
   Contacto,
   RolContacto,
+  MotorBusquedaEcommerce,
   AppConfig
 } from './types';
 import appConfigData from '../config/appConfig.json';
@@ -25,8 +26,36 @@ export interface OptionConfig<T = string> {
   description?: string;
 }
 
+export const DEFAULT_MOTORES_BUSQUEDA: MotorBusquedaEcommerce[] = [
+  {
+    id: 'mercadolibre',
+    nombre: 'Mercado Libre',
+    urlTemplate: 'https://listado.mercadolibre.com.ar/{query}#D[A:{query}]',
+    activo: true,
+    icono: 'mercadolibre',
+    esPredeterminado: true
+  },
+  {
+    id: 'google_shopping',
+    nombre: 'Google Shopping',
+    urlTemplate: 'https://www.google.com.ar/search?tbm=shop&q={query}',
+    activo: true,
+    icono: 'google',
+    esPredeterminado: false
+  },
+  {
+    id: 'google_web',
+    nombre: 'Google Web',
+    urlTemplate: 'https://www.google.com/search?q={query}+precio+argentina',
+    activo: true,
+    icono: 'search',
+    esPredeterminado: false
+  }
+];
+
 export const DEFAULT_APP_CONFIG: AppConfig = {
-  ...appConfigData.defaultAppConfig
+  ...appConfigData.defaultAppConfig,
+  motoresBusquedaOnline: DEFAULT_MOTORES_BUSQUEDA
 } as AppConfig;
 
 export const INITIAL_CATEGORIAS_MATERIAL: CategoriaMaterial[] =

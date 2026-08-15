@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { db } from '../db/database';
 import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
+import { OnlinePriceButton } from './OnlinePriceButton';
 import {
   Presupuesto,
   ItemPresupuesto,
@@ -1162,7 +1163,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                               <div className="space-y-1 divide-y divide-outline-variant/10">
                                 {item.insumosSnapshot.map((ins, iIdx) => (
                                   <div key={iIdx} className="pt-1 flex items-center justify-between text-on-surface-variant text-[11px]">
-                                    <span className="truncate flex-1">{ins.nombre}</span>
+                                    <div className="flex items-center gap-1.5 truncate flex-1">
+                                      <span className="truncate">{ins.nombre}</span>
+                                      <OnlinePriceButton tipo="material" customNombre={ins.nombre} size="xs" variant="icon" />
+                                    </div>
                                     <div className="flex items-center gap-3 font-mono shrink-0 ml-2">
                                       <span>{ins.cantidadTotal} {ins.unidad} × {formatARS(ins.precioUnitarioCongelado)}</span>
                                       <strong className="text-on-surface font-semibold">{formatARS(ins.subtotalInsumo)}</strong>

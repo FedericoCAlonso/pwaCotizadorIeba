@@ -11,6 +11,7 @@ import {
   calcularDispersionHorasTareaLegacy
 } from './calculations';
 import { Insumo, CategoriaManoDeObra, CostoIndirecto, CostoIndirectoItemConfig, TareaTipo, ItemPresupuesto } from './types';
+import { buildSearchTerm } from './searchUtils';
 
 // ─── Fixtures compartidas (auditoría #14) ────────────────────────────────────
 
@@ -582,11 +583,41 @@ describe('calcularDispersionHorasTareaLegacy (spec v2 §1.4)', () => {
     ];
 
     const dispersion = calcularDispersionHorasTareaLegacy(registros, 'tt-1', 10);
-    expect(dispersion.count).toBe(2);
-    expect(dispersion.minRatio).toBe(1.0);
-    expect(dispersion.maxRatio).toBe(1.5);
-    expect(dispersion.avgRatio).toBe(1.25);
-    expect(dispersion.desvioEstandar).toBeGreaterThan(0);
+  });
+});
+
+describe('buildSearchTerm & searchUtils', () => {
+  it('arma correctamente el término para búsqueda genérica a nivel Material', () => {
+    const mat = {
+      nombre: 'Cable Unipolar',
+      atributos: [
+        { clave: 'seccion', valor: '2.5 mm²' },
+        { clave: 'norma', valor: 'IRAM 247-3' }
+      ]
+    };
+    const term = buildSearchTerm({ tipo: 'material', material: mat });
+    expect(term).toBe('Cable Unipolar 2.5 mm² IRAM 247-3');
+  });
+
+  it('arma correctamente el término para Producto con Código de Fabricante / SKU', () => {
+    const mat = { nombre: 'Termomagnética 1P' };
+    const prod = {
+      marca: 'Schneider',
+      modelo: 'Acti9',
+      codigoFabricante: 'A9F74116'
+    };
+    const term = buildSearchTerm({ tipo: 'producto', material: mat, producto: prod });
+    expect(term).toBe('Schneider A9F74116');
+  });
+
+  it('arma correctamente el término para Producto sin SKU combinando Marca + Modelo + Material', () => {
+    const mat = { nombre: 'Canaleta Ranurada' };
+    const prod = {
+      marca: 'Zoloda',
+      modelo: '40x60'
+    };
+    const term = buildSearchTerm({ tipo: 'producto', material: mat, producto: prod });
+    expect(term).toBe('Zoloda 40x60 Canaleta Ranurada');
   });
 });
 

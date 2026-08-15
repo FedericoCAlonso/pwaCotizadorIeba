@@ -9,6 +9,7 @@ import { CategoriaMaterial, Material, Producto, Oferta, Contacto } from '../core
 import { formatARS, obtenerEstadoVencimientoOferta } from '../core/calculations';
 import { TIPOS_AJUSTE_PRECIO, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL } from '../core/sampleData';
 import { ImportCatalogModal } from './ImportCatalogModal';
+import { OnlinePriceButton } from './OnlinePriceButton';
 
 const inputCls = "w-full px-3.5 py-2.5 text-base sm:text-xs rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]";
 
@@ -911,13 +912,7 @@ export const InsumosManager: React.FC = () => {
                         </div>
 
                         <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleSearchML(mat)}
-                            className="p-1.5 text-on-surface-variant hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors"
-                            title="Buscar referencia de precio en Mercado Libre"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </button>
+                          <OnlinePriceButton tipo="material" material={mat} size="xs" variant="icon" />
                           <button
                             onClick={() => handleDuplicateMat(mat)}
                             className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
@@ -978,13 +973,7 @@ export const InsumosManager: React.FC = () => {
                                 </div>
                                 <div className="flex items-center gap-1.5 font-mono">
                                   <span className="text-primary font-semibold">{ofProd ? formatARS(ofProd.precio) : 'Sin precio'}</span>
-                                  <button
-                                    onClick={() => handleSearchML(mat, p)}
-                                    className="p-0.5 text-on-surface-variant hover:text-amber-500"
-                                    title="Buscar marca en Mercado Libre"
-                                  >
-                                    <ExternalLink className="w-3 h-3" />
-                                  </button>
+                                  <OnlinePriceButton tipo="producto" material={mat} producto={p} size="xs" variant="icon" />
                                   <button
                                     onClick={() => handleDeleteProducto(p.id)}
                                     className="p-0.5 text-on-surface-variant hover:text-rose-500"
@@ -1106,13 +1095,7 @@ export const InsumosManager: React.FC = () => {
                         </td>
                         <td className="p-3">
                           <div className="flex items-center justify-center gap-1">
-                            <button
-                              onClick={() => handleSearchML(mat)}
-                              className="p-1 text-on-surface-variant hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors"
-                              title="Mercado Libre"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </button>
+                            <OnlinePriceButton tipo="material" material={mat} size="xs" variant="icon" />
                             <button
                               onClick={() => handleDuplicateMat(mat)}
                               className="p-1 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
