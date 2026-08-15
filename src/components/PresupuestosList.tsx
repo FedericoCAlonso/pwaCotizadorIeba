@@ -11,6 +11,7 @@ import {
   User,
   FileSpreadsheet,
   Share2,
+  X,
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
 import { Presupuesto, Cliente } from '../core/types';
@@ -86,76 +87,72 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
   };
 
   return (
-    <div className="space-y-6 relative pb-24 lg:pb-6">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-on-surface flex items-center gap-2">
-            <FileText className="w-5 h-5 text-primary" />
-            <span>Presupuestos & Cotizaciones</span>
-          </h2>
-          <p className="text-sm text-on-surface-variant mt-1">
-            {presupuestos.length} cotizaciones guardadas
-          </p>
-        </div>
+    <div className="space-y-4 relative pb-24 lg:pb-6 max-w-7xl mx-auto">
+      {/* Search & Filter Bar */}
+      <div className="bg-surface-container-low p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-outline-variant/20 space-y-3 shadow-xs">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+          {/* Search Box */}
+          <div className="relative w-full md:w-80">
+            <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3" />
+            <input
+              type="text"
+              placeholder="Buscar por número o cliente..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-full pl-9 pr-8 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface p-0.5"
+                aria-label="Limpiar búsqueda"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
 
-        <button
-          type="button"
-          onClick={onNew}
-          className="hidden lg:flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-sm hover:shadow-md active:scale-95"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nueva Cotización</span>
-        </button>
-      </div>
+          {/* Status Filter Chips with invisible native horizontal scroll */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden w-full md:w-auto pb-1 md:pb-0 touch-pan-x overscroll-contain">
+            {['todos', 'borrador', 'enviado', 'aprobado', 'rechazado', 'vencido'].map((st) => (
+              <button
+                type="button"
+                key={st}
+                onClick={() => setSelectedEstado(st)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors capitalize whitespace-nowrap border ${
+                  selectedEstado === st
+                    ? 'bg-secondary-container text-on-secondary-container border-transparent shadow-xs'
+                    : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant border-outline-variant/30'
+                }`}
+              >
+                {st}
+              </button>
+            ))}
+          </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-on-surface-variant absolute left-4 top-3" />
-          <input
-            type="text"
-            placeholder="Buscar por número o cliente..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-surface-container-highest border-none rounded-full pl-10 pr-4 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-on-surface-variant/70 transition-shadow"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-          {['todos', 'borrador', 'enviado', 'aprobado', 'rechazado', 'vencido'].map((st) => (
-            <button
-              type="button"
-              key={st}
-              onClick={() => setSelectedEstado(st)}
-              className={`px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors capitalize whitespace-nowrap border border-outline-variant/30 ${
-                selectedEstado === st
-                  ? 'bg-secondary-container text-on-secondary-container border-transparent'
-                  : 'text-on-surface-variant hover:bg-surface-variant hover:text-on-surface'
-              }`}
-            >
-              {st}
-            </button>
-          ))}
+          {/* Desktop "+ Nueva Cotización" Button */}
+          <button
+            type="button"
+            onClick={onNew}
+            className="hidden lg:flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-xs transition-all shadow-xs shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nueva Cotización</span>
+          </button>
         </div>
       </div>
 
       {/* Quotes Cards Grid */}
       {filteredPresupuestos.length === 0 ? (
-        <div className="text-center py-16 px-4 bg-surface-container rounded-3xl border border-outline-variant/20">
-          <FileText className="w-12 h-12 text-outline mx-auto mb-4" />
-          <h3 className="text-base font-semibold text-on-surface">No se encontraron presupuestos</h3>
-          <p className="text-sm text-on-surface-variant mt-2 max-w-md mx-auto">
-            Crea tu primera cotización eléctrica seleccionando tareas tipo del catálogo.
+        <div className="text-center py-16 px-4 bg-surface-container-low rounded-3xl border border-outline-variant/20">
+          <FileText className="w-12 h-12 text-outline mx-auto mb-3" />
+          <h3 className="text-base font-bold text-on-surface">No se encontraron presupuestos</h3>
+          <p className="text-xs text-on-surface-variant mt-1 max-w-sm mx-auto">
+            {searchTerm || selectedEstado !== 'todos'
+              ? 'Prueba ajustando los filtros o la búsqueda.'
+              : 'Crea tu primera cotización eléctrica usando el botón flotante (+).'}
           </p>
-          <button
-            type="button"
-            onClick={onNew}
-            className="mt-6 px-6 py-2.5 bg-primary text-on-primary font-medium text-sm rounded-full inline-flex items-center gap-2 shadow-sm hover:shadow-md transition-shadow"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Crear Cotización</span>
-          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

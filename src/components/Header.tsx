@@ -130,10 +130,10 @@ export const Header: React.FC<HeaderProps> = ({
   const navItems = [
     { id: 'presupuestos', label: 'Presupuestos', icon: FileText },
     { id: 'insumos', label: 'Materiales & Precios', icon: Package },
-    { id: 'tareasTipo', label: 'Laboratorio Tareas', icon: Layers },
-    { id: 'registroTrabajo', label: 'Registro Obra', icon: HardHat },
-    { id: 'manoObra', label: 'Mano de Obra', icon: Clock },
     { id: 'contactos', label: 'Contactos', icon: Users },
+    { id: 'registroTrabajo', label: 'Registro Obra', icon: HardHat },
+    { id: 'tareasTipo', label: 'Laboratorio Tareas', icon: Layers },
+    { id: 'manoObra', label: 'Mano de Obra', icon: Clock },
     { id: 'rfq', label: 'Solicitudes RFQ', icon: Send },
     { id: 'logistica', label: 'Logística', icon: ShoppingCart }
   ];
@@ -494,7 +494,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* 5th Mobile Navigation Item: "Más" (Drawer Trigger) */}
         <button
           role="tab"
-          aria-selected={['clientes', 'proveedores', 'rfq', 'registroTrabajo', 'logistica'].includes(activeTab)}
+          aria-selected={!['presupuestos', 'insumos', 'contactos', 'registroTrabajo'].includes(activeTab)}
           aria-haspopup="dialog"
           onClick={() => setShowMobileDrawer(true)}
           className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl min-w-[64px] min-h-[48px] transition-all"
@@ -502,7 +502,7 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <div
             className={`px-4 py-1 rounded-full flex items-center justify-center transition-all ${
-              ['clientes', 'proveedores', 'rfq', 'registroTrabajo', 'logistica'].includes(activeTab) || showMobileDrawer
+              !['presupuestos', 'insumos', 'contactos', 'registroTrabajo'].includes(activeTab) || showMobileDrawer
                 ? 'bg-secondary-container text-on-secondary-container font-semibold scale-105'
                 : 'text-on-surface-variant hover:text-on-surface'
             }`}
@@ -511,7 +511,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <span
             className={`text-[10px] tracking-tight mt-0.5 transition-colors ${
-              ['clientes', 'proveedores', 'rfq', 'registroTrabajo', 'logistica'].includes(activeTab)
+              !['presupuestos', 'insumos', 'contactos', 'registroTrabajo'].includes(activeTab)
                 ? 'font-bold text-primary'
                 : 'text-on-surface-variant'
             }`}
