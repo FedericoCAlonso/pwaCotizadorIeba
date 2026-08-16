@@ -2,6 +2,7 @@ import React from 'react';
 import { CheckCircle, X, Lock } from 'lucide-react';
 import { OpcionesEmisionPresupuesto } from '../../core/types';
 import { formatARS, TotalesPresupuestoResultado } from '../../core/calculations';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 interface EmisionPresupuestoModalProps {
   isOpen: boolean;
@@ -22,6 +23,8 @@ export const EmisionPresupuestoModal: React.FC<EmisionPresupuestoModalProps> = (
   totales,
   onConfirmEmitir,
 }) => {
+  useEscapeKey(isOpen, onClose);
+
   if (!isOpen) return null;
 
   return (

@@ -1,5 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface ModalContainerProps {
   isOpen: boolean;
@@ -22,6 +23,8 @@ export const ModalContainer: React.FC<ModalContainerProps> = ({
   children,
   footer
 }) => {
+  useEscapeKey(isOpen, onClose);
+
   if (!isOpen) return null;
 
   const maxWidthClass = {

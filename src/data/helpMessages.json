@@ -213,6 +213,39 @@
             ]
           }
         ]
+      },
+      {
+        "id": "atajosTeclado",
+        "title": "Atajos de Teclado y Productividad",
+        "iconName": "Layers",
+        "summary": "Acciones rápidas, navegación instantánea y guardado con el teclado.",
+        "sections": [
+          {
+            "heading": "Acciones Rápidas (+, Ctrl+S, Esc, /)",
+            "content": "Optimiza tu flujo diario con atajos estándar de teclado:",
+            "bullets": [
+              "+ o N: Crea un nuevo presupuesto, material, tarea o contacto según la pantalla activa.",
+              "Ctrl+S / Cmd+S: Guarda el presupuesto o formulario actual de inmediato.",
+              "Escape: Cierra ventanas emergentes o vuelve al listado principal.",
+              "/ o Ctrl+K: Pone el foco directamente en la barra de búsqueda.",
+              "? o F1: Abre la ventana interactiva de atajos de teclado."
+            ]
+          },
+          {
+            "heading": "Navegación entre Secciones (Alt + 1..8)",
+            "content": "Salta directamente a cualquier módulo sin usar el mouse:",
+            "bullets": [
+              "Alt + 1: Presupuestos",
+              "Alt + 2: Materiales & Precios",
+              "Alt + 3: Contactos",
+              "Alt + 4: Registro de Obra",
+              "Alt + 5: Laboratorio de Tareas (APU)",
+              "Alt + 6: Mano de Obra",
+              "Alt + 7: Solicitudes RFQ",
+              "Alt + 8: Logística"
+            ]
+          }
+        ]
       }
     ]
   }

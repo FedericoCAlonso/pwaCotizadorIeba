@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   roundMoney,
+  calcularPrecioNeto,
+  calcularPrecioFinal,
+  calcularPrecioUnitarioDesdePresentacion,
+  obtenerPresentacionesSugeridas,
   calcularCostoTareaTipo,
   calcularTotalesPresupuesto,
   congelarItemPresupuesto,
@@ -618,6 +622,183 @@ describe('buildSearchTerm & searchUtils', () => {
     };
     const term = buildSearchTerm({ tipo: 'producto', material: mat, producto: prod });
     expect(term).toBe('Zoloda 40x60 Canaleta Ranurada');
+  });
+});
+
+// ─── Tests: Conversión Canónica de Precios e IVA (GMT) y Tratamiento Fiscal ───
+
+describe('calcularPrecioNeto y calcularPrecioFinal (Conversión Canónica GMT)', () => {
+  it('convierte precio final con IVA 21% a base neta', () => {
+    expect(calcularPrecioNeto(12100, 21)).toBe(10000);
+    expect(calcularPrecioNeto(2420, 21)).toBe(2000);
+  });
+
+  it('convierte precio final con IVA 10.5% a base neta', () => {
+    expect(calcularPrecioNeto(11050, 10.5)).toBe(10000);
+  });
+
+  it('convierte precio neto a precio final con IVA 21%', () => {
+    expect(calcularPrecioFinal(10000, 21)).toBe(12100);
+  });
+
+  it('convierte precio neto a precio final con IVA 10.5%', () => {
+    expect(calcularPrecioFinal(10000, 10.5)).toBe(11050);
+  });
+
+  it('maneja alícuota 0% sin alteraciones', () => {
+    expect(calcularPrecioNeto(5000, 0)).toBe(5000);
+    expect(calcularPrecioFinal(5000, 0)).toBe(5000);
+  });
+});
+
+describe('Tratamiento Fiscal y Prevención de Doble IVA (Facturas A, B, C, X)', () => {
+  const insumoConIva = {
+    id: 'mat-1',
+    precioActual: 10000, // Base Neta = 10.000
+    alicuotaIVA: 21      // Final = 12.100
+  };
+
+  const itemConSnapshots: ItemPresupuesto = {
+    id: 'it-1',
+    descripcion: 'Instalación circuito',
+    cantidad: 1,
+    unidad: 'gl',
+    insumosSnapshot: [
+      {
+        insumoId: 'mat-1',
+        nombre: 'Material Eléctrico',
+        unidad: 'u',
+        cantidadTotal: 1,
+        precioUnitarioCongelado: 10000,
+        alicuotaIVA: 21,
+        precioFinalUnitarioCongelado: 12100,
+        subtotalInsumo: 10000,
+        subtotalInsumoFinal: 12100
+      }
+    ],
+    manoObraSnapshot: [
+      {
+        categoriaId: 'mo-1',
+        nombreCategoria: 'Oficial',
+        horasTotales: 1,
+        costoHoraCongelado: 5000,
+        subtotalManoObra: 5000
+      }
+    ],
+    costoInsumos: 10000,
+    costoManoObra: 5000,
+    costoDirectoTotal: 15000,
+    precioVentaUnitario: 0,
+    precioVentaTotal: 0
+  };
+
+  it('FACTURA A (Responsable Inscripto): Toma costo neto, calcula margen y discrimina IVA al final', () => {
+    const impuestos = generarImpuestosPorDefecto('Factura A', 21, 0);
+
+    const result = calcularTotalesPresupuesto({
+      items: [itemConSnapshots],
+      costosIndirectosCatalog: [],
+      beneficioPorcentaje: 30, // 30% sobre 15.000 = 4.500
+      impuestosDetalle: impuestos,
+      tipoFactura: 'Factura A'
+    });
+
+    // Costo Global = Insumo Neto (10.000) + MO (5.000) = 15.000
+    expect(result.costoGlobal).toBe(15000);
+    // Subtotal Neto Gravado (S) = 15.000 + 4.500 = 19.500
+    expect(result.subtotalSinImpuestos).toBe(19500);
+    // IVA 21% sobre S = 4.095 (discriminado)
+    const ivaTax = result.impuestosCalculados.find(t => t.id === 'tax-iva');
+    expect(ivaTax?.montoCalculado).toBe(4095);
+    expect(ivaTax?.discriminar).toBe(true);
+    // Precio Final = 19.500 + 4.095 = 23.595
+    expect(result.precioFinalGlobal).toBe(23595);
+  });
+
+  it('FACTURA B (Responsable Inscripto a Consumidor): Mismo total que Factura A con IVA no discriminado', () => {
+    const impuestos = generarImpuestosPorDefecto('Factura B', 21, 0);
+
+    const result = calcularTotalesPresupuesto({
+      items: [itemConSnapshots],
+      costosIndirectosCatalog: [],
+      beneficioPorcentaje: 30,
+      impuestosDetalle: impuestos,
+      tipoFactura: 'Factura B'
+    });
+
+    expect(result.costoGlobal).toBe(15000);
+    expect(result.subtotalSinImpuestos).toBe(19500);
+    expect(result.precioFinalGlobal).toBe(23595);
+    const ivaTax = result.impuestosCalculados.find(t => t.id === 'tax-iva');
+    expect(ivaTax?.discriminar).toBe(false);
+  });
+
+  it('FACTURA C (Monotributista): Absorbe IVA en el costo de compra y no agrega IVA en la venta (0%)', () => {
+    const impuestos = generarImpuestosPorDefecto('Factura C', 21, 0);
+
+    const result = calcularTotalesPresupuesto({
+      items: [itemConSnapshots],
+      costosIndirectosCatalog: [],
+      beneficioPorcentaje: 30,
+      impuestosDetalle: impuestos,
+      tipoFactura: 'Factura C'
+    });
+
+    // Costo Global = Insumo con IVA pagado (12.100) + MO (5.000) = 17.100
+    expect(result.costoGlobal).toBe(17100);
+    // Beneficio 30% sobre 17.100 = 5.130
+    expect(result.beneficioMonto).toBe(5130);
+    // Subtotal = 17.100 + 5.130 = 22.230
+    expect(result.subtotalSinImpuestos).toBe(22230);
+    // IVA = 0%
+    expect(result.montoImpuestosTotal).toBe(0);
+    expect(result.precioFinalGlobal).toBe(22230);
+  });
+
+  it('PRESUPUESTO X (Sin Factura): No agrega IVA fiscal de venta', () => {
+    const impuestos = generarImpuestosPorDefecto('Presupuesto X (Sin Factura)', 21, 0);
+
+    const result = calcularTotalesPresupuesto({
+      items: [itemConSnapshots],
+      costosIndirectosCatalog: [],
+      beneficioPorcentaje: 20,
+      impuestosDetalle: impuestos,
+      tipoFactura: 'Presupuesto X (Sin Factura)'
+    });
+
+    expect(result.costoGlobal).toBe(17100);
+    expect(result.montoImpuestosTotal).toBe(0);
+  });
+});
+
+describe('Presentaciones de Compra y Factores de Empaque (Rollos, Cajas, Bobinas)', () => {
+  it('calcula precio unitario por metro para un Rollo de 100m a $45.000', () => {
+    const precioUnitario = calcularPrecioUnitarioDesdePresentacion(45000, 100);
+    expect(precioUnitario).toBe(450);
+  });
+
+  it('calcula precio unitario por metro para una Bobina de 500m a $190.000', () => {
+    const precioUnitario = calcularPrecioUnitarioDesdePresentacion(190000, 500);
+    expect(precioUnitario).toBe(380);
+  });
+
+  it('calcula precio unitario por metro para fraccionado directo (1m)', () => {
+    const precioUnitario = calcularPrecioUnitarioDesdePresentacion(650, 1);
+    expect(precioUnitario).toBe(650);
+  });
+
+  it('calcula precio unitario por unidad para una Caja de 100u a $8.000', () => {
+    const precioUnitario = calcularPrecioUnitarioDesdePresentacion(8000, 100);
+    expect(precioUnitario).toBe(80);
+  });
+
+  it('retorna presets sugeridos según la unidad del material', () => {
+    const presetsMetro = obtenerPresentacionesSugeridas('m');
+    expect(presetsMetro.some(p => p.cantidad === 100)).toBe(true);
+    expect(presetsMetro.some(p => p.cantidad === 500)).toBe(true);
+
+    const presetsUnidad = obtenerPresentacionesSugeridas('u');
+    expect(presetsUnidad.some(p => p.cantidad === 100)).toBe(true);
   });
 });
 

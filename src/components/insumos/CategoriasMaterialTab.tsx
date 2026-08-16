@@ -6,7 +6,6 @@ import {
   Trash2,
   Save,
   X,
-  RotateCcw,
   ListFilter,
   Sliders,
   ChevronDown,
@@ -15,9 +14,9 @@ import {
 } from 'lucide-react';
 import { CategoriaMaterial, Material, AtributoSugerido, AtributoDependencia } from '../../core/types';
 import { db, softDelete } from '../../db/database';
-import { INITIAL_CATEGORIAS_MATERIAL } from '../../core/sampleData';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 interface CategoriasMaterialTabProps {
   categorias: CategoriaMaterial[];
@@ -389,6 +388,8 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
     atributosSugeridos: [],
   });
 
+  useEscapeKey(isCreatingCat, () => setIsCreatingCat(false));
+
   const inputCls =
     'w-full px-3.5 py-2.5 text-base sm:text-xs rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]';
 
@@ -513,19 +514,6 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
     });
   };
 
-  const handleRestoreInitialCategories = async () => {
-    const ok = await confirm({
-      title: 'Restablecer Categorías Iniciales',
-      message: '¿Restaurar las familias y atributos técnicos sugeridos de fábrica?',
-      confirmText: 'Restaurar',
-      isDestructive: false,
-    });
-    if (ok) {
-      await db.categoriasMaterial.bulkPut(INITIAL_CATEGORIAS_MATERIAL);
-      toast.success('Categorías restauradas a valores de fábrica');
-    }
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-low p-4 rounded-2xl">
@@ -536,15 +524,6 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleRestoreInitialCategories}
-            className="px-4 py-2 bg-surface-container-highest text-on-surface-variant rounded-full text-xs font-semibold flex items-center gap-1.5 state-layer transition-colors cursor-pointer"
-            title="Restablecer categorías y atributos iniciales"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Restaurar Fábrica</span>
-          </button>
           <button
             type="button"
             onClick={handleOpenCreateCat}

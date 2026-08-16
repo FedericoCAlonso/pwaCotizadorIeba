@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Layers, X, Search } from 'lucide-react';
 import { TareaTipo, Insumo, CategoriaManoDeObra } from '../../core/types';
 import { calcularCostoTareaTipo, formatARS } from '../../core/calculations';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 interface ItemPickerModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
   manoObraMap,
   onSelectTarea,
 }) => {
+  useEscapeKey(isOpen, onClose);
   const [searchTerm, setSearchTerm] = useState('');
 
   if (!isOpen) return null;

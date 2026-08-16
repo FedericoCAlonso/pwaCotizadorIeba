@@ -11,7 +11,7 @@
       "atributosSugeridos": [
         {
           "clave": "norma",
-          "etiqueta": "Norma Técnica",
+          "etiqueta": "Tipo",
           "tipo": "texto",
           "opciones": [
             "IRAM 247-3 (Unipolar Flexible)",
@@ -235,27 +235,119 @@
           "etiqueta": "Tipo de Caja",
           "tipo": "texto",
           "opciones": [
-            "Caja Rectangular 10x5 (Toma/Llave)",
-            "Caja Cuadrada 15x15 (Multitoma)",
-            "Caja Octogonal Chica (Centro Luz)",
-            "Caja Octogonal Grande",
-            "Caja de Paso/Derivación PVC",
-            "Caja de Paso/Derivación Metálica",
-            "Caja Estanca IP65"
+            "Rectangular 5x10",
+            "Octogonal Chica",
+            "Octogonal Grande",
+            "Cuadrada 10x10",
+            "Caja de Paso / Otra"
+          ]
+        },
+        {
+          "clave": "montaje",
+          "etiqueta": "Tipo de Montaje",
+          "tipo": "texto",
+          "opciones": [
+            "Embutir Mampostería",
+            "Embutir Durlock / En Seco",
+            "Superficie / Exterior"
           ]
         },
         {
           "clave": "material",
           "etiqueta": "Material",
           "tipo": "texto",
-          "opciones": ["PVC", "Metálica (Chapa BWG)", "Poliamida (Estanca)"]
+          "opciones": [
+            "PVC Ignífugo",
+            "Chapa BWG",
+            "Chapa Cincada / Galvanizada",
+            "PVC Estanco / Termoplástico",
+            "Aluminio Inyectado (Tipo Daisa)"
+          ],
+          "dependencias": [
+            {
+              "dependeVinculo": "montaje",
+              "valorEsperado": "Embutir Mampostería",
+              "opcionesFiltradas": ["PVC Ignífugo", "Chapa BWG", "Chapa Cincada / Galvanizada"]
+            },
+            {
+              "dependeVinculo": "montaje",
+              "valorEsperado": "Embutir Durlock / En Seco",
+              "opcionesFiltradas": ["PVC Ignífugo", "Chapa BWG", "Chapa Cincada / Galvanizada"]
+            },
+            {
+              "dependeVinculo": "montaje",
+              "valorEsperado": "Superficie / Exterior",
+              "opcionesFiltradas": ["PVC Estanco / Termoplástico", "Aluminio Inyectado (Tipo Daisa)", "Chapa Cincada / Galvanizada", "PVC Ignífugo"]
+            }
+          ]
         },
         {
-          "clave": "profundidad",
-          "etiqueta": "Profundidad",
-          "unidad": "mm",
-          "tipo": "numero",
-          "opciones": ["40", "50", "75"]
+          "clave": "medida",
+          "etiqueta": "Medida / Dimensiones",
+          "tipo": "texto",
+          "opciones": [
+            "Estándar",
+            "15x15 cm",
+            "20x20 cm",
+            "30x30 cm",
+            "40x30 cm"
+          ],
+          "dependencias": [
+            {
+              "dependeVinculo": "tipo_caja",
+              "valorEsperado": "Rectangular 5x10",
+              "bloqueado": true,
+              "valorFijo": "Estándar (5x10)"
+            },
+            {
+              "dependeVinculo": "tipo_caja",
+              "valorEsperado": "Octogonal Chica",
+              "bloqueado": true,
+              "valorFijo": "Estándar (80mm)"
+            },
+            {
+              "dependeVinculo": "tipo_caja",
+              "valorEsperado": "Octogonal Grande",
+              "bloqueado": true,
+              "valorFijo": "Estándar (100mm)"
+            },
+            {
+              "dependeVinculo": "tipo_caja",
+              "valorEsperado": "Cuadrada 10x10",
+              "bloqueado": true,
+              "valorFijo": "Estándar (10x10)"
+            }
+          ]
+        },
+        {
+          "clave": "grado_ip",
+          "etiqueta": "Grado de Protección",
+          "tipo": "texto",
+          "opciones": [
+            "IP20 (Interior)",
+            "IP40 (Superficie común)",
+            "IP65 (Estanca Intemperie)",
+            "IP67 (Industrial)"
+          ],
+          "dependencias": [
+            {
+              "dependeVinculo": "montaje",
+              "valorEsperado": "Embutir Mampostería",
+              "bloqueado": true,
+              "valorFijo": "IP20"
+            },
+            {
+              "dependeVinculo": "montaje",
+              "valorEsperado": "Embutir Durlock / En Seco",
+              "bloqueado": true,
+              "valorFijo": "IP20"
+            },
+            {
+              "dependeVinculo": "montaje",
+              "valorEsperado": "Superficie / Exterior",
+              "opcionesFiltradas": ["IP40 (Superficie común)", "IP65 (Estanca Intemperie)", "IP67 (Industrial)"]
+            }
+          ]
         }
       ]
     },

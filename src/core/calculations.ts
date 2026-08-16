@@ -44,6 +44,75 @@ export function safeNum(value: unknown, allowNegative = false): number {
   return n;
 }
 
+// ─── Helpers de Conversión de Precios e IVA (Canónico: GMT) ──────────────────
+/**
+ * Convierte un precio final con IVA a su base neta gravable.
+ * precioNeto = precioFinal / (1 + alicuota / 100)
+ */
+export function calcularPrecioNeto(precioFinal: number, alicuotaIVA = 21): number {
+  const alicuota = Math.max(0, safeNum(alicuotaIVA));
+  return roundMoney(safeNum(precioFinal) / (1 + alicuota / 100));
+}
+
+/**
+ * Convierte un precio neto a su precio final con IVA.
+ * precioFinal = precioNeto * (1 + alicuota / 100)
+ */
+export function calcularPrecioFinal(precioNeto: number, alicuotaIVA = 21): number {
+  const alicuota = Math.max(0, safeNum(alicuotaIVA));
+  return roundMoney(safeNum(precioNeto) * (1 + alicuota / 100));
+}
+
+// ─── Presentaciones de Compra y Factores de Empaque ──────────────────────────
+
+export interface PresentacionEmpaque {
+  etiqueta: string;
+  cantidad: number;
+}
+
+export const PRESENTACIONES_COMPRA_PRESETS: Record<string, PresentacionEmpaque[]> = {
+  m: [
+    { etiqueta: 'Por Metro Fraccionado (1 m)', cantidad: 1 },
+    { etiqueta: 'Rollo / Caja x 100 m', cantidad: 100 },
+    { etiqueta: 'Bobina x 500 m', cantidad: 500 },
+    { etiqueta: 'Bobina x 1000 m', cantidad: 1000 },
+    { etiqueta: 'Tira x 3 m (Caños/Perfiles)', cantidad: 3 },
+    { etiqueta: 'Rollo x 25 m', cantidad: 25 },
+    { etiqueta: 'Rollo x 50 m', cantidad: 50 }
+  ],
+  u: [
+    { etiqueta: 'Unidad individual (1 u)', cantidad: 1 },
+    { etiqueta: 'Caja x 100 u', cantidad: 100 },
+    { etiqueta: 'Caja x 50 u', cantidad: 50 },
+    { etiqueta: 'Pack / Blíster x 10 u', cantidad: 10 },
+    { etiqueta: 'Caja x 200 u', cantidad: 200 },
+    { etiqueta: 'Caja x 500 u', cantidad: 500 }
+  ],
+  kg: [
+    { etiqueta: 'Por Kilogramo (1 kg)', cantidad: 1 },
+    { etiqueta: 'Bolsa x 25 kg', cantidad: 25 },
+    { etiqueta: 'Bolsa x 50 kg', cantidad: 50 }
+  ]
+};
+
+/**
+ * Retorna las opciones de empaque recomendadas según la unidad de venta del material.
+ */
+export function obtenerPresentacionesSugeridas(unidadVenta = 'u'): PresentacionEmpaque[] {
+  const u = (unidadVenta || 'u').trim().toLowerCase();
+  if (u === 'm' || u === 'metro' || u === 'metros') return PRESENTACIONES_COMPRA_PRESETS.m;
+  if (u === 'kg' || u === 'kilo' || u === 'kilogramo') return PRESENTACIONES_COMPRA_PRESETS.kg;
+  return PRESENTACIONES_COMPRA_PRESETS.u;
+}
+
+/**
+ * Calcula el precio unitario base a partir del precio de un bulto/rollo completo.
+ */
+export function calcularPrecioUnitarioDesdePresentacion(precioBulto: number, cantidadPorBulto = 1): number {
+  const qty = Math.max(1, safeNum(cantidadPorBulto));
+  return roundMoney(safeNum(precioBulto) / qty);
+}
+
 // ─── Cálculo de costo de TareaTipo (spec §1.6, §1.4) ────────────────────────
 
 /**
@@ -56,7 +125,11 @@ export function safeNum(value: unknown, allowNegative = false): number {
 export function calcularCostoTareaTipo(
   tarea: TareaTipo,
   insumosMap: Map<string, Insumo>,
-  manoObraMap: Map<string, CategoriaManoDeObra>
+  manoObraMap: Map<string, CategoriaManoDeObra>,
+  options?: {
+    tipoFactura?: TipoFactura;
+    alicuotaIVADefault?: number;
+  }
 ): {
   costoInsumosUnitario: number;
   costoManoObraUnitario: number;
@@ -66,13 +139,18 @@ export function calcularCostoTareaTipo(
 } {
   let costoInsumosUnitario = 0;
   const insumosSnapshotUnitario: InsumoSnapshot[] = [];
+  const isFacturaC_or_X = options?.tipoFactura === 'Factura C' || options?.tipoFactura === 'Presupuesto X (Sin Factura)';
 
   for (const item of tarea.insumos) {
     const targetId = item.materialId || item.insumoId || '';
     const insumo = insumosMap.get(targetId);
-    const precioUnitario = roundMoney(safeNum(insumo?.precioActual));
+    const alicuota = insumo?.alicuotaIVA !== undefined ? safeNum(insumo.alicuotaIVA) : (options?.alicuotaIVADefault ?? 21);
+    const precioNeto = roundMoney(safeNum(insumo?.precioNeto ?? insumo?.precioActual));
+    const precioFinal = roundMoney(precioNeto * (1 + alicuota / 100));
     const cantidad = safeNum(item.cantidad);
-    const subtotal = roundMoney(precioUnitario * cantidad);
+
+    const precioComputable = isFacturaC_or_X ? precioFinal : precioNeto;
+    const subtotal = roundMoney(precioComputable * cantidad);
     costoInsumosUnitario = roundMoney(costoInsumosUnitario + subtotal);
 
     insumosSnapshotUnitario.push({
@@ -81,8 +159,11 @@ export function calcularCostoTareaTipo(
       nombre: insumo ? (insumo.nombre || 'Insumo no encontrado') : 'Insumo no encontrado',
       unidad: insumo ? (insumo.unidadVenta || insumo.unidad || 'u') : 'u',
       cantidadTotal: cantidad,
-      precioUnitarioCongelado: precioUnitario,
-      subtotalInsumo: subtotal
+      precioUnitarioCongelado: precioNeto,
+      alicuotaIVA: alicuota,
+      precioFinalUnitarioCongelado: precioFinal,
+      subtotalInsumo: roundMoney(precioNeto * cantidad),
+      subtotalInsumoFinal: roundMoney(precioFinal * cantidad)
     });
   }
 
@@ -125,21 +206,29 @@ export function calcularCostoTareaTipo(
  */
 export function congelarItemPresupuesto(
   item: ItemPresupuesto,
-  cantidad: number
+  cantidad: number,
+  tipoFactura?: TipoFactura
 ): ItemPresupuesto {
   const cantidadSana = safeNum(cantidad) || 1;
   const cantAnterior = safeNum(item.cantidad) || 1;
+  const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
 
   const insumosCongelados = item.insumosSnapshot.map(i => {
     const unitQty = i.cantidadUnitaria !== undefined
       ? i.cantidadUnitaria
       : (cantAnterior > 0 ? i.cantidadTotal / cantAnterior : i.cantidadTotal);
     const cantTotal = roundMoney(unitQty * cantidadSana);
+    const alicuota = i.alicuotaIVA !== undefined ? safeNum(i.alicuotaIVA) : 21;
+    const precioFinalUnit = i.precioFinalUnitarioCongelado ?? roundMoney(i.precioUnitarioCongelado * (1 + alicuota / 100));
+
     return {
       ...i,
+      alicuotaIVA: alicuota,
+      precioFinalUnitarioCongelado: precioFinalUnit,
       cantidadUnitaria: unitQty,
       cantidadTotal: cantTotal,
-      subtotalInsumo: roundMoney(i.precioUnitarioCongelado * cantTotal)
+      subtotalInsumo: roundMoney(i.precioUnitarioCongelado * cantTotal),
+      subtotalInsumoFinal: roundMoney(precioFinalUnit * cantTotal)
     };
   });
 
@@ -156,7 +245,10 @@ export function congelarItemPresupuesto(
     };
   });
 
-  const costoInsumos = roundMoney(insumosCongelados.reduce((acc, i) => acc + i.subtotalInsumo, 0));
+  const costoInsumosNeto = roundMoney(insumosCongelados.reduce((acc, i) => acc + i.subtotalInsumo, 0));
+  const costoInsumosFinal = roundMoney(insumosCongelados.reduce((acc, i) => acc + (i.subtotalInsumoFinal ?? i.subtotalInsumo), 0));
+  const costoInsumos = isFacturaC_or_X ? costoInsumosFinal : costoInsumosNeto;
+
   const costoManoObra = roundMoney(manoObraCongelada.reduce((acc, m) => acc + m.subtotalManoObra, 0));
 
   const hasSnapshots = item.insumosSnapshot.length > 0 || item.manoObraSnapshot.length > 0;
@@ -307,11 +399,12 @@ export function generarImpuestosPorDefecto(
   const isFacturaA = tipoFactura === 'Factura A';
   const isFacturaB = tipoFactura === 'Factura B';
   const isFacturaC = tipoFactura === 'Factura C';
+  const isPresupuestoX = tipoFactura === 'Presupuesto X (Sin Factura)';
 
   return [
     {
       id: 'tax-iva',
-      nombre: 'IVA (21%)',
+      nombre: `IVA (${porcentajeIVA}%)`,
       porcentaje: porcentajeIVA,
       aplica: isFacturaA || isFacturaB,
       discriminar: isFacturaA,
@@ -376,6 +469,7 @@ export function calcularTotalesPresupuesto(params: {
   margenPorcentaje?: number;
   beneficioPorcentaje?: number;
   impuestosDetalle: ImpuestoItem[];
+  tipoFactura?: TipoFactura;
   cotizacionMonedaExtranjera?: number;
 }): TotalesPresupuestoResultado {
   const {
@@ -385,8 +479,11 @@ export function calcularTotalesPresupuesto(params: {
     margenPorcentaje,
     beneficioPorcentaje: beneficioInput,
     impuestosDetalle = [],
+    tipoFactura,
     cotizacionMonedaExtranjera
   } = params;
+
+  const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
 
   // 1. Costo (C) por ítem y global
   let subtotalInsumos = 0;
@@ -396,7 +493,24 @@ export function calcularTotalesPresupuesto(params: {
   const itemCosts: number[] = [];
 
   for (const item of items) {
-    const cInsumos = safeNum(item.costoInsumos);
+    let cInsumos = safeNum(item.costoInsumos);
+    if (item.insumosSnapshot && item.insumosSnapshot.length > 0) {
+      if (isFacturaC_or_X) {
+        cInsumos = roundMoney(
+          item.insumosSnapshot.reduce((acc, i) => {
+            if (i.subtotalInsumoFinal !== undefined) return acc + safeNum(i.subtotalInsumoFinal);
+            const alicuota = i.alicuotaIVA !== undefined ? safeNum(i.alicuotaIVA) : 21;
+            const unitFinal = i.precioFinalUnitarioCongelado ?? roundMoney(i.precioUnitarioCongelado * (1 + alicuota / 100));
+            return acc + roundMoney(unitFinal * i.cantidadTotal);
+          }, 0)
+        );
+      } else {
+        cInsumos = roundMoney(
+          item.insumosSnapshot.reduce((acc, i) => acc + safeNum(i.subtotalInsumo), 0)
+        );
+      }
+    }
+
     const cManoObra = safeNum(item.costoManoObra);
 
     let cServicios = 0;
@@ -483,13 +597,16 @@ export function calcularTotalesPresupuesto(params: {
 
   const impuestosCalculados = (impuestosDetalle || []).map(tax => {
     let montoCalculado = 0;
-    if (tax.aplica) {
+    const taxApplies = isFacturaC_or_X && tax.id === 'tax-iva' ? false : tax.aplica;
+    if (taxApplies) {
       montoCalculado = roundMoney(subtotalSinImpuestos * (safeNum(tax.porcentaje) / 100));
       montoImpuestosTotal = roundMoney(montoImpuestosTotal + montoCalculado);
       impuestosPorcentajeTotal = roundMoney(impuestosPorcentajeTotal + safeNum(tax.porcentaje));
     }
     return {
       ...tax,
+      aplica: taxApplies,
+      discriminar: tipoFactura === 'Factura A' ? true : (tipoFactura === 'Factura B' ? false : tax.discriminar),
       montoCalculado
     };
   });

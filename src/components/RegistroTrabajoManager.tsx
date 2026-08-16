@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { HardHat, Plus, Save, Trash2, TrendingUp } from 'lucide-react';
 import { db, softDelete } from '../db/database';
@@ -53,6 +53,12 @@ export const RegistroTrabajoManager: React.FC = () => {
     });
     setIsCreating(true);
   };
+
+  useEffect(() => {
+    const handleNew = () => handleOpenCreate();
+    window.addEventListener('app:shortcut-new', handleNew);
+    return () => window.removeEventListener('app:shortcut-new', handleNew);
+  }, [presupuestos, tareasTipo, manoObraList]);
 
   const handleTareaChange = (tareaId: string) => {
     const t = tareasMap.get(tareaId);

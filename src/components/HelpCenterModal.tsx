@@ -4,6 +4,7 @@ import {
   Download, Search, BookOpen, CheckCircle2, Package, Users
 } from 'lucide-react';
 import helpMessages from '../data/helpMessages.json';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface HelpCenterModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
   onClose,
   onOpenImporter
 }) => {
+  useEscapeKey(isOpen, onClose);
   const [selectedCatId, setSelectedCatId] = useState<string>(
     helpMessages.helpCenter.categories[0]?.id || 'categoriasTecnicas'
   );

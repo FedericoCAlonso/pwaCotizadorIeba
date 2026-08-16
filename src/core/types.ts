@@ -105,9 +105,12 @@ export type Insumo = Material & {
   categoria?: string;
   unidad?: string;
   codigoProveedor?: string;
-  precioActual?: number;
+  precioActual?: number; // Canonical Base Neta (GMT)
+  precioNeto?: number;   // Alias explícito de Base Neta
+  alicuotaIVA?: number;  // Porcentaje de IVA del insumo (ej: 21, 10.5, 0)
+  precioFinal?: number;  // Precio derivado con IVA incluido
   fechaActualizacion?: string;
-  historialPrecios?: { fecha: string; precio: number; fuente: string }[];
+  historialPrecios?: { fecha: string; precio: number; fuente: string; alicuotaIVA?: number }[];
   ofertas?: Oferta[];
 };
 
@@ -137,7 +140,13 @@ export interface Oferta {
   productoId?: string; // FK opcional (null = precio genérico sin marca)
   proveedorId?: string; // FK opcional si el proveedor está agendado
   proveedorNombre?: string; // Nombre del proveedor (agendado u ocasional/libre)
-  precio: number;
+  precio: number; // Canonical: Precio Unitario Neto (Base Imponible) por unidad de consumo
+  precioNeto?: number; // Alias explícito de Base Neta Unitaria
+  alicuotaIVA?: number; // Porcentaje de IVA (default: 21)
+  precioFinal?: number; // Precio Unitario Final con IVA
+  presentacionCompra?: string; // Ej: 'Rollo x 100m', 'Bobina x 500m', 'Tira x 3m', 'Caja x 100u', 'Unidad'
+  cantidadPorPresentacion?: number; // Factor de empaque (ej: 100, 500, 3, 1)
+  precioPresentacion?: number; // Precio total del bulto/empaque completo
   fecha: string; // ISO String
   fuente: 'indice' | 'manual' | 'cotizacion_directa' | 'importacion_excel';
   tipoAjustePrecio?: string; // referencia a TIPOS_AJUSTE_PRECIO cuando fuente = 'indice'
@@ -325,8 +334,11 @@ export interface InsumoSnapshot {
   unidad: string;
   cantidadUnitaria?: number;
   cantidadTotal: number;
-  precioUnitarioCongelado: number;
-  subtotalInsumo: number;
+  precioUnitarioCongelado: number; // Base Neta congelada
+  alicuotaIVA?: number; // Porcentaje de IVA congelado (ej: 21, 10.5)
+  precioFinalUnitarioCongelado?: number; // Precio con IVA congelado
+  subtotalInsumo: number; // Subtotal Neto (precioUnitarioCongelado * cantidadTotal)
+  subtotalInsumoFinal?: number; // Subtotal con IVA (precioFinalUnitarioCongelado * cantidadTotal)
   esAdHoc?: boolean;
   requiereCotizacionDirecta?: boolean;
 }
@@ -556,6 +568,9 @@ export interface AppConfig {
   dolarReferenciaValor: number;
   mostrarDolarPorDefecto: boolean;
   monotributista: boolean;
+  condicionFiscalEmisor?: 'monotributo' | 'responsable_inscripto';
+  modoIngresoPreciosDefault?: 'con_iva' | 'neto';
+  alicuotaIVAPorDefecto?: number;
   tipoFacturaPorDefecto: TipoFactura;
   porcentajeIVAPorDefecto: number;
   porcentajeIIBBPorDefecto: number;

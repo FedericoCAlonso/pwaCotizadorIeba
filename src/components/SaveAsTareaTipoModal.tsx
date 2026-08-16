@@ -4,6 +4,7 @@ import { db } from '../db/database';
 import { InsumoEnTarea, ManoObraEnTarea, TareaTipo } from '../core/types';
 import { useAppOptions } from '../hooks/useAppOptions';
 import { useToast } from '../contexts/ToastContext';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface SaveAsTareaTipoModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export const SaveAsTareaTipoModal: React.FC<SaveAsTareaTipoModalProps> = ({
   unidad = 'u',
   onSuccess
 }) => {
+  useEscapeKey(isOpen, onClose);
   const { categoriasTarea } = useAppOptions();
   const { toast } = useToast();
 

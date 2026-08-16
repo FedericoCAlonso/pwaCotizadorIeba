@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Clock, Plus, Edit2, Trash2, Save, Calculator } from 'lucide-react';
 import { db, softDelete } from '../db/database';
@@ -27,6 +27,12 @@ export const ManoObraManager: React.FC = () => {
     tipo: 'porcentual_sobre_costo',
     valor: 0
   });
+
+  useEffect(() => {
+    const handleNew = () => setIsCreatingMO(true);
+    window.addEventListener('app:shortcut-new', handleNew);
+    return () => window.removeEventListener('app:shortcut-new', handleNew);
+  }, []);
 
   const handleSaveMO = async (e: React.FormEvent) => {
     e.preventDefault();

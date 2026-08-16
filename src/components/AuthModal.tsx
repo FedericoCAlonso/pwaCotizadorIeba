@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { LogIn, UserPlus, Mail, Lock, AlertCircle, X, Check, ShieldCheck, KeyRound } from 'lucide-react';
 import { saveCustomFirebaseConfig, getFirebaseConfig } from '../config/firebase';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+  useEscapeKey(isOpen, onClose);
   const { isConfigured, signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword } = useAuth();
 
   const [mode, setMode] = useState<'login' | 'signup' | 'reset' | 'setupConfig'>('login');

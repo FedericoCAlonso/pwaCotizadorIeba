@@ -267,15 +267,24 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                 <th className="px-4 py-3">#</th>
                 <th className="px-4 py-3">Ítem / Descripción de Trabajo</th>
                 <th className="px-4 py-3 text-center">Cantidad</th>
-                <th className="px-4 py-3 text-right">Precio Venta Unitario</th>
-                <th className="px-4 py-3 text-right">Subtotal</th>
+                <th className="px-4 py-3 text-right">
+                  {presupuesto.tipoFactura === 'Factura A' ? 'Precio Unit. Neto' : 'Precio Unitario'}
+                </th>
+                <th className="px-4 py-3 text-right">
+                  {presupuesto.tipoFactura === 'Factura A' ? 'Subtotal Neto' : 'Subtotal'}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {(presupuesto.opcionesEmision?.mostrarItemizado ?? true) ? (
                 presupuesto.items.map((item, idx) => {
-                  const pUnit = item.precioVentaClienteUnitario ?? item.precioVentaUnitario;
-                  const pTotal = item.precioVentaClienteTotal ?? item.precioVentaTotal;
+                  const isFacturaA = presupuesto.tipoFactura === 'Factura A';
+                  const pUnit = isFacturaA
+                    ? (item.subtotalItem && item.cantidad ? item.subtotalItem / item.cantidad : (item.precioVentaClienteUnitario ?? item.precioVentaUnitario))
+                    : (item.precioVentaClienteUnitario ?? item.precioVentaUnitario);
+                  const pTotal = isFacturaA
+                    ? (item.subtotalItem ?? item.precioVentaClienteTotal ?? item.precioVentaTotal)
+                    : (item.precioVentaClienteTotal ?? item.precioVentaTotal);
 
                   return (
                     <React.Fragment key={idx}>
@@ -382,19 +391,27 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
             ) : (
               /* Simplified summary without exposing raw costs or margins */
               <div className="space-y-1.5 text-xs text-slate-600 border-b border-slate-300 pb-3">
-                <div className="flex justify-between font-medium">
-                  <span>Subtotal Trabajos:</span>
-                  <span className="font-mono">{formatARS(presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - (presupuesto.montoImpuestos || 0)))}</span>
-                </div>
-                {presupuesto.impuestosDetalle && presupuesto.impuestosDetalle.some(t => t.aplica && t.discriminar) && (
-                  presupuesto.impuestosDetalle
-                    .filter((t) => t.aplica && t.discriminar)
-                    .map((tax, idx) => (
-                      <div key={idx} className="flex justify-between text-slate-700">
-                        <span>{tax.nombre} ({tax.porcentaje}%):</span>
-                        <span className="font-mono">{formatARS(tax.montoCalculado)}</span>
-                      </div>
-                    ))
+                {presupuesto.tipoFactura === 'Factura A' ? (
+                  <>
+                    <div className="flex justify-between font-medium">
+                      <span>Subtotal Neto Gravado:</span>
+                      <span className="font-mono">{formatARS(presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - (presupuesto.montoImpuestosTotal || 0)))}</span>
+                    </div>
+                    {presupuesto.impuestosDetalle &&
+                      presupuesto.impuestosDetalle
+                        .filter((t) => t.aplica && t.discriminar)
+                        .map((tax, idx) => (
+                          <div key={idx} className="flex justify-between text-slate-700">
+                            <span>{tax.nombre} ({tax.porcentaje}%):</span>
+                            <span className="font-mono">{formatARS(tax.montoCalculado)}</span>
+                          </div>
+                        ))}
+                  </>
+                ) : (
+                  <div className="flex justify-between font-medium">
+                    <span>Subtotal Trabajos {presupuesto.tipoFactura === 'Factura B' ? '(IVA incluido)' : ''}:</span>
+                    <span className="font-mono">{formatARS(presupuesto.totalARS)}</span>
+                  </div>
                 )}
               </div>
             )}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Plus,
@@ -48,6 +48,12 @@ export const SolicitudCotizacionManager: React.FC = () => {
     setNotas('');
     setIsCreating(true);
   };
+
+  useEffect(() => {
+    const handleNew = () => handleOpenCreate();
+    window.addEventListener('app:shortcut-new', handleNew);
+    return () => window.removeEventListener('app:shortcut-new', handleNew);
+  }, [proveedores, materiales]);
 
   const handleAddItemRow = () => {
     setItems(prev => [

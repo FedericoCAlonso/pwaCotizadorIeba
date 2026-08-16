@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Package,
@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
 import { CategoriaMaterial, Material, Producto, Oferta, Contacto } from '../core/types';
-import { formatARS, obtenerEstadoVencimientoOferta } from '../core/calculations';
+import { formatARS, obtenerEstadoVencimientoOferta, calcularPrecioNeto, calcularPrecioFinal } from '../core/calculations';
 import { INITIAL_CATEGORIAS_MATERIAL } from '../core/sampleData';
 import { ImportCatalogModal } from './ImportCatalogModal';
 import { OnlinePriceButton } from './OnlinePriceButton';
@@ -103,10 +103,19 @@ export const InsumosManager: React.FC = () => {
 
   const [selectedFichaStatus, setSelectedFichaStatus] = useState<'todas' | 'completas' | 'incompletas'>('todas');
   const [isQuickCreateMat, setIsQuickCreateMat] = useState(false);
-  const [formDataQuickMat, setFormDataQuickMat] = useState({
+  const [formDataQuickMat, setFormDataQuickMat] = useState<{
+    nombre: string;
+    unidadVenta: string;
+    precio: number;
+    alicuotaIVA?: number;
+    modoPrecio?: 'con_iva' | 'neto';
+    proveedorId: string;
+  }>({
     nombre: '',
     unidadVenta: 'u',
     precio: 0,
+    alicuotaIVA: 21,
+    modoPrecio: 'con_iva',
     proveedorId: ''
   });
 
@@ -117,6 +126,12 @@ export const InsumosManager: React.FC = () => {
   const [viewModeMat, setViewModeMat] = useState<'grid' | 'table'>('grid');
   const [modoCargaContinua, setModoCargaContinua] = useState(false);
   const quickMatNombreRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleNew = () => setIsQuickCreateMat(true);
+    window.addEventListener('app:shortcut-new', handleNew);
+    return () => window.removeEventListener('app:shortcut-new', handleNew);
+  }, []);
 
   // Helper para armar ofertas agrupadas por material (priorizando marca preferida)
   const getOfertaVigente = (materialId: string, productoId?: string): Oferta | undefined => {
@@ -153,6 +168,8 @@ export const InsumosManager: React.FC = () => {
       nombre: '',
       unidadVenta: 'u',
       precio: 0,
+      alicuotaIVA: 21,
+      modoPrecio: 'con_iva',
       proveedorId: proveedores[0]?.id || ''
     });
     setIsQuickCreateMat(true);
@@ -189,11 +206,19 @@ export const InsumosManager: React.FC = () => {
     await db.materiales.add(newMat);
 
     if (formDataQuickMat.precio && formDataQuickMat.precio > 0) {
+      const modo = formDataQuickMat.modoPrecio || 'con_iva';
+      const alicuota = formDataQuickMat.alicuotaIVA ?? 21;
+      const precioNeto = modo === 'con_iva' ? calcularPrecioNeto(formDataQuickMat.precio, alicuota) : formDataQuickMat.precio;
+      const precioFinal = modo === 'con_iva' ? formDataQuickMat.precio : calcularPrecioFinal(formDataQuickMat.precio, alicuota);
+
       const newOferta: Oferta = {
         id: `oferta-${crypto.randomUUID()}`,
         materialId: matId,
         proveedorId: formDataQuickMat.proveedorId || proveedores[0]?.id || 'prov-general',
-        precio: formDataQuickMat.precio,
+        precio: precioNeto, // Canonical neto (GMT)
+        precioNeto,
+        alicuotaIVA: alicuota,
+        precioFinal,
         fecha: now,
         fuente: 'manual'
       };
@@ -207,6 +232,8 @@ export const InsumosManager: React.FC = () => {
         nombre: '',
         unidadVenta: formDataQuickMat.unidadVenta,
         precio: 0,
+        alicuotaIVA: formDataQuickMat.alicuotaIVA ?? 21,
+        modoPrecio: formDataQuickMat.modoPrecio || 'con_iva',
         proveedorId: formDataQuickMat.proveedorId
       });
       setTimeout(() => {
@@ -558,6 +585,9 @@ export const InsumosManager: React.FC = () => {
       proveedorNombre: proveedores[0]?.razonSocial || proveedores[0]?.nombre || '',
       precio: 0,
       fuente: 'manual',
+      presentacionCompra: undefined,
+      cantidadPorPresentacion: 1,
+      precioPresentacion: 0,
       notas: ''
     });
     setIsCreatingOferta(true);
@@ -571,6 +601,12 @@ export const InsumosManager: React.FC = () => {
       proveedorId: oferta.proveedorId,
       proveedorNombre: oferta.proveedorNombre,
       precio: oferta.precio,
+      precioNeto: oferta.precioNeto,
+      alicuotaIVA: oferta.alicuotaIVA,
+      precioFinal: oferta.precioFinal,
+      presentacionCompra: oferta.presentacionCompra,
+      cantidadPorPresentacion: oferta.cantidadPorPresentacion,
+      precioPresentacion: oferta.precioPresentacion,
       fuente: oferta.fuente || 'manual',
       tipoAjustePrecio: oferta.tipoAjustePrecio,
       notas: oferta.notas || ''
@@ -581,13 +617,22 @@ export const InsumosManager: React.FC = () => {
   const handleSaveOferta = async (e: React.FormEvent) => {
     e.preventDefault();
     const now = new Date().toISOString();
+    const neto = formDataOferta.precio || 0;
+    const alicuota = formDataOferta.alicuotaIVA ?? 21;
+    const finalVal = formDataOferta.precioFinal ?? calcularPrecioFinal(neto, alicuota);
 
     if (editingOferta) {
       await db.ofertas.update(editingOferta.id, {
         productoId: formDataOferta.productoId,
         proveedorId: formDataOferta.proveedorId,
         proveedorNombre: formDataOferta.proveedorNombre,
-        precio: formDataOferta.precio || 0,
+        precio: neto, // Canonical neto por unidad de consumo
+        precioNeto: neto,
+        alicuotaIVA: alicuota,
+        precioFinal: finalVal,
+        presentacionCompra: formDataOferta.presentacionCompra,
+        cantidadPorPresentacion: formDataOferta.cantidadPorPresentacion,
+        precioPresentacion: formDataOferta.precioPresentacion,
         fecha: now,
         fuente: formDataOferta.fuente || 'manual',
         tipoAjustePrecio: formDataOferta.tipoAjustePrecio,
@@ -601,7 +646,13 @@ export const InsumosManager: React.FC = () => {
         productoId: formDataOferta.productoId,
         proveedorId: formDataOferta.proveedorId,
         proveedorNombre: formDataOferta.proveedorNombre,
-        precio: formDataOferta.precio || 0,
+        precio: neto,
+        precioNeto: neto,
+        alicuotaIVA: alicuota,
+        precioFinal: finalVal,
+        presentacionCompra: formDataOferta.presentacionCompra,
+        cantidadPorPresentacion: formDataOferta.cantidadPorPresentacion,
+        precioPresentacion: formDataOferta.precioPresentacion,
         fecha: now,
         fuente: formDataOferta.fuente || 'manual',
         notas: formDataOferta.notas
@@ -1051,8 +1102,24 @@ export const InsumosManager: React.FC = () => {
                               </div>
                             )}
                           </td>
-                          <td className="p-3 text-right font-mono font-bold text-sm text-primary">
-                            {vigOferta ? formatARS(vigOferta.precio) : '-'}
+                          <td className="p-3 text-right font-mono text-sm">
+                            {vigOferta ? (
+                              <div>
+                                <span className="font-bold text-primary block">
+                                  {formatARS(vigOferta.precio)} <span className="text-[10px] font-normal text-on-surface-variant">Neto/{mat.unidadVenta || 'u'}</span>
+                                </span>
+                                <span className="text-[10px] text-on-surface-variant font-medium block">
+                                  c/IVA ({vigOferta.alicuotaIVA ?? 21}%): {formatARS(vigOferta.precioFinal ?? calcularPrecioFinal(vigOferta.precio, vigOferta.alicuotaIVA ?? 21))}
+                                </span>
+                                {vigOferta.presentacionCompra && (vigOferta.cantidadPorPresentacion || 1) > 1 && (
+                                  <span className="text-[10px] text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded-md inline-block mt-0.5" title={`Cotizado por ${vigOferta.presentacionCompra}`}>
+                                    📦 {vigOferta.presentacionCompra}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-on-surface-variant">-</span>
+                            )}
                             {vigProd && (
                               <span className="text-[10px] text-on-surface-variant font-normal block">
                                 {vigProd.marca} {vigProd.esPreferido ? '⭐' : ''}
@@ -1294,11 +1361,27 @@ export const InsumosManager: React.FC = () => {
                         <span className="text-[10px] text-on-surface-variant block font-mono">
                           Precio Vigente /{mat.unidadVenta || 'u'}:
                         </span>
-                        <div className="font-mono text-base font-bold text-primary">
-                          {vigOferta ? formatARS(vigOferta.precio) : 'Sin precio'}
-                        </div>
+                        {vigOferta ? (
+                          <div>
+                            <div className="font-mono text-base font-bold text-primary">
+                              {formatARS(vigOferta.precio)} <span className="text-[11px] font-normal text-on-surface-variant">Neto/{mat.unidadVenta || 'u'}</span>
+                            </div>
+                            <div className="text-[11px] font-mono text-on-surface-variant">
+                              c/IVA ({vigOferta.alicuotaIVA ?? 21}%): <strong className="text-on-surface">{formatARS(vigOferta.precioFinal ?? calcularPrecioFinal(vigOferta.precio, vigOferta.alicuotaIVA ?? 21))}</strong>
+                            </div>
+                            {vigOferta.presentacionCompra && (vigOferta.cantidadPorPresentacion || 1) > 1 && (
+                              <div className="text-[10px] text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded-md inline-block mt-0.5" title={`Cotizado por ${vigOferta.presentacionCompra}`}>
+                                📦 {vigOferta.presentacionCompra}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="font-mono text-sm font-semibold text-on-surface-variant italic">
+                            Sin precio
+                          </div>
+                        )}
                         {provNombre && (
-                          <span className="text-[10px] text-on-surface-variant block truncate max-w-[150px]" title={provNombre}>
+                          <span className="text-[10px] text-on-surface-variant block truncate max-w-[150px] mt-0.5" title={provNombre}>
                             {provNombre} {vigProd ? `(${vigProd.marca})` : ''}
                           </span>
                         )}
@@ -1410,6 +1493,7 @@ export const InsumosManager: React.FC = () => {
         productos={productos.filter(p => p.materialId === (formDataOferta.materialId || targetMatId))}
         formDataOferta={formDataOferta}
         setFormDataOferta={setFormDataOferta}
+        unidadVenta={materiales.find(m => m.id === (formDataOferta.materialId || targetMatId))?.unidadVenta || 'u'}
         onSave={handleSaveOferta}
       />
 

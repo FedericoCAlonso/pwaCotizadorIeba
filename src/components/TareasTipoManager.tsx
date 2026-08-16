@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Calculator, Plus, BookOpen, Sliders, BarChart3, ShieldAlert } from 'lucide-react';
 import { db, softDelete } from '../db/database';
@@ -70,6 +70,12 @@ export const TareasTipoManager: React.FC = () => {
     setEditingTarea(null);
     setIsCreating(true);
   };
+
+  useEffect(() => {
+    const handleNew = () => handleOpenCreate();
+    window.addEventListener('app:shortcut-new', handleNew);
+    return () => window.removeEventListener('app:shortcut-new', handleNew);
+  }, []);
 
   const handleOpenEdit = (tarea: TareaTipo) => {
     setEditingTarea(tarea);

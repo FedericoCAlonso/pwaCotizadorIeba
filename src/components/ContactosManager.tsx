@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Users,
@@ -52,6 +52,15 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContacto, setEditingContacto] = useState<Contacto | null>(null);
   const [initialModalRole, setInitialModalRole] = useState<'cliente' | 'proveedor'>('cliente');
+
+  useEffect(() => {
+    const handleNew = () => {
+      setEditingContacto(null);
+      setIsModalOpen(true);
+    };
+    window.addEventListener('app:shortcut-new', handleNew);
+    return () => window.removeEventListener('app:shortcut-new', handleNew);
+  }, []);
 
   // Extract all unique tags across existing database contacts for autocomplete
   const allUniqueTags = useMemo(() => {

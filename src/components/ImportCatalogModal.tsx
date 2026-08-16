@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import * as XLSX from 'xlsx';
 import {
   X, FileSpreadsheet, Upload, CheckCircle2, ArrowRight, Table, Download, RefreshCw
 } from 'lucide-react';
 import { db } from '../db/database';
 import { Material, Producto, Oferta, CategoriaMaterial, AtributoMaterial, Proveedor } from '../core/types';
+import { calcularPrecioNeto, calcularPrecioFinal } from '../core/calculations';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface ImportCatalogModalProps {
   isOpen: boolean;
@@ -17,11 +18,14 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
   onClose,
   onSuccess
 }) => {
+  useEscapeKey(isOpen, onClose);
   const [step, setStep] = useState<1 | 2 | 3>(1); // 1: Select File, 2: Map Columns, 3: Dry-Run Preview
   const [fileName, setFileName] = useState<string>('');
   const [headers, setHeaders] = useState<string[]>([]);
   const [rawRows, setRawRows] = useState<any[]>([]);
   const [importMode, setImportMode] = useState<'merge' | 'create_only'>('merge');
+  const [importModoPrecio, setImportModoPrecio] = useState<'con_iva' | 'neto'>('con_iva');
+  const [importAlicuotaIVA, setImportAlicuotaIVA] = useState<number>(21);
 
   // Column Mapping State (Sin Proveedor)
   const [mapping, setMapping] = useState<{
@@ -214,14 +218,100 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
     setFileName(file.name);
     const reader = new FileReader();
 
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
-        const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
+        const arrayBuffer = event.target?.result as ArrayBuffer;
+        const isCSV = file.name.toLowerCase().endsWith('.csv');
 
-        const jsonRows = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1, defval: '' });
+        if (isCSV) {
+          const text = new TextDecoder('utf-8').decode(arrayBuffer);
+          const lines = text.split(/\r?\n/);
+          const rows: string[][] = [];
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const cells: string[] = [];
+            let inQuotes = false;
+            let current = '';
+            for (let i = 0; i < line.length; i++) {
+              const char = line[i];
+              if (char === '"') {
+                if (inQuotes && line[i + 1] === '"') {
+                  current += '"';
+                  i++;
+                } else {
+                  inQuotes = !inQuotes;
+                }
+              } else if ((char === ',' || char === ';') && !inQuotes) {
+                cells.push(current.trim());
+                current = '';
+              } else {
+                current += char;
+              }
+            }
+            cells.push(current.trim());
+            if (cells.some(c => c !== '')) {
+              rows.push(cells);
+            }
+          }
+
+          if (rows.length === 0) {
+            alert('El archivo CSV está vacío.');
+            return;
+          }
+
+          const extractedHeaders = rows[0].map(h => String(h || '').trim()).filter(Boolean);
+          const dataRows = rows.slice(1);
+
+          setHeaders(extractedHeaders);
+          setRawRows(dataRows);
+
+          const autoMap = {
+            nombre: '',
+            categoria: extractedHeaders.find(h => /cat|rubro|familia|tipo|grupo|linea/i.test(h)) || '',
+            unidad: extractedHeaders.find(h => /unidad|unid|medida|u\.m|pres|empaque/i.test(h)) || '',
+            norma: '',
+            marca: '',
+            precio: ''
+          };
+
+          setMapping(autoMap);
+          setStep(2);
+          return;
+        }
+
+        // Leer archivo XLSX con ExcelJS
+        const ExcelModule = await import('exceljs');
+        const ExcelJS = ExcelModule.default || ExcelModule;
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(arrayBuffer);
+
+        const worksheet = workbook.worksheets[0];
+        if (!worksheet) {
+          alert('El archivo no contiene hojas de cálculo.');
+          return;
+        }
+
+        const jsonRows: any[][] = [];
+        worksheet.eachRow({ includeEmpty: false }, (row) => {
+          const rowValues: any[] = [];
+          if (Array.isArray(row.values)) {
+            // ExcelJS row.values es 1-indexed (índice 0 no se usa)
+            for (let i = 1; i < row.values.length; i++) {
+              let val = row.values[i];
+              if (val !== null && typeof val === 'object') {
+                if ('result' in val) val = (val as any).result;
+                else if ('text' in val) val = (val as any).text;
+                else if (val instanceof Date) val = val.toISOString().split('T')[0];
+              }
+              rowValues.push(val !== undefined && val !== null ? val : '');
+            }
+          }
+          if (rowValues.some(cell => String(cell || '').trim() !== '')) {
+            jsonRows.push(rowValues);
+          }
+        });
+
         if (jsonRows.length === 0) {
           alert('El archivo está vacío.');
           return;
@@ -230,15 +320,16 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
         const extractedHeaders = (jsonRows[0] as string[]).map(h => String(h || '').trim()).filter(Boolean);
         const dataRows = jsonRows.slice(1).filter((r: any[]) => r && r.some(cell => String(cell || '').trim() !== ''));
 
-        // Extraer metadatos de categoría de la Hoja 2 si existe
+        // Extraer metadatos de categoría de la Hoja 2 ("Metadatos") si existe
         let metaCategoryName = '';
-        if (workbook.SheetNames.includes('Metadatos')) {
-          const metaSheet = workbook.Sheets['Metadatos'];
-          const metaRows = XLSX.utils.sheet_to_json<any[]>(metaSheet, { header: 1 });
-          const catRow = metaRows?.find(r => r && r[0] === 'CATEGORIA_NOMBRE');
-          if (catRow && catRow[1]) {
-            metaCategoryName = String(catRow[1]).trim();
-          }
+        const metaSheet = workbook.getWorksheet('Metadatos');
+        if (metaSheet) {
+          metaSheet.eachRow({ includeEmpty: false }, (row) => {
+            const vals = Array.isArray(row.values) ? row.values.slice(1) : [];
+            if (vals[0] === 'CATEGORIA_NOMBRE' && vals[1]) {
+              metaCategoryName = String(vals[1]).trim();
+            }
+          });
         }
 
         setHeaders(extractedHeaders);
@@ -257,7 +348,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
         setStep(2);
       } catch (err) {
         console.error('Error al procesar el archivo Excel/CSV:', err);
-        alert('Ocurrió un error al leer el archivo. Asegúrate de subir un archivo .xlsx, .xls o .csv válido.');
+        alert('Ocurrió un error al leer el archivo. Asegúrate de subir un archivo .xlsx o .csv válido.');
       }
     };
 
@@ -481,12 +572,18 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
           provId = existingProveedores[0]?.id || '';
         }
 
+        const precioNeto = importModoPrecio === 'con_iva' ? calcularPrecioNeto(precioVal, importAlicuotaIVA) : precioVal;
+        const precioFinal = importModoPrecio === 'con_iva' ? precioVal : calcularPrecioFinal(precioVal, importAlicuotaIVA);
+
         ofertaList.push({
           id: `of-imp-${crypto.randomUUID()}`,
           materialId: matId,
           productoId: prodId,
           proveedorId: provId,
-          precio: precioVal,
+          precio: precioNeto, // Canonical neto (GMT)
+          precioNeto,
+          alicuotaIVA: importAlicuotaIVA,
+          precioFinal,
           fecha: now,
           fuente: 'importacion_excel',
           createdAt: now,
@@ -680,6 +777,38 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     </div>
                   </label>
                 </div>
+              </div>
+
+              {/* Tratamiento de Precios e IVA en el archivo */}
+              <div className="bg-surface-container-low p-3.5 rounded-2xl border border-outline-variant/20 space-y-2">
+                <label className="block font-semibold text-on-surface text-xs">Tratamiento de Precios e IVA en el archivo</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <select
+                      value={importModoPrecio}
+                      onChange={(e) => setImportModoPrecio(e.target.value as any)}
+                      className="w-full p-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-xs text-on-surface"
+                    >
+                      <option value="con_iva">Los precios del archivo tienen IVA incluido</option>
+                      <option value="neto">Los precios del archivo son Netos (sin IVA)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <select
+                      value={importAlicuotaIVA}
+                      onChange={(e) => setImportAlicuotaIVA(parseFloat(e.target.value) || 21)}
+                      className="w-full p-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-xs text-on-surface"
+                    >
+                      <option value={21}>Alícuota IVA: 21%</option>
+                      <option value={10.5}>Alícuota IVA: 10.5%</option>
+                      <option value={27}>Alícuota IVA: 27%</option>
+                      <option value={0}>Alícuota IVA: 0% (Exento)</option>
+                    </select>
+                  </div>
+                </div>
+                <p className="text-[11px] text-on-surface-variant">
+                  El sistema convertirá automáticamente los precios a su base canónica neta para garantizar cálculos exactos en presupuestos A, B, C y X.
+                </p>
               </div>
 
               <h4 className="font-semibold text-xs text-primary uppercase tracking-wider flex items-center gap-1.5">

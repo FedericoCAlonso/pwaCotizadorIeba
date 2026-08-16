@@ -29,7 +29,8 @@ import {
   ChevronRight,
   X,
   ExternalLink,
-  HelpCircle
+  HelpCircle,
+  Keyboard
 } from 'lucide-react';
 import { exportDatabaseJSON, importDatabaseJSON } from '../db/database';
 import { AppConfig, ThemeMode } from '../core/types';
@@ -43,6 +44,7 @@ interface HeaderProps {
   config: AppConfig | undefined;
   onOpenConfig: () => void;
   onOpenHelp?: () => void;
+  onOpenShortcuts?: () => void;
   themeMode: ThemeMode;
   onThemeModeChange: (mode: ThemeMode) => void;
 }
@@ -53,6 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
   config,
   onOpenConfig,
   onOpenHelp,
+  onOpenShortcuts,
   themeMode,
   onThemeModeChange
 }) => {
@@ -242,6 +245,19 @@ export const Header: React.FC<HeaderProps> = ({
               aria-label="Abrir centro de ayuda"
             >
               <HelpCircle className="w-5 h-5" />
+            </button>
+          )}
+
+          {/* Keyboard Shortcuts Button */}
+          {onOpenShortcuts && (
+            <button
+              type="button"
+              onClick={onOpenShortcuts}
+              className="hidden sm:flex p-2 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors"
+              title="Atajos de Teclado (Presiona ?)"
+              aria-label="Ver atajos de teclado"
+            >
+              <Keyboard className="w-4 h-4" />
             </button>
           )}
 

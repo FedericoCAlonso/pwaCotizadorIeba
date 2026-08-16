@@ -17,6 +17,8 @@ import { LogisticaManager } from './components/LogisticaManager';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { OnboardingBanner } from './components/OnboardingBanner';
 import { HelpCenterModal } from './components/HelpCenterModal';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useTheme } from './hooks/useTheme';
 
 export function App() {
@@ -26,6 +28,7 @@ export function App() {
   const [initialClienteId, setInitialClienteId] = useState<string | undefined>(undefined);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
 
   const configs = useLiveQuery(() => db.config.toArray());
   const config: AppConfig | undefined = configs && configs.length > 0 ? configs[0] : undefined;
@@ -41,6 +44,21 @@ export function App() {
     setInitialClienteId(undefined);
     setViewMode('editor');
   };
+
+  useKeyboardShortcuts({
+    activeTab,
+    viewMode,
+    setActiveTab,
+    setViewMode,
+    onNewPresupuesto: handleNewPresupuesto,
+    onOpenShortcutsModal: () => setShowShortcutsModal(true),
+    isAnyModalOpen: showConfigModal || showHelpModal || showShortcutsModal,
+    onCloseActiveModals: () => {
+      setShowConfigModal(false);
+      setShowHelpModal(false);
+      setShowShortcutsModal(false);
+    }
+  });
 
   const handleNewPresupuestoForCliente = (clienteId: string) => {
     setSelectedPresupuestoId(undefined);
@@ -111,6 +129,7 @@ export function App() {
         config={config}
         onOpenConfig={() => setShowConfigModal(true)}
         onOpenHelp={() => setShowHelpModal(true)}
+        onOpenShortcuts={() => setShowShortcutsModal(true)}
         themeMode={themeMode}
         onThemeModeChange={setThemeMode}
       />
@@ -204,6 +223,12 @@ export function App() {
           setActiveTab('insumos');
           setViewMode('list');
         }}
+      />
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal
+        isOpen={showShortcutsModal}
+        onClose={() => setShowShortcutsModal(false)}
       />
 
       {/* PWA Notifications & Install Banner */}

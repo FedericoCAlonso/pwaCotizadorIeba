@@ -1,8 +1,7 @@
-import * as XLSX from 'xlsx';
 import { Presupuesto, Cliente } from './types';
 import { formatARS } from './calculations';
 
-export const exportPresupuestoToXLSX = (presupuesto: Presupuesto, cliente?: Cliente) => {
+export const exportPresupuestoToXLSX = async (presupuesto: Presupuesto, cliente?: Cliente) => {
   const data: any[][] = [];
   const mostrarDetalle = presupuesto.opcionesEmision?.mostrarDetalleCostos ?? false;
   const mostrarItemizado = presupuesto.opcionesEmision?.mostrarItemizado ?? true;
@@ -15,13 +14,25 @@ export const exportPresupuestoToXLSX = (presupuesto: Presupuesto, cliente?: Clie
   data.push([]); // Empty row
 
   // Table Headers
-  data.push(['#', 'Descripción / Partida a Ejecutar', 'Unidad', 'Cantidad', 'Precio Venta Unitario ARS', 'Subtotal ARS']);
+  const isFacturaA = presupuesto.tipoFactura === 'Factura A';
+  data.push([
+    '#',
+    'Descripción / Partida a Ejecutar',
+    'Unidad',
+    'Cantidad',
+    isFacturaA ? 'Precio Unitario Neto ARS' : 'Precio Venta Unitario ARS',
+    isFacturaA ? 'Subtotal Neto ARS' : 'Subtotal ARS'
+  ]);
 
   // Items
   if (mostrarItemizado) {
     presupuesto.items.forEach((item, idx) => {
-      const pUnit = item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0;
-      const pTotal = item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit);
+      const pUnit = isFacturaA
+        ? (item.subtotalItem && item.cantidad ? item.subtotalItem / item.cantidad : (item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0))
+        : (item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0);
+      const pTotal = isFacturaA
+        ? (item.subtotalItem ?? item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit))
+        : (item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit));
       data.push([
         idx + 1,
         item.descripcion,
@@ -59,9 +70,11 @@ export const exportPresupuestoToXLSX = (presupuesto: Presupuesto, cliente?: Clie
       data.push(['', '', '', '', '5. Total Impuestos ARS:', presupuesto.montoImpuestosTotal || presupuesto.montoImpuestos || 0]);
     }
   } else {
-    data.push(['', '', '', '', 'Subtotal Trabajos ARS:', presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - (presupuesto.montoImpuestos || 0))]);
-    if (presupuesto.impuestosDetalle && presupuesto.impuestosDetalle.some(t => t.aplica && t.discriminar)) {
-      data.push(['', '', '', '', 'Impuestos Discriminados ARS:', presupuesto.montoImpuestosTotal || presupuesto.montoImpuestos || 0]);
+    if (isFacturaA) {
+      data.push(['', '', '', '', 'Subtotal Neto Gravado ARS:', presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - (presupuesto.montoImpuestosTotal || 0))]);
+      data.push(['', '', '', '', 'IVA Discriminado ARS:', presupuesto.montoImpuestosTotal || 0]);
+    } else {
+      data.push(['', '', '', '', 'Subtotal Trabajos ARS:', presupuesto.totalARS || 0]);
     }
   }
   data.push(['', '', '', '', 'TOTAL FINAL ARS:', presupuesto.totalARS || 0]);
@@ -71,24 +84,37 @@ export const exportPresupuestoToXLSX = (presupuesto: Presupuesto, cliente?: Clie
     data.push(['Condiciones Comerciales:', presupuesto.opcionesEmision?.condicionesComerciales || presupuesto.condicionesPagoTexto]);
   }
 
-  // Create sheet & workbook
-  const ws = XLSX.utils.aoa_to_sheet(data);
+  // Create sheet & workbook with ExcelJS
+  const ExcelModule = await import('exceljs');
+  const ExcelJS = ExcelModule.default || ExcelModule;
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Cotizador IEBA';
+  wb.created = new Date();
 
-  // Set column widths
-  ws['!cols'] = [
-    { wch: 5 },  // #
-    { wch: 45 }, // Descripción
-    { wch: 10 }, // Unidad
-    { wch: 12 }, // Cantidad
-    { wch: 22 }, // Precio Unitario
-    { wch: 22 }  // Subtotal
+  const ws = wb.addWorksheet(`Presupuesto_${presupuesto.numero}`);
+
+  ws.columns = [
+    { width: 5 },  // #
+    { width: 45 }, // Descripción
+    { width: 10 }, // Unidad
+    { width: 12 }, // Cantidad
+    { width: 22 }, // Precio Unitario
+    { width: 22 }  // Subtotal
   ];
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, `Presupuesto_${presupuesto.numero}`);
+  data.forEach(row => {
+    ws.addRow(row);
+  });
 
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
   const filename = `Presupuesto_IEBA_${presupuesto.numero}_${new Date().toISOString().split('T')[0]}.xlsx`;
-  XLSX.writeFile(wb, filename);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
 export const sharePresupuesto = async (presupuesto: Presupuesto, cliente?: Cliente) => {

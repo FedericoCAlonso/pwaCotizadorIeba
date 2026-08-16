@@ -1,6 +1,7 @@
 import React from 'react';
 import { Sparkles, Trash2, Save, X } from 'lucide-react';
 import { CategoriaMaterial, Material } from '../../core/types';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 interface MaterialEditorModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ export const MaterialEditorModal: React.FC<MaterialEditorModalProps> = ({
   onRestoreDefaultCategories,
   onSave,
 }) => {
+  useEscapeKey(isOpen, onClose);
   if (!isOpen) return null;
 
   const inputCls =

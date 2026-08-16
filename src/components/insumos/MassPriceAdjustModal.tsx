@@ -1,6 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { TIPOS_AJUSTE_PRECIO } from '../../core/sampleData';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 interface MassPriceAdjustModalProps {
   isOpen: boolean;
@@ -21,6 +22,8 @@ export const MassPriceAdjustModal: React.FC<MassPriceAdjustModalProps> = ({
   setMassPercentage,
   onApply,
 }) => {
+  useEscapeKey(isOpen, onClose);
+
   if (!isOpen) return null;
 
   const inputCls =

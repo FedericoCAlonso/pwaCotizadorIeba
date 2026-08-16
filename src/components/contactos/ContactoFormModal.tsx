@@ -16,6 +16,7 @@ import {
   DatosFinancierosContacto
 } from '../../core/types';
 import { CONDICIONES_IVA } from '../../core/sampleData';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 export interface ContactoFormData {
   razonSocial: string;
@@ -53,6 +54,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
   allUniqueTags,
   onSave
 }) => {
+  useEscapeKey(isOpen, onClose);
   const [modalActiveTab, setModalActiveTab] = useState<'general' | 'personas' | 'financiero' | 'notas'>('general');
   const [tagInput, setTagInput] = useState('');
 

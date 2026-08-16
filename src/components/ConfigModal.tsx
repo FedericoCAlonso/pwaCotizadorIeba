@@ -7,6 +7,7 @@ import { isFirebaseConfigured, getFirebaseConfig, clearCustomFirebaseConfig } fr
 import { AuthModal } from './AuthModal';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface ConfigModalProps {
   config: AppConfig;
@@ -16,6 +17,7 @@ interface ConfigModalProps {
 }
 
 export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClose, onSave }) => {
+  useEscapeKey(isOpen, onClose);
   const { toast } = useToast();
   const confirm = useConfirm();
 
@@ -375,25 +377,74 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
             <h3 className={sectionTitle}>Parámetros de Cotización & Fiscal</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
+                <label className="block text-xs text-on-surface-variant mb-1">Condición Fiscal Emisor</label>
+                <select
+                  value={formData.condicionFiscalEmisor || (formData.monotributista ? 'monotributo' : 'responsable_inscripto')}
+                  onChange={(e) => {
+                    const val = e.target.value as 'monotributo' | 'responsable_inscripto';
+                    const isMono = val === 'monotributo';
+                    setFormData({
+                      ...formData,
+                      condicionFiscalEmisor: val,
+                      monotributista: isMono,
+                      tipoFacturaPorDefecto: isMono ? 'Factura C' : (formData.tipoFacturaPorDefecto === 'Factura C' ? 'Factura B' : formData.tipoFacturaPorDefecto)
+                    });
+                  }}
+                  className={inputCls}
+                >
+                  <option value="monotributo">Monotributo (Factura C)</option>
+                  <option value="responsable_inscripto">Responsable Inscripto (Factura A y B)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs text-on-surface-variant mb-1">Modo de Carga de Precios</label>
+                <select
+                  value={formData.modoIngresoPreciosDefault || 'con_iva'}
+                  onChange={(e) => setFormData({ ...formData, modoIngresoPreciosDefault: e.target.value as any })}
+                  className={inputCls}
+                >
+                  <option value="con_iva">Precios Finales (Con IVA incluido)</option>
+                  <option value="neto">Precios Netos (Sin IVA)</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Factura por Defecto</label>
                 <select value={formData.tipoFacturaPorDefecto || 'Factura B'} onChange={(e) => setFormData({ ...formData, tipoFacturaPorDefecto: e.target.value as any })} className={inputCls}>
                   {TIPOS_FACTURA.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
               <div>
-                <label className="block text-xs text-on-surface-variant mb-1">IVA (%)</label>
-                <div className="relative"><input type="number" step="0.1" value={formData.porcentajeIVAPorDefecto ?? 21} onChange={(e) => setFormData({ ...formData, porcentajeIVAPorDefecto: parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono pr-7`} /><Percent className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" /></div>
+                <label className="block text-xs text-on-surface-variant mb-1">IVA por Defecto (%)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.alicuotaIVAPorDefecto ?? formData.porcentajeIVAPorDefecto ?? 21}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value) || 0;
+                      setFormData({ ...formData, alicuotaIVAPorDefecto: v, porcentajeIVAPorDefecto: v });
+                    }}
+                    className={`${inputCls} font-mono pr-7`}
+                  />
+                  <Percent className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" />
+                </div>
               </div>
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">IIBB (%)</label>
                 <div className="relative"><input type="number" step="0.1" value={formData.porcentajeIIBBPorDefecto ?? 3.5} onChange={(e) => setFormData({ ...formData, porcentajeIIBBPorDefecto: parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono pr-7`} /><Percent className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" /></div>
               </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Margen por Defecto (%)</label>
                 <div className="relative"><input type="number" inputMode="decimal" value={formData.margenPorDefectoPct} onChange={(e) => setFormData({ ...formData, margenPorDefectoPct: parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono pr-7`} /><Percent className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" /></div>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Umbral Alerta Margen Bajo (%)</label>
                 <div className="relative"><input type="number" inputMode="decimal" value={formData.umbralMargenMinimoAdvertencia ?? 20} onChange={(e) => setFormData({ ...formData, umbralMargenMinimoAdvertencia: parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono pr-7`} /><Percent className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" /></div>
@@ -402,8 +453,6 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                 <label className="block text-xs text-on-surface-variant mb-1">Validez por Defecto (días)</label>
                 <div className="relative"><input type="number" inputMode="decimal" value={formData.validezDiasPorDefecto} onChange={(e) => setFormData({ ...formData, validezDiasPorDefecto: parseInt(e.target.value) || 15 })} className={`${inputCls} font-mono pr-7`} /><Calendar className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" /></div>
               </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Prefijo de Número</label>
                 <input type="text" value={formData.prefijoPresupuesto} onChange={(e) => setFormData({ ...formData, prefijoPresupuesto: e.target.value.toUpperCase() })} className={`${inputCls} font-mono`} />

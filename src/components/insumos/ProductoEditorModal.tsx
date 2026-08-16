@@ -1,6 +1,7 @@
 import React from 'react';
 import { Save, X } from 'lucide-react';
 import { Producto } from '../../core/types';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 interface ProductoEditorModalProps {
   isOpen: boolean;
@@ -17,6 +18,8 @@ export const ProductoEditorModal: React.FC<ProductoEditorModalProps> = ({
   setFormDataProd,
   onSave,
 }) => {
+  useEscapeKey(isOpen, onClose);
+
   if (!isOpen) return null;
 
   const inputCls =

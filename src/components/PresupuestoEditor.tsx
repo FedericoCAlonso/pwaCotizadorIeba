@@ -286,13 +286,17 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       costosIndirectosConfig,
       margenPorcentaje,
       impuestosDetalle,
+      tipoFactura,
       cotizacionMonedaExtranjera: mostrarDolar ? cotizacionDolar : undefined
     });
-  }, [items, costosIndirectosConfig, margenPorcentaje, impuestosDetalle, mostrarDolar, cotizacionDolar]);
+  }, [items, costosIndirectosConfig, margenPorcentaje, impuestosDetalle, tipoFactura, mostrarDolar, cotizacionDolar]);
 
   // Add items handlers
   const handleAddTareaTipoItem = (tarea: TareaTipo) => {
-    const costData = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap);
+    const costData = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap, {
+      tipoFactura,
+      alicuotaIVADefault: config.alicuotaIVAPorDefecto ?? 21
+    });
     const unitInsumos = costData.insumosSnapshotUnitario.map(i => ({
       ...i,
       cantidadUnitaria: i.cantidadTotal,
@@ -685,6 +689,19 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     toast.success(targetEstado === 'enviado' ? '¡Presupuesto emitido con éxito!' : 'Presupuesto guardado en borrador');
     onSaved(finalPresupuesto.id);
   };
+
+  useEffect(() => {
+    const handleSave = () => handleSavePresupuesto('borrador');
+    const handleNew = () => setShowItemPickerModal(true);
+
+    window.addEventListener('app:shortcut-save', handleSave);
+    window.addEventListener('app:shortcut-new', handleNew);
+
+    return () => {
+      window.removeEventListener('app:shortcut-save', handleSave);
+      window.removeEventListener('app:shortcut-new', handleNew);
+    };
+  }, [clienteId, existingPresupuesto, totales, margenPorcentaje, validezDias, tipoFactura, costosIndirectosConfig, opcionesEmision, config]);
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto pb-12">

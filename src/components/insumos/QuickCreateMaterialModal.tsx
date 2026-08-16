@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Zap, X, Plus } from 'lucide-react';
 import { Contacto } from '../../core/types';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 interface QuickCreateMaterialModalProps {
   isOpen: boolean;
@@ -9,6 +10,8 @@ interface QuickCreateMaterialModalProps {
     nombre: string;
     unidadVenta: string;
     precio: number;
+    alicuotaIVA?: number;
+    modoPrecio?: 'con_iva' | 'neto';
     proveedorId: string;
   };
   setFormDataQuickMat: React.Dispatch<
@@ -16,6 +19,8 @@ interface QuickCreateMaterialModalProps {
       nombre: string;
       unidadVenta: string;
       precio: number;
+      alicuotaIVA?: number;
+      modoPrecio?: 'con_iva' | 'neto';
       proveedorId: string;
     }>
   >;
@@ -36,6 +41,7 @@ export const QuickCreateMaterialModal: React.FC<QuickCreateMaterialModalProps> =
   onSave,
 }) => {
   const quickMatNombreRef = useRef<HTMLInputElement>(null);
+  useEscapeKey(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -98,20 +104,63 @@ export const QuickCreateMaterialModal: React.FC<QuickCreateMaterialModalProps> =
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-                Precio Referencia ARS (Opcional)
-              </label>
-              <input
-                type="number"
-                step="any"
-                inputMode="decimal"
-                value={formDataQuickMat.precio || ''}
-                onChange={(e) =>
-                  setFormDataQuickMat({ ...formDataQuickMat, precio: parseFloat(e.target.value) || 0 })
-                }
-                className={inputCls}
-                placeholder="0.00"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-on-surface-variant">
+                  Precio Referencia
+                </label>
+                <div className="flex items-center gap-1 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => setFormDataQuickMat({ ...formDataQuickMat, modoPrecio: 'con_iva' })}
+                    className={`px-1.5 py-0.5 rounded ${
+                      (formDataQuickMat.modoPrecio || 'con_iva') === 'con_iva'
+                        ? 'bg-amber-500 text-slate-950 font-bold'
+                        : 'text-on-surface-variant'
+                    }`}
+                  >
+                    c/IVA
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormDataQuickMat({ ...formDataQuickMat, modoPrecio: 'neto' })}
+                    className={`px-1.5 py-0.5 rounded ${
+                      formDataQuickMat.modoPrecio === 'neto'
+                        ? 'bg-amber-500 text-slate-950 font-bold'
+                        : 'text-on-surface-variant'
+                    }`}
+                  >
+                    Neto
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-1">
+                <div className="col-span-2">
+                  <input
+                    type="number"
+                    step="any"
+                    inputMode="decimal"
+                    value={formDataQuickMat.precio || ''}
+                    onChange={(e) =>
+                      setFormDataQuickMat({ ...formDataQuickMat, precio: parseFloat(e.target.value) || 0 })
+                    }
+                    className={inputCls}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <select
+                    value={formDataQuickMat.alicuotaIVA ?? 21}
+                    onChange={(e) =>
+                      setFormDataQuickMat({ ...formDataQuickMat, alicuotaIVA: parseFloat(e.target.value) || 21 })
+                    }
+                    className={inputCls}
+                  >
+                    <option value={21}>21%</option>
+                    <option value={10.5}>10.5%</option>
+                    <option value={0}>0%</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
 
