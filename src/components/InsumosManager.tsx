@@ -1255,6 +1255,12 @@ export const InsumosManager: React.FC = () => {
                                       <span className="text-[10px] text-on-surface-variant italic">Sin precio</span>
                                     )}
 
+                                    <OnlinePriceButton
+                                      tipo="material"
+                                      customNombre={`${mat.nombre} ${p.marca} ${p.modelo || ''}`.trim()}
+                                      size="xs"
+                                      variant="icon"
+                                    />
                                     <button
                                       type="button"
                                       onClick={() => handleOpenCreateOferta(mat.id, p.id)}
