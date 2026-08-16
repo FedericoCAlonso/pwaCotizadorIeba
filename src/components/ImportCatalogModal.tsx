@@ -323,7 +323,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       if (normCat.includes('caja') || normCat.includes('bastidor') || normCat.includes('modulo')) return 'cat-cajas';
       if (normCat.includes('tablero') || normCat.includes('gabinete')) return 'cat-tableros';
       if (normCat.includes('ilumin') || normCat.includes('lamp') || normCat.includes('led')) return 'cat-iluminacion';
-      if (normCat.includes('medicion') || normCat.includes('jabalina') || normCat.includes('pat')) return 'cat-medicion';
+      if (normCat.includes('tierra') || normCat.includes('jabalina') || normCat.includes('pat') || normCat.includes('medicion')) return 'cat-tierra';
 
       const newCatId = `cat-${normCat.replace(/[^a-z0-9]/g, '_')}`;
       if (!catMap.has(newCatId)) {

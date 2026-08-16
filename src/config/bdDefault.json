@@ -2,12 +2,12 @@
   "categoriasMaterial": [
     {
       "id": "cat-sin-categoria",
-      "nombre": "Sin categoría (No asignado)",
+      "nombre": "Sin categoría",
       "atributosSugeridos": []
     },
     {
       "id": "cat-cables",
-      "nombre": "Cables & Conductores",
+      "nombre": "Cables",
       "atributosSugeridos": [
         {
           "clave": "norma",
