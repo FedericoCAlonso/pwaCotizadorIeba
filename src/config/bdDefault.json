@@ -341,16 +341,83 @@
       "nombre": "Tableros & Gabinetes",
       "atributosSugeridos": [
         {
-          "clave": "modulos",
-          "etiqueta": "Capacidad Módulos DIN",
-          "unidad": "",
-          "tipo": "numero"
+          "clave": "tipo_envolvente",
+          "etiqueta": "Tipo / Aplicación",
+          "tipo": "texto",
+          "opciones": [
+            "Tablero Modular DIN",
+            "Gabinete con Placa de Montaje",
+            "Caja de Medidor / Pilar"
+          ]
         },
         {
-          "clave": "ip",
-          "etiqueta": "Grado Protección IP",
-          "unidad": "",
-          "tipo": "texto"
+          "clave": "montaje",
+          "etiqueta": "Montaje",
+          "tipo": "texto",
+          "opciones": [
+            "Embutir",
+            "Superficie / Aplicar",
+            "Pilar Exterior"
+          ],
+          "dependencias": [
+            { "dependeVinculo": "tipo_envolvente", "valorEsperado": "Caja de Medidor / Pilar", "bloqueado": true, "valorFijo": "Pilar Exterior" }
+          ]
+        },
+        {
+          "clave": "ambiente_proteccion",
+          "etiqueta": "Ambiente / Grado IP",
+          "tipo": "texto",
+          "opciones": [
+            "Interior (IP40)",
+            "Estanco / Intemperie (IP65)",
+            "Industrial Pesado (IP66+)"
+          ]
+        },
+        {
+          "clave": "capacidad_modulos",
+          "etiqueta": "Capacidad (Módulos DIN)",
+          "tipo": "numero",
+          "opciones": ["2", "4", "8", "12", "18", "24", "36", "48", "54", "72"],
+          "dependencias": [
+            { "dependeVinculo": "tipo_envolvente", "valorEsperado": "Gabinete con Placa de Montaje", "bloqueado": true, "valorFijo": "N/A (Lleva Placa)" },
+            { "dependeVinculo": "tipo_envolvente", "valorEsperado": "Caja de Medidor / Pilar", "bloqueado": true, "valorFijo": "N/A" }
+          ]
+        },
+        {
+          "clave": "tamano_gabinete",
+          "etiqueta": "Porte de Gabinete",
+          "tipo": "texto",
+          "opciones": [
+            "Chico (hasta 30x20 cm)",
+            "Mediano (hasta 50x40 cm)",
+            "Grande (hasta 80x60 cm)",
+            "Armario Autoportante (de piso)"
+          ],
+          "dependencias": [
+            { "dependeVinculo": "tipo_envolvente", "valorEsperado": "Tablero Modular DIN", "bloqueado": true, "valorFijo": "Según Módulos DIN" },
+            { "dependeVinculo": "tipo_envolvente", "valorEsperado": "Caja de Medidor / Pilar", "bloqueado": true, "valorFijo": "Normalizado" }
+          ]
+        },
+        {
+          "clave": "material",
+          "etiqueta": "Material Envolvente",
+          "tipo": "texto",
+          "opciones": [
+            "Plástico / Termoplástico (Aislante)",
+            "Chapa Metálica",
+            "Poliéster PRFV (Fibra de Vidrio)"
+          ]
+        },
+        {
+          "clave": "puerta",
+          "etiqueta": "Puerta / Tapa",
+          "tipo": "texto",
+          "opciones": [
+            "Puerta Transparente / Fumé",
+            "Puerta Ciega",
+            "Visor para Medidor",
+            "Sin Puerta"
+          ]
         }
       ]
     },
