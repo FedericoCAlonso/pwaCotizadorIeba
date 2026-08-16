@@ -5,8 +5,8 @@
     "steps": [
       {
         "id": "insumos",
-        "title": "Catálogo de Materiales",
-        "description": "Carga tus materiales e insumos importando desde ExcelJS o agregándolos manualmente.",
+        "title": "Catálogo de Materiales & Familias",
+        "description": "Carga materiales con fichas normalizadas, importa planillas Excel y define marcas/ofertas.",
         "targetTab": "insumos",
         "actionText": "Configurar Insumos"
       },
@@ -35,28 +35,87 @@
   },
   "helpCenter": {
     "title": "Centro de Conocimiento y Guía de Uso",
-    "subtitle": "Manual de usuario interactivo y documentación técnica de la PWA.",
+    "subtitle": "Manual de usuario interactivo y documentación técnica de la PWA Cotizador IEBA.",
     "categories": [
       {
-        "id": "importacion",
-        "title": "Importación Masiva ExcelJS",
-        "iconName": "FileSpreadsheet",
-        "summary": "Cómo usar la plantilla oficial con tablas formateadas y validación desplegable.",
+        "id": "categoriasTecnicas",
+        "title": "Familias, Fichas & Reglas Condicionales",
+        "iconName": "Package",
+        "summary": "Estandarización técnica, opciones dinámicas y reglas condicionales entre atributos.",
         "sections": [
           {
-            "heading": "Estructura de la Plantilla de 2 Hojas",
-            "content": "Al hacer clic en 'Descargar Plantilla Excel Avanzada', el sistema genera un archivo .xlsx nativo mediante ExcelJS compuesto por dos hojas coordinadas:",
+            "heading": "Familias Normativas de Materiales",
+            "content": "El catálogo organiza los insumos en 13 familias técnicas preconfiguradas (Cables, Protecciones, Canalizaciones, Cajas, Módulos y Llaves, Tableros, Iluminación, Puesta a Tierra, etc.). Cada familia define los atributos sugeridos con sus unidades de ingeniería.",
             "bullets": [
-              "Hoja 'Materiales': Tabla de Excel con columnas estandarizadas (Nombre / Descripción, Categoría, Unidad, Norma, Marca, Precio Referencia ARS).",
-              "Hoja 'Categorías': Listado automático de todas las categorías activas en tu base de datos local."
+              "Fichas Técnicas Normalizadas: Los nombres se construyen automáticamente combinando los atributos (ej. Cables | Norma = IRAM 247-3 | Conductores = 1 | Sección = 2.5 mm²).",
+              "Alerta de Ficha Incompleta: Identifica inmediatamente materiales creados por alta rápida que requieran completar atributos técnicos."
             ]
           },
           {
-            "heading": "Validación de Datos en Línea",
-            "content": "La columna 'Categoría' de la hoja Materiales incluye un menú desplegable nativo de Excel que hace referencia a la hoja Categorías.",
+            "heading": "Chips de Opciones y Pegado Masivo",
+            "content": "Al editar atributos en una categoría, puedes definir una lista cerrada de opciones sugeridas:",
             "bullets": [
-              "Evita errores tipográficos seleccionando categorías directamente de la lista desplegable.",
-              "Creación On-the-fly: Si escribes una categoría nueva que no existe en tu base de datos, el importador la detectará y la creará automáticamente al importar el archivo."
+              "Ingreso Rápido: Escribe una opción y presiona Enter o haz clic en '+'.",
+              "Pegado Masivo: Pega listas de texto separadas por comas, punto y coma o saltos de línea para generar múltiples opciones de una sola vez.",
+              "Salvaguarda de Compatibilidad: Si un material tiene un valor no contemplado en la lista, el sistema lo conserva agregando el tag '(Actual)' sin sobreescribir datos."
+            ]
+          },
+          {
+            "heading": "Motor de Reglas Condicionales y Dependencias",
+            "content": "Configura comportamientos inteligentes entre atributos para evitar errores de selección en obra o almacén:",
+            "bullets": [
+              "Filtro de Opciones: Muestra solo opciones válidas según el valor de otro atributo (ej. Si Norma = IRAM 247-3 unipolar, solo permite 1 conductor; si IRAM 2178 subterráneo, permite de 1 a 5).",
+              "Bloqueo y Valor Fijo: Asigna automáticamente un valor y deshabilita el campo cuando no corresponda (ej. Curva de disparo = N/A si el dispositivo es un Disyuntor Diferencial)."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "importacion",
+        "title": "Importación y Plantillas Excel / CSV",
+        "iconName": "FileSpreadsheet",
+        "summary": "Descarga de plantillas dinámicas por categoría e importación masiva sin errores.",
+        "sections": [
+          {
+            "heading": "Plantillas Dinámicas Estructuradas",
+            "content": "Al descargar una plantilla (.xlsx / .csv), el sistema consulta la base de datos y genera automáticamente las columnas correspondientes a la categoría seleccionada:",
+            "bullets": [
+              "Hoja 'Materiales': Tabla con formato nativo y validación desplegable en columnas como Unidad de Venta.",
+              "Hoja 'Metadatos': Almacena de forma transparente el identificador y nombre de la categoría para vinculación automática."
+            ]
+          },
+          {
+            "heading": "Motor de Importación Inteligente",
+            "content": "Al subir un archivo Excel o CSV, el importador analiza los datos antes de escribir en la base local:",
+            "bullets": [
+              "Modo Fusión (Merge): Actualiza precios y atributos de materiales existentes sin duplicar registros.",
+              "Creación On-the-fly: Si el archivo incluye nuevas categorías o marcas, se incorporan automáticamente.",
+              "Vista Previa Dry-Run: Visualiza el desglose exacto de materiales a crear, actualizar o ignorar antes de confirmar."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "contactosRfq",
+        "title": "Contactos 360° & Cotizaciones RFQ",
+        "iconName": "Users",
+        "summary": "Gestión unificada de clientes, proveedores y pedidos de presupuesto por WhatsApp.",
+        "sections": [
+          {
+            "heading": "Directorio Unificado 360°",
+            "content": "Administra en un solo lugar a Clientes, Proveedores y Subcontratistas:",
+            "bullets": [
+              "Roles Múltiples: Un contacto puede operar simultáneamente como Cliente y Proveedor.",
+              "Datos Fiscales y Personas de Contacto: Registro de CUIT, Condición IVA, lista de teléfonos/emails y contacto principal."
+            ]
+          },
+          {
+            "heading": "Solicitudes de Cotización (RFQ)",
+            "content": "Envía listas de materiales a proveedores y registra ofertas competitivas:",
+            "bullets": [
+              "Armado por Categoría: Agrupa insumos faltantes o cotizaciones de obra y genera el pedido RFQ.",
+              "Envío Directo por WhatsApp: Genera el texto formateado listo para enviar a tus distribuidores eléctricos.",
+              "Registro de Ofertas: Al recibir el precio, cárgalo en el sistema para actualizar el precio vigente y conservar el historial."
             ]
           }
         ]
@@ -69,19 +128,20 @@
         "sections": [
           {
             "heading": "Concepto de Ensamble o Tarea Tipo",
-            "content": "Una Tarea Tipo agrupa todos los recursos requeridos para ejecutar una unidad de trabajo eléctrico (ej. 1 Boca de Toma Monofásica 10A).",
+            "content": "Una Tarea Tipo agrupa todos los recursos requeridos para ejecutar una unidad de trabajo eléctrico (ej. 1 Boca de Iluminación o 1 Armado de Tablero):",
             "bullets": [
-              "Receta de Materiales: Asigna las cantidades exactas de insumos (cajas, caños, cables, llaves).",
-              "Rendimiento Horario: Especifica el tiempo estimado en horas por categoría de oficial/ayudante."
+              "Despiece de Insumos: Asigna cantidades exactas de materiales por unidad de medida.",
+              "Mano de Obra: Especifica horas estimadas según categoría (Oficial Especializado, Oficial, Ayudante).",
+              "Submódulo Simulación What-If: Evalúa el impacto de subas en materiales o paritarias salariales en tiempo real."
             ]
           },
           {
-            "heading": "Auditoría de Salud de la Tarea",
-            "content": "El sistema audita continuamente cada tarea tipo e indica mediante alertas:",
+            "heading": "Auditoría de Rentabilidad y Salud",
+            "content": "El sistema audita continuamente las tareas e indica su estado mediante semáforos:",
             "bullets": [
-              "Insumos obsoletos o descontinuados.",
-              "Materiales sin precio de lista actualizado.",
-              "Desvíos significativos detectados durante la ejecución real en obra."
+              "Verde: Precios de insumos y tarifas de mano de obra vigentes y actualizadas.",
+              "Amarillo: Precios con antigüedad superior al umbral configurado (ej. > 30 días).",
+              "Rojo: Tareas con insumos sin precio de referencia o desvíos significativos en campo."
             ]
           }
         ]
@@ -97,40 +157,42 @@
             "content": "El precio de cada ítem de presupuesto se calcula aplicando la fórmula estándar de ingeniería:",
             "bullets": [
               "Costo Directo = Insumos + Mano de Obra + Servicios Subcontratados.",
-              "Precio Venta Ítem = Costo Directo × (1 + Margen % / 100).",
-              "Subtotal Obra = Suma de Precios de Venta + Gastos Indirectos."
+              "Condición de Obra: Modificador por dificultad (Normal: 1.0x, Dificultosa: 1.25x, Favorable: 0.9x).",
+              "Precio Venta Ítem = Costo Directo × Modificador × (1 + Margen % / 100).",
+              "Total Obra = Suma de Partidas + Gastos Indirectos (Movilidad, Logística, Seguros) + Impuestos."
             ]
           },
           {
             "heading": "Emisión de Documentos y PDF",
-            "content": "Desde el detalle del presupuesto puedes congelar precios, generar la vista previa limpia y descargar el PDF oficial listo para enviar al cliente.",
+            "content": "Genera el comprobante profesional listo para entregar al cliente:",
             "bullets": [
-              "Generación de validez comercial y condiciones de pago configurables.",
-              "Conversión automática a moneda extranjera según cotización configurada."
+              "Congelamiento de Precios: Al emitir, se crea un snapshot inmutable de costos para proteger la rentabilidad.",
+              "Personalización: Incluye datos de la empresa, validez de la oferta, plazos de ejecución y condiciones de pago.",
+              "Exportación PDF: Generación limpia en PDF para imprimir o compartir digitalmente."
             ]
           }
         ]
       },
       {
         "id": "registroObra",
-        "title": "Registro de Obra y Métrica EMA",
+        "title": "Registro de Obra y Calibración EMA",
         "iconName": "Smartphone",
-        "summary": "Recolección rápida desde dispositivos móviles y cálculo de Media Móvil Exponencial.",
+        "summary": "Recolección rápida en obra y ajuste de productividad mediante Media Móvil Exponencial.",
         "sections": [
           {
             "heading": "Carga de Tiempos en Campo",
-            "content": "Diseñado para ingresar tiempos de ejecución desde el celular al finalizar la jornada o etapa de obra.",
+            "content": "Diseñado para ingresar tiempos de ejecución desde el celular al finalizar la jornada:",
             "bullets": [
-              "Anota la cantidad de unidades completadas y las horas reales consumidas.",
-              "Registra desvíos por causas externas (clima, falta de material, interferencias de obra)."
+              "Anota unidades completadas y horas reales consumidas por el equipo.",
+              "Registra causas de desvío (interferencias de obra, demoras de entrega, imprevistos)."
             ]
           },
           {
-            "heading": "Factor de Corrección EMA",
-            "content": "Utiliza la Media Móvil Exponencial (EMA) para suavizar desvíos históricos y ajustar automáticamente el factor de rendimiento sugerido para tus presupuestos futuros.",
+            "heading": "Factor de Calibración EMA",
+            "content": "Utiliza la Media Móvil Exponencial (EMA) para calibrar el rendimiento:",
             "bullets": [
-              "Calcula varianza y desviación estándar sobre muestras reales de trabajo.",
-              "Ajusta el coeficiente de productividad recomendada para cotizaciones venideras."
+              "Suaviza desvíos atípicos y calcula la productividad histórica real.",
+              "Aplica factores correctivos automáticos para que tus futuros presupuestos sean cada vez más precisos."
             ]
           }
         ]
@@ -139,14 +201,15 @@
         "id": "sync",
         "title": "Offline-First & Sincronización Cloud",
         "iconName": "Cloud",
-        "summary": "Persistencia local en Dexie/IndexedDB, Delta Sync y Circuit Breaker de cuotas.",
+        "summary": "Persistencia local en Dexie/IndexedDB, Delta Sync y resguardo en la nube.",
         "sections": [
           {
             "heading": "Funcionamiento sin Conexión (Offline-First)",
-            "content": "Todos los datos se guardan de forma instantánea en tu dispositivo mediante Dexie.js (IndexedDB). No necesitas conexión a Internet para cotizar, editar o trabajar.",
+            "content": "Todos los datos se guardan de forma instantánea en tu dispositivo mediante IndexedDB. No necesitas Internet para cotizar, consultar fichas o emitir presupuestos.",
             "bullets": [
-              "Sincronización Delta (Dirty Flags): Al conectar a Internet, se transmiten únicamente las modificaciones locales.",
-              "Circuit Breaker de Cuota: Ante agotamiento de cuota diaria en la nube de Firebase, el sistema conmuta automáticamente a Modo Local sin trabar la pantalla ni interrumpir tu trabajo."
+              "Sincronización Delta (Dirty Flags): Al conectar a Internet, se transmiten únicamente las modificaciones realizadas.",
+              "Circuit Breaker de Cuota: Si se agota la cuota en la nube, el sistema continúa funcionando localmente sin trabar la pantalla ni interrumpir tu trabajo.",
+              "Backup JSON: Exportación e importación completa de la base de datos en un clic para respaldos de seguridad."
             ]
           }
         ]
