@@ -139,10 +139,90 @@
       "nombre": "Canalizaciones & Caños",
       "atributosSugeridos": [
         {
+          "clave": "tipo_elemento",
+          "etiqueta": "Tipo de Elemento",
+          "tipo": "texto",
+          "opciones": [
+            "Caño PVC Rígido",
+            "Caño Corrugado Reforzado",
+            "Caño Semipesado/Pesado Metálico",
+            "Caño Flexible Metálico (Bx)",
+            "Bandeja Portacable",
+            "Canaleta/Cableducto PVC"
+          ]
+        },
+        {
           "clave": "diametro",
-          "etiqueta": "Diámetro",
-          "unidad": "pulgadas",
-          "tipo": "texto"
+          "etiqueta": "Diámetro Nominal",
+          "unidad": "mm",
+          "tipo": "texto",
+          "opciones": ["13", "16", "19", "21", "25", "32", "38", "51", "63", "75", "110"],
+          "dependencias": [
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Bandeja Portacable", "bloqueado": true, "valorFijo": "N/A" },
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Canaleta/Cableducto PVC", "bloqueado": true, "valorFijo": "N/A" }
+          ]
+        },
+        {
+          "clave": "ancho",
+          "etiqueta": "Ancho",
+          "unidad": "mm",
+          "tipo": "numero",
+          "opciones": ["20", "40", "60", "100", "150", "200", "300", "400", "600"],
+          "dependencias": [
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño PVC Rígido", "bloqueado": true, "valorFijo": "N/A" },
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Corrugado Reforzado", "bloqueado": true, "valorFijo": "N/A" },
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Semipesado/Pesado Metálico", "bloqueado": true, "valorFijo": "N/A" },
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Flexible Metálico (Bx)", "bloqueado": true, "valorFijo": "N/A" }
+          ]
+        },
+        {
+          "clave": "alto",
+          "etiqueta": "Alto",
+          "unidad": "mm",
+          "tipo": "numero",
+          "opciones": ["10", "25", "50", "75", "100"],
+          "dependencias": [
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño PVC Rígido", "bloqueado": true, "valorFijo": "N/A" },
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Corrugado Reforzado", "bloqueado": true, "valorFijo": "N/A" },
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Semipesado/Pesado Metálico", "bloqueado": true, "valorFijo": "N/A" },
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Flexible Metálico (Bx)", "bloqueado": true, "valorFijo": "N/A" }
+          ]
+        },
+        {
+          "clave": "norma",
+          "etiqueta": "Norma Técnica",
+          "tipo": "texto",
+          "opciones": [
+            "IRAM 2005 (Rígido PVC)",
+            "IRAM 62388 (Corrugado)",
+            "IRAM 2005 (Semipesado/Pesado)",
+            "IEC 61386 (Bandeja/Canaleta)"
+          ]
+        },
+        {
+          "clave": "subtipo",
+          "etiqueta": "Subtipo",
+          "tipo": "texto",
+          "opciones": ["Perforada", "Tipo Escalera", "Ciega/Canal"],
+          "dependencias": [
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Bandeja Portacable", "opcionesFiltradas": ["Perforada", "Tipo Escalera", "Ciega/Canal"] },
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño PVC Rígido", "bloqueado": true, "valorFijo": "N/A" },
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Corrugado Reforzado", "bloqueado": true, "valorFijo": "N/A" },
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Semipesado/Pesado Metálico", "bloqueado": true, "valorFijo": "N/A" },
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Flexible Metálico (Bx)", "bloqueado": true, "valorFijo": "N/A" },
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Canaleta/Cableducto PVC", "bloqueado": true, "valorFijo": "N/A" }
+          ]
+        },
+        {
+          "clave": "color",
+          "etiqueta": "Color",
+          "tipo": "texto",
+          "opciones": ["Negro", "Gris", "Blanco"],
+          "dependencias": [
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Semipesado/Pesado Metálico", "bloqueado": true, "valorFijo": "N/A" },
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Flexible Metálico (Bx)", "bloqueado": true, "valorFijo": "N/A" },
+            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Bandeja Portacable", "bloqueado": true, "valorFijo": "N/A" }
+          ]
         }
       ]
     },
