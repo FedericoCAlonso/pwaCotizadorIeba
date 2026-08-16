@@ -56,59 +56,62 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
   const contactRFQs = rfqs.filter((r) => r.proveedorId === contacto.id && !r.deleted);
 
   return (
-    <div className="bg-surface-container-low border border-outline-variant/20 rounded-3xl p-5 hover:bg-surface-container/60 transition-all flex flex-col justify-between shadow-sm">
+    <div className="bg-surface-container-low hover:bg-surface-container-high rounded-2xl p-5 transition-colors flex flex-col justify-between">
       <div>
         {/* Top Bar with Badges & Actions */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             {isAmbos ? (
-              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> Cliente & Proveedor
+              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-lg bg-primary-container text-on-primary-container flex items-center gap-1 select-none">
+                <Sparkles className="w-3.5 h-3.5" /> Cliente & Proveedor
               </span>
             ) : (
               <>
                 {isCli && (
-                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30 flex items-center gap-1">
-                    <Building className="w-3 h-3" /> Cliente
+                  <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-lg bg-secondary-container text-on-secondary-container flex items-center gap-1 select-none">
+                    <Building className="w-3.5 h-3.5" /> Cliente
                   </span>
                 )}
                 {isProv && (
-                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                    <Truck className="w-3 h-3" /> Proveedor ({contacto.tipoProveedor || 'ambos'})
+                  <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-lg bg-tertiary-container text-on-tertiary-container flex items-center gap-1 select-none">
+                    <Truck className="w-3.5 h-3.5" /> Proveedor ({contacto.tipoProveedor || 'ambos'})
                   </span>
                 )}
               </>
             )}
 
             {contacto.condicionIVA && (
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant">
+              <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-lg bg-surface-container-highest text-on-surface-variant select-none">
                 {contacto.condicionIVA}
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
+          {/* Touch targets M3: 48x48px mínimo con state layer */}
+          <div className="flex items-center gap-0.5 shrink-0 -mt-1 -mr-1">
             <button
               type="button"
               onClick={() => onEdit(contacto)}
-              className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-variant rounded-full transition-colors"
+              className="min-w-[48px] min-h-[48px] p-3 text-on-surface-variant hover:text-primary rounded-full state-layer transition-colors flex items-center justify-center cursor-pointer"
               title="Editar Contacto"
+              aria-label={`Editar contacto ${contacto.razonSocial || contacto.nombre}`}
             >
-              <Edit2 className="w-3.5 h-3.5" />
+              <Edit2 className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={() => onDelete(contacto.id, contacto.razonSocial || contacto.nombre || 'Contacto')}
-              className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/30 rounded-full transition-colors"
+              className="min-w-[48px] min-h-[48px] p-3 text-on-surface-variant hover:text-error rounded-full state-layer transition-colors flex items-center justify-center cursor-pointer"
               title="Eliminar Contacto"
+              aria-label={`Eliminar contacto ${contacto.razonSocial || contacto.nombre}`}
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* Main Identity */}
-        <div className="mt-3">
+        <div className="mt-2.5">
           <h3 className="text-base font-bold text-on-surface leading-snug">
             {contacto.razonSocial || contacto.nombre}
           </h3>
@@ -122,13 +125,13 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
           )}
         </div>
 
-        {/* Tags / Rubros Mini Chips */}
+        {/* Tags / Rubros Mini Chips (8dp) */}
         {contacto.etiquetas && contacto.etiquetas.length > 0 && (
           <div className="mt-2.5 flex flex-wrap gap-1">
             {contacto.etiquetas.map((tag, tIdx) => (
               <span
                 key={tIdx}
-                className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-surface-variant/80 text-on-surface-variant border border-outline-variant/30 flex items-center gap-1"
+                className="text-[10px] font-semibold px-2.5 py-0.5 rounded-lg bg-surface-container text-on-surface-variant flex items-center gap-1 select-none"
               >
                 <Tag className="w-2.5 h-2.5 text-primary" />
                 <span>{tag}</span>
@@ -149,7 +152,7 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
                 href={`https://wa.me/${contacto.telefono.replace(/[^0-9]/g, '')}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline shrink-0"
+                className="text-[11px] font-bold text-[#25D366] hover:underline shrink-0"
               >
                 WhatsApp
               </a>
@@ -175,9 +178,9 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
           )}
         </div>
 
-        {/* Personas de Contacto Count / Mini Pills */}
+        {/* Personas de Contacto Count / Mini Sub-card */}
         {contacto.contactos && contacto.contactos.length > 0 && (
-          <div className="mt-3 bg-surface-container p-2.5 rounded-xl border border-outline-variant/10 space-y-1.5">
+          <div className="mt-3 bg-surface-container p-3 rounded-xl space-y-1.5">
             <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">
               Personas ({contacto.contactos.length}):
             </span>
@@ -200,15 +203,15 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
 
         {/* Collapsible 360 Activity Drawer */}
         {isExpanded && (
-          <div className="mt-4 pt-3 border-t border-outline-variant/20 space-y-3">
+          <div className="mt-4 pt-3 border-t border-outline-variant/15 space-y-3">
             {/* Tabs inside Drawer */}
             <div className="flex items-center gap-1 bg-surface-container p-1 rounded-xl text-xs font-semibold">
               {isCli && (
                 <button
                   type="button"
                   onClick={() => onTabChange('presupuestos')}
-                  className={`flex-1 py-1 rounded-lg transition-colors ${
-                    activeTab === 'presupuestos' ? 'bg-surface-container-highest text-primary shadow-xs' : 'text-on-surface-variant'
+                  className={`flex-1 py-1.5 rounded-lg state-layer transition-colors cursor-pointer ${
+                    activeTab === 'presupuestos' ? 'bg-surface-container-highest text-primary shadow-2xs font-bold' : 'text-on-surface-variant'
                   }`}
                 >
                   Cotizaciones ({contactPresupuestos.length})
@@ -218,8 +221,8 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
                 <button
                   type="button"
                   onClick={() => onTabChange('rfqs')}
-                  className={`flex-1 py-1 rounded-lg transition-colors ${
-                    activeTab === 'rfqs' ? 'bg-surface-container-highest text-primary shadow-xs' : 'text-on-surface-variant'
+                  className={`flex-1 py-1.5 rounded-lg state-layer transition-colors cursor-pointer ${
+                    activeTab === 'rfqs' ? 'bg-surface-container-highest text-primary shadow-2xs font-bold' : 'text-on-surface-variant'
                   }`}
                 >
                   RFQs ({contactRFQs.length})
@@ -228,8 +231,8 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
               <button
                 type="button"
                 onClick={() => onTabChange('financiero')}
-                className={`flex-1 py-1 rounded-lg transition-colors ${
-                  activeTab === 'financiero' ? 'bg-surface-container-highest text-primary shadow-xs' : 'text-on-surface-variant'
+                className={`flex-1 py-1.5 rounded-lg state-layer transition-colors cursor-pointer ${
+                  activeTab === 'financiero' ? 'bg-surface-container-highest text-primary shadow-2xs font-bold' : 'text-on-surface-variant'
                 }`}
               >
                 Financiero
@@ -246,7 +249,7 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
                     <div
                       key={p.id}
                       onClick={() => onSelectPresupuesto?.(p.id)}
-                      className="bg-surface-container p-2.5 rounded-xl text-xs hover:bg-surface-container-highest transition cursor-pointer flex items-center justify-between border border-outline-variant/10"
+                      className="bg-surface-container p-2.5 rounded-xl text-xs hover:bg-surface-container-highest transition cursor-pointer flex items-center justify-between state-layer"
                     >
                       <div>
                         <div className="font-bold text-on-surface font-mono">{p.numero}</div>
@@ -256,7 +259,7 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
                       </div>
                       <div className="text-right">
                         <div className="font-bold text-primary font-mono">{formatARS(p.precioFinalGlobal || p.totalARS)}</div>
-                        <span className="text-[9px] uppercase font-bold px-1.5 py-0.2 rounded bg-surface-variant text-on-surface-variant">
+                        <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-md bg-surface-variant text-on-surface-variant select-none">
                           {p.estado}
                         </span>
                       </div>
@@ -274,7 +277,7 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
                   contactRFQs.map((r) => (
                     <div
                       key={r.id}
-                      className="bg-surface-container p-2.5 rounded-xl text-xs flex items-center justify-between border border-outline-variant/10"
+                      className="bg-surface-container p-2.5 rounded-xl text-xs flex items-center justify-between"
                     >
                       <div>
                         <div className="font-bold text-on-surface font-mono">RFQ #{r.id.slice(0, 8)}</div>
@@ -282,7 +285,7 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
                           {r.items?.length || 0} materiales solicitados
                         </div>
                       </div>
-                      <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-surface-variant text-on-surface-variant">
+                      <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-md bg-surface-variant text-on-surface-variant select-none">
                         {r.estado}
                       </span>
                     </div>
@@ -292,7 +295,7 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
             )}
 
             {activeTab === 'financiero' && (
-              <div className="bg-surface-container p-3 rounded-xl space-y-2 text-xs text-on-surface-variant">
+              <div className="bg-surface-container p-3.5 rounded-xl space-y-2 text-xs text-on-surface-variant">
                 {contacto.financiero?.condicionesCobroHabitual && (
                   <div>
                     <span className="font-bold text-[10px] uppercase text-on-surface block">Cobro habitual:</span>
@@ -326,22 +329,22 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
       </div>
 
       {/* Bottom Action Footer */}
-      <div className="pt-3 border-t border-outline-variant/15 flex items-center justify-between gap-2">
+      <div className="mt-4 pt-3 border-t border-outline-variant/15 flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={() => onToggleExpand(contacto.id)}
-          className="text-xs text-on-surface-variant hover:text-on-surface flex items-center gap-1 font-medium"
+          className="min-h-[40px] px-3 text-xs text-on-surface-variant hover:text-on-surface rounded-full state-layer flex items-center gap-1 font-medium cursor-pointer"
         >
           <span>{isExpanded ? 'Ocultar' : 'Actividad'}</span>
           {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {isCli && onNewPresupuestoForCliente && (
             <button
               type="button"
               onClick={() => onNewPresupuestoForCliente(contacto.id)}
-              className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs rounded-full transition flex items-center gap-1"
+              className="px-4 py-2 bg-primary text-on-primary font-semibold text-xs rounded-full state-layer transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
               title="Crear nueva cotización para este cliente"
             >
               <FileText className="w-3.5 h-3.5" />
@@ -353,7 +356,7 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
             <button
               type="button"
               onClick={() => onNewRFQForProveedor(contacto.id)}
-              className="px-3 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-semibold text-xs rounded-full transition flex items-center gap-1"
+              className="px-4 py-2 bg-tertiary text-on-tertiary font-semibold text-xs rounded-full state-layer transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
               title="Crear nueva solicitud de precios RFQ"
             >
               <Send className="w-3.5 h-3.5" />

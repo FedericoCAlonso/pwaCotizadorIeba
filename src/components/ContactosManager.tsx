@@ -220,13 +220,13 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
       </div>
 
       {/* Filter Tabs & Search Bar */}
-      <div className="bg-surface-container-low p-3.5 sm:p-4 rounded-3xl border border-outline-variant/20 space-y-3 shadow-xs">
-        {/* Role Filter Tabs (M3 Filter Chips) */}
+      <div className="bg-surface-container-low p-4 rounded-2xl space-y-3">
+        {/* Role Filter Tabs (M3 Filter Chips: selectable action = rounded-full) */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none pb-1">
           <button
             type="button"
             onClick={() => setFilterRole('todos')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
               filterRole === 'todos'
                 ? 'bg-primary text-on-primary shadow-xs'
                 : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
@@ -234,7 +234,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           >
             <Users className="w-3.5 h-3.5" />
             <span>Todos</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 dark:bg-black/20">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20">
               {counts.todos}
             </span>
           </button>
@@ -242,7 +242,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           <button
             type="button"
             onClick={() => setFilterRole('cliente')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
               filterRole === 'cliente'
                 ? 'bg-primary text-on-primary shadow-xs'
                 : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
@@ -250,7 +250,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           >
             <Building className="w-3.5 h-3.5" />
             <span>Clientes</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 dark:bg-black/20">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20">
               {counts.cliente}
             </span>
           </button>
@@ -258,7 +258,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           <button
             type="button"
             onClick={() => setFilterRole('proveedor')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
               filterRole === 'proveedor'
                 ? 'bg-primary text-on-primary shadow-xs'
                 : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
@@ -266,7 +266,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           >
             <Truck className="w-3.5 h-3.5" />
             <span>Proveedores</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 dark:bg-black/20">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20">
               {counts.proveedor}
             </span>
           </button>
@@ -274,7 +274,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           <button
             type="button"
             onClick={() => setFilterRole('ambos')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
               filterRole === 'ambos'
                 ? 'bg-primary text-on-primary shadow-xs'
                 : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
@@ -282,7 +282,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>Ambos Roles</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 dark:bg-black/20">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20">
               {counts.ambos}
             </span>
           </button>

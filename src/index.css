@@ -4,76 +4,227 @@
 
 @layer base {
   :root {
-    /* MD3 Light Theme (Amber/Gold based) */
-    --md-sys-color-primary: #755b00;
-    --md-sys-color-on-primary: #ffffff;
-    --md-sys-color-primary-container: #ffdf97;
-    --md-sys-color-on-primary-container: #241a00;
-    --md-sys-color-secondary: #695e40;
-    --md-sys-color-on-secondary: #ffffff;
-    --md-sys-color-secondary-container: #f3e2b9;
-    --md-sys-color-on-secondary-container: #231b04;
-    --md-sys-color-tertiary: #496547;
-    --md-sys-color-on-tertiary: #ffffff;
-    --md-sys-color-tertiary-container: #cbebc4;
-    --md-sys-color-on-tertiary-container: #062109;
-    --md-sys-color-error: #ba1a1a;
-    --md-sys-color-on-error: #ffffff;
-    --md-sys-color-error-container: #ffdad6;
-    --md-sys-color-on-error-container: #410002;
-    --md-sys-color-background: #fff8f1;
-    --md-sys-color-on-background: #1f1b13;
-    --md-sys-color-surface: #fff8f1;
-    --md-sys-color-on-surface: #1f1b13;
-    --md-sys-color-surface-variant: #ebe2cf;
-    --md-sys-color-on-surface-variant: #4b4639;
-    --md-sys-color-outline: #7d7767;
-    --md-sys-color-outline-variant: #cec6b4;
-    --md-sys-color-surface-container-lowest: #ffffff;
-    --md-sys-color-surface-container-low: #f9f2ea;
-    --md-sys-color-surface-container: #f3ece4;
-    --md-sys-color-surface-container-high: #ede6de;
-    --md-sys-color-surface-container-highest: #e7e0d8;
+    /* ═══════════════════════════════════════════════════════════════════
+       1. ESCALAS TONALES DE REFERENCIA (13 PARADAS: 0 a 100)
+       Seed Color: #755B00 (Oliva / Oro Cálido)
+       ═══════════════════════════════════════════════════════════════════ */
+    
+    /* Primary Tonal Palette (Hue ~75, Chroma ~45) */
+    --md-ref-palette-primary-0: #000000;
+    --md-ref-palette-primary-10: #241a00;
+    --md-ref-palette-primary-20: #3e2e00;
+    --md-ref-palette-primary-30: #594400;
+    --md-ref-palette-primary-40: #755b00; /* Seed Light */
+    --md-ref-palette-primary-50: #927200;
+    --md-ref-palette-primary-60: #b18c00;
+    --md-ref-palette-primary-70: #d1a600;
+    --md-ref-palette-primary-80: #eec148; /* Seed Dark */
+    --md-ref-palette-primary-90: #ffdf97;
+    --md-ref-palette-primary-95: #ffeed0;
+    --md-ref-palette-primary-99: #fffbf7;
+    --md-ref-palette-primary-100: #ffffff;
+
+    /* Secondary Tonal Palette (Hue ~75, Chroma ~16 - Oliva Cálido) */
+    --md-ref-palette-secondary-0: #000000;
+    --md-ref-palette-secondary-10: #231b04;
+    --md-ref-palette-secondary-20: #392f15;
+    --md-ref-palette-secondary-30: #504629;
+    --md-ref-palette-secondary-40: #695e40;
+    --md-ref-palette-secondary-50: #827657;
+    --md-ref-palette-secondary-60: #9d906f;
+    --md-ref-palette-secondary-70: #b8aa88;
+    --md-ref-palette-secondary-80: #d4c6a2;
+    --md-ref-palette-secondary-90: #f1e2bd;
+    --md-ref-palette-secondary-95: #fff0cc;
+    --md-ref-palette-secondary-99: #fffbf7;
+    --md-ref-palette-secondary-100: #ffffff;
+
+    /* Tertiary Tonal Palette (Hue ~145, Chroma ~18 - Verde Salvia / Tierra) */
+    --md-ref-palette-tertiary-0: #000000;
+    --md-ref-palette-tertiary-10: #062109;
+    --md-ref-palette-tertiary-20: #1b361c;
+    --md-ref-palette-tertiary-30: #314d31;
+    --md-ref-palette-tertiary-40: #486548;
+    --md-ref-palette-tertiary-50: #607e5f;
+    --md-ref-palette-tertiary-60: #799877;
+    --md-ref-palette-tertiary-70: #94b391;
+    --md-ref-palette-tertiary-80: #afcfab;
+    --md-ref-palette-tertiary-90: #cbebc6;
+    --md-ref-palette-tertiary-95: #dafadb;
+    --md-ref-palette-tertiary-99: #f6fff4;
+    --md-ref-palette-tertiary-100: #ffffff;
+
+    /* Neutral Tonal Palette (Calidez Crema / Marfil) */
+    --md-ref-palette-neutral-0: #000000;
+    --md-ref-palette-neutral-10: #1f1b13;
+    --md-ref-palette-neutral-20: #343027;
+    --md-ref-palette-neutral-30: #4b463c;
+    --md-ref-palette-neutral-40: #635e53;
+    --md-ref-palette-neutral-50: #7c766b;
+    --md-ref-palette-neutral-60: #969084;
+    --md-ref-palette-neutral-70: #b1aa9e;
+    --md-ref-palette-neutral-80: #cdc5b9;
+    --md-ref-palette-neutral-90: #e9e1d4;
+    --md-ref-palette-neutral-95: #f8efe2;
+    --md-ref-palette-neutral-99: #fff8f1;
+    --md-ref-palette-neutral-100: #ffffff;
+
+    /* Neutral-Variant Tonal Palette (Contornos y Superficies Variantes) */
+    --md-ref-palette-neutral-variant-0: #000000;
+    --md-ref-palette-neutral-variant-10: #1d1b14;
+    --md-ref-palette-neutral-variant-20: #333027;
+    --md-ref-palette-neutral-variant-30: #4a463c;
+    --md-ref-palette-neutral-variant-40: #625e53;
+    --md-ref-palette-neutral-variant-50: #7b766b;
+    --md-ref-palette-neutral-variant-60: #959084;
+    --md-ref-palette-neutral-variant-70: #b0aa9d;
+    --md-ref-palette-neutral-variant-80: #ccc5b8;
+    --md-ref-palette-neutral-variant-90: #e8e2d4;
+    --md-ref-palette-neutral-variant-95: #f7f0e2;
+    --md-ref-palette-neutral-variant-99: #fff8f1;
+    --md-ref-palette-neutral-variant-100: #ffffff;
+
+    /* Error Tonal Palette */
+    --md-ref-palette-error-0: #000000;
+    --md-ref-palette-error-10: #410002;
+    --md-ref-palette-error-20: #690005;
+    --md-ref-palette-error-30: #93000a;
+    --md-ref-palette-error-40: #ba1a1a;
+    --md-ref-palette-error-50: #de3730;
+    --md-ref-palette-error-60: #ff5449;
+    --md-ref-palette-error-70: #ff897d;
+    --md-ref-palette-error-80: #ffb4ab;
+    --md-ref-palette-error-90: #ffdad6;
+    --md-ref-palette-error-95: #ffedea;
+    --md-ref-palette-error-99: #fffbff;
+    --md-ref-palette-error-100: #ffffff;
+
+    /* ═══════════════════════════════════════════════════════════════════
+       2. ROLES SEMÁNTICOS M3 — LIGHT THEME
+       ═══════════════════════════════════════════════════════════════════ */
+    --md-sys-color-primary: var(--md-ref-palette-primary-40);
+    --md-sys-color-on-primary: var(--md-ref-palette-primary-100);
+    --md-sys-color-primary-container: var(--md-ref-palette-primary-90);
+    --md-sys-color-on-primary-container: var(--md-ref-palette-primary-10);
+    --md-sys-color-primary-fixed: var(--md-ref-palette-primary-90);
+    --md-sys-color-primary-fixed-dim: var(--md-ref-palette-primary-80);
+    --md-sys-color-on-primary-fixed: var(--md-ref-palette-primary-10);
+    --md-sys-color-on-primary-fixed-variant: var(--md-ref-palette-primary-30);
+
+    --md-sys-color-secondary: var(--md-ref-palette-secondary-40);
+    --md-sys-color-on-secondary: var(--md-ref-palette-secondary-100);
+    --md-sys-color-secondary-container: var(--md-ref-palette-secondary-90);
+    --md-sys-color-on-secondary-container: var(--md-ref-palette-secondary-10);
+    --md-sys-color-secondary-fixed: var(--md-ref-palette-secondary-90);
+    --md-sys-color-secondary-fixed-dim: var(--md-ref-palette-secondary-80);
+    --md-sys-color-on-secondary-fixed: var(--md-ref-palette-secondary-10);
+    --md-sys-color-on-secondary-fixed-variant: var(--md-ref-palette-secondary-30);
+
+    --md-sys-color-tertiary: var(--md-ref-palette-tertiary-40);
+    --md-sys-color-on-tertiary: var(--md-ref-palette-tertiary-100);
+    --md-sys-color-tertiary-container: var(--md-ref-palette-tertiary-90);
+    --md-sys-color-on-tertiary-container: var(--md-ref-palette-tertiary-10);
+    --md-sys-color-tertiary-fixed: var(--md-ref-palette-tertiary-90);
+    --md-sys-color-tertiary-fixed-dim: var(--md-ref-palette-tertiary-80);
+    --md-sys-color-on-tertiary-fixed: var(--md-ref-palette-tertiary-10);
+    --md-sys-color-on-tertiary-fixed-variant: var(--md-ref-palette-tertiary-30);
+
+    --md-sys-color-error: var(--md-ref-palette-error-40);
+    --md-sys-color-on-error: var(--md-ref-palette-error-100);
+    --md-sys-color-error-container: var(--md-ref-palette-error-90);
+    --md-sys-color-on-error-container: var(--md-ref-palette-error-10);
+
+    /* Superficies y Fondos Light */
+    --md-sys-color-surface: var(--md-ref-palette-neutral-99);
+    --md-sys-color-on-surface: var(--md-ref-palette-neutral-10);
+    --md-sys-color-surface-variant: var(--md-ref-palette-neutral-variant-90);
+    --md-sys-color-on-surface-variant: var(--md-ref-palette-neutral-variant-30);
+
+    --md-sys-color-surface-container-lowest: var(--md-ref-palette-neutral-100);
+    --md-sys-color-surface-container-low: var(--md-ref-palette-neutral-95);
+    --md-sys-color-surface-container: var(--md-ref-palette-neutral-90);
+    --md-sys-color-surface-container-high: var(--md-ref-palette-neutral-variant-90);
+    --md-sys-color-surface-container-highest: var(--md-ref-palette-neutral-variant-80);
+
+    --md-sys-color-outline: var(--md-ref-palette-neutral-variant-50);
+    --md-sys-color-outline-variant: var(--md-ref-palette-neutral-variant-80);
+
+    --md-sys-color-inverse-surface: var(--md-ref-palette-neutral-20);
+    --md-sys-color-inverse-on-surface: var(--md-ref-palette-neutral-95);
+    --md-sys-color-inverse-primary: var(--md-ref-palette-primary-80);
+    --md-sys-color-shadow: #000000;
+    --md-sys-color-scrim: #000000;
+
+    /* Brand Externa */
+    --brand-whatsapp: #25D366;
   }
 
   .dark {
-    /* MD3 Dark Theme */
-    --md-sys-color-primary: #eec148;
-    --md-sys-color-on-primary: #3e2e00;
-    --md-sys-color-primary-container: #594400;
-    --md-sys-color-on-primary-container: #ffdf97;
-    --md-sys-color-secondary: #d6c69f;
-    --md-sys-color-on-secondary: #392f15;
-    --md-sys-color-secondary-container: #51462a;
-    --md-sys-color-on-secondary-container: #f3e2b9;
-    --md-sys-color-tertiary: #afcfaa;
-    --md-sys-color-on-tertiary: #1b361c;
-    --md-sys-color-tertiary-container: #324d31;
-    --md-sys-color-on-tertiary-container: #cbebc4;
-    --md-sys-color-error: #ffb4ab;
-    --md-sys-color-on-error: #690005;
-    --md-sys-color-error-container: #93000a;
-    --md-sys-color-on-error-container: #ffb4ab;
-    --md-sys-color-background: #16130b;
-    --md-sys-color-on-background: #e8e2d4;
-    --md-sys-color-surface: #16130b;
-    --md-sys-color-on-surface: #e8e2d4;
-    --md-sys-color-surface-variant: #4b4639;
-    --md-sys-color-on-surface-variant: #cec6b4;
-    --md-sys-color-outline: #979080;
-    --md-sys-color-outline-variant: #4b4639;
-    --md-sys-color-surface-container-lowest: #110e07;
-    --md-sys-color-surface-container-low: #1f1b13;
-    --md-sys-color-surface-container: #231f17;
-    --md-sys-color-surface-container-high: #2e2a21;
-    --md-sys-color-surface-container-highest: #39342b;
+    /* ═══════════════════════════════════════════════════════════════════
+       3. ROLES SEMÁNTICOS M3 — DARK THEME
+       ═══════════════════════════════════════════════════════════════════ */
+    --md-sys-color-primary: var(--md-ref-palette-primary-80);
+    --md-sys-color-on-primary: var(--md-ref-palette-primary-20);
+    --md-sys-color-primary-container: var(--md-ref-palette-primary-30);
+    --md-sys-color-on-primary-container: var(--md-ref-palette-primary-90);
+    --md-sys-color-primary-fixed: var(--md-ref-palette-primary-90);
+    --md-sys-color-primary-fixed-dim: var(--md-ref-palette-primary-80);
+    --md-sys-color-on-primary-fixed: var(--md-ref-palette-primary-10);
+    --md-sys-color-on-primary-fixed-variant: var(--md-ref-palette-primary-30);
+
+    --md-sys-color-secondary: var(--md-ref-palette-secondary-80);
+    --md-sys-color-on-secondary: var(--md-ref-palette-secondary-20);
+    --md-sys-color-secondary-container: var(--md-ref-palette-secondary-30);
+    --md-sys-color-on-secondary-container: var(--md-ref-palette-secondary-90);
+    --md-sys-color-secondary-fixed: var(--md-ref-palette-secondary-90);
+    --md-sys-color-secondary-fixed-dim: var(--md-ref-palette-secondary-80);
+    --md-sys-color-on-secondary-fixed: var(--md-ref-palette-secondary-10);
+    --md-sys-color-on-secondary-fixed-variant: var(--md-ref-palette-secondary-30);
+
+    --md-sys-color-tertiary: var(--md-ref-palette-tertiary-80);
+    --md-sys-color-on-tertiary: var(--md-ref-palette-tertiary-20);
+    --md-sys-color-tertiary-container: var(--md-ref-palette-tertiary-30);
+    --md-sys-color-on-tertiary-container: var(--md-ref-palette-tertiary-90);
+    --md-sys-color-tertiary-fixed: var(--md-ref-palette-tertiary-90);
+    --md-sys-color-tertiary-fixed-dim: var(--md-ref-palette-tertiary-80);
+    --md-sys-color-on-tertiary-fixed: var(--md-ref-palette-tertiary-10);
+    --md-sys-color-on-tertiary-fixed-variant: var(--md-ref-palette-tertiary-30);
+
+    --md-sys-color-error: var(--md-ref-palette-error-80);
+    --md-sys-color-on-error: var(--md-ref-palette-error-20);
+    --md-sys-color-error-container: var(--md-ref-palette-error-30);
+    --md-sys-color-on-error-container: var(--md-ref-palette-error-90);
+
+    /* Superficies y Fondos Dark */
+    --md-sys-color-surface: var(--md-ref-palette-neutral-10);
+    --md-sys-color-on-surface: var(--md-ref-palette-neutral-90);
+    --md-sys-color-surface-variant: var(--md-ref-palette-neutral-variant-30);
+    --md-sys-color-on-surface-variant: var(--md-ref-palette-neutral-variant-80);
+
+    --md-sys-color-surface-container-lowest: #0e0c08;
+    --md-sys-color-surface-container-low: var(--md-ref-palette-neutral-10);
+    --md-sys-color-surface-container: var(--md-ref-palette-neutral-20);
+    --md-sys-color-surface-container-high: var(--md-ref-palette-neutral-30);
+    --md-sys-color-surface-container-highest: var(--md-ref-palette-neutral-40);
+
+    --md-sys-color-outline: var(--md-ref-palette-neutral-variant-60);
+    --md-sys-color-outline-variant: var(--md-ref-palette-neutral-variant-30);
+
+    --md-sys-color-inverse-surface: var(--md-ref-palette-neutral-90);
+    --md-sys-color-inverse-on-surface: var(--md-ref-palette-neutral-20);
+    --md-sys-color-inverse-primary: var(--md-ref-palette-primary-40);
+    --md-sys-color-shadow: #000000;
+    --md-sys-color-scrim: #000000;
+
+    /* Brand Externa */
+    --brand-whatsapp: #25D366;
   }
 
   body {
     font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color-scheme: dark;
-    background-color: var(--md-sys-color-background);
-    color: var(--md-sys-color-on-background);
+    color-scheme: light dark;
+    background-color: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-surface);
   }
 
   code, pre, .font-mono {
@@ -84,6 +235,40 @@
     transition-property: color, background-color, border-color, opacity, box-shadow, transform;
     transition-timing-function: cubic-bezier(0.2, 0, 0, 1); /* MD3 Standard easing */
     transition-duration: 200ms;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   4. STATE LAYERS M3 (OVERLAYS DE OPACIDAD SOBRE CURRENTCOLOR)
+   Hover: 8% | Focus-Visible: 12% | Active (Pressed): 12%
+   ═══════════════════════════════════════════════════════════════════ */
+@layer utilities {
+  .state-layer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .state-layer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: currentColor;
+    opacity: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    transition: opacity 150ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .state-layer:hover::after {
+    opacity: 0.08; /* 8% M3 Hover */
+  }
+
+  .state-layer:focus-visible::after {
+    opacity: 0.12; /* 12% M3 Focus */
+  }
+
+  .state-layer:active::after {
+    opacity: 0.12; /* 12% M3 Pressed */
   }
 }
 
@@ -151,16 +336,5 @@ input[type=number] {
   }
   .no-print {
     display: none !important;
-  }
-  .print-only {
-    display: block !important;
-  }
-  .printable-document {
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    box-shadow: none !important;
-    background: white !important;
-    color: black !important;
   }
 }

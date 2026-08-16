@@ -14,31 +14,31 @@ export const EstadoBadge: React.FC<EstadoBadgeProps> = ({ estado, size = 'sm' })
   switch (estado) {
     case 'aprobado':
       return (
-        <span className={`inline-flex items-center gap-1 font-semibold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ${textCls}`}>
+        <span className={`inline-flex items-center gap-1 font-semibold rounded-lg bg-tertiary-container text-on-tertiary-container select-none ${textCls}`}>
           <CheckCircle className={iconCls} /> Aprobado
         </span>
       );
     case 'enviado':
       return (
-        <span className={`inline-flex items-center gap-1 font-semibold rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 ${textCls}`}>
+        <span className={`inline-flex items-center gap-1 font-semibold rounded-lg bg-secondary-container text-on-secondary-container select-none ${textCls}`}>
           <FileCheck className={iconCls} /> Enviado
         </span>
       );
     case 'borrador':
       return (
-        <span className={`inline-flex items-center gap-1 font-semibold rounded-full bg-slate-500/10 text-slate-600 dark:text-slate-400 ${textCls}`}>
+        <span className={`inline-flex items-center gap-1 font-semibold rounded-lg bg-surface-container-highest text-on-surface-variant select-none ${textCls}`}>
           <Clock className={iconCls} /> Borrador
         </span>
       );
     case 'rechazado':
       return (
-        <span className={`inline-flex items-center gap-1 font-semibold rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 ${textCls}`}>
+        <span className={`inline-flex items-center gap-1 font-semibold rounded-lg bg-error-container text-on-error-container select-none ${textCls}`}>
           <XCircle className={iconCls} /> Rechazado
         </span>
       );
     case 'vencido':
       return (
-        <span className={`inline-flex items-center gap-1 font-semibold rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 ${textCls}`}>
+        <span className={`inline-flex items-center gap-1 font-semibold rounded-lg bg-primary-container text-on-primary-container select-none ${textCls}`}>
           <AlertTriangle className={iconCls} /> Vencido
         </span>
       );

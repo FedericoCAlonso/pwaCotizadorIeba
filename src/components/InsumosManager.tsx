@@ -675,7 +675,7 @@ export const InsumosManager: React.FC = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-24">
       {/* Top Header & Tab Navigation */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container p-6 rounded-3xl border border-outline-variant/20 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container-low p-4 rounded-2xl">
         <div>
           <h2 className="text-xl font-bold text-on-surface flex items-center gap-2.5">
             <Package className="w-6 h-6 text-primary" />
@@ -686,13 +686,13 @@ export const InsumosManager: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 bg-surface-container-high p-1.5 rounded-2xl border border-outline-variant/20 self-stretch sm:self-auto">
+        <div className="flex items-center gap-1.5 bg-surface-container p-1 rounded-2xl self-stretch sm:self-auto">
           <button
             type="button"
             onClick={() => setActiveTab('materiales')}
-            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 state-layer transition-all cursor-pointer ${
               activeTab === 'materiales'
-                ? 'bg-primary text-on-primary shadow-sm'
+                ? 'bg-primary text-on-primary shadow-xs'
                 : 'text-on-surface-variant hover:text-on-surface'
             }`}
           >
@@ -702,9 +702,9 @@ export const InsumosManager: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('categorias')}
-            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 state-layer transition-all cursor-pointer ${
               activeTab === 'categorias'
-                ? 'bg-primary text-on-primary shadow-sm'
+                ? 'bg-primary text-on-primary shadow-xs'
                 : 'text-on-surface-variant hover:text-on-surface'
             }`}
           >
@@ -724,7 +724,7 @@ export const InsumosManager: React.FC = () => {
       ) : (
         <div className="space-y-4">
           {/* Main Action Bar */}
-          <div className="bg-surface-container-low p-4 rounded-3xl border border-outline-variant/20 space-y-3">
+          <div className="bg-surface-container-low p-4 rounded-2xl space-y-3">
             <div className="flex flex-col md:flex-row items-center justify-between gap-3">
               {/* Search Bar */}
               <div className="relative flex-1 w-full">
@@ -1077,8 +1077,8 @@ export const InsumosManager: React.FC = () => {
                 return (
                   <div
                     key={mat.id}
-                    className={`bg-surface-container-low border rounded-3xl p-5 hover:bg-surface-container/60 transition-all flex flex-col justify-between shadow-sm relative ${
-                      isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-outline-variant/20'
+                    className={`bg-surface-container-low hover:bg-surface-container-high rounded-2xl p-5 transition-colors flex flex-col justify-between relative ${
+                      isSelected ? 'ring-2 ring-primary bg-primary-container/10' : ''
                     }`}
                   >
                     <div>
@@ -1090,7 +1090,7 @@ export const InsumosManager: React.FC = () => {
                             onChange={() => handleToggleSelectMaterial(mat.id)}
                             className="w-4 h-4 text-primary rounded cursor-pointer"
                           />
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-0.5 rounded-full">
+                          <span className="text-[11px] font-semibold text-on-primary-container bg-primary-container px-2.5 py-0.5 rounded-lg select-none">
                             {cat?.nombre || 'General'}
                           </span>
                         </div>
@@ -1115,13 +1115,13 @@ export const InsumosManager: React.FC = () => {
                       </h4>
 
                       {mat.fichaIncompleta && (
-                        <div className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
+                        <div className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-semibold select-none">
                           <AlertCircle className="w-3.5 h-3.5" />
                           <span>Ficha Incompleta (Alta Rápida)</span>
                         </div>
                       )}
 
-                      {/* Technical Attributes Chips */}
+                      {/* Technical Attributes Chips (8dp) */}
                       {mat.atributos && mat.atributos.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1">
                           {mat.atributos
@@ -1129,7 +1129,7 @@ export const InsumosManager: React.FC = () => {
                             .map((a, idx) => (
                               <span
                                 key={idx}
-                                className="text-[10px] bg-surface-container text-on-surface-variant px-2 py-0.5 rounded-md font-mono border border-outline-variant/10"
+                                className="text-[11px] bg-surface-container text-on-surface-variant px-2.5 py-0.5 rounded-lg font-mono select-none"
                               >
                                 {a.clave}: {a.valor}
                               </span>
@@ -1144,7 +1144,7 @@ export const InsumosManager: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenCreateProd(mat.id)}
-                            className="text-primary hover:underline font-semibold text-[10px]"
+                            className="text-primary hover:underline font-semibold text-[11px] cursor-pointer"
                           >
                             + Agregar Marca
                           </button>
@@ -1154,16 +1154,16 @@ export const InsumosManager: React.FC = () => {
                             {prods.map((p) => (
                               <div
                                 key={p.id}
-                                className="text-[10px] bg-surface-container-highest px-2 py-0.5 rounded-lg flex items-center gap-1 font-medium group"
+                                className="text-[11px] bg-surface-container-highest text-on-surface-variant px-2.5 py-0.5 rounded-lg flex items-center gap-1 font-medium group select-none"
                               >
-                                {p.esPreferido && <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />}
+                                {p.esPreferido && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}
                                 <span>
                                   {p.marca} {p.modelo ? `(${p.modelo})` : ''}
                                 </span>
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteProducto(p.id)}
-                                  className="text-on-surface-variant hover:text-rose-500 ml-1 opacity-60 group-hover:opacity-100 transition-opacity"
+                                  className="text-on-surface-variant hover:text-error ml-1 opacity-60 group-hover:opacity-100 transition-opacity cursor-pointer"
                                 >
                                   ×
                                 </button>
@@ -1171,13 +1171,13 @@ export const InsumosManager: React.FC = () => {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-[10px] text-on-surface-variant italic">Genérico</p>
+                          <p className="text-[11px] text-on-surface-variant italic">Genérico</p>
                         )}
                       </div>
                     </div>
 
                     {/* Pricing & Footer Actions */}
-                    <div className="mt-4 pt-3 border-t border-outline-variant/20 flex items-center justify-between">
+                    <div className="mt-4 pt-3 border-t border-outline-variant/15 flex items-center justify-between">
                       <div>
                         <span className="text-[10px] text-on-surface-variant block font-mono">
                           Precio Vigente /{mat.unidadVenta || 'u'}:
@@ -1192,36 +1192,40 @@ export const InsumosManager: React.FC = () => {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         <button
                           type="button"
                           onClick={() => handleOpenCreateOferta(mat.id)}
-                          className="p-2 text-on-surface-variant hover:text-emerald-500 hover:bg-surface-container-highest rounded-xl transition-colors"
+                          className="min-w-[40px] min-h-[40px] p-2 text-on-surface-variant hover:text-primary rounded-full state-layer transition-colors flex items-center justify-center cursor-pointer"
                           title="Cargar nuevo precio / oferta"
+                          aria-label="Cargar nuevo precio"
                         >
                           <TrendingUp className="w-4 h-4" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDuplicateMat(mat)}
-                          className="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-highest rounded-xl transition-colors"
+                          className="min-w-[40px] min-h-[40px] p-2 text-on-surface-variant hover:text-primary rounded-full state-layer transition-colors flex items-center justify-center cursor-pointer"
                           title="Duplicar material"
+                          aria-label="Duplicar material"
                         >
                           <Copy className="w-4 h-4" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleOpenEditMat(mat)}
-                          className="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-highest rounded-xl transition-colors"
+                          className="min-w-[40px] min-h-[40px] p-2 text-on-surface-variant hover:text-primary rounded-full state-layer transition-colors flex items-center justify-center cursor-pointer"
                           title="Editar ficha técnica"
+                          aria-label="Editar ficha técnica"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteMaterial(mat.id)}
-                          className="p-2 text-on-surface-variant hover:text-rose-500 hover:bg-surface-container-highest rounded-xl transition-colors"
+                          className="min-w-[40px] min-h-[40px] p-2 text-on-surface-variant hover:text-error rounded-full state-layer transition-colors flex items-center justify-center cursor-pointer"
                           title="Eliminar material"
+                          aria-label="Eliminar material"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

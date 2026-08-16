@@ -92,13 +92,13 @@ const AttributeOptionsEditor: React.FC<AttributeOptionsEditorProps> = ({
           {opciones.map((opt, oIdx) => (
             <span
               key={oIdx}
-              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-medium bg-primary/10 text-primary border border-primary/20 shadow-2xs group"
+              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-medium bg-secondary-container text-on-secondary-container border border-outline-variant/20 shadow-2xs group select-none"
             >
               <span>{opt}</span>
               <button
                 type="button"
                 onClick={() => removeOption(oIdx)}
-                className="text-primary/70 hover:text-rose-500 rounded-full p-0.5 transition-colors"
+                className="text-on-secondary-container/70 hover:text-error rounded-md p-0.5 transition-colors cursor-pointer"
                 title={`Quitar "${opt}"`}
               >
                 <X className="w-3 h-3" />
@@ -120,13 +120,13 @@ const AttributeOptionsEditor: React.FC<AttributeOptionsEditorProps> = ({
             if (inputValue.trim()) addOption(inputValue);
           }}
           placeholder="Escribir opción y presionar Enter (o pegar lista separada por comas)..."
-          className={`${inputCls} text-xs py-1.5 min-h-[36px] bg-surface-container`}
+          className={`${inputCls} text-xs py-1.5 min-h-[40px] bg-surface-container`}
         />
         <button
           type="button"
           onClick={() => addOption(inputValue)}
           disabled={!inputValue.trim()}
-          className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 disabled:opacity-40 text-primary font-semibold text-xs rounded-xl transition-colors h-[36px] shrink-0"
+          className="px-3.5 py-1.5 bg-primary/10 hover:bg-primary/20 disabled:opacity-40 text-primary font-semibold text-xs rounded-full state-layer transition-colors h-[40px] shrink-0 cursor-pointer"
         >
           + Agregar
         </button>
@@ -185,18 +185,18 @@ const AttributeDependenciesEditor: React.FC<AttributeDependenciesEditorProps> = 
         >
           <Sliders className="w-3.5 h-3.5" />
           <span>Reglas Condicionales / Dependencias ({dependencias.length})</span>
-          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         </button>
 
         {dependencias.length > 0 && !isExpanded && (
-          <span className="text-[10px] bg-purple-500/15 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full font-bold">
+          <span className="text-[10px] bg-tertiary-container text-on-tertiary-container px-2 py-0.5 rounded-lg font-bold select-none">
             {dependencias.length} regla{dependencias.length !== 1 ? 's' : ''} activa{dependencias.length !== 1 ? 's' : ''}
           </span>
         )}
       </div>
 
       {isExpanded && (
-        <div className="mt-2.5 space-y-3 p-3 bg-surface-container-high/60 rounded-2xl border border-outline-variant/30">
+        <div className="mt-2.5 space-y-3 p-3 bg-surface-container-high/60 rounded-xl border border-outline-variant/30">
           <div className="flex items-center justify-between">
             <p className="text-[10px] text-on-surface-variant">
               Aplica reglas automáticas cuando el usuario selecciona un valor específico en otro atributo de esta categoría.
@@ -204,7 +204,7 @@ const AttributeDependenciesEditor: React.FC<AttributeDependenciesEditorProps> = 
             <button
               type="button"
               onClick={addDependency}
-              className="text-[11px] text-primary font-bold hover:underline flex items-center gap-1 shrink-0 ml-2"
+              className="text-[11px] text-primary font-bold hover:underline flex items-center gap-1 shrink-0 ml-2 cursor-pointer"
             >
               <Plus className="w-3 h-3" /> Agregar Regla
             </button>
@@ -233,7 +233,7 @@ const AttributeDependenciesEditor: React.FC<AttributeDependenciesEditorProps> = 
                       <button
                         type="button"
                         onClick={() => removeDependency(dIdx)}
-                        className="text-on-surface-variant hover:text-rose-500 p-1 rounded-lg transition-colors"
+                        className="text-on-surface-variant hover:text-error p-1.5 rounded-lg transition-colors cursor-pointer"
                         title="Eliminar regla"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -248,7 +248,7 @@ const AttributeDependenciesEditor: React.FC<AttributeDependenciesEditorProps> = 
                         <select
                           value={dep.dependeVinculo}
                           onChange={(e) => updateDependency(dIdx, 'dependeVinculo', e.target.value)}
-                          className={`${inputCls} text-xs py-1 min-h-[36px]`}
+                          className={`${inputCls} text-xs py-1 min-h-[38px]`}
                         >
                           <option value="">-- Seleccionar Atributo Origen --</option>
                           {availableAttributes.map((a) => (
@@ -267,7 +267,7 @@ const AttributeDependenciesEditor: React.FC<AttributeDependenciesEditorProps> = 
                           <select
                             value={dep.valorEsperado}
                             onChange={(e) => updateDependency(dIdx, 'valorEsperado', e.target.value)}
-                            className={`${inputCls} text-xs py-1 min-h-[36px]`}
+                            className={`${inputCls} text-xs py-1 min-h-[38px]`}
                           >
                             <option value="">-- Seleccionar Valor Esperado --</option>
                             {sourceOptions.map((opt) => (
@@ -282,7 +282,7 @@ const AttributeDependenciesEditor: React.FC<AttributeDependenciesEditorProps> = 
                             value={dep.valorEsperado}
                             onChange={(e) => updateDependency(dIdx, 'valorEsperado', e.target.value)}
                             placeholder="Ej: Termomagnética (PIA)"
-                            className={`${inputCls} text-xs py-1 min-h-[36px]`}
+                            className={`${inputCls} text-xs py-1 min-h-[38px]`}
                           />
                         )}
                       </div>
@@ -315,7 +315,7 @@ const AttributeDependenciesEditor: React.FC<AttributeDependenciesEditorProps> = 
                                 value={dep.valorFijo || ''}
                                 onChange={(e) => updateDependency(dIdx, 'valorFijo', e.target.value)}
                                 placeholder="Ej: N/A o 1"
-                                className={`${inputCls} text-xs py-1 min-h-[32px] font-mono`}
+                                className={`${inputCls} text-xs py-1 min-h-[34px] font-mono`}
                               />
                             </div>
                           )}
@@ -325,7 +325,7 @@ const AttributeDependenciesEditor: React.FC<AttributeDependenciesEditorProps> = 
                         {currentAttributeOptions.length > 0 && !dep.bloqueado && (
                           <div className="space-y-1.5 pt-1">
                             <span className="text-[10px] text-on-surface-variant font-medium block">
-                              Filtrar opciones permitidas (haz clic para activar/desactivar opciones permitidas):
+                              Filtrar opciones permitidas (haz clic para activar/desactivar):
                             </span>
                             <div className="flex flex-wrap gap-1.5">
                               {currentAttributeOptions.map((opt) => {
@@ -345,7 +345,7 @@ const AttributeDependenciesEditor: React.FC<AttributeDependenciesEditorProps> = 
                                         next.length > 0 ? next : undefined
                                       );
                                     }}
-                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all cursor-pointer ${
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all cursor-pointer select-none ${
                                       isFiltered
                                         ? 'bg-primary text-on-primary border-primary shadow-2xs'
                                         : 'bg-surface-container-highest text-on-surface-variant border-outline-variant/30 hover:border-primary/50'
@@ -528,7 +528,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-low p-4 rounded-3xl border border-outline-variant/20">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-low p-4 rounded-2xl">
         <div>
           <h3 className="font-bold text-on-surface text-base">Familias & Categorías de Materiales</h3>
           <p className="text-xs text-on-surface-variant">
@@ -539,7 +539,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
           <button
             type="button"
             onClick={handleRestoreInitialCategories}
-            className="px-3.5 py-2 bg-surface-container-highest hover:bg-surface-variant text-on-surface-variant rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-4 py-2 bg-surface-container-highest text-on-surface-variant rounded-full text-xs font-semibold flex items-center gap-1.5 state-layer transition-colors cursor-pointer"
             title="Restablecer categorías y atributos iniciales"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -548,7 +548,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
           <button
             type="button"
             onClick={handleOpenCreateCat}
-            className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs transition-colors shadow-sm cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-2 bg-primary text-on-primary font-semibold rounded-full text-xs state-layer transition-colors shadow-sm cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Nueva Categoría</span>
@@ -558,7 +558,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
 
       {/* Grid de Categorías */}
       {categorias.length === 0 ? (
-        <div className="text-center py-16 bg-surface-container-low border border-dashed border-outline-variant/30 rounded-3xl p-6">
+        <div className="text-center py-16 bg-surface-container-low rounded-2xl p-6">
           <p className="text-sm text-on-surface-variant">No hay categorías cargadas.</p>
         </div>
       ) : (
@@ -568,36 +568,37 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
             return (
               <div
                 key={cat.id}
-                className="bg-surface-container-low border border-outline-variant/20 rounded-3xl p-5 hover:bg-surface-container/60 transition-all flex flex-col justify-between shadow-sm"
+                className="bg-surface-container-low hover:bg-surface-container-high rounded-2xl p-5 transition-colors flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5">
-                      <div className="p-2 bg-primary/10 text-primary rounded-xl">
+                      <div className="p-2.5 bg-primary-container text-on-primary-container rounded-xl">
                         <Layers className="w-4 h-4" />
                       </div>
                       <h4 className="font-bold text-on-surface text-base">{cat.nombre}</h4>
                     </div>
-                    <span className="text-[11px] font-medium text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded-full shrink-0">
+                    {/* Chip M3: 8dp (rounded-lg) */}
+                    <span className="text-[11px] font-medium text-on-surface-variant bg-surface-container-highest px-2.5 py-0.5 rounded-lg shrink-0 select-none">
                       {matCount} material{matCount !== 1 ? 'es' : ''}
                     </span>
                   </div>
 
-                  <div className="mt-3">
-                    <p className="text-[11px] font-semibold text-on-surface-variant mb-1">Atributos Sugeridos:</p>
+                  <div className="mt-3.5">
+                    <p className="text-[11px] font-semibold text-on-surface-variant mb-1.5">Atributos Sugeridos:</p>
                     {cat.atributosSugeridos && cat.atributosSugeridos.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
                         {cat.atributosSugeridos.map((at, idx) => (
                           <span
                             key={idx}
-                            className="inline-flex items-center gap-1 text-[10px] bg-surface-container text-on-surface-variant px-2 py-0.5 rounded-md border border-outline-variant/20 font-mono"
+                            className="inline-flex items-center gap-1 text-[11px] bg-surface-container text-on-surface-variant px-2.5 py-0.5 rounded-lg font-mono select-none"
                           >
                             <span>
                               {at.etiqueta || at.clave} {at.unidad ? `(${at.unidad})` : ''}
                             </span>
                             {at.opciones && at.opciones.length > 0 && (
                               <span
-                                className="text-[9px] bg-primary/15 text-primary px-1 rounded font-bold"
+                                className="text-[10px] bg-secondary-container text-on-secondary-container px-1.5 py-0.5 rounded-md font-bold"
                                 title={`Desplegable con ${at.opciones.length} opciones: ${at.opciones.join(', ')}`}
                               >
                                 {at.opciones.length} opt
@@ -605,7 +606,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                             )}
                             {at.dependencias && at.dependencias.length > 0 && (
                               <span
-                                className="text-[9px] bg-purple-500/15 text-purple-700 dark:text-purple-300 px-1 rounded font-bold"
+                                className="text-[10px] bg-tertiary-container text-on-tertiary-container px-1.5 py-0.5 rounded-md font-bold"
                                 title={`Reglas condicionales activas: ${at.dependencias.length}`}
                               >
                                 ⚙️ {at.dependencias.length}
@@ -620,20 +621,23 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-outline-variant/20 flex justify-end gap-1">
+                {/* Touch targets M3: 48x48px mínimo con state layer */}
+                <div className="mt-4 pt-3 border-t border-outline-variant/15 flex justify-end gap-1">
                   <button
                     onClick={() => handleOpenEditCat(cat)}
-                    className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-container-highest rounded-lg transition-colors cursor-pointer"
+                    className="min-w-[48px] min-h-[48px] p-3 text-on-surface-variant hover:text-primary rounded-full state-layer transition-colors flex items-center justify-center cursor-pointer"
                     title="Editar Categoría"
+                    aria-label={`Editar categoría ${cat.nombre}`}
                   >
-                    <Edit2 className="w-3.5 h-3.5" />
+                    <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDeleteCat(cat.id)}
-                    className="p-1.5 text-on-surface-variant hover:text-rose-500 hover:bg-surface-container-highest rounded-lg transition-colors cursor-pointer"
+                    className="min-w-[48px] min-h-[48px] p-3 text-on-surface-variant hover:text-error rounded-full state-layer transition-colors flex items-center justify-center cursor-pointer"
                     title="Eliminar Categoría"
+                    aria-label={`Eliminar categoría ${cat.nombre}`}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -645,12 +649,15 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
       {/* Modal Crear / Editar Categoría */}
       {isCreatingCat && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-3xl shadow-2xl p-6 text-on-surface max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between mb-4 border-b border-outline-variant/30 pb-3 shrink-0">
+          <div className="bg-surface-container rounded-2xl w-full max-w-3xl shadow-2xl p-6 text-on-surface max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4 border-b border-outline-variant/20 pb-3 shrink-0">
               <h3 className="text-base font-semibold text-on-surface">
                 {editingCat ? 'Editar Categoría de Material' : 'Nueva Categoría de Material'}
               </h3>
-              <button onClick={() => setIsCreatingCat(false)} className="text-on-surface-variant hover:text-on-surface p-1 cursor-pointer">
+              <button
+                onClick={() => setIsCreatingCat(false)}
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center text-on-surface-variant hover:text-on-surface rounded-full state-layer cursor-pointer"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -706,7 +713,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                     return (
                       <div
                         key={idx}
-                        className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/25 space-y-2.5"
+                        className="bg-surface-container-low p-4 rounded-xl space-y-2.5"
                       >
                         <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                           <div className="sm:col-span-4">
@@ -764,10 +771,10 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                             <button
                               type="button"
                               onClick={() => handleRemoveAtributoField(idx)}
-                              className="p-1.5 text-on-surface-variant hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                              className="p-2 text-on-surface-variant hover:text-error rounded-full state-layer transition-colors cursor-pointer"
                               title="Eliminar atributo"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
@@ -792,12 +799,12 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                   })}
 
                   {formDataCat.atributosSugeridos.length === 0 && (
-                    <div className="text-xs text-on-surface-variant italic py-6 text-center bg-surface-container-low rounded-2xl border border-dashed border-outline-variant/30 space-y-2">
+                    <div className="text-xs text-on-surface-variant italic py-6 text-center bg-surface-container-low rounded-xl space-y-2">
                       <p>Sin atributos técnicos normativos definidos para esta categoría.</p>
                       <button
                         type="button"
                         onClick={handleAddAtributoField}
-                        className="px-3 py-1.5 bg-primary/10 text-primary font-semibold text-xs rounded-full hover:bg-primary/20 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                        className="px-4 py-2 bg-primary text-on-primary font-semibold text-xs rounded-full state-layer transition-colors inline-flex items-center gap-1.5 cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" /> Agregar primer atributo
                       </button>
@@ -806,17 +813,17 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2 shrink-0">
+              <div className="pt-3 border-t border-outline-variant/20 flex justify-end gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsCreatingCat(false)}
-                  className="px-4 py-2 rounded-full text-sm text-on-surface-variant hover:bg-surface-variant cursor-pointer"
+                  className="px-5 py-2.5 rounded-full text-xs font-semibold text-on-surface-variant hover:bg-surface-variant state-layer cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-sm shadow-sm cursor-pointer"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-primary text-on-primary font-semibold rounded-full text-xs state-layer shadow-sm cursor-pointer"
                 >
                   <Save className="w-3.5 h-3.5" /> Guardar Categoría
                 </button>

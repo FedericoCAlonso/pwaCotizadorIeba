@@ -59,7 +59,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                 : 'Descripción de la Partida'}
             </label>
             {item.esAdHoc && (
-              <span className="text-[9px] font-bold px-2 py-0.2 rounded-full bg-purple-500/20 text-purple-700 dark:text-purple-300">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-tertiary-container text-on-tertiary-container select-none">
                 Ad-Hoc
               </span>
             )}
