@@ -1,20 +1,45 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  Package, Plus, Search, TrendingUp, FileSpreadsheet,
-  Edit2, Trash2, X, Save, AlertCircle, Star, Tag, Layers, RefreshCw, Zap, ExternalLink, Copy, LayoutGrid, List, Sparkles,
-  SlidersHorizontal, MoreVertical, FileText, Check
+  Package,
+  Plus,
+  Search,
+  TrendingUp,
+  FileSpreadsheet,
+  Edit2,
+  Trash2,
+  AlertCircle,
+  Star,
+  Tag,
+  Layers,
+  Zap,
+  ExternalLink,
+  Copy,
+  LayoutGrid,
+  List,
+  SlidersHorizontal,
+  FileText,
+  Check
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
 import { CategoriaMaterial, Material, Producto, Oferta, Contacto } from '../core/types';
 import { formatARS, obtenerEstadoVencimientoOferta } from '../core/calculations';
-import { TIPOS_AJUSTE_PRECIO, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL } from '../core/sampleData';
+import { INITIAL_CATEGORIAS_MATERIAL } from '../core/sampleData';
 import { ImportCatalogModal } from './ImportCatalogModal';
 import { OnlinePriceButton } from './OnlinePriceButton';
-
-const inputCls = "w-full px-3.5 py-2.5 text-base sm:text-xs rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]";
+import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
+import { CategoriasMaterialTab } from './insumos/CategoriasMaterialTab';
+import { MaterialEditorModal } from './insumos/MaterialEditorModal';
+import { QuickCreateMaterialModal } from './insumos/QuickCreateMaterialModal';
+import { ProductoEditorModal } from './insumos/ProductoEditorModal';
+import { OfertaEditorModal } from './insumos/OfertaEditorModal';
+import { MassPriceAdjustModal } from './insumos/MassPriceAdjustModal';
 
 export const InsumosManager: React.FC = () => {
+  const { toast } = useToast();
+  const confirm = useConfirm();
+
   const categorias = (useLiveQuery(() => db.categoriasMaterial.toArray()) || []).filter(c => !c.deleted);
   const materiales = (useLiveQuery(() => db.materiales.toArray()) || []).filter(m => !m.deleted);
   const productos = (useLiveQuery(() => db.productos.toArray()) || []).filter(p => !p.deleted);
@@ -29,10 +54,10 @@ export const InsumosManager: React.FC = () => {
   const configs = useLiveQuery(() => db.config.toArray()) || [];
   const config = configs[0];
 
-  const categoriasMap = new Map(categorias.map(c => [c.id, c]));
-  const proveedoresMap = new Map(proveedores.map(p => [p.id, p]));
-  const materialesMap = new Map(materiales.map(m => [m.id, m]));
-  const productosMap = new Map(productos.map(p => [p.id, p]));
+  const categoriasMap = useMemo(() => new Map(categorias.map(c => [c.id, c])), [categorias]);
+  const proveedoresMap = useMemo(() => new Map(proveedores.map(p => [p.id, p])), [proveedores]);
+  const materialesMap = useMemo(() => new Map(materiales.map(m => [m.id, m])), [materiales]);
+  const _productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
 
   const [activeTab, setActiveTab] = useState<'materiales' | 'categorias'>('materiales');
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,7 +65,6 @@ export const InsumosManager: React.FC = () => {
   const [selectedVencimiento, setSelectedVencimiento] = useState<'todos' | 'verde' | 'amarillo' | 'rojo'>('todos');
   const [selectedMaterialIds, setSelectedMaterialIds] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
-  const [showOverflowMenu, setShowOverflowMenu] = useState(false);
   const [isSpeedDialOpen, setIsSpeedDialOpen] = useState(false);
 
   // Modal Estados
@@ -65,6 +89,7 @@ export const InsumosManager: React.FC = () => {
   });
 
   const [isCreatingOferta, setIsCreatingOferta] = useState(false);
+  const [editingOferta, setEditingOferta] = useState<Oferta | null>(null);
   const [formDataOferta, setFormDataOferta] = useState<Partial<Oferta>>({
     materialId: '',
     productoId: undefined,
@@ -75,14 +100,6 @@ export const InsumosManager: React.FC = () => {
 
   // Modal Categorías Estado
   const [isCreatingCat, setIsCreatingCat] = useState(false);
-  const [editingCat, setEditingCat] = useState<CategoriaMaterial | null>(null);
-  const [formDataCat, setFormDataCat] = useState<{
-    nombre: string;
-    atributosSugeridos: { clave: string; etiqueta: string; unidad: string; tipo: 'texto' | 'numero' }[];
-  }>({
-    nombre: '',
-    atributosSugeridos: []
-  });
 
   const [selectedFichaStatus, setSelectedFichaStatus] = useState<'todas' | 'completas' | 'incompletas'>('todas');
   const [isQuickCreateMat, setIsQuickCreateMat] = useState(false);
@@ -97,14 +114,14 @@ export const InsumosManager: React.FC = () => {
   const [showImportCatalogModal, setShowImportCatalogModal] = useState(false);
   const [tipoAjusteIndice, setTipoAjusteIndice] = useState<'porcentaje' | 'dolar_blue' | 'ipc' | 'canasta'>('porcentaje');
   const [massPercentage, setMassPercentage] = useState<number>(10);
+  const [viewModeMat, setViewModeMat] = useState<'grid' | 'table'>('grid');
+  const [modoCargaContinua, setModoCargaContinua] = useState(false);
+  const quickMatNombreRef = useRef<HTMLInputElement>(null);
 
   // Helper para armar ofertas agrupadas por material
   const getOfertaVigente = (materialId: string, productoId?: string) => {
     return ofertas.find(o => o.materialId === materialId && (!productoId || o.productoId === productoId));
   };
-
-  const [modoCargaContinua, setModoCargaContinua] = useState(false);
-  const quickMatNombreRef = useRef<HTMLInputElement>(null);
 
   // --- Handlers Alta Rápida ---
   const handleOpenQuickCreateMat = () => {
@@ -159,6 +176,8 @@ export const InsumosManager: React.FC = () => {
       await db.ofertas.add(newOferta);
     }
 
+    toast.success(`Material "${newMat.nombre}" creado`);
+
     if (modoCargaContinua) {
       setFormDataQuickMat({
         nombre: '',
@@ -199,207 +218,52 @@ export const InsumosManager: React.FC = () => {
     }
   };
 
-  // --- Handlers Categorías ---
-  const handleOpenCreateCat = () => {
-    setEditingCat(null);
-    setFormDataCat({
-      nombre: '',
-      atributosSugeridos: [
-        { clave: 'seccion', etiqueta: 'Sección', unidad: 'mm²', tipo: 'numero' }
-      ]
-    });
-    setIsCreatingCat(true);
-  };
-
-  const handleOpenEditCat = (cat: CategoriaMaterial) => {
-    setEditingCat(cat);
-    setFormDataCat({
-      nombre: cat.nombre,
-      atributosSugeridos: cat.atributosSugeridos ? cat.atributosSugeridos.map(a => ({ ...a, unidad: a.unidad || '' })) : []
-    });
-    setIsCreatingCat(true);
-  };
-
-  const handleAddAtributoField = () => {
-    setFormDataCat(prev => ({
-      ...prev,
-      atributosSugeridos: [
-        ...prev.atributosSugeridos,
-        { clave: '', etiqueta: '', unidad: '', tipo: 'texto' }
-      ]
-    }));
-  };
-
-  const handleRemoveAtributoField = (index: number) => {
-    setFormDataCat(prev => ({
-      ...prev,
-      atributosSugeridos: prev.atributosSugeridos.filter((_, i) => i !== index)
-    }));
-  };
-
-  const handleUpdateAtributoField = (index: number, field: string, value: any) => {
-    setFormDataCat(prev => {
-      const updated = [...prev.atributosSugeridos];
-      updated[index] = { ...updated[index], [field]: value };
-      if (field === 'etiqueta' && !updated[index].clave) {
-        updated[index].clave = value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "_");
-      }
-      return { ...prev, atributosSugeridos: updated };
-    });
-  };
-
-  const handleSaveCat = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formDataCat.nombre.trim()) return;
-
-    const id = editingCat ? editingCat.id : `cat-${crypto.randomUUID()}`;
-    const cleanAtributos = formDataCat.atributosSugeridos
-      .filter(a => a.clave.trim() || a.etiqueta.trim())
-      .map(a => ({
-        clave: (a.clave || a.etiqueta).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "_"),
-        etiqueta: a.etiqueta.trim() || a.clave.trim(),
-        unidad: a.unidad ? a.unidad.trim() : '',
-        tipo: a.tipo || 'texto'
-      }));
-
-    const catObj: CategoriaMaterial = {
-      id,
-      nombre: formDataCat.nombre.trim(),
-      atributosSugeridos: cleanAtributos
-    };
-
-    await db.categoriasMaterial.put(catObj);
-    setIsCreatingCat(false);
-    setEditingCat(null);
-  };
-
-  const handleDeleteCat = async (catId: string) => {
-    const count = materiales.filter(m => m.categoriaId === catId).length;
-    if (count > 0) {
-      alert(`No se puede eliminar la categoría porque tiene ${count} material(es) asignado(s). Reasigna o elimina los materiales primero.`);
-      return;
+  const buildAutoName = (catId?: string, attrs?: { clave: string; valor: string }[]): string => {
+    const cat = categoriasMap.get(catId || '');
+    if (!cat) return '';
+    const parts: string[] = [];
+    if (attrs && attrs.length > 0) {
+      attrs.forEach(a => {
+        if (a.valor && a.valor.trim() !== '') {
+          const tpl = cat.atributosSugeridos?.find(s => s.clave === a.clave);
+          const etiqueta = tpl ? tpl.etiqueta : a.clave;
+          const unidad = tpl && tpl.unidad ? ` ${tpl.unidad}` : '';
+          parts.push(`${etiqueta} = ${a.valor}${unidad}`);
+        }
+      });
     }
-    if (confirm('¿Deseas eliminar esta categoría de material?')) {
-      await db.categoriasMaterial.delete(catId);
-    }
+    if (parts.length === 0) return cat.nombre;
+    return `${cat.nombre} | ${parts.join(' | ')}`;
   };
 
-  const handleRestoreDefaultCategories = async () => {
-    if (INITIAL_CATEGORIAS_MATERIAL.length > 0) {
-      await db.categoriasMaterial.bulkPut(INITIAL_CATEGORIAS_MATERIAL);
-    }
-  };
-
-  // --- Handlers Materiales ---
-  const handleOpenCreateMat = async () => {
-    let cat = categorias[0];
-    if (!cat) {
-      await handleRestoreDefaultCategories();
-      const updatedCats = await db.categoriasMaterial.toArray();
-      cat = updatedCats[0];
-    }
-    const initialAttrs = cat?.atributosSugeridos ? cat.atributosSugeridos.map(a => ({ clave: a.clave, valor: '' })) : [];
-    const initialName = buildAutoName(cat?.id, initialAttrs);
-
+  const handleOpenCreateMat = () => {
+    setEditingMat(null);
+    const defaultCat = categorias[0]?.id || '';
+    const suggestedAttrs = categorias[0]?.atributosSugeridos?.map(a => ({ clave: a.clave, valor: '' })) || [];
     setFormDataMat({
-      categoriaId: cat?.id || '',
-      nombre: initialName || cat?.nombre || '',
+      categoriaId: defaultCat,
+      nombre: categorias[0]?.nombre || '',
       unidadVenta: 'u',
-      atributos: initialAttrs,
-      activo: true
+      atributos: suggestedAttrs,
+      activo: true,
+      fichaIncompleta: false
     });
     setIsCreatingMat(true);
   };
 
-  const buildAutoName = (
-    catId: string | undefined,
-    atributos: { clave: string; valor: string }[] | undefined
-  ): string => {
-    const cat = categoriasMap.get(catId || '');
-    if (!cat) return '';
-    const parts: string[] = [cat.nombre];
-
-    if (atributos && atributos.length > 0) {
-      atributos.forEach(attr => {
-        if (attr.valor && attr.valor.trim() !== '') {
-          const tpl = cat.atributosSugeridos?.find(s => s.clave === attr.clave);
-          const label = tpl?.etiqueta || (attr.clave.charAt(0).toUpperCase() + attr.clave.slice(1).replace(/_/g, ' '));
-          const unit = tpl?.unidad ? ` ${tpl.unidad}` : '';
-          parts.push(`${label} = ${attr.valor}${unit}`);
-        }
-      });
-    }
-
-    return parts.join(' | ');
-  };
-
-  const handleAddCustomAttribute = () => {
-    setFormDataMat(prev => {
-      const currentAttrs = prev.atributos ? [...prev.atributos] : [];
-      const newClave = `atributo_${currentAttrs.length + 1}`;
-      const updated = [...currentAttrs, { clave: newClave, valor: '' }];
-      return {
-        ...prev,
-        atributos: updated
-      };
-    });
-  };
-
-  const handleUpdateCustomAttrKey = (index: number, newClave: string) => {
-    setFormDataMat(prev => {
-      const currentAttrs = prev.atributos ? [...prev.atributos] : [];
-      if (currentAttrs[index]) {
-        currentAttrs[index] = { ...currentAttrs[index], clave: newClave };
-      }
-      const autoName = buildAutoName(prev.categoriaId, currentAttrs);
-      return {
-        ...prev,
-        atributos: currentAttrs,
-        nombre: autoName || prev.nombre
-      };
-    });
-  };
-
-  const handleRemoveAttribute = (clave: string) => {
-    setFormDataMat(prev => {
-      const currentAttrs = (prev.atributos || []).filter(a => a.clave !== clave);
-      const autoName = buildAutoName(prev.categoriaId, currentAttrs);
-      return {
-        ...prev,
-        atributos: currentAttrs,
-        nombre: autoName || prev.nombre
-      };
-    });
-  };
-
   const handleOpenEditMat = (mat: Material) => {
     setEditingMat(mat);
-    const cat = categoriasMap.get(mat.categoriaId);
-    const existingAttrs = mat.atributos || [];
-    const mergedAttrs = cat?.atributosSugeridos ? cat.atributosSugeridos.map(s => {
-      const found = existingAttrs.find(a => a.clave === s.clave);
-      return { clave: s.clave, valor: found ? found.valor : '' };
-    }) : [...existingAttrs];
-
-    if (cat?.atributosSugeridos) {
-      const sugKeys = new Set(cat.atributosSugeridos.map(s => s.clave));
-      existingAttrs.forEach(a => {
-        if (!sugKeys.has(a.clave)) {
-          mergedAttrs.push(a);
-        }
-      });
-    }
-
     setFormDataMat({
       categoriaId: mat.categoriaId,
       nombre: mat.nombre,
       unidadVenta: mat.unidadVenta || 'u',
-      atributos: mergedAttrs,
-      urlMercadoLibre: mat.urlMercadoLibre || '',
+      atributos: mat.atributos ? mat.atributos.map(a => ({ ...a })) : [],
       activo: mat.activo ?? true,
+      urlMercadoLibre: mat.urlMercadoLibre,
+      notas: mat.notas,
       fichaIncompleta: mat.fichaIncompleta ?? false
     });
-    setIsCreatingMat(false);
+    setIsCreatingMat(true);
   };
 
   const handleCategoryChange = (catId: string) => {
@@ -440,6 +304,31 @@ export const InsumosManager: React.FC = () => {
     });
   };
 
+  const handleAddCustomAttribute = () => {
+    setFormDataMat(prev => ({
+      ...prev,
+      atributos: [
+        ...(prev.atributos || []),
+        { clave: `attr_custom_${Date.now().toString().slice(-4)}`, valor: '' }
+      ]
+    }));
+  };
+
+  const handleUpdateCustomAttrKey = (index: number, newKey: string) => {
+    setFormDataMat(prev => {
+      const next = [...(prev.atributos || [])];
+      next[index] = { ...next[index], clave: newKey };
+      return { ...prev, atributos: next };
+    });
+  };
+
+  const handleRemoveAttribute = (clave: string) => {
+    setFormDataMat(prev => {
+      const next = (prev.atributos || []).filter(a => a.clave !== clave);
+      return { ...prev, atributos: next };
+    });
+  };
+
   const handleAutoGenerateName = () => {
     const autoName = buildAutoName(formDataMat.categoriaId, formDataMat.atributos);
     if (!autoName) return;
@@ -468,6 +357,7 @@ export const InsumosManager: React.FC = () => {
       });
       setEditingMat(null);
       setIsCreatingMat(false);
+      toast.success('Ficha técnica actualizada');
     } else {
       const newMat: Material = {
         id: `mat-${crypto.randomUUID()}`,
@@ -484,6 +374,7 @@ export const InsumosManager: React.FC = () => {
       };
       await db.materiales.add(newMat);
       setIsCreatingMat(false);
+      toast.success('Material agregado al catálogo');
     }
   };
 
@@ -512,10 +403,8 @@ export const InsumosManager: React.FC = () => {
     };
     await db.productos.add(newProd);
     setIsCreatingProd(false);
+    toast.success('Marca/Producto añadido');
   };
-
-  const [viewModeMat, setViewModeMat] = useState<'grid' | 'table'>('grid');
-  const [editingOferta, setEditingOferta] = useState<Oferta | null>(null);
 
   const handleToggleSelectMaterial = (id: string) => {
     setSelectedMaterialIds(prev => {
@@ -526,21 +415,21 @@ export const InsumosManager: React.FC = () => {
     });
   };
 
-  const handleToggleSelectAll = () => {
-    if (selectedMaterialIds.size === filteredMateriales.length) {
+  const handleToggleSelectAll = (filtered: Material[]) => {
+    if (selectedMaterialIds.size === filtered.length) {
       setSelectedMaterialIds(new Set());
     } else {
-      setSelectedMaterialIds(new Set(filteredMateriales.map(m => m.id)));
+      setSelectedMaterialIds(new Set(filtered.map(m => m.id)));
     }
   };
 
-  const handleExportForQuotation = async () => {
+  const handleExportForQuotation = async (filtered: Material[]) => {
     const targetMats = selectedMaterialIds.size > 0
       ? materiales.filter(m => selectedMaterialIds.has(m.id))
-      : filteredMateriales;
+      : filtered;
 
     if (targetMats.length === 0) {
-      alert('No hay materiales seleccionados para exportar.');
+      toast.warning('No hay materiales seleccionados para exportar.');
       return;
     }
 
@@ -589,15 +478,23 @@ export const InsumosManager: React.FC = () => {
       a.download = `Cotizacion_Materiales_IEBA_${new Date().toISOString().slice(0, 10)}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
+      toast.success('Planilla de cotización exportada');
     } catch (err) {
       console.error('Error al exportar para cotizar:', err);
-      alert('Error al generar planilla de cotización.');
+      toast.error('Error al generar planilla de cotización.');
     }
   };
 
   const handleDeleteMaterial = async (matId: string) => {
     const mat = materialesMap.get(matId);
-    if (!confirm(`¿Eliminar el material "${mat?.nombre || 'seleccionado'}" y todas sus marcas y precios asociados?`)) return;
+    const ok = await confirm({
+      title: 'Eliminar Material',
+      message: `¿Eliminar el material "${mat?.nombre || 'seleccionado'}" y todas sus marcas y precios asociados?`,
+      confirmText: 'Eliminar',
+      isDestructive: true,
+    });
+    if (!ok) return;
+
     await softDelete('materiales', matId);
     const relatedProds = productos.filter(p => p.materialId === matId);
     for (const p of relatedProds) {
@@ -607,15 +504,24 @@ export const InsumosManager: React.FC = () => {
     for (const o of relatedOfertas) {
       await softDelete('ofertas', o.id);
     }
+    toast.success('Material eliminado');
   };
 
   const handleDeleteProducto = async (prodId: string) => {
-    if (!confirm('¿Eliminar esta marca/producto registrado?')) return;
+    const ok = await confirm({
+      title: 'Eliminar Producto',
+      message: '¿Eliminar esta marca/producto registrado?',
+      confirmText: 'Eliminar',
+      isDestructive: true,
+    });
+    if (!ok) return;
+
     await softDelete('productos', prodId);
     const relatedOfertas = ofertas.filter(o => o.productoId === prodId);
     for (const o of relatedOfertas) {
       await softDelete('ofertas', o.id);
     }
+    toast.success('Producto eliminado');
   };
 
   // --- Handlers Ofertas ---
@@ -650,1321 +556,767 @@ export const InsumosManager: React.FC = () => {
 
     if (editingOferta) {
       await db.ofertas.update(editingOferta.id, {
-        materialId: formDataOferta.materialId || editingOferta.materialId,
-        productoId: formDataOferta.productoId,
-        proveedorId: formDataOferta.proveedorId || editingOferta.proveedorId,
-        precio: formDataOferta.precio || 0,
-        fuente: formDataOferta.fuente || 'manual',
-        tipoAjustePrecio: formDataOferta.tipoAjustePrecio,
-        updatedAt: now
-      });
-      setEditingOferta(null);
-    } else {
-      const newOferta: Oferta = {
-        id: `oferta-${crypto.randomUUID()}`,
-        materialId: formDataOferta.materialId || '',
-        productoId: formDataOferta.productoId,
         proveedorId: formDataOferta.proveedorId || proveedores[0]?.id || '',
         precio: formDataOferta.precio || 0,
         fecha: now,
         fuente: formDataOferta.fuente || 'manual',
-        tipoAjustePrecio: formDataOferta.tipoAjustePrecio,
-        createdAt: now,
-        updatedAt: now,
-        deleted: false
+        tipoAjustePrecio: formDataOferta.tipoAjustePrecio
+      });
+      toast.success('Precio actualizado');
+    } else {
+      const newOferta: Oferta = {
+        id: `oferta-${crypto.randomUUID()}`,
+        materialId: formDataOferta.materialId!,
+        productoId: formDataOferta.productoId,
+        proveedorId: formDataOferta.proveedorId || proveedores[0]?.id || '',
+        precio: formDataOferta.precio || 0,
+        fecha: now,
+        fuente: formDataOferta.fuente || 'manual'
       };
       await db.ofertas.add(newOferta);
+      toast.success('Nuevo precio registrado');
     }
+
     setIsCreatingOferta(false);
+    setEditingOferta(null);
   };
 
-  const handleDeleteOferta = async (ofertaId: string) => {
-    if (confirm('¿Deseas eliminar esta oferta/precio cargado?')) {
-      await softDelete('ofertas', ofertaId);
-    }
-  };
-
-  // --- Handler Aumento Masivo ---
   const handleMassUpdate = async () => {
     if (massPercentage === 0) return;
+
     const factor = 1 + massPercentage / 100;
     const now = new Date().toISOString();
 
-    await db.transaction('rw', [db.ofertas], async () => {
-      const latestOfertasMap = new Map<string, Oferta>();
-      ofertas.forEach(o => {
-        const key = `${o.materialId}_${o.productoId || 'none'}`;
-        if (!latestOfertasMap.has(key)) {
-          latestOfertasMap.set(key, o);
-        }
-      });
+    const targetMats = selectedMaterialIds.size > 0
+      ? materiales.filter(m => selectedMaterialIds.has(m.id))
+      : (selectedCategory === 'todas' ? materiales : materiales.filter(m => m.categoriaId === selectedCategory));
 
-      for (const o of latestOfertasMap.values()) {
-        const newOferta: Oferta = {
-          id: `oferta-${crypto.randomUUID()}`,
-          materialId: o.materialId,
-          productoId: o.productoId,
-          proveedorId: o.proveedorId,
-          precio: Math.round(o.precio * factor * 100) / 100,
-          fecha: now,
-          fuente: 'indice'
-        };
-        await db.ofertas.add(newOferta);
+    if (targetMats.length === 0) {
+      toast.warning('No hay materiales en la selección o categoría indicada.');
+      return;
+    }
+
+    const newOfertas: Oferta[] = [];
+
+    for (const mat of targetMats) {
+      const prods = productos.filter(p => p.materialId === mat.id);
+      if (prods.length > 0) {
+        for (const prod of prods) {
+          const vig = getOfertaVigente(mat.id, prod.id);
+          if (vig) {
+            newOfertas.push({
+              id: `oferta-${crypto.randomUUID()}`,
+              materialId: mat.id,
+              productoId: prod.id,
+              proveedorId: vig.proveedorId,
+              precio: Math.round(vig.precio * factor * 100) / 100,
+              fecha: now,
+              fuente: 'indice',
+              tipoAjustePrecio: tipoAjusteIndice
+            });
+          }
+        }
+      } else {
+        const vig = getOfertaVigente(mat.id);
+        if (vig) {
+          newOfertas.push({
+            id: `oferta-${crypto.randomUUID()}`,
+            materialId: mat.id,
+            proveedorId: vig.proveedorId,
+            precio: Math.round(vig.precio * factor * 100) / 100,
+            fecha: now,
+            fuente: 'indice',
+            tipoAjustePrecio: tipoAjusteIndice
+          });
+        }
       }
-    });
+    }
+
+    if (newOfertas.length > 0) {
+      await db.ofertas.bulkAdd(newOfertas);
+      toast.success(`Aumento de ${massPercentage}% aplicado a ${newOfertas.length} ofertas`);
+    } else {
+      toast.info('No se encontraron ofertas previas para ajustar.');
+    }
 
     setShowMassUpdateModal(false);
   };
 
   // Filtrado de materiales
-  const filteredMateriales = materiales.filter((m) => {
-    const matchesSearch =
-      m.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (m.atributos && m.atributos.some(a => a.valor.toLowerCase().includes(searchTerm.toLowerCase()) || a.clave.toLowerCase().includes(searchTerm.toLowerCase())));
+  const filteredMateriales = useMemo(() => {
+    return materiales.filter(mat => {
+      const matchSearch = mat.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (mat.atributos && mat.atributos.some(a => a.valor.toLowerCase().includes(searchTerm.toLowerCase())));
+      const matchCat = selectedCategory === 'todas' || mat.categoriaId === selectedCategory;
 
-    const matchesCategory = selectedCategory === 'todas' || m.categoriaId === selectedCategory;
+      let matchFicha = true;
+      if (selectedFichaStatus === 'completas') matchFicha = !mat.fichaIncompleta;
+      if (selectedFichaStatus === 'incompletas') matchFicha = !!mat.fichaIncompleta;
 
-    const ofertaVigente = getOfertaVigente(m.id);
-    const estadoVenc = ofertaVigente
-      ? obtenerEstadoVencimientoOferta(
-          ofertaVigente.fecha,
-          config?.diasVencimientoPrecioVerde || DEFAULT_APP_CONFIG.diasVencimientoPrecioVerde,
-          config?.diasVencimientoPrecioAmarillo || DEFAULT_APP_CONFIG.diasVencimientoPrecioAmarillo
-        )
-      : 'rojo';
+      let matchVenc = true;
+      if (selectedVencimiento !== 'todos') {
+        const oferta = getOfertaVigente(mat.id);
+        if (!oferta) {
+          matchVenc = selectedVencimiento === 'rojo';
+        } else {
+          const st = obtenerEstadoVencimientoOferta(
+            oferta.fecha,
+            config?.diasVencimientoPrecioVerde ?? 30,
+            config?.diasVencimientoPrecioAmarillo ?? 60
+          );
+          matchVenc = st === selectedVencimiento;
+        }
+      }
 
-    const matchesVenc = selectedVencimiento === 'todos' || estadoVenc === selectedVencimiento;
-    const matchesFicha =
-      selectedFichaStatus === 'todas' ||
-      (selectedFichaStatus === 'incompletas' && m.fichaIncompleta) ||
-      (selectedFichaStatus === 'completas' && !m.fichaIncompleta);
-
-    return matchesSearch && matchesCategory && matchesVenc && matchesFicha;
-  });
-
-  const activeFiltersCount = (selectedCategory !== 'todas' ? 1 : 0) +
-    (selectedFichaStatus !== 'todas' ? 1 : 0) +
-    (selectedVencimiento !== 'todos' ? 1 : 0);
+      return matchSearch && matchCat && matchVenc && matchFicha;
+    });
+  }, [materiales, searchTerm, selectedCategory, selectedVencimiento, selectedFichaStatus, ofertas, config]);
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto pb-24 md:pb-16">
-      {/* Header Bar with Tabs & Contextual Overflow Menu */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-low p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-outline-variant/20 shadow-xs">
+    <div className="space-y-6 max-w-7xl mx-auto pb-24">
+      {/* Top Header & Tab Navigation */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container p-6 rounded-3xl border border-outline-variant/20 shadow-sm">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-primary/10 text-primary rounded-xl">
-              <Package className="w-5 h-5" />
-            </div>
-            <h2 className="text-lg sm:text-xl font-bold text-on-surface tracking-tight">
-              Catálogo Técnico de Materiales
-            </h2>
-          </div>
+          <h2 className="text-xl font-bold text-on-surface flex items-center gap-2.5">
+            <Package className="w-6 h-6 text-primary" />
+            <span>Catálogo de Materiales & Insumos</span>
+          </h2>
           <p className="text-xs text-on-surface-variant mt-1">
-            Fichas técnico-normativas, atributos por rubro y control de precios vigentes.
+            Gestión de fichas técnicas normalizadas, marcas comerciales, historial de precios y ofertas por proveedor.
           </p>
         </div>
 
-        {/* Tab Switcher & Contextual Overflow Menu */}
-        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-outline-variant/15">
-          {/* Tabs */}
-          <div className="flex bg-surface-container-high p-1 rounded-2xl gap-1">
-            <button
-              type="button"
-              onClick={() => setActiveTab('materiales')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                activeTab === 'materiales'
-                  ? 'bg-surface text-primary shadow-xs'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              <Package className="w-3.5 h-3.5" />
-              <span>Materiales ({materiales.length})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('categorias')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                activeTab === 'categorias'
-                  ? 'bg-surface text-primary shadow-xs'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Categorías ({categorias.length})</span>
-            </button>
-          </div>
-
-          {/* Contextual Overflow Menu (3 dots ⋮) */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowOverflowMenu((prev) => !prev)}
-              className="p-2 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-variant border border-outline-variant/30 transition-colors"
-              title="Más opciones de catálogo (Exportar, Importar, Aumentos)"
-              aria-label="Menú contextual de opciones"
-            >
-              <MoreVertical className="w-4 h-4" />
-            </button>
-
-            {showOverflowMenu && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowOverflowMenu(false)}
-                />
-                <div className="absolute right-0 top-full mt-2 z-50 bg-surface-container-high rounded-2xl shadow-xl py-2 min-w-[240px] border border-outline-variant/30 text-on-surface animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-4 py-1.5 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
-                    Acciones de Catálogo
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowOverflowMenu(false);
-                      handleExportForQuotation();
-                    }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-on-surface hover:bg-surface-container-highest transition-colors text-left"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-primary" />
-                    <div className="flex-1">
-                      <span className="font-semibold block">Exportar para Cotizar</span>
-                      <span className="text-[10px] text-on-surface-variant">
-                        Plantilla Excel para proveedores {selectedMaterialIds.size > 0 ? `(${selectedMaterialIds.size} selec.)` : ''}
-                      </span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowOverflowMenu(false);
-                      setShowImportCatalogModal(true);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-on-surface hover:bg-surface-container-highest transition-colors text-left"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <div className="flex-1">
-                      <span className="font-semibold block">Importar Fichas (Excel/CSV)</span>
-                      <span className="text-[10px] text-on-surface-variant">
-                        Carga masiva inteligente con mapeador
-                      </span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowOverflowMenu(false);
-                      setShowMassUpdateModal(true);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-on-surface hover:bg-surface-container-highest transition-colors text-left"
-                  >
-                    <TrendingUp className="w-4 h-4 text-amber-500" />
-                    <div className="flex-1">
-                      <span className="font-semibold block">Aumento Masivo por Índice</span>
-                      <span className="text-[10px] text-on-surface-variant">
-                        Ajuste porcentual o por inflación
-                      </span>
-                    </div>
-                  </button>
-
-                  <hr className="border-outline-variant/30 my-1" />
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowOverflowMenu(false);
-                      handleRestoreDefaultCategories();
-                    }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container-highest transition-colors text-left"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Restaurar Categorías Iniciales</span>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+        <div className="flex items-center gap-2 bg-surface-container-high p-1.5 rounded-2xl border border-outline-variant/20 self-stretch sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab('materiales')}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'materiales'
+                ? 'bg-primary text-on-primary shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <Package className="w-4 h-4" />
+            <span>Materiales ({materiales.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('categorias')}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'categorias'
+                ? 'bg-primary text-on-primary shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>Familias & Categorías ({categorias.length})</span>
+          </button>
         </div>
       </div>
 
-      {/* Main Search & Collapsible Filters Bar (Only in materiales tab) */}
-      {activeTab === 'materiales' && (
-        <div className="bg-surface-container-low p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-outline-variant/20 space-y-3 shadow-xs">
-          <div className="flex items-center gap-2">
-            {/* Search Box — expands nicely */}
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3" />
-              <input
-                type="text"
-                placeholder="Buscar material, norma, atributo..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-full pl-9 pr-8 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all min-h-[40px]"
-              />
-              {searchTerm && (
+      {activeTab === 'categorias' ? (
+        <CategoriasMaterialTab
+          categorias={categorias}
+          materiales={materiales}
+          isCreatingCat={isCreatingCat}
+          setIsCreatingCat={setIsCreatingCat}
+        />
+      ) : (
+        <div className="space-y-4">
+          {/* Main Action Bar */}
+          <div className="bg-surface-container-low p-4 rounded-3xl border border-outline-variant/20 space-y-3">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+              {/* Search Bar */}
+              <div className="relative flex-1 w-full">
+                <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre técnico, atributos (sección, norma, calibre)..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-wrap">
                 <button
                   type="button"
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface p-0.5"
-                  aria-label="Limpiar búsqueda"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all ${
+                    showFilters || selectedCategory !== 'todas' || selectedVencimiento !== 'todos' || selectedFichaStatus !== 'todas'
+                      ? 'bg-primary/10 border-primary/30 text-primary'
+                      : 'bg-surface-container-high border-outline-variant/30 text-on-surface-variant hover:text-on-surface'
+                  }`}
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>Filtros</span>
                 </button>
-              )}
+
+                <div className="flex items-center bg-surface-container-high rounded-xl p-1 border border-outline-variant/30">
+                  <button
+                    type="button"
+                    onClick={() => setViewModeMat('grid')}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      viewModeMat === 'grid' ? 'bg-surface-container text-primary shadow-xs' : 'text-on-surface-variant'
+                    }`}
+                    title="Vista en Cuadrícula"
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewModeMat('table')}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      viewModeMat === 'table' ? 'bg-surface-container text-primary shadow-xs' : 'text-on-surface-variant'
+                    }`}
+                    title="Vista en Tabla"
+                  >
+                    <List className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowMassUpdateModal(true)}
+                  className="px-3.5 py-2 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-outline-variant/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  title="Aumento Masivo de Precios"
+                >
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                  <span className="hidden sm:inline">Aumento %</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowImportCatalogModal(true)}
+                  className="px-3.5 py-2 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-outline-variant/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  title="Importar catálogo desde Excel"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-primary" />
+                  <span className="hidden sm:inline">Importar</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleExportForQuotation(filteredMateriales)}
+                  className="px-3.5 py-2 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-outline-variant/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  title="Exportar planilla XLSX para cotización a distribuidores"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="hidden sm:inline">Exportar Cotización</span>
+                </button>
+              </div>
             </div>
 
-            {/* Collapsible Filter Toggle Button */}
-            <button
-              type="button"
-              onClick={() => setShowFilters((prev) => !prev)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold border transition-all shrink-0 min-h-[40px] ${
-                showFilters || activeFiltersCount > 0
-                  ? 'bg-primary-container text-on-primary-container border-primary/40 shadow-xs'
-                  : 'bg-surface-container-high text-on-surface hover:bg-surface-variant border-outline-variant/30'
-              }`}
-              title="Mostrar / Ocultar selectores de filtro"
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Filtros</span>
-              {activeFiltersCount > 0 && (
-                <span className="w-4 h-4 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center">
-                  {activeFiltersCount}
-                </span>
-              )}
-            </button>
+            {/* Filter Drawers / Pills */}
+            {showFilters && (
+              <div className="pt-3 border-t border-outline-variant/20 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in duration-150">
+                <div>
+                  <label className="block text-[11px] font-semibold text-on-surface-variant mb-1">Familia / Categoría</label>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface focus:outline-none"
+                  >
+                    <option value="todas">Todas las Categorías ({materiales.length})</option>
+                    {categorias.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre} ({materiales.filter(m => m.categoriaId === c.id).length})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            {/* View Mode Toggle (Tarjetas / Lista) */}
-            <div className="flex items-center gap-0.5 bg-surface-container-highest p-1 rounded-full border border-outline-variant/30 shrink-0">
-              <button
-                type="button"
-                onClick={() => setViewModeMat('grid')}
-                className={`p-1.5 rounded-full transition-colors ${
-                  viewModeMat === 'grid'
-                    ? 'bg-primary text-on-primary shadow-xs'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-                title="Vista Tarjetas"
-                aria-label="Vista Tarjetas"
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewModeMat('table')}
-                className={`p-1.5 rounded-full transition-colors ${
-                  viewModeMat === 'table'
-                    ? 'bg-primary text-on-primary shadow-xs'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-                title="Vista Lista / Tabla"
-                aria-label="Vista Lista"
-              >
-                <List className="w-3.5 h-3.5" />
-              </button>
-            </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-on-surface-variant mb-1">Vigencia del Precio</label>
+                  <select
+                    value={selectedVencimiento}
+                    onChange={(e) => setSelectedVencimiento(e.target.value as any)}
+                    className="w-full px-3 py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface focus:outline-none"
+                  >
+                    <option value="todos">Todos los Estados</option>
+                    <option value="verde">🟢 Vigente (&le; 30 días)</option>
+                    <option value="amarillo">🟡 Por Vencer (31 - 60 días)</option>
+                    <option value="rojo">🔴 Vencido / Sin Precio (&gt; 60 días)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-on-surface-variant mb-1">Estado de Ficha Técnica</label>
+                  <select
+                    value={selectedFichaStatus}
+                    onChange={(e) => setSelectedFichaStatus(e.target.value as any)}
+                    className="w-full px-3 py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface focus:outline-none"
+                  >
+                    <option value="todas">Todas las Fichas</option>
+                    <option value="completas">Fichas Técnicas Completas</option>
+                    <option value="incompletas">⚠️ Fichas Pendientes / Alta Rápida</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Mass Selection Toolbar */}
+            {selectedMaterialIds.size > 0 && (
+              <div className="pt-3 border-t border-outline-variant/20 flex items-center justify-between bg-primary/5 p-3 rounded-2xl border border-primary/20">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-primary">
+                    {selectedMaterialIds.size} material{selectedMaterialIds.size > 1 ? 'es' : ''} seleccionado{selectedMaterialIds.size > 1 ? 's' : ''}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSelectAll(filteredMateriales)}
+                    className="text-xs text-on-surface-variant hover:text-on-surface underline"
+                  >
+                    {selectedMaterialIds.size === filteredMateriales.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowMassUpdateModal(true)}
+                    className="px-3 py-1 bg-primary text-on-primary text-xs font-semibold rounded-lg shadow-xs"
+                  >
+                    Ajustar Seleccionados
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExportForQuotation(filteredMateriales)}
+                    className="px-3 py-1 bg-surface-container-high hover:bg-surface-variant text-on-surface text-xs font-semibold rounded-lg"
+                  >
+                    Exportar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Collapsible Filters Panel — Saves vertical space when closed! */}
-          {showFilters && (
-            <div className="pt-3 border-t border-outline-variant/20 grid grid-cols-1 sm:grid-cols-3 gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
-              {/* Category Filter */}
-              <div>
-                <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
-                  Categoría
-                </label>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full bg-surface-container-high border border-outline-variant/30 rounded-xl px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          {/* Materiales List / Grid */}
+          {filteredMateriales.length === 0 ? (
+            <div className="text-center py-16 bg-surface-container-low border border-dashed border-outline-variant/30 rounded-3xl p-6 space-y-3">
+              <Package className="w-10 h-10 text-outline mx-auto" />
+              <p className="text-sm font-semibold text-on-surface">No se encontraron materiales con los filtros aplicados.</p>
+              <p className="text-xs text-on-surface-variant">Puedes dar de alta un material rápido o crear una ficha técnica completa.</p>
+              <div className="flex justify-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleOpenQuickCreateMat}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-full text-xs flex items-center gap-1.5 shadow-sm"
                 >
-                  <option value="todas">Todas las categorías</option>
-                  {categorias.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Ficha Status Filter */}
-              <div>
-                <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
-                  Estado de Ficha
-                </label>
-                <select
-                  value={selectedFichaStatus}
-                  onChange={(e) => setSelectedFichaStatus(e.target.value as any)}
-                  className="w-full bg-surface-container-high border border-outline-variant/30 rounded-xl px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  <Zap className="w-3.5 h-3.5" /> Alta Rápida
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenCreateMat}
+                  className="px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs flex items-center gap-1.5 shadow-sm"
                 >
-                  <option value="todas">Todas las fichas</option>
-                  <option value="completas">Fichas técnicas completas</option>
-                  <option value="incompletas">⚡ Alta Rápida (Pendientes)</option>
-                </select>
-              </div>
-
-              {/* Price Freshness / Expiration Filter */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
-                    Vigencia de Precio
-                  </label>
-                  {activeFiltersCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedCategory('todas');
-                        setSelectedFichaStatus('todas');
-                        setSelectedVencimiento('todos');
-                      }}
-                      className="text-[10px] text-primary hover:underline font-semibold"
-                    >
-                      Limpiar filtros
-                    </button>
-                  )}
-                </div>
-                <select
-                  value={selectedVencimiento}
-                  onChange={(e) => setSelectedVencimiento(e.target.value as any)}
-                  className="w-full bg-surface-container-high border border-outline-variant/30 rounded-xl px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="todos">Todos los vencimientos</option>
-                  <option value="verde">🟢 Vigente (≤ 30 días)</option>
-                  <option value="amarillo">🟡 Alerta (31-60 días)</option>
-                  <option value="rojo">🔴 Vencido (&gt; 60 días)</option>
-                </select>
+                  <Plus className="w-3.5 h-3.5" /> Ficha Completa
+                </button>
               </div>
             </div>
-          )}
-        </div>
-      )}
+          ) : viewModeMat === 'table' ? (
+            <div className="bg-surface-container-low border border-outline-variant/20 rounded-3xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-outline-variant/20 bg-surface-container-high/60 text-on-surface-variant font-semibold">
+                      <th className="p-3 w-8">
+                        <input
+                          type="checkbox"
+                          checked={selectedMaterialIds.size > 0 && selectedMaterialIds.size === filteredMateriales.length}
+                          onChange={() => handleToggleSelectAll(filteredMateriales)}
+                          className="w-4 h-4 text-primary rounded"
+                        />
+                      </th>
+                      <th className="p-3">Material / Ficha Técnica</th>
+                      <th className="p-3">Familia</th>
+                      <th className="p-3">Unidad</th>
+                      <th className="p-3">Marcas / Oferta Vigente</th>
+                      <th className="p-3 text-right">Precio Vigente ARS</th>
+                      <th className="p-3 text-center">Estado</th>
+                      <th className="p-3 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant/10 text-on-surface">
+                    {filteredMateriales.map((mat) => {
+                      const cat = categoriasMap.get(mat.categoriaId);
+                      const prods = productos.filter((p) => p.materialId === mat.id);
+                      const vigOferta = getOfertaVigente(mat.id);
+                      const prov = vigOferta ? proveedoresMap.get(vigOferta.proveedorId) : null;
+                      const isSelected = selectedMaterialIds.has(mat.id);
 
-      {/* VISTA: MATERIALES & PRODUCTOS */}
-      {activeTab === 'materiales' && (
-        <>
-          {viewModeMat === 'grid' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredMateriales.map((mat) => {
-                const cat = categoriasMap.get(mat.categoriaId);
-                const prodsMat = productos.filter(p => p.materialId === mat.id);
-                const ofertaVigente = getOfertaVigente(mat.id);
+                      const vencState = vigOferta
+                        ? obtenerEstadoVencimientoOferta(
+                            vigOferta.fecha,
+                            config?.diasVencimientoPrecioVerde ?? 30,
+                            config?.diasVencimientoPrecioAmarillo ?? 60
+                          )
+                        : 'rojo';
 
-                const estadoVenc = ofertaVigente
-                  ? obtenerEstadoVencimientoOferta(
-                      ofertaVigente.fecha,
-                      config?.diasVencimientoPrecioVerde || DEFAULT_APP_CONFIG.diasVencimientoPrecioVerde,
-                      config?.diasVencimientoPrecioAmarillo || DEFAULT_APP_CONFIG.diasVencimientoPrecioAmarillo
-                    )
-                  : 'rojo';
-
-                return (
-                  <div key={mat.id} className="bg-surface-container-low border border-outline-variant/20 rounded-3xl p-5 hover:bg-surface-container/60 transition-all flex flex-col justify-between shadow-sm">
-                    <div>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container">
-                              {cat?.nombre || 'Sin categoría (No asignado)'}
-                            </span>
+                      return (
+                        <tr
+                          key={mat.id}
+                          className={`hover:bg-surface-container/60 transition-colors ${
+                            isSelected ? 'bg-primary/5' : ''
+                          }`}
+                        >
+                          <td className="p-3">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleSelectMaterial(mat.id)}
+                              className="w-4 h-4 text-primary rounded"
+                            />
+                          </td>
+                          <td className="p-3 max-w-xs">
+                            <div className="font-semibold text-on-surface truncate" title={mat.nombre}>
+                              {mat.nombre}
+                            </div>
                             {mat.fichaIncompleta && (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center gap-0.5 border border-amber-500/30">
-                                <Zap className="w-3 h-3 text-amber-500" /> Pendiente de completar
+                              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
+                                <AlertCircle className="w-3 h-3" /> Ficha Incompleta (Alta Rápida)
                               </span>
                             )}
-                          </div>
-                          <h3 className="font-semibold text-on-surface text-base mt-0.5">{mat.nombre}</h3>
-                        </div>
-
-                        <div className="flex items-center gap-1">
-                          <OnlinePriceButton tipo="material" material={mat} size="xs" variant="icon" />
-                          <button
-                            onClick={() => handleDuplicateMat(mat)}
-                            className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                            title="Crear material similar"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleOpenEditMat(mat)}
-                            className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                            title="Editar ficha de material"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteMaterial(mat.id)}
-                            className="p-1.5 text-on-surface-variant hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
-                            title="Eliminar material"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                          <span className={`w-3 h-3 rounded-full ml-1 ${
-                            estadoVenc === 'verde' ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' :
-                            estadoVenc === 'amarillo' ? 'bg-amber-500 shadow-sm shadow-amber-500/50' : 'bg-rose-500 shadow-sm shadow-rose-500/50'
-                          }`} title={`Estado precio: ${estadoVenc}`} />
-                        </div>
-                      </div>
-
-                      {/* Atributos */}
-                      {mat.atributos && mat.atributos.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {mat.atributos.map((at, idx) => (
-                            <span key={idx} className="text-[10px] bg-surface-container-highest text-on-surface-variant px-2 py-0.5 rounded-md font-mono">
-                              {at.clave}: {at.valor}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Marcas / Productos */}
-                      <div className="mt-4 border-t border-outline-variant/20 pt-3">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-xs font-semibold text-on-surface-variant">Marcas registradas ({prodsMat.length})</span>
-                          <button onClick={() => handleOpenCreateProd(mat.id)} className="text-[11px] text-primary font-semibold hover:underline flex items-center gap-0.5">
-                            <Plus className="w-3 h-3" /> Marca
-                          </button>
-                        </div>
-
-                        <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                          {prodsMat.map(p => {
-                            const ofProd = getOfertaVigente(mat.id, p.id);
-                            return (
-                              <div key={p.id} className="flex justify-between items-center text-xs p-1.5 rounded-xl bg-surface-container border border-outline-variant/10">
-                                <div className="flex items-center gap-1.5">
-                                  {p.esPreferido && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}
-                                  <span className="font-medium text-on-surface">{p.marca}</span>
-                                  {p.modelo && <span className="text-[10px] text-on-surface-variant">({p.modelo})</span>}
-                                </div>
-                                <div className="flex items-center gap-1.5 font-mono">
-                                  <span className="text-primary font-semibold">{ofProd ? formatARS(ofProd.precio) : 'Sin precio'}</span>
-                                  <OnlinePriceButton tipo="producto" material={mat} producto={p} size="xs" variant="icon" />
-                                  <button
-                                    onClick={() => handleDeleteProducto(p.id)}
-                                    className="p-0.5 text-on-surface-variant hover:text-rose-500"
-                                    title="Eliminar marca"
+                          </td>
+                          <td className="p-3 text-on-surface-variant truncate">{cat?.nombre || 'Sin categoría'}</td>
+                          <td className="p-3 font-mono">{mat.unidadVenta || 'u'}</td>
+                          <td className="p-3">
+                            {prods.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {prods.map((p) => (
+                                  <span
+                                    key={p.id}
+                                    className="text-[10px] bg-surface-container-highest px-2 py-0.5 rounded-md font-medium"
                                   >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                  <button onClick={() => handleOpenCreateOferta(mat.id, p.id)} className="text-[10px] text-on-surface-variant hover:text-primary underline">
-                                    + Precio
-                                  </button>
-                                </div>
+                                    {p.marca} {p.modelo || ''}
+                                  </span>
+                                ))}
                               </div>
-                            );
-                          })}
-                          {prodsMat.length === 0 && (
-                            <p className="text-xs text-on-surface-variant italic py-1">Sin marcas específicas (Precio genérico)</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Footer Oferta Vigente Principal */}
-                    <div className="mt-4 border-t border-outline-variant/20 pt-3 flex justify-between items-center">
-                      <div>
-                        <span className="text-[10px] text-on-surface-variant block">Precio Referencia</span>
-                        <span className="text-sm font-bold font-mono text-primary">
-                          {ofertaVigente ? formatARS(ofertaVigente.precio) : 'N/D'}
-                        </span>
-                      </div>
-                      <button onClick={() => handleOpenCreateOferta(mat.id)} className="flex items-center gap-1 px-3 py-1.5 bg-surface-container-highest hover:bg-surface-variant text-on-surface text-xs rounded-full font-medium transition-colors border border-outline-variant/20">
-                        <Plus className="w-3 h-3" /> Cargar Precio
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            /* TABLA VISTA LISTA */
-            <div className="bg-surface-container-low border border-outline-variant/20 rounded-3xl overflow-auto max-h-[75vh] shadow-sm">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-surface-container-high border-b border-outline-variant/30 text-on-surface-variant font-semibold sticky top-0 z-10 shadow-sm">
-                  <tr>
-                    <th className="p-3 w-10 text-center">
-                      <input
-                        type="checkbox"
-                        checked={filteredMateriales.length > 0 && selectedMaterialIds.size === filteredMateriales.length}
-                        onChange={handleToggleSelectAll}
-                        className="w-4 h-4 rounded text-primary border-outline-variant focus:ring-primary cursor-pointer"
-                        title="Seleccionar todos los materiales filtrados"
-                      />
-                    </th>
-                    <th className="p-3">Material & Norma</th>
-                    <th className="p-3">Categoría</th>
-                    <th className="p-3">Marcas Registradas</th>
-                    <th className="p-3 text-right">Precio Referencia</th>
-                    <th className="p-3 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-outline-variant/10 text-on-surface">
-                  {filteredMateriales.map((mat) => {
-                    const cat = categoriasMap.get(mat.categoriaId);
-                    const prodsMat = productos.filter(p => p.materialId === mat.id);
-                    const ofertaVigente = getOfertaVigente(mat.id);
-                    const isSelected = selectedMaterialIds.has(mat.id);
-
-                    const estadoVenc = ofertaVigente
-                      ? obtenerEstadoVencimientoOferta(
-                          ofertaVigente.fecha,
-                          config?.diasVencimientoPrecioVerde || DEFAULT_APP_CONFIG.diasVencimientoPrecioVerde,
-                          config?.diasVencimientoPrecioAmarillo || DEFAULT_APP_CONFIG.diasVencimientoPrecioAmarillo
-                        )
-                      : 'rojo';
-
-                    return (
-                      <tr key={mat.id} className={`hover:bg-surface-container/50 ${isSelected ? 'bg-primary/5' : ''}`}>
-                        <td className="p-3 w-10 text-center">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => handleToggleSelectMaterial(mat.id)}
-                            className="w-4 h-4 rounded text-primary border-outline-variant focus:ring-primary cursor-pointer"
-                          />
-                        </td>
-                        <td className="p-3">
-                          <div className="flex items-center gap-2">
-                            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                              estadoVenc === 'verde' ? 'bg-emerald-500' :
-                              estadoVenc === 'amarillo' ? 'bg-amber-500' : 'bg-rose-500'
-                            }`} title={`Estado precio: ${estadoVenc}`} />
-                            <div>
-                              <span className="font-semibold text-on-surface block">{mat.nombre}</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container">
-                            {cat?.nombre || 'Sin categoría (No asignado)'}
-                          </span>
-                          {mat.fichaIncompleta && (
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 block w-fit mt-1 border border-amber-500/30">
-                              ⚡ Pendiente
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          <div className="flex flex-wrap items-center gap-1">
-                            {prodsMat.map(p => (
-                              <span key={p.id} className="text-[10px] bg-surface-container-highest px-2 py-0.5 rounded-md font-medium text-on-surface-variant flex items-center gap-1">
-                                {p.esPreferido && <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />}
-                                {p.marca} {p.modelo || ''}
-                              </span>
-                            ))}
-                            {prodsMat.length === 0 && <span className="text-on-surface-variant italic text-[11px]">Genérico</span>}
-                          </div>
-                        </td>
-                        <td className="p-3 text-right font-mono font-bold text-primary">
-                          {ofertaVigente ? formatARS(ofertaVigente.precio) : 'N/D'}
-                        </td>
-                        <td className="p-3">
-                          <div className="flex items-center justify-center gap-1">
-                            <OnlinePriceButton tipo="material" material={mat} size="xs" variant="icon" />
-                            <button
-                              onClick={() => handleDuplicateMat(mat)}
-                              className="p-1 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                              title="Duplicar"
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleOpenEditMat(mat)}
-                              className="p-1 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                              title="Editar"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteMaterial(mat.id)}
-                              className="p-1 text-on-surface-variant hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
-      )}
-
-
-
-      {/* VISTA: CATEGORÍAS DE MATERIALES */}
-      {activeTab === 'categorias' && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20">
-            <div>
-              <h3 className="text-sm font-semibold text-on-surface flex items-center gap-2">
-                <Layers className="w-4 h-4 text-primary" /> Categorías de Materiales & Atributos Normativos
-              </h3>
-              <p className="text-xs text-on-surface-variant mt-0.5">
-                Configura las familias de materiales e insumos y define los atributos sugeridos (Sección, Corriente, Tensión, etc.).
-              </p>
-            </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button
-                onClick={handleOpenCreateCat}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary text-xs font-semibold rounded-full shadow-sm transition-all"
-              >
-                <Plus className="w-3.5 h-3.5" /> Nueva Categoría
-              </button>
-            </div>
-          </div>
-
-          {categorias.length === 0 ? (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-8 text-center max-w-lg mx-auto my-6 space-y-3">
-              <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
-              <h4 className="font-semibold text-on-surface text-sm">No hay categorías registradas</h4>
-              <p className="text-xs text-on-surface-variant">
-                Para cargar materiales en el catálogo, primero necesitas crear o cargar las categorías (ej: Cables, Protecciones, Canalizaciones).
-              </p>
-              <div className="pt-2 flex flex-wrap justify-center gap-3">
-                <button
-                  onClick={handleOpenCreateCat}
-                  className="px-5 py-2.5 bg-primary text-on-primary font-semibold text-xs rounded-full shadow-sm"
-                >
-                  + Crear Categoría Personalizada
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categorias.map((cat) => {
-                const matCount = materiales.filter((m) => m.categoriaId === cat.id).length;
-                return (
-                  <div
-                    key={cat.id}
-                    className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-4 flex flex-col justify-between hover:border-outline-variant/60 transition-all shadow-sm"
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2">
-                          <Layers className="w-4 h-4 text-primary shrink-0" />
-                          <h4 className="font-semibold text-sm text-on-surface">{cat.nombre}</h4>
-                        </div>
-                        <span className="text-[11px] font-medium text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded-full shrink-0">
-                          {matCount} material{matCount !== 1 ? 'es' : ''}
-                        </span>
-                      </div>
-
-                      <div className="mt-3">
-                        <p className="text-[11px] font-semibold text-on-surface-variant mb-1">Atributos Sugeridos:</p>
-                        {cat.atributosSugeridos && cat.atributosSugeridos.length > 0 ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {cat.atributosSugeridos.map((at, idx) => (
-                              <span
-                                key={idx}
-                                className="text-[10px] bg-surface-container text-on-surface-variant px-2 py-0.5 rounded-md border border-outline-variant/20 font-mono"
-                              >
-                                {at.etiqueta || at.clave} {at.unidad ? `(${at.unidad})` : ''}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-[11px] text-on-surface-variant italic">Sin atributos definidos</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-outline-variant/20 flex justify-end gap-1">
-                      <button
-                        onClick={() => handleOpenEditCat(cat)}
-                        className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-container-highest rounded-lg transition-colors"
-                        title="Editar Categoría"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCat(cat.id)}
-                        className="p-1.5 text-on-surface-variant hover:text-rose-500 hover:bg-surface-container-highest rounded-lg transition-colors"
-                        title="Eliminar Categoría"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* MODAL CREAR / EDITAR CATEGORIA */}
-      {isCreatingCat && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-xl shadow-2xl p-6 text-on-surface max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between mb-4 border-b border-outline-variant/30 pb-3 shrink-0">
-              <h3 className="text-base font-semibold text-on-surface">
-                {editingCat ? 'Editar Categoría de Material' : 'Nueva Categoría de Material'}
-              </h3>
-              <button onClick={() => setIsCreatingCat(false)} className="text-on-surface-variant hover:text-on-surface p-1">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveCat} className="space-y-4 overflow-y-auto pr-1 flex-1">
-              <div>
-                <label className="block text-xs text-on-surface-variant mb-1 font-medium">Nombre de la Categoría</label>
-                <input
-                  type="text"
-                  value={formDataCat.nombre}
-                  onChange={(e) => setFormDataCat({ ...formDataCat, nombre: e.target.value })}
-                  className={inputCls}
-                  placeholder="Ej: Tableros Eléctricos, Cables, Protecciones..."
-                  required
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <label className="block text-xs text-on-surface-variant font-medium">Atributos Técnicos Sugeridos</label>
-                    <p className="text-[11px] text-on-surface-variant/80">Define los parámetros técnicos normativos que tendrán los insumos de esta familia.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAddAtributoField}
-                    className="flex items-center gap-1 text-xs text-primary font-semibold hover:underline shrink-0"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Agregar Atributo
-                  </button>
-                </div>
-
-                <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
-                  {formDataCat.atributosSugeridos.length > 0 && (
-                    <div className="hidden sm:grid grid-cols-12 gap-2 px-1 text-[11px] font-semibold text-on-surface-variant">
-                      <span className="col-span-4">Nombre / Etiqueta</span>
-                      <span className="col-span-3">Clave (ID interno)</span>
-                      <span className="col-span-2">Unidad</span>
-                      <span className="col-span-2">Tipo</span>
-                      <span className="col-span-1 text-center">Acción</span>
-                    </div>
-                  )}
-
-                  {formDataCat.atributosSugeridos.map((at, idx) => (
-                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20 items-center">
-                      <div className="sm:col-span-4">
-                        <label className="block sm:hidden text-[10px] text-on-surface-variant font-medium mb-0.5">Etiqueta</label>
-                        <input
-                          type="text"
-                          value={at.etiqueta}
-                          onChange={(e) => handleUpdateAtributoField(idx, 'etiqueta', e.target.value)}
-                          className={`${inputCls} text-xs`}
-                          placeholder="Ej: Sección"
-                          required
-                        />
-                      </div>
-                      <div className="sm:col-span-3">
-                        <label className="block sm:hidden text-[10px] text-on-surface-variant font-medium mb-0.5">Clave slug</label>
-                        <input
-                          type="text"
-                          value={at.clave}
-                          onChange={(e) => handleUpdateAtributoField(idx, 'clave', e.target.value)}
-                          className={`${inputCls} text-xs font-mono`}
-                          placeholder="ej: seccion"
-                          required
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label className="block sm:hidden text-[10px] text-on-surface-variant font-medium mb-0.5">Unidad</label>
-                        <input
-                          type="text"
-                          value={at.unidad}
-                          onChange={(e) => handleUpdateAtributoField(idx, 'unidad', e.target.value)}
-                          className={`${inputCls} text-xs font-mono`}
-                          placeholder="mm², A, V"
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label className="block sm:hidden text-[10px] text-on-surface-variant font-medium mb-0.5">Tipo</label>
-                        <select
-                          value={at.tipo}
-                          onChange={(e) => handleUpdateAtributoField(idx, 'tipo', e.target.value as any)}
-                          className={`${inputCls} text-xs`}
-                        >
-                          <option value="numero">Número</option>
-                          <option value="texto">Texto</option>
-                        </select>
-                      </div>
-                      <div className="sm:col-span-1 flex justify-end sm:justify-center pt-1 sm:pt-0">
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAtributoField(idx)}
-                          className="p-1.5 text-on-surface-variant hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
-                          title="Eliminar atributo"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {formDataCat.atributosSugeridos.length === 0 && (
-                    <div className="text-xs text-on-surface-variant italic py-6 text-center bg-surface-container-low rounded-2xl border border-dashed border-outline-variant/30 space-y-2">
-                      <p>Sin atributos técnicos normativos definidos para esta categoría.</p>
-                      <button
-                        type="button"
-                        onClick={handleAddAtributoField}
-                        className="px-3 py-1.5 bg-primary/10 text-primary font-semibold text-xs rounded-full hover:bg-primary/20 transition-colors inline-flex items-center gap-1"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Agregar primer atributo
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsCreatingCat(false)}
-                  className="px-4 py-2 rounded-full text-sm text-on-surface-variant hover:bg-surface-variant"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-sm shadow-sm"
-                >
-                  <Save className="w-3.5 h-3.5" /> Guardar Categoría
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL ALTA RAPIDA DE MATERIAL */}
-      {isQuickCreateMat && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-md shadow-2xl p-6 text-on-surface">
-            <div className="flex items-center justify-between mb-3 border-b border-outline-variant/30 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-amber-500/10 rounded-xl text-amber-500">
-                  <Zap className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-on-surface">Alta Rápida de Material</h3>
-                  <p className="text-[11px] text-on-surface-variant">Crea insumos en segundos desde la obra. Luego completas la ficha técnica.</p>
-                </div>
-              </div>
-              <button onClick={() => setIsQuickCreateMat(false)} className="text-on-surface-variant hover:text-on-surface p-1">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveQuickMat} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-on-surface-variant mb-1">Nombre o Descripción del Material *</label>
-                <input
-                  ref={quickMatNombreRef}
-                  type="text"
-                  value={formDataQuickMat.nombre}
-                  onChange={(e) => setFormDataQuickMat({ ...formDataQuickMat, nombre: e.target.value })}
-                  className={inputCls}
-                  placeholder="Ej: Caño corrugado blanco 3/4, Cable unipolar 1.5..."
-                  required
-                  autoFocus
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Unidad de Venta</label>
-                  <select
-                    value={formDataQuickMat.unidadVenta}
-                    onChange={(e) => setFormDataQuickMat({ ...formDataQuickMat, unidadVenta: e.target.value })}
-                    className={inputCls}
-                  >
-                    <option value="m">Metro (m)</option>
-                    <option value="u">Unidad (u)</option>
-                    <option value="kg">Kilogramo (kg)</option>
-                    <option value="rollo x100m">Rollo x 100m</option>
-                    <option value="caja x100u">Caja x 100u</option>
-                    <option value="tira x3m">Tira x 3m</option>
-                    <option value="global">Global</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Precio Referencia ARS (Opcional)</label>
-                  <input
-                    type="number"
-                    step="any"
-                    inputMode="decimal"
-                    value={formDataQuickMat.precio || ''}
-                    onChange={(e) => setFormDataQuickMat({ ...formDataQuickMat, precio: parseFloat(e.target.value) || 0 })}
-                    className={inputCls}
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-
-              {proveedores.length > 0 && formDataQuickMat.precio > 0 && (
-                <div>
-                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Proveedor de Referencia</label>
-                  <select
-                    value={formDataQuickMat.proveedorId}
-                    onChange={(e) => setFormDataQuickMat({ ...formDataQuickMat, proveedorId: e.target.value })}
-                    className={inputCls}
-                  >
-                    {proveedores.map(p => (
-                      <option key={p.id} value={p.id}>{p.razonSocial || p.nombre}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="pt-2 border-t border-outline-variant/20">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-amber-600 dark:text-amber-400">
-                  <input
-                    type="checkbox"
-                    checked={modoCargaContinua}
-                    onChange={(e) => setModoCargaContinua(e.target.checked)}
-                    className="w-4 h-4 text-amber-500 rounded border-outline focus:ring-amber-500"
-                  />
-                  <span>⚡ Modo Carga Continua (Enter guarda y pasa al siguiente)</span>
-                </label>
-              </div>
-
-              <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsQuickCreateMat(false)}
-                  className="px-4 py-2 rounded-full text-sm text-on-surface-variant hover:bg-surface-variant"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-full text-sm shadow-sm"
-                >
-                  <Save className="w-3.5 h-3.5" /> Guardar Alta Rápida
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL CREAR / EDITAR MATERIAL */}
-      {(isCreatingMat || editingMat !== null) && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-md shadow-2xl p-6 text-on-surface">
-            <div className="flex items-center justify-between mb-4 border-b border-outline-variant/30 pb-3">
-              <h3 className="text-base font-semibold text-on-surface">
-                {editingMat ? 'Editar Material Técnico' : 'Nuevo Material Técnico'}
-              </h3>
-              <button onClick={() => { setIsCreatingMat(false); setEditingMat(null); }} className="text-on-surface-variant hover:text-on-surface p-1">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <form onSubmit={handleSaveMaterial} className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs text-on-surface-variant">Categoría</label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCreatingMat(false);
-                      setEditingMat(null);
-                      handleOpenCreateCat();
-                    }}
-                    className="text-[11px] text-primary hover:underline font-semibold"
-                  >
-                    + Nueva Categoría
-                  </button>
-                </div>
-                {categorias.length === 0 ? (
-                  <div className="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-600 dark:text-amber-400 mb-2 flex items-center justify-between">
-                    <span>No hay categorías cargadas.</span>
-                    <button
-                      type="button"
-                      onClick={handleRestoreDefaultCategories}
-                      className="px-2.5 py-1 bg-amber-500 text-white font-semibold rounded-lg text-[10px]"
-                    >
-                      Cargar iniciales
-                    </button>
-                  </div>
-                ) : (
-                  <select value={formDataMat.categoriaId} onChange={(e) => handleCategoryChange(e.target.value)} className={inputCls} required>
-                    {categorias.map(c => (
-                      <option key={c.id} value={c.id}>{c.nombre}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {/* Dynamic Suggested & Custom Attributes Section */}
-              {(() => {
-                const selectedCat = categoriasMap.get(formDataMat.categoriaId || '');
-                const suggestedAttrs = selectedCat?.atributosSugeridos || [];
-                const sugKeys = new Set(suggestedAttrs.map(s => s.clave));
-
-                const extraAttrs = (formDataMat.atributos || []).filter(a => !sugKeys.has(a.clave));
-
-                return (
-                  <div className="p-3.5 bg-surface-container-high border border-outline-variant/30 rounded-2xl space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-primary flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        Atributos del Material {selectedCat ? `(${selectedCat.nombre})` : ''}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleAddCustomAttribute}
-                        className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
-                        title="Agregar atributo adicional no sugerido en la categoría"
-                      >
-                        + Atributo Extra
-                      </button>
-                    </div>
-
-                    {suggestedAttrs.length > 0 && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        {suggestedAttrs.map(attrTpl => {
-                          let isBlocked = false;
-                          let blockedVal = '';
-                          let availableOptions = attrTpl.opciones ? [...attrTpl.opciones] : [];
-
-                          if (attrTpl.dependencias) {
-                            for (const dep of attrTpl.dependencias) {
-                              const parentVal = formDataMat.atributos?.find(a => a.clave === dep.dependeVinculo)?.valor;
-                              if (parentVal && parentVal.includes(dep.valorEsperado)) {
-                                if (dep.bloqueado) {
-                                  isBlocked = true;
-                                  blockedVal = dep.valorFijo || '';
-                                }
-                                if (dep.opcionesFiltradas) {
-                                  availableOptions = dep.opcionesFiltradas;
-                                }
-                              }
-                            }
-                          }
-
-                          const currentRawVal = formDataMat.atributos?.find(a => a.clave === attrTpl.clave)?.valor || '';
-                          const attrVal = isBlocked ? blockedVal : currentRawVal;
-
-                          return (
-                            <div key={attrTpl.clave}>
-                              <label className="block text-[11px] font-medium text-on-surface-variant mb-1 truncate">
-                                {attrTpl.etiqueta} {attrTpl.unidad ? `(${attrTpl.unidad})` : ''}
-                                {isBlocked && <span className="ml-1 text-[9px] text-amber-500 font-bold">(Fijo por norma)</span>}
-                              </label>
-                              {availableOptions.length > 0 ? (
-                                <select
-                                  value={attrVal}
-                                  disabled={isBlocked}
-                                  onChange={(e) => handleAttributeValueChange(attrTpl.clave, e.target.value)}
-                                  className={`${inputCls} text-xs`}
-                                >
-                                  <option value="">-- Seleccionar {attrTpl.etiqueta} --</option>
-                                  {availableOptions.map(opt => (
-                                    <option key={opt} value={opt}>{opt}</option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <input
-                                  type={attrTpl.tipo === 'numero' ? 'number' : 'text'}
-                                  step={attrTpl.tipo === 'numero' ? 'any' : undefined}
-                                  value={attrVal}
-                                  disabled={isBlocked}
-                                  onChange={(e) => handleAttributeValueChange(attrTpl.clave, e.target.value)}
-                                  className={`${inputCls} text-xs`}
-                                  placeholder={attrTpl.unidad ? `Ej: 16 ${attrTpl.unidad}` : 'Valor...'}
-                                />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {extraAttrs.length > 0 && (
-                      <div className="space-y-2 pt-2 border-t border-outline-variant/20">
-                        <span className="block text-[11px] font-semibold text-on-surface-variant">Atributos Adicionales</span>
-                        {extraAttrs.map((attr, idx) => {
-                          const actualIdx = (formDataMat.atributos || []).findIndex(a => a.clave === attr.clave);
-                          return (
-                            <div key={idx} className="flex items-center gap-2">
-                              <input
-                                type="text"
-                                value={attr.clave}
-                                onChange={(e) => handleUpdateCustomAttrKey(actualIdx, e.target.value)}
-                                className={`${inputCls} w-1/3 text-[11px]`}
-                                placeholder="Nombre Atributo..."
-                              />
-                              <input
-                                type="text"
-                                value={attr.valor}
-                                onChange={(e) => handleAttributeValueChange(attr.clave, e.target.value)}
-                                className={`${inputCls} flex-1 text-[11px]`}
-                                placeholder="Valor..."
+                            ) : (
+                              <span className="text-on-surface-variant italic text-[11px]">Genérico</span>
+                            )}
+                            {prov && (
+                              <div className="text-[10px] text-on-surface-variant mt-0.5">
+                                Prov: {prov.razonSocial || prov.nombre}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-sm text-primary">
+                            {vigOferta ? formatARS(vigOferta.precio) : '-'}
+                          </td>
+                          <td className="p-3 text-center">
+                            <span
+                              className={`w-2.5 h-2.5 rounded-full inline-block ${
+                                vencState === 'verde'
+                                  ? 'bg-emerald-500'
+                                  : vencState === 'amarillo'
+                                  ? 'bg-amber-500'
+                                  : 'bg-rose-500'
+                              }`}
+                              title={`Vigencia: ${vencState}`}
+                            />
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <OnlinePriceButton
+                                tipo="material"
+                                customNombre={mat.nombre}
+                                size="xs"
+                                variant="icon"
                               />
                               <button
                                 type="button"
-                                onClick={() => handleRemoveAttribute(attr.clave)}
-                                className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
-                                title="Eliminar atributo"
+                                onClick={() => handleOpenCreateOferta(mat.id)}
+                                className="p-1 text-on-surface-variant hover:text-emerald-500 rounded-lg hover:bg-surface-variant"
+                                title="Cargar nuevo precio / oferta"
+                              >
+                                <TrendingUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditMat(mat)}
+                                className="p-1 text-on-surface-variant hover:text-primary rounded-lg hover:bg-surface-variant"
+                                title="Editar ficha técnica"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteMaterial(mat.id)}
+                                className="p-1 text-on-surface-variant hover:text-rose-500 rounded-lg hover:bg-surface-variant"
+                                title="Eliminar material"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
-                          );
-                        })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredMateriales.map((mat) => {
+                const cat = categoriasMap.get(mat.categoriaId);
+                const prods = productos.filter((p) => p.materialId === mat.id);
+                const vigOferta = getOfertaVigente(mat.id);
+                const prov = vigOferta ? proveedoresMap.get(vigOferta.proveedorId) : null;
+                const isSelected = selectedMaterialIds.has(mat.id);
+
+                const vencState = vigOferta
+                  ? obtenerEstadoVencimientoOferta(
+                      vigOferta.fecha,
+                      config?.diasVencimientoPrecioVerde ?? 30,
+                      config?.diasVencimientoPrecioAmarillo ?? 60
+                    )
+                  : 'rojo';
+
+                return (
+                  <div
+                    key={mat.id}
+                    className={`bg-surface-container-low border rounded-3xl p-5 hover:bg-surface-container/60 transition-all flex flex-col justify-between shadow-sm relative ${
+                      isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-outline-variant/20'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelectMaterial(mat.id)}
+                            className="w-4 h-4 text-primary rounded cursor-pointer"
+                          />
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-0.5 rounded-full">
+                            {cat?.nombre || 'General'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`w-2.5 h-2.5 rounded-full ${
+                              vencState === 'verde'
+                                ? 'bg-emerald-500'
+                                : vencState === 'amarillo'
+                                ? 'bg-amber-500'
+                                : 'bg-rose-500'
+                            }`}
+                            title={`Estado de Vigencia: ${vencState}`}
+                          />
+                          <OnlinePriceButton tipo="material" customNombre={mat.nombre} size="xs" variant="icon" />
+                        </div>
                       </div>
-                    )}
+
+                      <h4 className="font-bold text-on-surface text-sm mt-2.5 leading-snug line-clamp-2">
+                        {mat.nombre}
+                      </h4>
+
+                      {mat.fichaIncompleta && (
+                        <div className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span>Ficha Incompleta (Alta Rápida)</span>
+                        </div>
+                      )}
+
+                      {/* Technical Attributes Chips */}
+                      {mat.atributos && mat.atributos.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {mat.atributos
+                            .filter((a) => a.valor)
+                            .map((a, idx) => (
+                              <span
+                                key={idx}
+                                className="text-[10px] bg-surface-container text-on-surface-variant px-2 py-0.5 rounded-md font-mono border border-outline-variant/10"
+                              >
+                                {a.clave}: {a.valor}
+                              </span>
+                            ))}
+                        </div>
+                      )}
+
+                      {/* Products / Brands */}
+                      <div className="mt-3 pt-2.5 border-t border-outline-variant/15 space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px] text-on-surface-variant font-medium">
+                          <span>Marcas / Modelos ({prods.length}):</span>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCreateProd(mat.id)}
+                            className="text-primary hover:underline font-semibold text-[10px]"
+                          >
+                            + Agregar Marca
+                          </button>
+                        </div>
+                        {prods.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {prods.map((p) => (
+                              <div
+                                key={p.id}
+                                className="text-[10px] bg-surface-container-highest px-2 py-0.5 rounded-lg flex items-center gap-1 font-medium group"
+                              >
+                                {p.esPreferido && <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />}
+                                <span>
+                                  {p.marca} {p.modelo ? `(${p.modelo})` : ''}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteProducto(p.id)}
+                                  className="text-on-surface-variant hover:text-rose-500 ml-1 opacity-60 group-hover:opacity-100 transition-opacity"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-on-surface-variant italic">Genérico</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Pricing & Footer Actions */}
+                    <div className="mt-4 pt-3 border-t border-outline-variant/20 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-on-surface-variant block font-mono">
+                          Precio Vigente /{mat.unidadVenta || 'u'}:
+                        </span>
+                        <div className="font-mono text-base font-bold text-primary">
+                          {vigOferta ? formatARS(vigOferta.precio) : 'Sin precio'}
+                        </div>
+                        {prov && (
+                          <span className="text-[10px] text-on-surface-variant block truncate max-w-[140px]">
+                            {prov.razonSocial || prov.nombre}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCreateOferta(mat.id)}
+                          className="p-2 text-on-surface-variant hover:text-emerald-500 hover:bg-surface-container-highest rounded-xl transition-colors"
+                          title="Cargar nuevo precio / oferta"
+                        >
+                          <TrendingUp className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDuplicateMat(mat)}
+                          className="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-highest rounded-xl transition-colors"
+                          title="Duplicar material"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditMat(mat)}
+                          className="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-highest rounded-xl transition-colors"
+                          title="Editar ficha técnica"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMaterial(mat.id)}
+                          className="p-2 text-on-surface-variant hover:text-rose-500 hover:bg-surface-container-highest rounded-xl transition-colors"
+                          title="Eliminar material"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 );
-              })()}
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs text-on-surface-variant">Nombre Técnico (Generado automáticamente)</label>
-                  <button
-                    type="button"
-                    onClick={handleAutoGenerateName}
-                    className="text-[11px] text-primary hover:underline font-semibold"
-                    title="Restablecer nombre formateado por defecto"
-                  >
-                    ✨ Restablecer Formato
-                  </button>
-                </div>
-                <input type="text" value={formDataMat.nombre || ''} onChange={(e) => setFormDataMat({ ...formDataMat, nombre: e.target.value })} className={inputCls} placeholder="Ej: Cables & Conductores | Sección = 2,5 mm² | Norma = IRAM 247-3" required />
-              </div>
-
-              <div>
-                <label className="block text-xs text-on-surface-variant mb-1">Unidad Venta / Comercialización</label>
-                <input type="text" value={formDataMat.unidadVenta || 'u'} onChange={(e) => setFormDataMat({ ...formDataMat, unidadVenta: e.target.value })} className={inputCls} placeholder="m, u, kg, rollo x100m" required />
-              </div>
-
-              <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
-                <button type="button" onClick={() => { setIsCreatingMat(false); setEditingMat(null); }} className="px-4 py-2 rounded-full text-sm text-on-surface-variant hover:bg-surface-variant">Cancelar</button>
-                <button type="submit" className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-sm"><Save className="w-3.5 h-3.5" />Guardar Material</button>
-              </div>
-            </form>
-          </div>
+              })}
+            </div>
+          )}
         </div>
       )}
 
-      {/* MODAL CREAR PRODUCTO / MARCA */}
-      {isCreatingProd && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-sm shadow-2xl p-6 text-on-surface">
-            <div className="flex items-center justify-between mb-4 border-b border-outline-variant/30 pb-3">
-              <h3 className="text-base font-semibold text-on-surface">Agregar Producto / Marca</h3>
-              <button onClick={() => setIsCreatingProd(false)} className="text-on-surface-variant hover:text-on-surface p-1"><X className="w-4 h-4" /></button>
-            </div>
-            <form onSubmit={handleSaveProducto} className="space-y-4">
-              <div>
-                <label className="block text-xs text-on-surface-variant mb-1">Marca</label>
-                <input type="text" value={formDataProd.marca || ''} onChange={(e) => setFormDataProd({ ...formDataProd, marca: e.target.value })} className={inputCls} placeholder="Prysmian, Schneider..." required />
-              </div>
-              <div>
-                <label className="block text-xs text-on-surface-variant mb-1">Modelo / Serie</label>
-                <input type="text" value={formDataProd.modelo || ''} onChange={(e) => setFormDataProd({ ...formDataProd, modelo: e.target.value })} className={inputCls} placeholder="Superastic, Easy9..." />
-              </div>
-              <div className="flex items-center pt-2">
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-on-surface">
-                  <input type="checkbox" checked={formDataProd.esPreferido} onChange={(e) => setFormDataProd({ ...formDataProd, esPreferido: e.target.checked })} className="w-4 h-4 text-primary rounded" />
-                  <span>Marcar como marca preferida por defecto</span>
-                </label>
-              </div>
+      {/* Modals */}
+      <MaterialEditorModal
+        isOpen={isCreatingMat}
+        onClose={() => {
+          setIsCreatingMat(false);
+          setEditingMat(null);
+        }}
+        editingMat={editingMat}
+        categorias={categorias}
+        categoriasMap={categoriasMap}
+        formDataMat={formDataMat}
+        setFormDataMat={setFormDataMat}
+        onCategoryChange={handleCategoryChange}
+        onAttributeValueChange={handleAttributeValueChange}
+        onAddCustomAttribute={handleAddCustomAttribute}
+        onUpdateCustomAttrKey={handleUpdateCustomAttrKey}
+        onRemoveAttribute={handleRemoveAttribute}
+        onAutoGenerateName={handleAutoGenerateName}
+        onOpenCreateCat={() => {
+          setIsCreatingMat(false);
+          setIsCreatingCat(true);
+        }}
+        onRestoreDefaultCategories={async () => {
+          await db.categoriasMaterial.bulkPut(INITIAL_CATEGORIAS_MATERIAL);
+          toast.success('Categorías restauradas');
+        }}
+        onSave={handleSaveMaterial}
+      />
 
-              <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
-                <button type="button" onClick={() => setIsCreatingProd(false)} className="px-4 py-2 rounded-full text-sm text-on-surface-variant hover:bg-surface-variant">Cancelar</button>
-                <button type="submit" className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-sm"><Save className="w-3.5 h-3.5" />Guardar</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <QuickCreateMaterialModal
+        isOpen={isQuickCreateMat}
+        onClose={() => setIsQuickCreateMat(false)}
+        formDataQuickMat={formDataQuickMat}
+        setFormDataQuickMat={setFormDataQuickMat}
+        proveedores={proveedores}
+        modoCargaContinua={modoCargaContinua}
+        setModoCargaContinua={setModoCargaContinua}
+        onSave={handleSaveQuickMat}
+      />
 
-      {/* MODAL CREAR / EDITAR OFERTA */}
-      {isCreatingOferta && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-sm shadow-2xl p-6 text-on-surface">
-            <div className="flex items-center justify-between mb-4 border-b border-outline-variant/30 pb-3">
-              <h3 className="text-base font-semibold text-on-surface">
-                {editingOferta ? 'Editar Oferta / Precio' : 'Cargar Oferta / Precio'}
-              </h3>
-              <button onClick={() => { setIsCreatingOferta(false); setEditingOferta(null); }} className="text-on-surface-variant hover:text-on-surface p-1">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <form onSubmit={handleSaveOferta} className="space-y-4">
-              <div>
-                <label className="block text-xs text-on-surface-variant mb-1">Proveedor</label>
-                <select value={formDataOferta.proveedorId} onChange={(e) => setFormDataOferta({ ...formDataOferta, proveedorId: e.target.value })} className={inputCls}>
-                  {proveedores.map(p => (
-                    <option key={p.id} value={p.id}>{p.razonSocial || p.nombre}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-on-surface-variant mb-1">Precio Unitario ARS</label>
-                <input type="number" step="0.01" value={formDataOferta.precio || ''} onChange={(e) => setFormDataOferta({ ...formDataOferta, precio: parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono text-primary font-bold`} required />
-              </div>
+      <ProductoEditorModal
+        isOpen={isCreatingProd}
+        onClose={() => setIsCreatingProd(false)}
+        formDataProd={formDataProd}
+        setFormDataProd={setFormDataProd}
+        onSave={handleSaveProducto}
+      />
 
-              <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
-                <button type="button" onClick={() => { setIsCreatingOferta(false); setEditingOferta(null); }} className="px-4 py-2 rounded-full text-sm text-on-surface-variant hover:bg-surface-variant">Cancelar</button>
-                <button type="submit" className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-sm"><Save className="w-3.5 h-3.5" />Guardar Precio</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <OfertaEditorModal
+        isOpen={isCreatingOferta}
+        onClose={() => {
+          setIsCreatingOferta(false);
+          setEditingOferta(null);
+        }}
+        editingOferta={editingOferta}
+        proveedores={proveedores}
+        formDataOferta={formDataOferta}
+        setFormDataOferta={setFormDataOferta}
+        onSave={handleSaveOferta}
+      />
 
-      {/* MODAL AUMENTO MASIVO */}
-      {showMassUpdateModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-sm shadow-2xl p-6 text-on-surface">
-            <div className="flex items-center justify-between mb-4 border-b border-outline-variant/30 pb-3">
-              <h3 className="text-base font-semibold text-on-surface">Aumento Masivo por Índice</h3>
-              <button onClick={() => setShowMassUpdateModal(false)} className="text-on-surface-variant hover:text-on-surface p-1"><X className="w-4 h-4" /></button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs text-on-surface-variant mb-1">Mecanismo / Índice</label>
-                <select value={tipoAjusteIndice} onChange={(e) => setTipoAjusteIndice(e.target.value as any)} className={inputCls}>
-                  {TIPOS_AJUSTE_PRECIO.map(t => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-on-surface-variant mb-1">Porcentaje de Aumento (%)</label>
-                <input type="number" step="0.1" value={massPercentage} onChange={(e) => setMassPercentage(parseFloat(e.target.value) || 0)} className={`${inputCls} font-mono`} />
-              </div>
+      <MassPriceAdjustModal
+        isOpen={showMassUpdateModal}
+        onClose={() => setShowMassUpdateModal(false)}
+        tipoAjusteIndice={tipoAjusteIndice}
+        setTipoAjusteIndice={setTipoAjusteIndice}
+        massPercentage={massPercentage}
+        setMassPercentage={setMassPercentage}
+        onApply={handleMassUpdate}
+      />
 
-              <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
-                <button onClick={() => setShowMassUpdateModal(false)} className="px-4 py-2 rounded-full text-sm text-on-surface-variant hover:bg-surface-variant">Cancelar</button>
-                <button onClick={handleMassUpdate} className="px-5 py-2 bg-emerald-500 text-white font-semibold rounded-full text-sm shadow-sm">Aplicar Aumento</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Import Catalog Modal (Excel / CSV) */}
       <ImportCatalogModal
         isOpen={showImportCatalogModal}
         onClose={() => setShowImportCatalogModal(false)}
         onSuccess={() => {
           setShowImportCatalogModal(false);
+          toast.success('Catálogo importado exitosamente');
         }}
       />
 
-      {/* Material Design 3 Speed Dial Floating Action Button */}
+      {/* Floating Speed Dial FAB */}
       <div className="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-30 floating-action-btn flex flex-col items-end gap-2.5">
-        {/* Backdrop dismiss overlay */}
         {isSpeedDialOpen && (
           <div
             className="fixed inset-0 bg-slate-950/40 backdrop-blur-2xs z-20"
@@ -1972,10 +1324,8 @@ export const InsumosManager: React.FC = () => {
           />
         )}
 
-        {/* Speed Dial Upward Actions */}
         {isSpeedDialOpen && (
           <div className="flex flex-col items-end gap-2.5 z-30 animate-in fade-in slide-in-from-bottom-3 duration-200">
-            {/* Option 1: Alta Rápida */}
             <div className="flex items-center gap-2.5">
               <span className="px-3 py-1.5 rounded-xl bg-surface-container-high text-xs font-semibold text-on-surface shadow-md border border-outline-variant/30 select-none">
                 Alta Rápida (1 Clic)
@@ -1988,13 +1338,11 @@ export const InsumosManager: React.FC = () => {
                 }}
                 className="w-12 h-12 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center shadow-lg active:scale-95 transition-all"
                 title="Alta Rápida de Material"
-                aria-label="Alta Rápida de Material"
               >
                 <Zap className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Option 2: Ficha Técnica Completa */}
             <div className="flex items-center gap-2.5">
               <span className="px-3 py-1.5 rounded-xl bg-surface-container-high text-xs font-semibold text-on-surface shadow-md border border-outline-variant/30 select-none">
                 Ficha Técnica Completa
@@ -2007,13 +1355,11 @@ export const InsumosManager: React.FC = () => {
                 }}
                 className="w-12 h-12 rounded-2xl bg-primary hover:bg-primary/90 text-on-primary flex items-center justify-center shadow-lg active:scale-95 transition-all"
                 title="Nuevo Material (Ficha Completa)"
-                aria-label="Nuevo Material Ficha Completa"
               >
                 <FileText className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Option 3 (In Categorías Tab): Nueva Categoría */}
             {activeTab === 'categorias' && (
               <div className="flex items-center gap-2.5">
                 <span className="px-3 py-1.5 rounded-xl bg-surface-container-high text-xs font-semibold text-on-surface shadow-md border border-outline-variant/30 select-none">
@@ -2022,12 +1368,11 @@ export const InsumosManager: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    handleOpenCreateCat();
+                    setIsCreatingCat(true);
                     setIsSpeedDialOpen(false);
                   }}
                   className="w-12 h-12 rounded-2xl bg-secondary hover:bg-secondary/90 text-on-secondary flex items-center justify-center shadow-lg active:scale-95 transition-all"
                   title="Nueva Categoría"
-                  aria-label="Nueva Categoría"
                 >
                   <Layers className="w-5 h-5" />
                 </button>
@@ -2036,7 +1381,6 @@ export const InsumosManager: React.FC = () => {
           </div>
         )}
 
-        {/* Primary Trigger FAB */}
         <button
           type="button"
           onClick={() => {

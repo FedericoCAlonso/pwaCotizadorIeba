@@ -9,13 +9,6 @@ export const ESTADO_PRESUPUESTO = {
   VENCIDO: 'vencido'
 } as const;
 
-export const CATEGORIA_TAREA = {
-  BOCAS: 'Bocas',
-  CIRCUITOS: 'Circuitos',
-  TABLEROS: 'Tableros',
-  ACOMETIDAS: 'Acometidas',
-  MEDICION: 'Medición'
-} as const;
 
 export const CONDICION_TRABAJO = {
   NORMAL: 'normal',
@@ -70,6 +63,8 @@ export interface AtributoTemplate {
   dependencias?: AtributoDependencia[];
 }
 
+export type AtributoSugerido = AtributoTemplate;
+
 export interface CategoriaMaterial {
   id: string;
   nombre: string; // "Cables", "Protecciones", "Canalizaciones", etc.
@@ -113,7 +108,7 @@ export type Insumo = Material & {
   precioActual?: number;
   fechaActualizacion?: string;
   historialPrecios?: { fecha: string; precio: number; fuente: string }[];
-  ofertas?: any[];
+  ofertas?: Oferta[];
 };
 
 // ─── 3. Producto (Implementación de marca de un Material) ──────────────────────
@@ -582,6 +577,7 @@ export interface AppConfig {
   autoSyncEnabled?: boolean; // Default true
   syncIntervalMinutes?: number; // Default 5 mins
   motoresBusquedaOnline?: MotorBusquedaEcommerce[];
+  categoriasTarea?: string[];
 
   createdAt?: string;
   updatedAt?: string;

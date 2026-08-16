@@ -18,6 +18,8 @@ import { Presupuesto, Cliente } from '../core/types';
 import { formatARS, formatUSD } from '../core/calculations';
 import { EstadoBadge } from './EstadoBadge';
 import { exportPresupuestoToXLSX, sharePresupuesto } from '../core/exportUtils';
+import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 interface PresupuestosListProps {
   onNew: () => void;
@@ -30,6 +32,8 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
   onSelect,
   onEdit
 }) => {
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const presupuestos = (useLiveQuery(() => db.presupuestos.reverse().toArray()) || []).filter((p) => !p.deleted);
   const rawContactos = useLiveQuery(() => db.contactos.toArray()) || [];
   const rawClientes = useLiveQuery(() => db.clientes.toArray()) || [];
@@ -77,12 +81,20 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
     };
 
     await db.presupuestos.add(duplicated);
+    toast.success('Presupuesto duplicado correctamente');
     onSelect(duplicated.id);
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar este presupuesto?')) {
+    const ok = await confirm({
+      title: 'Eliminar Presupuesto',
+      message: '¿Estás seguro de eliminar este presupuesto?',
+      confirmText: 'Eliminar',
+      isDestructive: true
+    });
+    if (ok) {
       await softDelete('presupuestos', id);
+      toast.success('Presupuesto eliminado');
     }
   };
 

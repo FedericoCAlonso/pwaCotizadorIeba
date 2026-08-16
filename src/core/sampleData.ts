@@ -55,6 +55,7 @@ export const DEFAULT_MOTORES_BUSQUEDA: MotorBusquedaEcommerce[] = [
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
   ...appConfigData.defaultAppConfig,
+  categoriasTarea: appConfigData.categoriasTarea || (appConfigData.defaultAppConfig as any).categoriasTarea || ['Bocas', 'Circuitos', 'Tableros', 'Acometidas', 'Medición'],
   motoresBusquedaOnline: DEFAULT_MOTORES_BUSQUEDA
 } as AppConfig;
 
@@ -120,6 +121,7 @@ export const INITIAL_CONTACTOS: Contacto[] = [
 ];
 
 export const BASE_CATEGORIES: string[] = appConfigData.categories;
+export const BASE_TAREA_CATEGORIES: string[] = (appConfigData as any).categoriasTarea || ['Bocas', 'Circuitos', 'Tableros', 'Acometidas', 'Medición'];
 export const BASE_UNITS: string[] = appConfigData.units;
 export const CONDICIONES_IVA: string[] = appConfigData.condicionesIVA;
 export const TIPOS_FACTURA: string[] = appConfigData.tiposFactura;

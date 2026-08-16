@@ -239,12 +239,16 @@ export async function initializeDatabaseSeed(): Promise<void> {
       db.proveedores,
       db.config
     ], async () => {
-      // 1. Asegurar que las categorías semillas existan solo si la tabla está vacía o faltan
-      const existingCats = await db.categoriasMaterial.toArray();
-      const existingCatIds = new Set(existingCats.map(c => c.id));
+      // 1. Asegurar que las categorías semillas existan y tengan los atributos sugeridos actualizados
       for (const cat of INITIAL_CATEGORIAS_MATERIAL) {
-        if (!existingCatIds.has(cat.id)) {
+        const existing = await db.categoriasMaterial.get(cat.id);
+        if (!existing) {
           await db.categoriasMaterial.add({ ...cat, syncStatus: 'synced' });
+        } else {
+          await db.categoriasMaterial.update(cat.id, {
+            nombre: cat.nombre,
+            atributosSugeridos: cat.atributosSugeridos
+          });
         }
       }
 
@@ -255,9 +259,19 @@ export async function initializeDatabaseSeed(): Promise<void> {
         'protecciones': 'cat-protecciones',
         'canalizaciones': 'cat-canalizaciones',
         'cajas': 'cat-cajas',
+        'modulos': 'cat-modulos-llaves',
+        'llaves': 'cat-modulos-llaves',
+        'modulos-llaves': 'cat-modulos-llaves',
         'tableros': 'cat-tableros',
         'iluminacion': 'cat-iluminacion',
-        'medicion': 'cat-medicion',
+        'medicion': 'cat-tierra',
+        'tierra': 'cat-tierra',
+        'fijacion': 'cat-fijacion',
+        'motores': 'cat-motores-automatizacion',
+        'automatizacion': 'cat-motores-automatizacion',
+        'motores-automatizacion': 'cat-motores-automatizacion',
+        'renovables': 'cat-renovables',
+        'solar': 'cat-renovables',
         'accesorios': 'cat-accesorios',
         'insumos': 'cat-accesorios'
       };

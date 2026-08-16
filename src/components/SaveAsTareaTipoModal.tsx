@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { Sparkles, Layers, Save, X, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, Save, X } from 'lucide-react';
 import { db } from '../db/database';
-import { InsumoEnTarea, ManoObraEnTarea, TareaTipo, CATEGORIA_TAREA } from '../core/types';
+import { InsumoEnTarea, ManoObraEnTarea, TareaTipo } from '../core/types';
+import { useAppOptions } from '../hooks/useAppOptions';
+import { useToast } from '../contexts/ToastContext';
 
 interface SaveAsTareaTipoModalProps {
   isOpen: boolean;
@@ -14,30 +16,31 @@ interface SaveAsTareaTipoModalProps {
   onSuccess?: (newTareaTipoId: string) => void;
 }
 
-const CATEGORIAS_LIST = Object.values(CATEGORIA_TAREA);
-
 export const SaveAsTareaTipoModal: React.FC<SaveAsTareaTipoModalProps> = ({
   isOpen,
   onClose,
   defaultNombre,
-  defaultCategoria = 'Instalaciones',
+  defaultCategoria,
   insumos,
   manoObra,
   unidad = 'u',
   onSuccess
 }) => {
+  const { categoriasTarea } = useAppOptions();
+  const { toast } = useToast();
+
   const [nombre, setNombre] = useState(defaultNombre);
-  const [categoria, setCategoria] = useState(defaultCategoria);
+  const [categoria, setCategoria] = useState(defaultCategoria || categoriasTarea[0] || 'Bocas');
   const [notasTecnicas, setNotasTecnicas] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       setNombre(defaultNombre);
-      setCategoria(defaultCategoria || 'Instalaciones');
+      setCategoria(defaultCategoria || categoriasTarea[0] || 'Bocas');
       setNotasTecnicas('');
     }
-  }, [isOpen, defaultNombre, defaultCategoria]);
+  }, [isOpen, defaultNombre, defaultCategoria, categoriasTarea]);
 
   if (!isOpen) return null;
 
@@ -65,12 +68,12 @@ export const SaveAsTareaTipoModal: React.FC<SaveAsTareaTipoModalProps> = ({
       };
 
       await db.tareasTipo.add(newTarea);
-      alert('¡Trabajo Tipo guardado con éxito!');
+      toast.success('¡Trabajo Tipo guardado con éxito!');
       if (onSuccess) onSuccess(newId);
       onClose();
     } catch (err) {
       console.error('Error al guardar Trabajo Tipo:', err);
-      alert('Ocurrió un error al guardar el Trabajo Tipo.');
+      toast.error('Ocurrió un error al guardar el Trabajo Tipo.');
     } finally {
       setIsSaving(false);
     }
@@ -113,7 +116,10 @@ export const SaveAsTareaTipoModal: React.FC<SaveAsTareaTipoModalProps> = ({
               onChange={(e) => setCategoria(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-xs"
             >
-              {CATEGORIAS_LIST.map((cat) => (
+              {categoria && !categoriasTarea.includes(categoria) && (
+                <option value={categoria}>{categoria} (Personalizada)</option>
+              )}
+              {categoriasTarea.map((cat) => (
                 <option key={cat} value={cat}>
                   {cat}
                 </option>

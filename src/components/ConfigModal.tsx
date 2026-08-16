@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { X, Save, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Save, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle, RefreshCw, Layers, Plus, Edit2, Trash2, Check, RotateCcw } from 'lucide-react';
 import { AppConfig } from '../core/types';
 import { db } from '../db/database';
-import { TIPOS_FACTURA, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL, DEFAULT_MOTORES_BUSQUEDA } from '../core/sampleData';
+import { TIPOS_FACTURA, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL, DEFAULT_MOTORES_BUSQUEDA, BASE_TAREA_CATEGORIES } from '../core/sampleData';
 import { isFirebaseConfigured, getFirebaseConfig, clearCustomFirebaseConfig } from '../config/firebase';
 import { AuthModal } from './AuthModal';
+import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 interface ConfigModalProps {
   config: AppConfig;
@@ -14,24 +16,141 @@ interface ConfigModalProps {
 }
 
 export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClose, onSave }) => {
-  const [formData, setFormData] = useState<AppConfig>({ ...config });
+  const { toast } = useToast();
+  const confirm = useConfirm();
+
+  const [formData, setFormData] = useState<AppConfig>({
+    ...config,
+    categoriasTarea: config.categoriasTarea && config.categoriasTarea.length > 0 ? config.categoriasTarea : [...BASE_TAREA_CATEGORIES]
+  });
   const [showAuthSetup, setShowAuthSetup] = useState(false);
   const firebaseConfigured = isFirebaseConfigured();
   const currentFbConfig = getFirebaseConfig();
+
+  // Categorías de Trabajos / Tareas
+  const [newCatName, setNewCatName] = useState('');
+  const [editingCatIndex, setEditingCatIndex] = useState<number | null>(null);
+  const [editingCatValue, setEditingCatValue] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        ...config,
+        categoriasTarea: config.categoriasTarea && config.categoriasTarea.length > 0 ? config.categoriasTarea : [...BASE_TAREA_CATEGORIES]
+      });
+      setNewCatName('');
+      setEditingCatIndex(null);
+      setEditingCatValue('');
+    }
+  }, [isOpen, config]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await db.config.put(formData);
+    toast.success('Configuración guardada exitosamente');
     onSave();
     onClose();
   };
 
   const handleRestoreDefaultCategories = async () => {
-    if (confirm('¿Estás seguro de restablecer las categorías iniciales? Esta acción se recomienda solo si tus categorías sufrieron alteraciones.')) {
+    const ok = await confirm({
+      title: 'Restaurar Categorías de Materiales',
+      message: '¿Estás seguro de restablecer las categorías iniciales? Esta acción se recomienda solo si tus categorías sufrieron alteraciones.',
+      confirmText: 'Restaurar',
+      isDestructive: true
+    });
+    if (ok) {
       await db.categoriasMaterial.bulkPut(INITIAL_CATEGORIAS_MATERIAL);
-      alert('Las categorías de materiales por defecto han sido restauradas.');
+      toast.success('Las categorías de materiales por defecto han sido restauradas.');
+    }
+  };
+
+  const handleAddCategory = () => {
+    const trimmed = newCatName.trim();
+    if (!trimmed) return;
+    const currentCats = formData.categoriasTarea || [...BASE_TAREA_CATEGORIES];
+    if (currentCats.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+      toast.warning('Ya existe una categoría con ese nombre.');
+      return;
+    }
+    setFormData({
+      ...formData,
+      categoriasTarea: [...currentCats, trimmed]
+    });
+    setNewCatName('');
+    toast.success(`Categoría "${trimmed}" agregada`);
+  };
+
+  const handleStartEditCat = (index: number, name: string) => {
+    setEditingCatIndex(index);
+    setEditingCatValue(name);
+  };
+
+  const handleSaveEditCat = (index: number) => {
+    const trimmed = editingCatValue.trim();
+    if (!trimmed) return;
+    const currentCats = [...(formData.categoriasTarea || BASE_TAREA_CATEGORIES)];
+    if (currentCats.some((c, idx) => idx !== index && c.toLowerCase() === trimmed.toLowerCase())) {
+      toast.warning('Ya existe otra categoría con ese nombre.');
+      return;
+    }
+    currentCats[index] = trimmed;
+    setFormData({
+      ...formData,
+      categoriasTarea: currentCats
+    });
+    setEditingCatIndex(null);
+    setEditingCatValue('');
+    toast.success('Categoría actualizada');
+  };
+
+  const handleCancelEditCat = () => {
+    setEditingCatIndex(null);
+    setEditingCatValue('');
+  };
+
+  const handleDeleteCategory = async (index: number) => {
+    const currentCats = formData.categoriasTarea || [...BASE_TAREA_CATEGORIES];
+    if (currentCats.length <= 1) {
+      toast.warning('Debe haber al menos una categoría de trabajo.');
+      return;
+    }
+    const catToDelete = currentCats[index];
+    const ok = await confirm({
+      title: 'Eliminar Categoría de Tarea',
+      message: `¿Estás seguro de eliminar la categoría "${catToDelete}" de la lista de tareas?`,
+      confirmText: 'Eliminar',
+      isDestructive: true
+    });
+    if (ok) {
+      const nextCats = currentCats.filter((_, i) => i !== index);
+      setFormData({
+        ...formData,
+        categoriasTarea: nextCats
+      });
+      if (editingCatIndex === index) {
+        setEditingCatIndex(null);
+        setEditingCatValue('');
+      }
+      toast.success(`Categoría "${catToDelete}" eliminada`);
+    }
+  };
+
+  const handleRestoreDefaultTareaCategories = async () => {
+    const ok = await confirm({
+      title: 'Restaurar Categorías de Tareas',
+      message: '¿Restablecer las categorías de tareas a los valores por defecto (Bocas, Circuitos, Tableros, Acometidas, Medición)?',
+      confirmText: 'Restablecer',
+      isDestructive: false
+    });
+    if (ok) {
+      setFormData({
+        ...formData,
+        categoriasTarea: [...BASE_TAREA_CATEGORIES]
+      });
+      toast.success('Categorías de tareas restauradas a valores de fábrica');
     }
   };
 
@@ -400,11 +519,11 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                     const name = nameInput?.value.trim();
                     const url = urlInput?.value.trim();
                     if (!name || !url) {
-                      alert('Ingresa el nombre y la URL con el comodín {query}');
+                      toast.warning('Ingresa el nombre y la URL con el comodín {query}');
                       return;
                     }
                     if (!url.includes('{query}')) {
-                      alert('La URL debe contener el comodín {query}, por ejemplo: https://tienda.com/buscar?q={query}');
+                      toast.warning('La URL debe contener el comodín {query}, por ejemplo: https://tienda.com/buscar?q={query}');
                       return;
                     }
                     const newEngine = {
@@ -417,6 +536,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                     setFormData({ ...formData, motoresBusquedaOnline: next });
                     nameInput.value = '';
                     urlInput.value = '';
+                    toast.success(`Buscador "${name}" agregado`);
                   }}
                   className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs rounded-xl transition"
                 >
@@ -428,25 +548,155 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
 
           <hr className="border-outline-variant/30" />
 
+          {/* Categorías de Trabajos / Tareas Tipo */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className={`${sectionTitle} mb-0 flex items-center gap-2`}>
+                <Layers className="w-4 h-4 text-primary" /> Categorías de Trabajos / Tareas Tipo
+              </h3>
+              <button
+                type="button"
+                onClick={handleRestoreDefaultTareaCategories}
+                className="text-[11px] text-primary hover:underline flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3" /> Restablecer Predeterminadas
+              </button>
+            </div>
+            <p className="text-[11px] text-on-surface-variant mb-3">
+              Personaliza las categorías para clasificar tus trabajos tipo, módulos y plantillas de cotización (ej: Bocas, Tableros, Acometidas, Energía Solar, etc.).
+            </p>
+
+            <div className="space-y-2">
+              {(formData.categoriasTarea || BASE_TAREA_CATEGORIES).map((cat, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 bg-surface-container-highest/60 border border-outline-variant/20 rounded-2xl flex items-center justify-between gap-3 text-xs"
+                >
+                  {editingCatIndex === idx ? (
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <input
+                        type="text"
+                        value={editingCatValue}
+                        onChange={(e) => setEditingCatValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSaveEditCat(idx);
+                          } else if (e.key === 'Escape') {
+                            handleCancelEditCat();
+                          }
+                        }}
+                        autoFocus
+                        className={`${inputCls} py-1 px-2.5 text-xs min-h-[34px] flex-1`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSaveEditCat(idx)}
+                        className="p-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl transition"
+                        title="Guardar nombre"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelEditCat}
+                        className="p-2 text-on-surface-variant hover:bg-surface-variant rounded-xl transition"
+                        title="Cancelar"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                        <span className="font-semibold text-on-surface truncate">{cat}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditCat(idx, cat)}
+                          className="p-1.5 text-on-surface-variant hover:text-primary rounded-lg transition-colors hover:bg-surface-container-high"
+                          title="Editar nombre de categoría"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCategory(idx)}
+                          className="p-1.5 text-on-surface-variant hover:text-rose-500 rounded-lg transition-colors hover:bg-surface-container-high"
+                          title="Eliminar categoría"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Formulario para agregar nueva categoría */}
+            <div className="mt-3 p-3 bg-surface-container border border-dashed border-outline-variant/30 rounded-2xl flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Nueva categoría (ej: Solar / Fotovoltaica, Domótica...)"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddCategory();
+                  }
+                }}
+                className={`${inputCls} py-1.5 text-xs min-h-[38px] flex-1`}
+              />
+              <button
+                type="button"
+                onClick={handleAddCategory}
+                className="px-3.5 py-2 bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs rounded-xl transition flex items-center gap-1.5 shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Agregar</span>
+              </button>
+            </div>
+          </div>
+
+          <hr className="border-outline-variant/30" />
+
           {/* Mantenimiento de Datos de Fábrica */}
           <div>
             <h3 className={`${sectionTitle} flex items-center gap-2 text-rose-500`}>
               <RefreshCw className="w-4 h-4 text-rose-500" /> Mantenimiento & Datos de Fábrica
             </h3>
-            <div className="p-4 bg-rose-500/5 border border-rose-500/20 rounded-2xl space-y-3">
+            <div className="p-4 bg-rose-500/5 border border-rose-500/20 rounded-2xl space-y-4">
               <div>
                 <h4 className="text-xs font-bold text-on-surface">Restaurar Categorías de Materiales por Defecto</h4>
-                <p className="text-[11px] text-on-surface-variant mt-0.5">
+                <p className="text-[11px] text-on-surface-variant mt-0.5 mb-2">
                   Restablece el listado inicial de categorías (Cables, Protecciones, Canalizaciones, etc.) con sus atributos sugeridos. Usar con precaución.
                 </p>
+                <button
+                  type="button"
+                  onClick={handleRestoreDefaultCategories}
+                  className="px-4 py-2 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 font-semibold text-xs rounded-xl border border-rose-500/30 transition-colors"
+                >
+                  Restaurar Categorías de Materiales IEBA
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleRestoreDefaultCategories}
-                className="px-4 py-2 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 font-semibold text-xs rounded-xl border border-rose-500/30 transition-colors"
-              >
-                Restaurar Categorías Iniciales IEBA
-              </button>
+
+              <div className="pt-3 border-t border-rose-500/20">
+                <h4 className="text-xs font-bold text-on-surface">Restaurar Categorías de Trabajos Tipo por Defecto</h4>
+                <p className="text-[11px] text-on-surface-variant mt-0.5 mb-2">
+                  Restablece las categorías de trabajos tipo a los valores de fábrica (Bocas, Circuitos, Tableros, Acometidas, Medición).
+                </p>
+                <button
+                  type="button"
+                  onClick={handleRestoreDefaultTareaCategories}
+                  className="px-4 py-2 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 font-semibold text-xs rounded-xl border border-rose-500/30 transition-colors"
+                >
+                  Restaurar Categorías de Trabajos Tipo
+                </button>
+              </div>
             </div>
           </div>
 

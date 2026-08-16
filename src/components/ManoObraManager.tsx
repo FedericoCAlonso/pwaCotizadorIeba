@@ -6,8 +6,13 @@ import { CategoriaManoDeObra, CostoIndirecto, TipoCostoIndirecto } from '../core
 import { formatARS } from '../core/calculations';
 import { TIPOS_COSTO_INDIRECTO } from '../core/sampleData';
 import { ModalContainer } from './ModalContainer';
+import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 export const ManoObraManager: React.FC = () => {
+  const { toast } = useToast();
+  const confirm = useConfirm();
+
   const manoObraList = (useLiveQuery(() => db.manoObra.toArray()) || []).filter((m) => !m.deleted);
   const costosIndirectosList = (useLiveQuery(() => db.costosIndirectos.toArray()) || []).filter((c) => !c.deleted);
 
@@ -36,6 +41,7 @@ export const ManoObraManager: React.FC = () => {
         updatedAt: now,
         deleted: false
       });
+      toast.success('Categoría de mano de obra creada');
       setIsCreatingMO(false);
     } else if (editingMO) {
       await db.manoObra.update(editingMO.id, {
@@ -44,13 +50,21 @@ export const ManoObraManager: React.FC = () => {
         fechaActualizacion: now,
         updatedAt: now
       });
+      toast.success('Categoría de mano de obra actualizada');
       setEditingMO(null);
     }
   };
 
   const handleDeleteMO = async (id: string) => {
-    if (confirm('¿Eliminar esta categoría?')) {
+    const ok = await confirm({
+      title: 'Eliminar Mano de Obra',
+      message: '¿Estás seguro de eliminar esta categoría de mano de obra?',
+      confirmText: 'Eliminar',
+      isDestructive: true
+    });
+    if (ok) {
       await softDelete('manoObra', id);
+      toast.success('Categoría eliminada');
     }
   };
 
@@ -67,6 +81,7 @@ export const ManoObraManager: React.FC = () => {
         updatedAt: now,
         deleted: false
       });
+      toast.success('Costo indirecto creado');
       setIsCreatingCI(false);
     } else if (editingCI) {
       await db.costosIndirectos.update(editingCI.id, {
@@ -75,13 +90,21 @@ export const ManoObraManager: React.FC = () => {
         valor: ciForm.valor,
         updatedAt: now
       });
+      toast.success('Costo indirecto actualizado');
       setEditingCI(null);
     }
   };
 
   const handleDeleteCI = async (id: string) => {
-    if (confirm('¿Eliminar este costo indirecto?')) {
+    const ok = await confirm({
+      title: 'Eliminar Costo Indirecto',
+      message: '¿Estás seguro de eliminar este costo indirecto?',
+      confirmText: 'Eliminar',
+      isDestructive: true
+    });
+    if (ok) {
       await softDelete('costosIndirectos', id);
+      toast.success('Costo indirecto eliminado');
     }
   };
 

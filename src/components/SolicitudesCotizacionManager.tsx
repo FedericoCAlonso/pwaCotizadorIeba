@@ -12,8 +12,12 @@ import {
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
 import { SolicitudCotizacion, SolicitudCotizacionItem, Oferta, Contacto } from '../core/types';
+import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 export const SolicitudCotizacionManager: React.FC = () => {
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const solicitudes = (useLiveQuery(() => db.solicitudesCotizacion.reverse().toArray()) || []).filter(s => !s.deleted);
   const rawContactos = useLiveQuery(() => db.contactos.toArray()) || [];
   const rawProveedores = useLiveQuery(() => db.proveedores.toArray()) || [];
@@ -146,12 +150,20 @@ export const SolicitudCotizacionManager: React.FC = () => {
       items: updatedItems
     });
 
+    toast.success(`Precios guardados. Se crearon ${newOfertas.length} nuevas ofertas.`);
     setSelectedSolicitud(null);
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar esta solicitud de cotización?')) {
+    const ok = await confirm({
+      title: 'Eliminar Solicitud',
+      message: '¿Estás seguro de eliminar esta solicitud de cotización?',
+      confirmText: 'Eliminar',
+      isDestructive: true
+    });
+    if (ok) {
       await softDelete('solicitudesCotizacion', id);
+      toast.success('Solicitud eliminada');
     }
   };
 

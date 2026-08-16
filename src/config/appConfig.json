@@ -1,14 +1,24 @@
 {
   "categories": [
     "accesorios",
-    "cableado",
-    "cajas",
-    "canalizaciones",
-    "iluminacion",
-    "insumos",
-    "medicion",
+    "cables",
     "protecciones",
-    "tableros"
+    "canalizaciones",
+    "cajas",
+    "modulos-llaves",
+    "tableros",
+    "iluminacion",
+    "tierra",
+    "fijacion",
+    "motores-automatizacion",
+    "renovables"
+  ],
+  "categoriasTarea": [
+    "Bocas",
+    "Circuitos",
+    "Tableros",
+    "Acometidas",
+    "Medición"
   ],
   "units": [
     "m",
@@ -114,6 +124,13 @@
     "diasVencimientoPrecioVerde": 30,
     "diasVencimientoPrecioAmarillo": 60,
     "canastaElectricaValor": 150000,
-    "umbralMargenMinimoAdvertencia": 20
+    "umbralMargenMinimoAdvertencia": 20,
+    "categoriasTarea": [
+      "Bocas",
+      "Circuitos",
+      "Tableros",
+      "Acometidas",
+      "Medición"
+    ]
   }
 }

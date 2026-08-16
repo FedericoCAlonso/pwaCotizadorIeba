@@ -70,7 +70,6 @@
           "opciones": [
             "Termomagnética (PIA)",
             "Interruptor Diferencial (Disyuntor)",
-            "Guardamotor",
             "Descargador Sobretensiones (DPS)"
           ]
         },
@@ -139,45 +138,368 @@
       "id": "cat-canalizaciones",
       "nombre": "Canalizaciones & Caños",
       "atributosSugeridos": [
-        { "clave": "diametro", "etiqueta": "Diámetro", "unidad": "pulgadas", "tipo": "texto" }
+        {
+          "clave": "diametro",
+          "etiqueta": "Diámetro",
+          "unidad": "pulgadas",
+          "tipo": "texto"
+        }
       ]
     },
     {
       "id": "cat-cajas",
-      "nombre": "Cajas, Módulos & Bastidores",
+      "nombre": "Cajas",
       "atributosSugeridos": [
-        { "clave": "tipo_caja", "etiqueta": "Tipo de Caja", "unidad": "", "tipo": "texto" },
-        { "clave": "modulos", "etiqueta": "Cantidad de Módulos", "unidad": "", "tipo": "numero" }
+        {
+          "clave": "tipo_caja",
+          "etiqueta": "Tipo de Caja",
+          "tipo": "texto",
+          "opciones": [
+            "Caja Rectangular 10x5 (Toma/Llave)",
+            "Caja Cuadrada 15x15 (Multitoma)",
+            "Caja Octogonal Chica (Centro Luz)",
+            "Caja Octogonal Grande",
+            "Caja de Paso/Derivación PVC",
+            "Caja de Paso/Derivación Metálica",
+            "Caja Estanca IP65"
+          ]
+        },
+        {
+          "clave": "material",
+          "etiqueta": "Material",
+          "tipo": "texto",
+          "opciones": ["PVC", "Metálica (Chapa BWG)", "Poliamida (Estanca)"]
+        },
+        {
+          "clave": "profundidad",
+          "etiqueta": "Profundidad",
+          "unidad": "mm",
+          "tipo": "numero",
+          "opciones": ["40", "50", "75"]
+        }
+      ]
+    },
+    {
+      "id": "cat-modulos-llaves",
+      "nombre": "Módulos y Llaves",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_modulo",
+          "etiqueta": "Tipo de Módulo",
+          "tipo": "texto",
+          "opciones": [
+            "Tomacorriente 2P+T",
+            "Tomacorriente Schuko",
+            "Interruptor Simple",
+            "Interruptor de Combinación (Nueve Once)",
+            "Pulsador",
+            "Dimmer",
+            "Tapa Ciega",
+            "Bastidor/Marco Soporte",
+            "Tapa Embellecedora"
+          ]
+        },
+        {
+          "clave": "linea",
+          "etiqueta": "Línea/Serie",
+          "tipo": "texto",
+          "opciones": ["Cambre Siglo XXII", "Cambre 711", "Jeluz Iggual", "Otra"]
+        },
+        {
+          "clave": "cantidad_modulos",
+          "etiqueta": "Cantidad de Módulos que Ocupa",
+          "tipo": "numero",
+          "opciones": ["1", "2", "3", "4"],
+          "dependencias": [
+            {
+              "dependeVinculo": "tipo_modulo",
+              "valorEsperado": "Bastidor/Marco Soporte",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            }
+          ]
+        },
+        {
+          "clave": "amperaje",
+          "etiqueta": "Amperaje",
+          "unidad": "A",
+          "tipo": "numero",
+          "opciones": ["10", "16", "20", "32"],
+          "dependencias": [
+            {
+              "dependeVinculo": "tipo_modulo",
+              "valorEsperado": "Interruptor Simple",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_modulo",
+              "valorEsperado": "Tapa Ciega",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            }
+          ]
+        },
+        {
+          "clave": "con_tierra",
+          "etiqueta": "Con/Sin Puesta a Tierra",
+          "tipo": "texto",
+          "opciones": ["Con Tierra", "Sin Tierra"],
+          "dependencias": [
+            {
+              "dependeVinculo": "tipo_modulo",
+              "valorEsperado": "Interruptor Simple",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            }
+          ]
+        }
       ]
     },
     {
       "id": "cat-tableros",
       "nombre": "Tableros & Gabinetes",
       "atributosSugeridos": [
-        { "clave": "modulos", "etiqueta": "Capacidad Módulos DIN", "unidad": "", "tipo": "numero" },
-        { "clave": "ip", "etiqueta": "Grado Protección IP", "unidad": "", "tipo": "texto" }
+        {
+          "clave": "modulos",
+          "etiqueta": "Capacidad Módulos DIN",
+          "unidad": "",
+          "tipo": "numero"
+        },
+        {
+          "clave": "ip",
+          "etiqueta": "Grado Protección IP",
+          "unidad": "",
+          "tipo": "texto"
+        }
       ]
     },
     {
       "id": "cat-iluminacion",
       "nombre": "Iluminación & Artefactos",
       "atributosSugeridos": [
-        { "clave": "potencia", "etiqueta": "Potencia", "unidad": "W", "tipo": "numero" },
-        { "clave": "temperatura", "etiqueta": "Color de Luz", "unidad": "K", "tipo": "texto" }
+        {
+          "clave": "potencia",
+          "etiqueta": "Potencia",
+          "unidad": "W",
+          "tipo": "numero"
+        },
+        {
+          "clave": "temperatura",
+          "etiqueta": "Color de Luz",
+          "unidad": "K",
+          "tipo": "texto"
+        }
       ]
     },
     {
-      "id": "cat-medicion",
-      "nombre": "Medición & Puesta a Tierra",
+      "id": "cat-tierra",
+      "nombre": "Puesta a Tierra",
       "atributosSugeridos": [
-        { "clave": "longitud", "etiqueta": "Longitud", "unidad": "m", "tipo": "numero" }
+        {
+          "clave": "tipo_elemento",
+          "etiqueta": "Tipo de Elemento",
+          "tipo": "texto",
+          "opciones": [
+            "Jabalina Copperweld",
+            "Soldadura Exotérmica (Cadweld)",
+            "Borne/Grampa de PAT",
+            "Cable de PAT Desnudo",
+            "Barra Equipotencial",
+            "Cámara de Inspección PAT"
+          ]
+        },
+        {
+          "clave": "seccion",
+          "etiqueta": "Sección",
+          "unidad": "mm²",
+          "tipo": "numero",
+          "opciones": ["16", "25", "35", "50"],
+          "dependencias": [
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Cable de PAT Desnudo",
+              "opcionesFiltradas": ["16", "25", "35", "50"]
+            }
+          ]
+        },
+        {
+          "clave": "longitud",
+          "etiqueta": "Longitud",
+          "unidad": "m",
+          "tipo": "numero",
+          "opciones": []
+        }
+      ]
+    },
+    {
+      "id": "cat-fijacion",
+      "nombre": "Fijación, Sujeción & Conectores",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_elemento",
+          "etiqueta": "Tipo de Elemento",
+          "tipo": "texto",
+          "opciones": [
+            "Abrazadera Metálica",
+            "Abrazadera Nylon (Precinto)",
+            "Taco/Tarugo Fischer",
+            "Terminal a Compresión (Ojal/Pala)",
+            "Borne de Conexión (Wago/Regleta)",
+            "Cinta Aisladora",
+            "Termocontraíble"
+          ]
+        },
+        {
+          "clave": "medida",
+          "etiqueta": "Medida/Diámetro",
+          "tipo": "texto",
+          "opciones": []
+        },
+        {
+          "clave": "presentacion",
+          "etiqueta": "Presentación",
+          "tipo": "texto",
+          "opciones": ["Unidad", "Bolsa x100", "Rollo"]
+        }
+      ]
+    },
+    {
+      "id": "cat-motores-automatizacion",
+      "nombre": "Motores, Automatización & Control",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_dispositivo",
+          "etiqueta": "Tipo de Dispositivo",
+          "tipo": "texto",
+          "opciones": [
+            "Contactor",
+            "Relé Térmico",
+            "Guardamotor",
+            "Temporizador",
+            "Variador de Frecuencia (VDF)",
+            "Selector/Pulsador de Comando"
+          ]
+        },
+        {
+          "clave": "In",
+          "etiqueta": "Corriente Nominal (In)",
+          "unidad": "A",
+          "tipo": "numero",
+          "opciones": ["9", "12", "18", "25", "32", "40", "50"]
+        },
+        {
+          "clave": "tension_bobina",
+          "etiqueta": "Tensión de Bobina",
+          "unidad": "V",
+          "tipo": "texto",
+          "opciones": ["24V CC", "110V CA", "220V CA", "380V CA"],
+          "dependencias": [
+            {
+              "dependeVinculo": "tipo_dispositivo",
+              "valorEsperado": "Relé Térmico",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_dispositivo",
+              "valorEsperado": "Guardamotor",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            }
+          ]
+        },
+        {
+          "clave": "rango_regulacion",
+          "etiqueta": "Rango de Regulación",
+          "unidad": "A",
+          "tipo": "texto",
+          "opciones": [],
+          "dependencias": [
+            {
+              "dependeVinculo": "tipo_dispositivo",
+              "valorEsperado": "Contactor",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_dispositivo",
+              "valorEsperado": "Temporizador",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_dispositivo",
+              "valorEsperado": "Variador de Frecuencia (VDF)",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cat-renovables",
+      "nombre": "Energías Renovables",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_elemento",
+          "etiqueta": "Tipo de Elemento",
+          "tipo": "texto",
+          "opciones": [
+            "Panel Solar Fotovoltaico",
+            "Inversor de Corriente",
+            "Regulador de Carga",
+            "Batería de Ciclo Profundo",
+            "Estructura de Montaje"
+          ]
+        },
+        {
+          "clave": "potencia",
+          "etiqueta": "Potencia",
+          "unidad": "W",
+          "tipo": "numero",
+          "opciones": [],
+          "dependencias": [
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Batería de Ciclo Profundo",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Estructura de Montaje",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            }
+          ]
+        },
+        {
+          "clave": "tecnologia",
+          "etiqueta": "Tecnología",
+          "tipo": "texto",
+          "opciones": ["Monocristalino", "Policristalino", "PWM", "MPPT", "Gel", "AGM", "Litio (LiFePO4)"]
+        },
+        {
+          "clave": "tension",
+          "etiqueta": "Tensión Nominal",
+          "unidad": "V",
+          "tipo": "numero",
+          "opciones": ["12", "24", "48", "220"]
+        }
       ]
     },
     {
       "id": "cat-accesorios",
       "nombre": "Accesorios & Consumibles",
       "atributosSugeridos": [
-        { "clave": "presentacion", "etiqueta": "Presentación", "unidad": "", "tipo": "texto" }
+        {
+          "clave": "presentacion",
+          "etiqueta": "Presentación",
+          "unidad": "",
+          "tipo": "texto"
+        }
       ]
     }
   ],

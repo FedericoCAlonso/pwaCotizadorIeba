@@ -4,18 +4,22 @@ import { HardHat, Plus, Save, Trash2, TrendingUp } from 'lucide-react';
 import { db, softDelete } from '../db/database';
 import { RegistroTrabajo, TareaTipo, MotivoDesvio, MOTIVO_DESVIO_ETIQUETAS } from '../core/types';
 import { formatNumber, calcularNuevoFactorEMA } from '../core/calculations';
-import { CONDICIONES_TRABAJO, MOTIVOS_DESVIO } from '../core/sampleData';
 import { ModalContainer } from './ModalContainer';
+import { useAppOptions } from '../hooks/useAppOptions';
+import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 export const RegistroTrabajoManager: React.FC = () => {
+  const { condicionesTrabajo, motivosDesvio, config } = useAppOptions();
+  const { toast } = useToast();
+  const confirm = useConfirm();
+
   const allRegistros = useLiveQuery(() => db.registrosTrabajo.reverse().toArray()) || [];
   const registros = allRegistros.filter(r => !r.deleted);
   const tareasTipo = (useLiveQuery(() => db.tareasTipo.toArray()) || []).filter(t => !t.deleted);
   const manoObraList = (useLiveQuery(() => db.manoObra.toArray()) || []).filter(m => !m.deleted);
   const presupuestos = (useLiveQuery(() => db.presupuestos.reverse().toArray()) || []).filter(p => !p.deleted);
   const clientes = (useLiveQuery(() => db.clientes.toArray()) || []).filter(c => !c.deleted);
-  const configs = useLiveQuery(() => db.config.toArray()) || [];
-  const config = configs[0];
 
   const tareasMap = new Map<string, TareaTipo>(tareasTipo.map((t) => [t.id, t]));
   const clientesMap = new Map(clientes.map((c) => [c.id, c]));
@@ -119,11 +123,19 @@ export const RegistroTrabajoManager: React.FC = () => {
     }
 
     setIsCreating(false);
+    toast.success('Registro de trabajo guardado correctamente');
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar este registro de trabajo?')) {
+    const ok = await confirm({
+      title: 'Eliminar Registro de Trabajo',
+      message: '¿Estás seguro de eliminar este registro de trabajo?',
+      confirmText: 'Eliminar',
+      isDestructive: true
+    });
+    if (ok) {
       await softDelete('registrosTrabajo', id);
+      toast.success('Registro de trabajo eliminado');
     }
   };
 
@@ -429,7 +441,7 @@ export const RegistroTrabajoManager: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, condicion: e.target.value as any })}
                 className={inputCls}
               >
-                {CONDICIONES_TRABAJO.map((c) => (
+                {condicionesTrabajo.map((c) => (
                   <option key={c.value} value={c.value}>
                     {c.label}
                   </option>
@@ -519,7 +531,7 @@ export const RegistroTrabajoManager: React.FC = () => {
               Motivo de Desvío <span className="text-on-surface-variant/70 font-normal">(Opcional)</span>
             </label>
             <div className="flex flex-wrap gap-1.5">
-              {MOTIVOS_DESVIO.map((m) => {
+              {motivosDesvio.map((m) => {
                 const isSelected = formData.motivoDesvio === m.value;
                 return (
                   <button
