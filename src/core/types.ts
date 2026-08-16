@@ -135,7 +135,8 @@ export interface Oferta {
   id: string;
   materialId: string; // FK siempre presente
   productoId?: string; // FK opcional (null = precio genérico sin marca)
-  proveedorId: string;
+  proveedorId?: string; // FK opcional si el proveedor está agendado
+  proveedorNombre?: string; // Nombre del proveedor (agendado u ocasional/libre)
   precio: number;
   fecha: string; // ISO String
   fuente: 'indice' | 'manual' | 'cotizacion_directa' | 'importacion_excel';

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Calculator, Plus, BookOpen, Sliders, BarChart3, ShieldAlert } from 'lucide-react';
 import { db, softDelete } from '../db/database';
-import { TareaTipo, Insumo, CategoriaManoDeObra } from '../core/types';
+import { TareaTipo, Insumo, CategoriaManoDeObra, Oferta, Producto } from '../core/types';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -20,14 +20,24 @@ export const TareasTipoManager: React.FC = () => {
   const tareasTipo = (useLiveQuery(() => db.tareasTipo.toArray()) || []).filter((t) => !t.deleted);
   const legacyInsumos = (useLiveQuery(() => db.insumos.toArray()) || []).filter((i) => !i.deleted);
   const materiales = (useLiveQuery(() => db.materiales.toArray()) || []).filter((m) => !m.deleted);
+  const productos = (useLiveQuery(() => db.productos.toArray()) || []).filter((p) => !p.deleted);
   const ofertas = (useLiveQuery(() => db.ofertas.toArray()) || []).filter((o) => !o.deleted);
   const manoObraList = (useLiveQuery(() => db.manoObra.toArray()) || []).filter((m) => !m.deleted);
   const registrosTrabajo = (useLiveQuery(() => db.registrosTrabajo.toArray()) || []).filter((r) => !r.deleted);
 
   const insumosMap = new Map<string, Insumo>();
   legacyInsumos.forEach((i) => insumosMap.set(i.id, i));
+  const sortedOfertas = [...ofertas].sort((a, b) => new Date(a.fecha || 0).getTime() - new Date(b.fecha || 0).getTime());
   materiales.forEach((m) => {
-    const oferta = ofertas.find((o) => o.materialId === m.id);
+    const matProds = productos.filter((p) => p.materialId === m.id);
+    const preferido = matProds.find((p) => p.esPreferido);
+    let oferta: Oferta | undefined;
+    if (preferido) {
+      oferta = sortedOfertas.filter((o) => o.materialId === m.id && o.productoId === preferido.id).pop();
+    }
+    if (!oferta) {
+      oferta = sortedOfertas.filter((o) => o.materialId === m.id).pop();
+    }
     insumosMap.set(m.id, {
       ...m,
       id: m.id,

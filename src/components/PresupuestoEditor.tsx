@@ -77,21 +77,29 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
   const legacyInsumos = (useLiveQuery(() => db.insumos.toArray()) || []).filter(i => !i.deleted);
   const materiales = (useLiveQuery(() => db.materiales.toArray()) || []).filter(m => !m.deleted);
+  const productos = (useLiveQuery(() => db.productos.toArray()) || []).filter(p => !p.deleted);
   const ofertas = (useLiveQuery(() => db.ofertas.toArray()) || []).filter(o => !o.deleted);
   const manoObraList = (useLiveQuery(() => db.manoObra.toArray()) || []).filter(m => !m.deleted);
   const costosIndirectos = (useLiveQuery(() => db.costosIndirectos.toArray()) || []).filter(c => !c.deleted);
 
   const insumosMap = useMemo(() => {
-    const latestOfertaMap = new Map<string, Oferta>();
     const sortedOfertas = [...ofertas].sort((a, b) => new Date(a.fecha || 0).getTime() - new Date(b.fecha || 0).getTime());
-    sortedOfertas.forEach(o => {
-      if (o.materialId) latestOfertaMap.set(o.materialId, o);
-    });
 
     const map = new Map<string, Insumo>();
     legacyInsumos.forEach(i => map.set(i.id, i));
     materiales.forEach(m => {
-      const oferta = latestOfertaMap.get(m.id);
+      // 1. Si el material tiene una marca preferida con oferta, priorizarla
+      const matProds = productos.filter(p => p.materialId === m.id);
+      const preferido = matProds.find(p => p.esPreferido);
+      let oferta: Oferta | undefined;
+      if (preferido) {
+        oferta = sortedOfertas.filter(o => o.materialId === m.id && o.productoId === preferido.id).pop();
+      }
+      // 2. Si no hay preferido o no tiene precio, tomar la oferta más reciente
+      if (!oferta) {
+        oferta = sortedOfertas.filter(o => o.materialId === m.id).pop();
+      }
+
       map.set(m.id, {
         ...m,
         id: m.id,
@@ -104,7 +112,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       });
     });
     return map;
-  }, [legacyInsumos, materiales, ofertas]);
+  }, [legacyInsumos, materiales, productos, ofertas]);
 
   const manoObraMap = useMemo(
     () => new Map<string, CategoriaManoDeObra>(manoObraList.map((m) => [m.id, m])),

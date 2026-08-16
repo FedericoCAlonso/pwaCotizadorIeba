@@ -118,9 +118,33 @@ export const InsumosManager: React.FC = () => {
   const [modoCargaContinua, setModoCargaContinua] = useState(false);
   const quickMatNombreRef = useRef<HTMLInputElement>(null);
 
-  // Helper para armar ofertas agrupadas por material
-  const getOfertaVigente = (materialId: string, productoId?: string) => {
-    return ofertas.find(o => o.materialId === materialId && (!productoId || o.productoId === productoId));
+  // Helper para armar ofertas agrupadas por material (priorizando marca preferida)
+  const getOfertaVigente = (materialId: string, productoId?: string): Oferta | undefined => {
+    if (productoId) {
+      return ofertas.find(o => o.materialId === materialId && o.productoId === productoId);
+    }
+    // 1. Si el material tiene un producto preferido con precio, tomarlo
+    const matProds = productos.filter(p => p.materialId === materialId);
+    const preferido = matProds.find(p => p.esPreferido);
+    if (preferido) {
+      const ofertaPreferido = ofertas.find(o => o.materialId === materialId && o.productoId === preferido.id);
+      if (ofertaPreferido) return ofertaPreferido;
+    }
+    // 2. Si no, tomar la oferta más reciente (genérica o de cualquier marca)
+    return ofertas.find(o => o.materialId === materialId);
+  };
+
+  const handleTogglePreferido = async (p: Producto) => {
+    const isNowPreferido = !p.esPreferido;
+    const sameMatProds = productos.filter(prod => prod.materialId === p.materialId);
+    for (const prod of sameMatProds) {
+      if (prod.id === p.id) {
+        await db.productos.update(prod.id, { esPreferido: isNowPreferido });
+      } else if (isNowPreferido && prod.esPreferido) {
+        await db.productos.update(prod.id, { esPreferido: false });
+      }
+    }
+    toast.success(isNowPreferido ? `${p.marca} establecida como marca preferida ⭐` : 'Marca preferida desmarcada');
   };
 
   // --- Handlers Alta Rápida ---
@@ -530,9 +554,11 @@ export const InsumosManager: React.FC = () => {
     setFormDataOferta({
       materialId: matId,
       productoId: prodId,
-      proveedorId: proveedores[0]?.id || '',
+      proveedorId: proveedores[0]?.id || undefined,
+      proveedorNombre: proveedores[0]?.razonSocial || proveedores[0]?.nombre || '',
       precio: 0,
-      fuente: 'manual'
+      fuente: 'manual',
+      notas: ''
     });
     setIsCreatingOferta(true);
   };
@@ -543,9 +569,11 @@ export const InsumosManager: React.FC = () => {
       materialId: oferta.materialId,
       productoId: oferta.productoId,
       proveedorId: oferta.proveedorId,
+      proveedorNombre: oferta.proveedorNombre,
       precio: oferta.precio,
       fuente: oferta.fuente || 'manual',
-      tipoAjustePrecio: oferta.tipoAjustePrecio
+      tipoAjustePrecio: oferta.tipoAjustePrecio,
+      notas: oferta.notas || ''
     });
     setIsCreatingOferta(true);
   };
@@ -556,11 +584,14 @@ export const InsumosManager: React.FC = () => {
 
     if (editingOferta) {
       await db.ofertas.update(editingOferta.id, {
-        proveedorId: formDataOferta.proveedorId || proveedores[0]?.id || '',
+        productoId: formDataOferta.productoId,
+        proveedorId: formDataOferta.proveedorId,
+        proveedorNombre: formDataOferta.proveedorNombre,
         precio: formDataOferta.precio || 0,
         fecha: now,
         fuente: formDataOferta.fuente || 'manual',
-        tipoAjustePrecio: formDataOferta.tipoAjustePrecio
+        tipoAjustePrecio: formDataOferta.tipoAjustePrecio,
+        notas: formDataOferta.notas
       });
       toast.success('Precio actualizado');
     } else {
@@ -568,10 +599,12 @@ export const InsumosManager: React.FC = () => {
         id: `oferta-${crypto.randomUUID()}`,
         materialId: formDataOferta.materialId!,
         productoId: formDataOferta.productoId,
-        proveedorId: formDataOferta.proveedorId || proveedores[0]?.id || '',
+        proveedorId: formDataOferta.proveedorId,
+        proveedorNombre: formDataOferta.proveedorNombre,
         precio: formDataOferta.precio || 0,
         fecha: now,
-        fuente: formDataOferta.fuente || 'manual'
+        fuente: formDataOferta.fuente || 'manual',
+        notas: formDataOferta.notas
       };
       await db.ofertas.add(newOferta);
       toast.success('Nuevo precio registrado');
@@ -942,7 +975,12 @@ export const InsumosManager: React.FC = () => {
                       const cat = categoriasMap.get(mat.categoriaId);
                       const prods = productos.filter((p) => p.materialId === mat.id);
                       const vigOferta = getOfertaVigente(mat.id);
-                      const prov = vigOferta ? proveedoresMap.get(vigOferta.proveedorId) : null;
+                      const vigProd = vigOferta?.productoId ? prods.find(p => p.id === vigOferta.productoId) : null;
+                      const provNombre = vigOferta
+                        ? vigOferta.proveedorId
+                          ? (proveedoresMap.get(vigOferta.proveedorId)?.razonSocial || proveedoresMap.get(vigOferta.proveedorId)?.nombre)
+                          : vigOferta.proveedorNombre
+                        : null;
                       const isSelected = selectedMaterialIds.has(mat.id);
 
                       const vencState = vigOferta
@@ -965,7 +1003,7 @@ export const InsumosManager: React.FC = () => {
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => handleToggleSelectMaterial(mat.id)}
-                              className="w-4 h-4 text-primary rounded"
+                              className="w-4 h-4 text-primary rounded cursor-pointer"
                             />
                           </td>
                           <td className="p-3 max-w-xs">
@@ -983,26 +1021,43 @@ export const InsumosManager: React.FC = () => {
                           <td className="p-3">
                             {prods.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
-                                {prods.map((p) => (
-                                  <span
-                                    key={p.id}
-                                    className="text-[10px] bg-surface-container-highest px-2 py-0.5 rounded-md font-medium"
-                                  >
-                                    {p.marca} {p.modelo || ''}
-                                  </span>
-                                ))}
+                                {prods.map((p) => {
+                                  const prodOferta = getOfertaVigente(mat.id, p.id);
+                                  return (
+                                    <button
+                                      key={p.id}
+                                      type="button"
+                                      onClick={() => handleTogglePreferido(p)}
+                                      className={`text-[10px] px-2 py-0.5 rounded-lg font-medium flex items-center gap-1 transition-colors cursor-pointer ${
+                                        p.esPreferido
+                                          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                                          : 'bg-surface-container-highest text-on-surface-variant'
+                                      }`}
+                                      title={p.esPreferido ? 'Marca preferida para presupuestos (clic para alternar)' : 'Clic para marcar como preferida'}
+                                    >
+                                      {p.esPreferido && <Star className="w-2.5 h-2.5 fill-current" />}
+                                      <span>{p.marca} {p.modelo ? `(${p.modelo})` : ''}</span>
+                                      {prodOferta && <span className="font-mono text-primary font-bold">({formatARS(prodOferta.precio)})</span>}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             ) : (
                               <span className="text-on-surface-variant italic text-[11px]">Genérico</span>
                             )}
-                            {prov && (
-                              <div className="text-[10px] text-on-surface-variant mt-0.5">
-                                Prov: {prov.razonSocial || prov.nombre}
+                            {provNombre && (
+                              <div className="text-[10px] text-on-surface-variant mt-1 truncate max-w-[180px]">
+                                Ref: {provNombre}
                               </div>
                             )}
                           </td>
                           <td className="p-3 text-right font-mono font-bold text-sm text-primary">
                             {vigOferta ? formatARS(vigOferta.precio) : '-'}
+                            {vigProd && (
+                              <span className="text-[10px] text-on-surface-variant font-normal block">
+                                {vigProd.marca} {vigProd.esPreferido ? '⭐' : ''}
+                              </span>
+                            )}
                           </td>
                           <td className="p-3 text-center">
                             <span
@@ -1063,7 +1118,12 @@ export const InsumosManager: React.FC = () => {
                 const cat = categoriasMap.get(mat.categoriaId);
                 const prods = productos.filter((p) => p.materialId === mat.id);
                 const vigOferta = getOfertaVigente(mat.id);
-                const prov = vigOferta ? proveedoresMap.get(vigOferta.proveedorId) : null;
+                const vigProd = vigOferta?.productoId ? prods.find(p => p.id === vigOferta.productoId) : null;
+                const provNombre = vigOferta
+                  ? vigOferta.proveedorId
+                    ? (proveedoresMap.get(vigOferta.proveedorId)?.razonSocial || proveedoresMap.get(vigOferta.proveedorId)?.nombre)
+                    : vigOferta.proveedorNombre
+                  : null;
                 const isSelected = selectedMaterialIds.has(mat.id);
 
                 const vencState = vigOferta
@@ -1137,10 +1197,10 @@ export const InsumosManager: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Products / Brands */}
-                      <div className="mt-3 pt-2.5 border-t border-outline-variant/15 space-y-1.5">
+                      {/* Products / Brands Breakdown */}
+                      <div className="mt-3 pt-2.5 border-t border-outline-variant/15 space-y-2">
                         <div className="flex items-center justify-between text-[11px] text-on-surface-variant font-medium">
-                          <span>Marcas / Modelos ({prods.length}):</span>
+                          <span>Marcas & Modelos ({prods.length}):</span>
                           <button
                             type="button"
                             onClick={() => handleOpenCreateProd(mat.id)}
@@ -1150,28 +1210,74 @@ export const InsumosManager: React.FC = () => {
                           </button>
                         </div>
                         {prods.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {prods.map((p) => (
-                              <div
-                                key={p.id}
-                                className="text-[11px] bg-surface-container-highest text-on-surface-variant px-2.5 py-0.5 rounded-lg flex items-center gap-1 font-medium group select-none"
-                              >
-                                {p.esPreferido && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}
-                                <span>
-                                  {p.marca} {p.modelo ? `(${p.modelo})` : ''}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteProducto(p.id)}
-                                  className="text-on-surface-variant hover:text-error ml-1 opacity-60 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          <div className="space-y-1.5">
+                            {prods.map((p) => {
+                              const prodOferta = getOfertaVigente(mat.id, p.id);
+                              const prodProv = prodOferta
+                                ? prodOferta.proveedorId
+                                  ? (proveedoresMap.get(prodOferta.proveedorId)?.razonSocial || proveedoresMap.get(prodOferta.proveedorId)?.nombre)
+                                  : prodOferta.proveedorNombre
+                                : null;
+                              return (
+                                <div
+                                  key={p.id}
+                                  className="text-[11px] bg-surface-container-highest/60 hover:bg-surface-container-highest text-on-surface p-2 rounded-xl flex items-center justify-between gap-2 group transition-colors"
                                 >
-                                  ×
-                                </button>
-                              </div>
-                            ))}
+                                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleTogglePreferido(p)}
+                                      title={p.esPreferido ? 'Marca preferida para presupuestos (clic para alternar)' : 'Establecer como marca preferida'}
+                                      className="cursor-pointer"
+                                    >
+                                      <Star
+                                        className={`w-3.5 h-3.5 ${
+                                          p.esPreferido ? 'text-amber-500 fill-amber-500' : 'text-on-surface-variant/40 hover:text-amber-500'
+                                        }`}
+                                      />
+                                    </button>
+                                    <span className="font-semibold truncate">
+                                      {p.marca} {p.modelo ? `(${p.modelo})` : ''}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {prodOferta ? (
+                                      <div className="text-right font-mono text-[11px]">
+                                        <span className="font-bold text-primary">{formatARS(prodOferta.precio)}</span>
+                                        {prodProv && (
+                                          <span className="text-[10px] text-on-surface-variant block truncate max-w-[100px]" title={prodProv}>
+                                            {prodProv}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-[10px] text-on-surface-variant italic">Sin precio</span>
+                                    )}
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenCreateOferta(mat.id, p.id)}
+                                      className="p-1 rounded-full text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                      title={`Cargar nuevo precio para ${p.marca}`}
+                                    >
+                                      <TrendingUp className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteProducto(p.id)}
+                                      className="text-on-surface-variant hover:text-error opacity-40 group-hover:opacity-100 transition-opacity cursor-pointer p-0.5"
+                                      title="Eliminar marca"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : (
-                          <p className="text-[11px] text-on-surface-variant italic">Genérico</p>
+                          <p className="text-[11px] text-on-surface-variant italic">Genérico / Sin marca registrada</p>
                         )}
                       </div>
                     </div>
@@ -1185,9 +1291,9 @@ export const InsumosManager: React.FC = () => {
                         <div className="font-mono text-base font-bold text-primary">
                           {vigOferta ? formatARS(vigOferta.precio) : 'Sin precio'}
                         </div>
-                        {prov && (
-                          <span className="text-[10px] text-on-surface-variant block truncate max-w-[140px]">
-                            {prov.razonSocial || prov.nombre}
+                        {provNombre && (
+                          <span className="text-[10px] text-on-surface-variant block truncate max-w-[150px]" title={provNombre}>
+                            {provNombre} {vigProd ? `(${vigProd.marca})` : ''}
                           </span>
                         )}
                       </div>
@@ -1295,6 +1401,7 @@ export const InsumosManager: React.FC = () => {
         }}
         editingOferta={editingOferta}
         proveedores={proveedores}
+        productos={productos.filter(p => p.materialId === (formDataOferta.materialId || targetMatId))}
         formDataOferta={formDataOferta}
         setFormDataOferta={setFormDataOferta}
         onSave={handleSaveOferta}
