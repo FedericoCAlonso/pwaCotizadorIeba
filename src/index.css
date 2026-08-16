@@ -135,6 +135,8 @@
     --md-sys-color-on-error-container: var(--md-ref-palette-error-10);
 
     /* Superficies y Fondos Light */
+    --md-sys-color-background: var(--md-ref-palette-neutral-99);
+    --md-sys-color-on-background: var(--md-ref-palette-neutral-10);
     --md-sys-color-surface: var(--md-ref-palette-neutral-99);
     --md-sys-color-on-surface: var(--md-ref-palette-neutral-10);
     --md-sys-color-surface-variant: var(--md-ref-palette-neutral-variant-90);
@@ -159,6 +161,8 @@
     --brand-whatsapp: #25D366;
   }
 
+  html.dark,
+  :root.dark,
   .dark {
     /* ═══════════════════════════════════════════════════════════════════
        3. ROLES SEMÁNTICOS M3 — DARK THEME
@@ -196,16 +200,18 @@
     --md-sys-color-on-error-container: var(--md-ref-palette-error-90);
 
     /* Superficies y Fondos Dark */
-    --md-sys-color-surface: var(--md-ref-palette-neutral-10);
+    --md-sys-color-background: #14120c;
+    --md-sys-color-on-background: var(--md-ref-palette-neutral-90);
+    --md-sys-color-surface: #14120c;
     --md-sys-color-on-surface: var(--md-ref-palette-neutral-90);
     --md-sys-color-surface-variant: var(--md-ref-palette-neutral-variant-30);
     --md-sys-color-on-surface-variant: var(--md-ref-palette-neutral-variant-80);
 
-    --md-sys-color-surface-container-lowest: #0e0c08;
-    --md-sys-color-surface-container-low: var(--md-ref-palette-neutral-10);
-    --md-sys-color-surface-container: var(--md-ref-palette-neutral-20);
-    --md-sys-color-surface-container-high: var(--md-ref-palette-neutral-30);
-    --md-sys-color-surface-container-highest: var(--md-ref-palette-neutral-40);
+    --md-sys-color-surface-container-lowest: #0c0a06;
+    --md-sys-color-surface-container-low: #1c1811;
+    --md-sys-color-surface-container: #252017;
+    --md-sys-color-surface-container-high: #2f2a1e;
+    --md-sys-color-surface-container-highest: #3b3527;
 
     --md-sys-color-outline: var(--md-ref-palette-neutral-variant-60);
     --md-sys-color-outline-variant: var(--md-ref-palette-neutral-variant-30);
