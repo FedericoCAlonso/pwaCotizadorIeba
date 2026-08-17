@@ -8,7 +8,8 @@ import {
   Trash2,
   X,
   Save,
-  Check
+  Check,
+  FileSpreadsheet
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
 import { SolicitudCotizacion, SolicitudCotizacionItem, Oferta, Contacto } from '../core/types';
@@ -116,6 +117,107 @@ export const SolicitudCotizacionManager: React.FC = () => {
     navigator.clipboard.writeText(text);
     setCopiedTextId(req.id);
     setTimeout(() => setCopiedTextId(null), 2500);
+  };
+
+  const handleExportRFQExcel = async (req: SolicitudCotizacion) => {
+    try {
+      const prov = proveedoresMap.get(req.proveedorId);
+      const provNombre = prov?.razonSocial || prov?.nombre || 'General';
+      const fechaStr = new Date(req.fechaCreacion).toLocaleDateString('es-AR');
+
+      const ExcelModule = await import('exceljs');
+      const ExcelJS = ExcelModule.default || ExcelModule;
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Cotizador IEBA';
+      const ws = workbook.addWorksheet('Solicitud de Cotización', {
+        views: [{ showGridLines: true }]
+      });
+
+      // Título y datos del proveedor
+      ws.addRow(['SOLICITUD DE COTIZACIÓN DE MATERIALES — IEBA']);
+      ws.addRow([`Proveedor: ${provNombre}`]);
+      ws.addRow([`Fecha: ${fechaStr} | Estado: ${req.estado.toUpperCase()}`]);
+      if (prov?.telefono || prov?.email) {
+        ws.addRow([`Contacto: ${[prov?.telefono, prov?.email].filter(Boolean).join(' | ')}`]);
+      }
+      if (req.notas) {
+        ws.addRow([`Observaciones: ${req.notas}`]);
+      }
+      ws.addRow([]); // Fila en blanco
+
+      // Encabezados de la tabla
+      const headerRowIndex = ws.rowCount + 1;
+      ws.addRow([
+        '#',
+        'Material / Descripción Técnica',
+        'Marca Solicitada / Modelo',
+        'Cantidad',
+        'Unidad',
+        'Marca Ofrecida',
+        'Precio Unitario (sin IVA)',
+        'Subtotal (ARS)',
+        'Plazo / Disponibilidad'
+      ]);
+
+      // Filas de materiales
+      req.items.forEach((it, idx) => {
+        const mat = materialesMap.get(it.materialId);
+        const prod = it.productoId ? productosMap.get(it.productoId) : undefined;
+        const marcaSolicitada = prod ? `${prod.marca}${prod.modelo ? ' ' + prod.modelo : ''}` : 'Cualquiera / Indistinta';
+        const rowNum = ws.rowCount + 1;
+
+        ws.addRow([
+          idx + 1,
+          mat?.nombre || 'Material',
+          marcaSolicitada,
+          it.cantidad || 1,
+          mat?.unidadVenta || 'u',
+          '',
+          it.precioRespuesta || '',
+          { formula: `D${rowNum}*G${rowNum}` },
+          ''
+        ]);
+      });
+
+      // Ancho de columnas
+      ws.getColumn(1).width = 6;
+      ws.getColumn(2).width = 45;
+      ws.getColumn(3).width = 25;
+      ws.getColumn(4).width = 12;
+      ws.getColumn(5).width = 10;
+      ws.getColumn(6).width = 24;
+      ws.getColumn(7).width = 24;
+      ws.getColumn(8).width = 20;
+      ws.getColumn(9).width = 22;
+
+      // Estilos
+      const titleRow = ws.getRow(1);
+      titleRow.font = { bold: true, size: 14, color: { argb: 'FF1E3A8A' } };
+
+      const headerRow = ws.getRow(headerRowIndex);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF1E293B' }
+      };
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const sanitizedProv = provNombre.replace(/[^a-zA-Z0-9_-]/g, '_');
+      a.download = `Solicitud_Cotizacion_${sanitizedProv}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Planilla XLSX para ${provNombre} descargada.`);
+    } catch (err) {
+      console.error('Error al exportar RFQ a Excel:', err);
+      toast.error('Ocurrió un error al generar la planilla Excel.');
+    }
   };
 
   const handleMarkSent = async (req: SolicitudCotizacion) => {
@@ -232,9 +334,18 @@ export const SolicitudCotizacionManager: React.FC = () => {
                   <button
                     onClick={() => handleCopyText(req)}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-surface-container-highest hover:bg-surface-variant text-on-surface rounded-xl transition-colors"
+                    title="Copiar texto resumen formateado para WhatsApp"
                   >
                     {copiedTextId === req.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-primary" />}
                     <span>{copiedTextId === req.id ? 'Copiado' : 'Texto WA'}</span>
+                  </button>
+                  <button
+                    onClick={() => handleExportRFQExcel(req)}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-surface-container-highest hover:bg-surface-variant text-on-surface rounded-xl transition-colors"
+                    title="Exportar planilla XLSX de cotización para enviar al proveedor"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Excel</span>
                   </button>
                   {req.estado === 'borrador' && (
                     <button

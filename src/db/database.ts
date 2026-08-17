@@ -21,6 +21,8 @@ import {
   DEFAULT_APP_CONFIG,
   INITIAL_CATEGORIAS_MATERIAL,
   INITIAL_MATERIALES,
+  INITIAL_MANO_OBRA,
+  INITIAL_COSTOS_INDIRECTOS,
   INITIAL_CONTACTOS
 } from '../core/sampleData';
 
@@ -320,7 +322,21 @@ export async function initializeDatabaseSeed(): Promise<void> {
         }
       }
 
-      // 6. Inicializar configuración por defecto si la base está vacía
+      // 6. Asegurar mano de obra inicial si la tabla está vacía
+      if (await db.manoObra.count() === 0 && INITIAL_MANO_OBRA.length > 0) {
+        for (const mo of INITIAL_MANO_OBRA) {
+          await db.manoObra.put(mo);
+        }
+      }
+
+      // 7. Asegurar costos indirectos iniciales si la tabla está vacía
+      if (await db.costosIndirectos.count() === 0 && INITIAL_COSTOS_INDIRECTOS.length > 0) {
+        for (const ci of INITIAL_COSTOS_INDIRECTOS) {
+          await db.costosIndirectos.put(ci);
+        }
+      }
+
+      // 8. Inicializar configuración por defecto si la base está vacía
       if (await db.config.count() === 0) await db.config.add(DEFAULT_APP_CONFIG);
     });
     console.log('Verificación e inicialización de semillas de BD completada.');

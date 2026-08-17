@@ -6630,8 +6630,104 @@
   ],
   "productos": [],
   "ofertas": [],
-  "manoObra": [],
-  "costosIndirectos": [],
+  "manoObra": [
+    {
+      "id": "mo-oficial-especializado",
+      "nombre": "Oficial Electricista Especializado",
+      "costoHora": 0
+    },
+    {
+      "id": "mo-oficial-electricista",
+      "nombre": "Oficial Electricista",
+      "costoHora": 0
+    },
+    {
+      "id": "mo-medio-oficial",
+      "nombre": "Medio Oficial Electricista",
+      "costoHora": 0
+    },
+    {
+      "id": "mo-ayudante",
+      "nombre": "Ayudante Electricista",
+      "costoHora": 0
+    },
+    {
+      "id": "mo-capataz-encargado",
+      "nombre": "Encargado / Capataz de Obra",
+      "costoHora": 0
+    },
+    {
+      "id": "mo-tecnico-matriculado",
+      "nombre": "Técnico Electricista Matriculado (Firma / Habilitación)",
+      "costoHora": 0
+    },
+    {
+      "id": "mo-tablerista-automatizacion",
+      "nombre": "Tablerista / Especialista en Automatización & Control",
+      "costoHora": 0
+    },
+    {
+      "id": "mo-proyectista-calculista",
+      "nombre": "Proyectista / Calculista Eléctrico",
+      "costoHora": 0
+    }
+  ],
+  "costosIndirectos": [
+    {
+      "id": "ci-movilidad-combustible",
+      "nombre": "Movilidad, Combustible y Flete de Materiales",
+      "tipo": "por_visita",
+      "valor": 0
+    },
+    {
+      "id": "ci-seguro-ap-art",
+      "nombre": "Seguro de Accidentes Personales (AP / ART de Obra)",
+      "tipo": "por_visita",
+      "valor": 0
+    },
+    {
+      "id": "ci-epp-seguridad",
+      "nombre": "Elementos de Protección Personal (EPP e Indumentaria)",
+      "tipo": "porcentual_sobre_costo",
+      "valor": 0
+    },
+    {
+      "id": "ci-desgaste-herramientas",
+      "nombre": "Amortización y Desgaste de Herramientas e Instrumental",
+      "tipo": "porcentual_sobre_costo",
+      "valor": 0
+    },
+    {
+      "id": "ci-gastos-administrativos",
+      "nombre": "Gastos Administrativos, Comunicaciones y Software",
+      "tipo": "fijo_mensual",
+      "valor": 0
+    },
+    {
+      "id": "ci-alquiler-taller-deposito",
+      "nombre": "Estructura: Taller, Depósito y Almacenamiento",
+      "tipo": "fijo_mensual",
+      "valor": 0
+    },
+    {
+      "id": "ci-encomienda-matricula",
+      "nombre": "Matrícula Profesional y Timbrado Colegial (Colegio / COPIME / CIEC)",
+      "tipo": "por_visita",
+      "valor": 0
+    },
+    {
+      "id": "ci-imprevistos-contingencia",
+      "nombre": "Fondo de Imprevistos y Contingencias de Obra",
+      "tipo": "porcentual_sobre_costo",
+      "valor": 0
+    },
+    {
+      "id": "ci-alquiler-andamios-escaleras",
+      "nombre": "Alquiler de Andamios, Escaleras Especiales y Equipamiento",
+      "tipo": "por_visita",
+      "valor": 0
+    }
+  ],
   "tareasTipo": [],
   "clientes": [],
   "proveedores": []

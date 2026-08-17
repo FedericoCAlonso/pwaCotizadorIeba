@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle, RefreshCw, Layers, Plus, Edit2, Trash2, Check, RotateCcw } from 'lucide-react';
 import { AppConfig } from '../core/types';
 import { db } from '../db/database';
-import { TIPOS_FACTURA, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL, INITIAL_MATERIALES, DEFAULT_MOTORES_BUSQUEDA, BASE_TAREA_CATEGORIES } from '../core/sampleData';
+import { TIPOS_FACTURA, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL, INITIAL_MATERIALES, INITIAL_MANO_OBRA, INITIAL_COSTOS_INDIRECTOS, DEFAULT_MOTORES_BUSQUEDA, BASE_TAREA_CATEGORIES } from '../core/sampleData';
 import { isFirebaseConfigured, getFirebaseConfig, clearCustomFirebaseConfig } from '../config/firebase';
 import { AuthModal } from './AuthModal';
 import { useToast } from '../contexts/ToastContext';
@@ -79,6 +79,32 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
     if (ok) {
       await db.materiales.bulkPut(INITIAL_MATERIALES);
       toast.success(`${INITIAL_MATERIALES.length} materiales base cargados correctamente en el catálogo.`);
+    }
+  };
+
+  const handleRestoreDefaultManoObra = async () => {
+    const ok = await confirm({
+      title: 'Cargar / Restaurar Categorías de Mano de Obra',
+      message: `¿Estás seguro de cargar los ${INITIAL_MANO_OBRA.length} roles estándar de mano de obra eléctrica (Oficial Especializado, Oficial, Medio Oficial, Ayudante, Capataz, Matriculado, Tablerista, Proyectista)? Los valores/tarifas horarias se inicializarán en 0.`,
+      confirmText: 'Cargar Mano de Obra',
+      isDestructive: false
+    });
+    if (ok) {
+      await db.manoObra.bulkPut(INITIAL_MANO_OBRA);
+      toast.success(`${INITIAL_MANO_OBRA.length} categorías de mano de obra cargadas.`);
+    }
+  };
+
+  const handleRestoreDefaultCostosIndirectos = async () => {
+    const ok = await confirm({
+      title: 'Cargar / Restaurar Gastos Generales y Estructura',
+      message: `¿Estás seguro de cargar los ${INITIAL_COSTOS_INDIRECTOS.length} conceptos de gastos generales y de estructura estándar (Movilidad, Seguros AP/ART, EPP, Desgaste de herramientas, Gastos administrativos, Taller/Depósito, Matrícula, Imprevistos, Andamios)? Los valores se inicializarán en 0.`,
+      confirmText: 'Cargar Gastos Generales',
+      isDestructive: false
+    });
+    if (ok) {
+      await db.costosIndirectos.bulkPut(INITIAL_COSTOS_INDIRECTOS);
+      toast.success(`${INITIAL_COSTOS_INDIRECTOS.length} conceptos de gastos generales cargados.`);
     }
   };
 
@@ -757,6 +783,34 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                   className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 font-semibold text-xs rounded-xl border border-primary/30 transition-colors"
                 >
                   Cargar Catálogo Base de Materiales ({INITIAL_MATERIALES.length} Fichas)
+                </button>
+              </div>
+
+              <div className="pt-3 border-t border-rose-500/20">
+                <h4 className="text-xs font-bold text-on-surface">Cargar / Restaurar Mano de Obra por Defecto</h4>
+                <p className="text-[11px] text-on-surface-variant mt-0.5 mb-2">
+                  Carga los {INITIAL_MANO_OBRA.length} roles estándar de mano de obra eléctrica (Oficial Especializado, Oficial, Medio Oficial, Ayudante, Capataz, Matriculado, Tablerista, Proyectista) con tarifas en $0 para completar según tus costos.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleRestoreDefaultManoObra}
+                  className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 font-semibold text-xs rounded-xl border border-primary/30 transition-colors"
+                >
+                  Cargar Mano de Obra Base ({INITIAL_MANO_OBRA.length} Roles)
+                </button>
+              </div>
+
+              <div className="pt-3 border-t border-rose-500/20">
+                <h4 className="text-xs font-bold text-on-surface">Cargar / Restaurar Gastos Generales y Estructura por Defecto</h4>
+                <p className="text-[11px] text-on-surface-variant mt-0.5 mb-2">
+                  Carga los {INITIAL_COSTOS_INDIRECTOS.length} conceptos típicos de gastos indirectos y de estructura (Movilidad, Seguro AP/ART, EPP, Amortización herramientas, Gastos administrativos, Taller, Matrícula, Imprevistos, Andamios) con valores en 0.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleRestoreDefaultCostosIndirectos}
+                  className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 font-semibold text-xs rounded-xl border border-primary/30 transition-colors"
+                >
+                  Cargar Gastos Generales Base ({INITIAL_COSTOS_INDIRECTOS.length} Conceptos)
                 </button>
               </div>
 

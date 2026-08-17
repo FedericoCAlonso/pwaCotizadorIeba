@@ -16,7 +16,7 @@ import {
 } from './calculations';
 import { Insumo, CategoriaManoDeObra, CostoIndirecto, CostoIndirectoItemConfig, TareaTipo, ItemPresupuesto } from './types';
 import { buildSearchTerm } from './searchUtils';
-import { INITIAL_CATEGORIAS_MATERIAL, INITIAL_MATERIALES } from './sampleData';
+import { INITIAL_CATEGORIAS_MATERIAL, INITIAL_MATERIALES, INITIAL_MANO_OBRA, INITIAL_COSTOS_INDIRECTOS } from './sampleData';
 
 // ─── Fixtures compartidas (auditoría #14) ────────────────────────────────────
 
@@ -682,6 +682,33 @@ describe('buildSearchTerm & searchUtils', () => {
     expect(jabalinas.length).toBe(4);
     const cajasPAT = pat.filter(m => m.atributos.some(a => a.clave === 'tipo_elemento' && a.valor === 'Cámara de Inspección PAT'));
     expect(cajasPAT.length).toBe(3);
+  });
+
+  it('verifica que la mano de obra por defecto incluya los roles comunes con costo inicial en 0', () => {
+    expect(INITIAL_MANO_OBRA.length).toBeGreaterThanOrEqual(8);
+    INITIAL_MANO_OBRA.forEach(mo => {
+      expect(mo.costoHora).toBe(0);
+      expect(mo.nombre).toBeTruthy();
+    });
+    const roles = INITIAL_MANO_OBRA.map(mo => mo.nombre);
+    expect(roles).toContain('Oficial Electricista Especializado');
+    expect(roles).toContain('Oficial Electricista');
+    expect(roles).toContain('Ayudante Electricista');
+    expect(roles).toContain('Técnico Electricista Matriculado (Firma / Habilitación)');
+  });
+
+  it('verifica que los gastos generales y de estructura por defecto incluyan los conceptos comunes con valor inicial en 0', () => {
+    expect(INITIAL_COSTOS_INDIRECTOS.length).toBeGreaterThanOrEqual(9);
+    INITIAL_COSTOS_INDIRECTOS.forEach(ci => {
+      expect(ci.valor).toBe(0);
+      expect(ci.nombre).toBeTruthy();
+      expect(['por_visita', 'fijo_mensual', 'porcentual_sobre_costo']).toContain(ci.tipo);
+    });
+    const nombres = INITIAL_COSTOS_INDIRECTOS.map(ci => ci.nombre);
+    expect(nombres.some(n => n.includes('Movilidad'))).toBe(true);
+    expect(nombres.some(n => n.includes('Seguro'))).toBe(true);
+    expect(nombres.some(n => n.includes('EPP'))).toBe(true);
+    expect(nombres.some(n => n.includes('Herramientas'))).toBe(true);
   });
 
   it('arma correctamente el término para Producto con Código de Fabricante / SKU', () => {

@@ -530,7 +530,7 @@ export const InsumosManager: React.FC = () => {
     }
   };
 
-  const handleExportForQuotation = async (filtered: Material[]) => {
+  const handleExportCatalog = async (filtered: Material[]) => {
     const targetMats = selectedMaterialIds.size > 0
       ? materiales.filter(m => selectedMaterialIds.has(m.id))
       : filtered;
@@ -545,27 +545,27 @@ export const InsumosManager: React.FC = () => {
       const ExcelJS = ExcelModule.default || ExcelModule;
       const workbook = new ExcelJS.Workbook();
       workbook.creator = 'Cotizador IEBA';
-      const ws = workbook.addWorksheet('Solicitud de Cotizacion', {
+      const ws = workbook.addWorksheet('Catálogo de Materiales', {
         views: [{ showGridLines: true }]
       });
 
       ws.columns = [
-        { header: 'ID Material', key: 'id', width: 22 },
-        { header: 'Material / Descripción Técnica', key: 'material', width: 60 },
+        { header: 'ID Material', key: 'id', width: 24 },
+        { header: 'Categoría', key: 'categoria', width: 28 },
+        { header: 'Material / Descripción Técnica', key: 'material', width: 55 },
         { header: 'Unidad', key: 'unidad', width: 12 },
-        { header: 'Marca Ofrecida', key: 'marca', width: 25 },
-        { header: 'Proveedor', key: 'proveedor', width: 30 },
-        { header: 'Precio Unitario (ARS)', key: 'precio', width: 22 }
+        { header: 'Atributos Técnicos', key: 'atributos', width: 45 }
       ];
 
       targetMats.forEach(m => {
+        const cat = categoriasMap.get(m.categoriaId);
+        const attrStr = m.atributos?.map(a => `${a.clave}: ${a.valor}`).join(' | ') || '';
         ws.addRow({
           id: m.id,
+          categoria: cat?.nombre || m.categoriaId,
           material: m.nombre,
           unidad: m.unidadVenta || 'u',
-          marca: '',
-          proveedor: '',
-          precio: ''
+          atributos: attrStr
         });
       });
 
@@ -582,13 +582,15 @@ export const InsumosManager: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Cotizacion_Materiales_IEBA_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.download = `Catalogo_Materiales_IEBA_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success('Planilla de cotización exportada');
+      toast.success('Catálogo de materiales exportado a Excel.');
     } catch (err) {
-      console.error('Error al exportar para cotizar:', err);
-      toast.error('Error al generar planilla de cotización.');
+      console.error('Error al exportar catálogo:', err);
+      toast.error('Error al generar planilla del catálogo.');
     }
   };
 
@@ -938,12 +940,12 @@ export const InsumosManager: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => handleExportForQuotation(filteredMateriales)}
+                  onClick={() => handleExportCatalog(filteredMateriales)}
                   className="px-3.5 py-2 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-outline-variant/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                  title="Exportar planilla XLSX para cotización a distribuidores"
+                  title="Exportar catálogo de materiales a planilla Excel (XLSX)"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="hidden sm:inline">Exportar Cotización</span>
+                  <span className="hidden sm:inline">Exportar Catálogo</span>
                 </button>
               </div>
             </div>
@@ -1021,10 +1023,11 @@ export const InsumosManager: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleExportForQuotation(filteredMateriales)}
+                    onClick={() => handleExportCatalog(filteredMateriales)}
                     className="px-3 py-1 bg-surface-container-high hover:bg-surface-variant text-on-surface text-xs font-semibold rounded-lg"
+                    title="Exportar materiales seleccionados a Excel"
                   >
-                    Exportar
+                    Exportar Catálogo
                   </button>
                 </div>
               </div>

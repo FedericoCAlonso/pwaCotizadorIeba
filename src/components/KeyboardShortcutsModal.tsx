@@ -36,7 +36,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
         { keys: ['Alt', '3'], desc: 'Ir a Contactos' },
         { keys: ['Alt', '4'], desc: 'Ir a Registro de Obra' },
         { keys: ['Alt', '5'], desc: 'Ir a Laboratorio de Tareas (APU)' },
-        { keys: ['Alt', '6'], desc: 'Ir a Mano de Obra' },
+        { keys: ['Alt', '6'], desc: 'Ir a Mano de Obra & Gastos' },
         { keys: ['Alt', '7'], desc: 'Ir a Solicitudes RFQ' },
         { keys: ['Alt', '8'], desc: 'Ir a Logística' },
       ]
