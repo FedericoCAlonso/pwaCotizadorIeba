@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Layers,
   Plus,
@@ -10,9 +10,20 @@ import {
   Sliders,
   ChevronDown,
   ChevronUp,
-  Sparkles
+  Sparkles,
+  FolderPlus,
+  Package,
+  Shield,
+  Zap,
+  Cpu,
+  Lightbulb,
+  Wrench,
+  Activity,
+  Sun,
+  Tag,
+  Search
 } from 'lucide-react';
-import { CategoriaMaterial, Material, AtributoSugerido, AtributoDependencia } from '../../core/types';
+import { CategoriaMaterial, Material, AtributoSugerido, SupercategoriaMaterial } from '../../core/types';
 import { DEFAULT_SUPERCATEGORIAS } from '../../core/sampleData';
 import { db, softDelete } from '../../db/database';
 import { useToast } from '../../contexts/ToastContext';
@@ -99,7 +110,7 @@ const AttributeOptionsEditor: React.FC<AttributeOptionsEditorProps> = ({
                 type="button"
                 onClick={() => removeOption(oIdx)}
                 className="text-on-secondary-container/70 hover:text-error rounded-md p-0.5 transition-colors cursor-pointer"
-                title={`Quitar "${opt}"`}
+                title="Eliminar opción"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -108,265 +119,25 @@ const AttributeOptionsEditor: React.FC<AttributeOptionsEditorProps> = ({
         </div>
       )}
 
-      {/* Input to add options */}
-      <div className="flex items-center gap-1.5">
+      {/* Input de nueva opción */}
+      <div className="flex gap-1.5">
         <input
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          onBlur={() => {
-            if (inputValue.trim()) addOption(inputValue);
-          }}
-          placeholder="Escribir opción y presionar Enter (o pegar lista separada por comas)..."
-          className={`${inputCls} text-xs py-1.5 min-h-[40px] bg-surface-container`}
+          placeholder="Escribí una opción y presioná Enter o coma..."
+          className={`${inputCls} text-xs py-1.5 min-h-[36px]`}
         />
         <button
           type="button"
           onClick={() => addOption(inputValue)}
           disabled={!inputValue.trim()}
-          className="px-3.5 py-1.5 bg-primary/10 hover:bg-primary/20 disabled:opacity-40 text-primary font-semibold text-xs rounded-full state-layer transition-colors h-[40px] shrink-0 cursor-pointer"
+          className="px-3 py-1.5 bg-secondary-container text-on-secondary-container hover:bg-secondary-container/80 disabled:opacity-50 text-xs font-semibold rounded-xl transition-colors cursor-pointer shrink-0"
         >
-          + Agregar
+          Agregar
         </button>
       </div>
-    </div>
-  );
-};
-
-interface AttributeDependenciesEditorProps {
-  dependencias: AtributoDependencia[];
-  onChange: (dependencias: AtributoDependencia[]) => void;
-  availableAttributes: AtributoSugerido[];
-  currentAttributeOptions: string[];
-  inputCls: string;
-}
-
-const AttributeDependenciesEditor: React.FC<AttributeDependenciesEditorProps> = ({
-  dependencias = [],
-  onChange,
-  availableAttributes,
-  currentAttributeOptions = [],
-  inputCls,
-}) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  const addDependency = () => {
-    const defaultSource = availableAttributes[0]?.clave || '';
-    onChange([
-      ...dependencias,
-      {
-        dependeVinculo: defaultSource,
-        valorEsperado: '',
-        bloqueado: false,
-      },
-    ]);
-    setIsExpanded(true);
-  };
-
-  const updateDependency = (index: number, field: keyof AtributoDependencia, value: any) => {
-    const next = [...dependencias];
-    next[index] = { ...next[index], [field]: value };
-    onChange(next);
-  };
-
-  const removeDependency = (index: number) => {
-    onChange(dependencias.filter((_, idx) => idx !== index));
-  };
-
-  return (
-    <div className="mt-2 pt-2 border-t border-outline-variant/15">
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1.5 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
-        >
-          <Sliders className="w-3.5 h-3.5" />
-          <span>Reglas Condicionales / Dependencias ({dependencias.length})</span>
-          {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-        </button>
-
-        {dependencias.length > 0 && !isExpanded && (
-          <span className="text-[10px] bg-tertiary-container text-on-tertiary-container px-2 py-0.5 rounded-lg font-bold select-none">
-            {dependencias.length} regla{dependencias.length !== 1 ? 's' : ''} activa{dependencias.length !== 1 ? 's' : ''}
-          </span>
-        )}
-      </div>
-
-      {isExpanded && (
-        <div className="mt-2.5 space-y-3 p-3 bg-surface-container-high/60 rounded-xl border border-outline-variant/30">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] text-on-surface-variant">
-              Aplica reglas automáticas cuando el usuario selecciona un valor específico en otro atributo de esta categoría.
-            </p>
-            <button
-              type="button"
-              onClick={addDependency}
-              className="text-[11px] text-primary font-bold hover:underline flex items-center gap-1 shrink-0 ml-2 cursor-pointer"
-            >
-              <Plus className="w-3 h-3" /> Agregar Regla
-            </button>
-          </div>
-
-          {dependencias.length === 0 ? (
-            <div className="p-3 text-center text-[11px] text-on-surface-variant italic bg-surface-container rounded-xl border border-dashed border-outline-variant/30">
-              No hay reglas condicionales para este atributo.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {dependencias.map((dep, dIdx) => {
-                const sourceAttr = availableAttributes.find((a) => a.clave === dep.dependeVinculo);
-                const sourceOptions = sourceAttr?.opciones || [];
-
-                return (
-                  <div
-                    key={dIdx}
-                    className="bg-surface-container p-3.5 rounded-xl border border-outline-variant/30 space-y-3 shadow-2xs"
-                  >
-                    <div className="flex items-center justify-between pb-1 border-b border-outline-variant/15">
-                      <span className="text-[11px] font-bold text-primary flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>Regla #{dIdx + 1}</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeDependency(dIdx)}
-                        className="text-on-surface-variant hover:text-error p-1.5 rounded-lg transition-colors cursor-pointer"
-                        title="Eliminar regla"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="block text-[10px] text-on-surface-variant font-medium mb-1">
-                          Si el atributo...
-                        </label>
-                        <select
-                          value={dep.dependeVinculo}
-                          onChange={(e) => updateDependency(dIdx, 'dependeVinculo', e.target.value)}
-                          className={`${inputCls} text-xs py-1 min-h-[38px]`}
-                        >
-                          <option value="">-- Seleccionar Atributo Origen --</option>
-                          {availableAttributes.map((a) => (
-                            <option key={a.clave} value={a.clave}>
-                              {a.etiqueta || a.clave}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] text-on-surface-variant font-medium mb-1">
-                          es igual a...
-                        </label>
-                        {sourceOptions.length > 0 ? (
-                          <select
-                            value={dep.valorEsperado}
-                            onChange={(e) => updateDependency(dIdx, 'valorEsperado', e.target.value)}
-                            className={`${inputCls} text-xs py-1 min-h-[38px]`}
-                          >
-                            <option value="">-- Seleccionar Valor Esperado --</option>
-                            {sourceOptions.map((opt) => (
-                              <option key={opt} value={opt}>
-                                {opt}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            value={dep.valorEsperado}
-                            onChange={(e) => updateDependency(dIdx, 'valorEsperado', e.target.value)}
-                            placeholder="Ej: Termomagnética (PIA)"
-                            className={`${inputCls} text-xs py-1 min-h-[38px]`}
-                          />
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Actions when condition matches */}
-                    <div className="space-y-2 pt-2 border-t border-outline-variant/15">
-                      <span className="text-[10px] font-semibold text-on-surface-variant block uppercase tracking-wider">
-                        Acción al cumplirse la condición:
-                      </span>
-
-                      <div className="space-y-2">
-                        {/* Bloquear campo */}
-                        <div className="flex flex-wrap items-center gap-3">
-                          <label className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-on-surface">
-                            <input
-                              type="checkbox"
-                              checked={!!dep.bloqueado}
-                              onChange={(e) => updateDependency(dIdx, 'bloqueado', e.target.checked)}
-                              className="w-4 h-4 text-primary rounded"
-                            />
-                            <span>Bloquear campo / Deshabilitar</span>
-                          </label>
-
-                          {dep.bloqueado && (
-                            <div className="flex items-center gap-1.5 flex-1 min-w-[140px]">
-                              <span className="text-[10px] text-on-surface-variant">Valor fijo:</span>
-                              <input
-                                type="text"
-                                value={dep.valorFijo || ''}
-                                onChange={(e) => updateDependency(dIdx, 'valorFijo', e.target.value)}
-                                placeholder="Ej: N/A o 1"
-                                className={`${inputCls} text-xs py-1 min-h-[34px] font-mono`}
-                              />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Filtrar opciones si el atributo actual tiene opciones */}
-                        {currentAttributeOptions.length > 0 && !dep.bloqueado && (
-                          <div className="space-y-1.5 pt-1">
-                            <span className="text-[10px] text-on-surface-variant font-medium block">
-                              Filtrar opciones permitidas (haz clic para activar/desactivar):
-                            </span>
-                            <div className="flex flex-wrap gap-1.5">
-                              {currentAttributeOptions.map((opt) => {
-                                const isFiltered = (dep.opcionesFiltradas || []).includes(opt);
-                                return (
-                                  <button
-                                    key={opt}
-                                    type="button"
-                                    onClick={() => {
-                                      const current = dep.opcionesFiltradas || [];
-                                      const next = isFiltered
-                                        ? current.filter((x) => x !== opt)
-                                        : [...current, opt];
-                                      updateDependency(
-                                        dIdx,
-                                        'opcionesFiltradas',
-                                        next.length > 0 ? next : undefined
-                                      );
-                                    }}
-                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all cursor-pointer select-none ${
-                                      isFiltered
-                                        ? 'bg-primary text-on-primary border-primary shadow-2xs'
-                                        : 'bg-surface-container-highest text-on-surface-variant border-outline-variant/30 hover:border-primary/50'
-                                    }`}
-                                  >
-                                    {opt} {isFiltered ? '✓' : ''}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 };
@@ -380,7 +151,22 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
   const { toast } = useToast();
   const confirm = useConfirm();
 
+  // Estados de vista
+  const [selectedFamiliaFilter, setSelectedFamiliaFilter] = useState<string>('todas');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [expandedFamilias, setExpandedFamilias] = useState<Set<string>>(new Set(['canalizaciones', 'conductores', 'protecciones', 'tableros']));
+  
+  // Modales de creación
+  const [isChoiceModalOpen, setIsChoiceModalOpen] = useState(false);
+  const [isCreatingFamilia, setIsCreatingFamilia] = useState(false);
+  const [customFamilias, setCustomFamilias] = useState<SupercategoriaMaterial[]>([]);
+  const [newFamiliaName, setNewFamiliaName] = useState('');
+
+  // Edición de Categoría
   const [editingCat, setEditingCat] = useState<CategoriaMaterial | null>(null);
+  const [isCustomFamiliaInput, setIsCustomFamiliaInput] = useState(false);
+  const [customFamiliaText, setCustomFamiliaText] = useState('');
+  
   const [formDataCat, setFormDataCat] = useState<{
     nombre: string;
     supercategoriaId: string;
@@ -394,23 +180,85 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
   });
 
   useEscapeKey(isCreatingCat, () => setIsCreatingCat(false));
+  useEscapeKey(isChoiceModalOpen, () => setIsChoiceModalOpen(false));
+  useEscapeKey(isCreatingFamilia, () => setIsCreatingFamilia(false));
 
   const inputCls =
     'w-full px-3.5 py-2.5 text-base sm:text-xs rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]';
 
-  const handleOpenCreateCat = () => {
+  // Lista unificada de Familias (por defecto + personalizadas + presentes en categorías)
+  const allFamilias = useMemo(() => {
+    const map = new Map<string, SupercategoriaMaterial>();
+    DEFAULT_SUPERCATEGORIAS.forEach(s => map.set(s.id, s));
+    customFamilias.forEach(s => map.set(s.id, s));
+    categorias.forEach(c => {
+      const id = c.supercategoriaId || 'general';
+      const nombre = c.supercategoriaNombre || 'General / Otros';
+      if (!map.has(id)) {
+        map.set(id, { id, nombre, orden: 50 });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => (a.orden ?? 50) - (b.orden ?? 50));
+  }, [categorias, customFamilias]);
+
+  // Expandir / Colapsar todas
+  const handleToggleExpandAll = () => {
+    if (expandedFamilias.size === allFamilias.length) {
+      setExpandedFamilias(new Set());
+    } else {
+      setExpandedFamilias(new Set(allFamilias.map(f => f.id)));
+    }
+  };
+
+  const toggleFamilia = (famId: string) => {
+    setExpandedFamilias(prev => {
+      const next = new Set(prev);
+      if (next.has(famId)) {
+        next.delete(famId);
+      } else {
+        next.add(famId);
+      }
+      return next;
+    });
+  };
+
+  const getFamiliaIcon = (famId: string) => {
+    switch (famId) {
+      case 'canalizaciones': return <Package className="w-4 h-4 text-amber-500" />;
+      case 'conductores': return <Zap className="w-4 h-4 text-sky-500" />;
+      case 'protecciones': return <Shield className="w-4 h-4 text-emerald-500" />;
+      case 'tableros': return <Layers className="w-4 h-4 text-indigo-500" />;
+      case 'mecanismos': return <Sliders className="w-4 h-4 text-purple-500" />;
+      case 'iluminacion': return <Lightbulb className="w-4 h-4 text-yellow-500" />;
+      case 'puesta-a-tierra': return <Activity className="w-4 h-4 text-lime-500" />;
+      case 'fijaciones': return <Wrench className="w-4 h-4 text-slate-400" />;
+      case 'motores': return <Cpu className="w-4 h-4 text-cyan-500" />;
+      case 'renovables': return <Sun className="w-4 h-4 text-orange-500" />;
+      default: return <Tag className="w-4 h-4 text-primary" />;
+    }
+  };
+
+  // Abrir creador de categoría
+  const handleOpenCreateCat = (defaultFamId?: string, defaultFamName?: string) => {
+    const famId = defaultFamId || 'canalizaciones';
+    const famObj = allFamilias.find(f => f.id === famId);
     setEditingCat(null);
+    setIsCustomFamiliaInput(false);
+    setCustomFamiliaText('');
     setFormDataCat({
       nombre: '',
-      supercategoriaId: 'canalizaciones',
-      supercategoriaNombre: 'Canalización y Contención',
+      supercategoriaId: famId,
+      supercategoriaNombre: defaultFamName || (famObj ? famObj.nombre : 'Canalización y Contención'),
       atributosSugeridos: [],
     });
+    setIsChoiceModalOpen(false);
     setIsCreatingCat(true);
   };
 
   const handleOpenEditCat = (cat: CategoriaMaterial) => {
     setEditingCat(cat);
+    setIsCustomFamiliaInput(false);
+    setCustomFamiliaText('');
     setFormDataCat({
       nombre: cat.nombre,
       supercategoriaId: cat.supercategoriaId || 'general',
@@ -432,7 +280,12 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
   };
 
   const handleSupercategoryChange = (superId: string) => {
-    const found = DEFAULT_SUPERCATEGORIAS.find(s => s.id === superId);
+    if (superId === '__new__') {
+      setIsCustomFamiliaInput(true);
+      return;
+    }
+    setIsCustomFamiliaInput(false);
+    const found = allFamilias.find(s => s.id === superId);
     setFormDataCat(prev => ({
       ...prev,
       supercategoriaId: superId,
@@ -440,9 +293,48 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
     }));
   };
 
+  // Guardar nueva Familia individual
+  const handleSaveNewFamilia = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newFamiliaName.trim();
+    if (!trimmed) return;
+
+    const famId = `fam-${trimmed.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-')}`;
+    
+    if (allFamilias.some(f => f.nombre.toLowerCase() === trimmed.toLowerCase() || f.id === famId)) {
+      toast.warning('Ya existe una familia con ese nombre.');
+      return;
+    }
+
+    const newFam: SupercategoriaMaterial = {
+      id: famId,
+      nombre: trimmed,
+      orden: 50
+    };
+
+    setCustomFamilias(prev => [...prev, newFam]);
+    setExpandedFamilias(prev => new Set([...prev, famId]));
+    setNewFamiliaName('');
+    setIsCreatingFamilia(false);
+    toast.success(`Familia "${trimmed}" creada.`);
+  };
+
+  // Guardar Categoría
   const handleSaveCat = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formDataCat.nombre.trim()) return;
+
+    let finalFamId = formDataCat.supercategoriaId;
+    let finalFamName = formDataCat.supercategoriaNombre;
+
+    if (isCustomFamiliaInput && customFamiliaText.trim()) {
+      finalFamName = customFamiliaText.trim();
+      finalFamId = `fam-${finalFamName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-')}`;
+      setCustomFamilias(prev => {
+        if (prev.some(f => f.id === finalFamId)) return prev;
+        return [...prev, { id: finalFamId, nombre: finalFamName, orden: 50 }];
+      });
+    }
 
     // Clean empty options and dependencies
     const cleanAtributos: AtributoSugerido[] = formDataCat.atributosSugeridos.map((a) => {
@@ -463,8 +355,8 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
     if (editingCat) {
       await db.categoriasMaterial.update(editingCat.id, {
         nombre: formDataCat.nombre.trim(),
-        supercategoriaId: formDataCat.supercategoriaId,
-        supercategoriaNombre: formDataCat.supercategoriaNombre,
+        supercategoriaId: finalFamId,
+        supercategoriaNombre: finalFamName,
         atributosSugeridos: cleanAtributos,
       });
       toast.success('Categoría actualizada');
@@ -472,14 +364,16 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
       const newCat: CategoriaMaterial = {
         id: `cat-${crypto.randomUUID()}`,
         nombre: formDataCat.nombre.trim(),
-        supercategoriaId: formDataCat.supercategoriaId,
-        supercategoriaNombre: formDataCat.supercategoriaNombre,
+        supercategoriaId: finalFamId,
+        supercategoriaNombre: finalFamName,
         atributosSugeridos: cleanAtributos,
       };
       await db.categoriasMaterial.add(newCat);
       toast.success('Categoría creada');
     }
 
+    // Asegurar que la familia quede expandida
+    setExpandedFamilias(prev => new Set([...prev, finalFamId]));
     setIsCreatingCat(false);
     setEditingCat(null);
   };
@@ -517,16 +411,16 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
   const handleRemoveAtributoField = (index: number) => {
     setFormDataCat((prev) => ({
       ...prev,
-      atributosSugeridos: prev.atributosSugeridos.filter((_, idx) => idx !== index),
+      atributosSugeridos: prev.atributosSugeridos.filter((_, i) => i !== index),
     }));
   };
 
-  const handleUpdateAtributoField = (index: number, field: keyof AtributoSugerido, value: any) => {
+  const handleUpdateAtributo = (index: number, field: keyof AtributoSugerido, value: any) => {
     setFormDataCat((prev) => {
       const next = [...prev.atributosSugeridos];
       next[index] = { ...next[index], [field]: value };
-      if (field === 'etiqueta' && !next[index].clave.startsWith('attr_manual_')) {
-        next[index].clave = value
+      if (field === 'etiqueta' && (!next[index].clave || next[index].clave.startsWith('attr_'))) {
+        next[index].clave = String(value)
           .toLowerCase()
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '')
@@ -536,131 +430,424 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
     });
   };
 
+  // Filtrado de Familias y Categorías
+  const sTerm = searchTerm.toLowerCase();
+  const filteredFamilias = useMemo(() => {
+    return allFamilias.filter(fam => {
+      if (selectedFamiliaFilter !== 'todas' && fam.id !== selectedFamiliaFilter) return false;
+
+      const famCategories = categorias.filter(c => (c.supercategoriaId || 'general') === fam.id);
+      
+      if (!sTerm) return true;
+
+      const matchFamName = fam.nombre.toLowerCase().includes(sTerm);
+      const matchCat = famCategories.some(c => 
+        c.nombre.toLowerCase().includes(sTerm) ||
+        (c.atributosSugeridos && c.atributosSugeridos.some(a => (a.etiqueta || a.clave).toLowerCase().includes(sTerm)))
+      );
+
+      return matchFamName || matchCat;
+    });
+  }, [allFamilias, categorias, selectedFamiliaFilter, sTerm]);
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-low p-4 rounded-2xl">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-low p-4 rounded-3xl border border-outline-variant/20 shadow-xs">
         <div>
-          <h3 className="font-bold text-on-surface text-base">Familias & Categorías de Materiales</h3>
+          <h3 className="font-bold text-on-surface text-base flex items-center gap-2">
+            <Layers className="w-5 h-5 text-primary" />
+            <span>Familias & Categorías de Materiales</span>
+          </h3>
           <p className="text-xs text-on-surface-variant">
-            Define la estructura de atributos técnicos normativos, listas de opciones y reglas condicionales para cada familia.
+            Organiza tu catálogo por grandes familias y define los atributos técnicos normativos de cada categoría.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <button
             type="button"
-            onClick={handleOpenCreateCat}
-            className="flex items-center gap-1.5 px-4 py-2 bg-primary text-on-primary font-semibold rounded-full text-xs state-layer transition-colors shadow-sm cursor-pointer"
+            onClick={handleToggleExpandAll}
+            className="px-3 py-2 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-semibold rounded-xl border border-outline-variant/20 transition-colors cursor-pointer"
+            title="Expandir o colapsar todas las familias"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Nueva Categoría</span>
+            {expandedFamilias.size === allFamilias.length ? 'Colapsar todo' : 'Expandir todo'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsChoiceModalOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs state-layer transition-colors shadow-sm cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ Nuevo</span>
           </button>
         </div>
       </div>
 
-      {/* Grid de Categorías */}
-      {categorias.length === 0 ? (
-        <div className="text-center py-16 bg-surface-container-low rounded-2xl p-6">
-          <p className="text-sm text-on-surface-variant">No hay categorías cargadas.</p>
+      {/* Search & Family Filter Chips Bar */}
+      <div className="space-y-3 bg-surface-container-low p-3.5 rounded-2xl border border-outline-variant/15">
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar por familia, categoría o atributo técnico (ej: corrugado, bandeja, disyuntor)..."
+            className="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface p-1"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Filter Chips Horizontal Scroll */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+          <button
+            type="button"
+            onClick={() => setSelectedFamiliaFilter('todas')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+              selectedFamiliaFilter === 'todas'
+                ? 'bg-primary text-on-primary shadow-xs'
+                : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
+            }`}
+          >
+            Todas ({categorias.length})
+          </button>
+          {allFamilias.map(fam => {
+            const count = categorias.filter(c => (c.supercategoriaId || 'general') === fam.id).length;
+            const isSelected = selectedFamiliaFilter === fam.id;
+            return (
+              <button
+                key={fam.id}
+                type="button"
+                onClick={() => setSelectedFamiliaFilter(fam.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium shrink-0 transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-secondary-container text-on-secondary-container border border-primary/30 font-semibold shadow-xs'
+                    : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
+                }`}
+              >
+                {getFamiliaIcon(fam.id)}
+                <span>{fam.nombre}</span>
+                <span className="text-[10px] opacity-75 font-mono">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Accordion List by Familia */}
+      {filteredFamilias.length === 0 ? (
+        <div className="text-center py-16 bg-surface-container-low rounded-3xl p-6 space-y-3 border border-dashed border-outline-variant/30">
+          <Package className="w-10 h-10 text-outline mx-auto" />
+          <p className="text-sm font-semibold text-on-surface">No se encontraron familias o categorías con ese criterio.</p>
+          <button
+            type="button"
+            onClick={() => { setSearchTerm(''); setSelectedFamiliaFilter('todas'); }}
+            className="px-4 py-1.5 bg-surface-container-high text-primary hover:underline text-xs font-semibold rounded-xl"
+          >
+            Limpiar filtros
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {categorias.map((cat) => {
-            const matCount = materiales.filter((m) => m.categoriaId === cat.id).length;
+        <div className="space-y-3">
+          {filteredFamilias.map(fam => {
+            const famCategories = categorias.filter(c => {
+              const matchFam = (c.supercategoriaId || 'general') === fam.id;
+              if (!matchFam) return false;
+              if (!sTerm) return true;
+              return (
+                c.nombre.toLowerCase().includes(sTerm) ||
+                fam.nombre.toLowerCase().includes(sTerm) ||
+                (c.atributosSugeridos && c.atributosSugeridos.some(a => (a.etiqueta || a.clave).toLowerCase().includes(sTerm)))
+              );
+            });
+
+            const totalMats = famCategories.reduce((acc, c) => acc + materiales.filter(m => m.categoriaId === c.id).length, 0);
+            const isExpanded = expandedFamilias.has(fam.id);
+
             return (
               <div
-                key={cat.id}
-                className="bg-surface-container-low hover:bg-surface-container-high rounded-2xl p-5 transition-colors flex flex-col justify-between"
+                key={fam.id}
+                className="bg-surface-container-low rounded-3xl border border-outline-variant/20 overflow-hidden shadow-xs transition-all"
               >
-                <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="p-2.5 bg-primary-container text-on-primary-container rounded-xl">
-                        <Layers className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-on-surface text-base">{cat.nombre}</h4>
-                        {cat.supercategoriaNombre && (
-                          <span className="text-[10px] text-primary font-medium tracking-wide">
-                            {cat.supercategoriaNombre}
-                          </span>
-                        )}
-                      </div>
+                {/* Familia Header (Collapsible trigger) */}
+                <div
+                  onClick={() => toggleFamilia(fam.id)}
+                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container-high/60 select-none transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-surface-container-highest rounded-2xl shrink-0">
+                      {getFamiliaIcon(fam.id)}
                     </div>
-                    {/* Chip M3: 8dp (rounded-lg) */}
-                    <span className="text-[11px] font-medium text-on-surface-variant bg-surface-container-highest px-2.5 py-0.5 rounded-lg shrink-0 select-none">
-                      {matCount} material{matCount !== 1 ? 'es' : ''}
-                    </span>
+                    <div>
+                      <h4 className="font-bold text-on-surface text-sm sm:text-base flex items-center gap-2">
+                        {fam.nombre}
+                      </h4>
+                      <p className="text-[11px] text-on-surface-variant font-medium">
+                        {famCategories.length} categorí{famCategories.length !== 1 ? 'as' : 'a'} · {totalMats} material{totalMats !== 1 ? 'es' : ''}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="mt-3.5">
-                    <p className="text-[11px] font-semibold text-on-surface-variant mb-1.5">Atributos Sugeridos:</p>
-                    {cat.atributosSugeridos && cat.atributosSugeridos.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {cat.atributosSugeridos.map((at, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center gap-1 text-[11px] bg-surface-container text-on-surface-variant px-2.5 py-0.5 rounded-lg font-mono select-none"
-                          >
-                            <span>
-                              {at.etiqueta || at.clave} {at.unidad ? `(${at.unidad})` : ''}
-                            </span>
-                            {at.opciones && at.opciones.length > 0 && (
-                              <span
-                                className="text-[10px] bg-secondary-container text-on-secondary-container px-1.5 py-0.5 rounded-md font-bold"
-                                title={`Desplegable con ${at.opciones.length} opciones: ${at.opciones.join(', ')}`}
-                              >
-                                {at.opciones.length} opt
-                              </span>
-                            )}
-                            {at.dependencias && at.dependencias.length > 0 && (
-                              <span
-                                className="text-[10px] bg-tertiary-container text-on-tertiary-container px-1.5 py-0.5 rounded-md font-bold"
-                                title={`Reglas condicionales activas: ${at.dependencias.length}`}
-                              >
-                                ⚙️ {at.dependencias.length}
-                              </span>
-                            )}
-                          </span>
-                        ))}
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCreateCat(fam.id, fam.nombre)}
+                      className="hidden sm:flex items-center gap-1 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold rounded-full transition-colors cursor-pointer"
+                      title={`Agregar categoría a ${fam.nombre}`}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Agregar Categoría</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleFamilia(fam.id)}
+                      className="p-2 text-on-surface-variant hover:text-on-surface rounded-full transition-colors cursor-pointer"
+                      aria-label={isExpanded ? 'Colapsar familia' : 'Expandir familia'}
+                    >
+                      {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Familia Body (Category Cards Grid) */}
+                {isExpanded && (
+                  <div className="p-4 pt-1 border-t border-outline-variant/15 bg-surface-container/30">
+                    {famCategories.length === 0 ? (
+                      <div className="text-center py-6 bg-surface-container-high/40 rounded-2xl p-4 space-y-2">
+                        <p className="text-xs text-on-surface-variant">Esta familia aún no tiene categorías asignadas.</p>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCreateCat(fam.id, fam.nombre)}
+                          className="px-3.5 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-full inline-flex items-center gap-1 shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Crear primera categoría
+                        </button>
                       </div>
                     ) : (
-                      <p className="text-[11px] text-on-surface-variant italic">Sin atributos definidos</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-2">
+                        {famCategories.map((cat) => {
+                          const matCount = materiales.filter((m) => m.categoriaId === cat.id).length;
+                          return (
+                            <div
+                              key={cat.id}
+                              className="bg-surface-container rounded-2xl p-4 border border-outline-variant/20 hover:border-outline-variant/40 hover:shadow-sm transition-all flex flex-col justify-between"
+                            >
+                              <div>
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-2 bg-primary-container text-on-primary-container rounded-xl shrink-0">
+                                      <Tag className="w-3.5 h-3.5" />
+                                    </div>
+                                    <h5 className="font-bold text-on-surface text-sm">{cat.nombre}</h5>
+                                  </div>
+                                  <span className="text-[10px] font-medium text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded-lg shrink-0 select-none">
+                                    {matCount} {matCount === 1 ? 'mat.' : 'mats.'}
+                                  </span>
+                                </div>
+
+                                <div className="mt-3">
+                                  <p className="text-[10px] font-semibold text-on-surface-variant mb-1">Atributos Sugeridos:</p>
+                                  {cat.atributosSugeridos && cat.atributosSugeridos.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {cat.atributosSugeridos.map((at, idx) => (
+                                        <span
+                                          key={idx}
+                                          className="inline-flex items-center gap-1 text-[10px] bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-md font-mono select-none"
+                                        >
+                                          <span>
+                                            {at.etiqueta || at.clave} {at.unidad ? `(${at.unidad})` : ''}
+                                          </span>
+                                          {at.opciones && at.opciones.length > 0 && (
+                                            <span
+                                              className="text-[9px] bg-secondary-container text-on-secondary-container px-1 py-0.2 rounded font-bold"
+                                              title={`Opciones: ${at.opciones.join(', ')}`}
+                                            >
+                                              {at.opciones.length}
+                                            </span>
+                                          )}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-[10px] text-on-surface-variant/70 italic">Sin atributos definidos</p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="mt-3.5 pt-2.5 border-t border-outline-variant/15 flex justify-end gap-1">
+                                <button
+                                  onClick={() => handleOpenEditCat(cat)}
+                                  className="p-2 text-on-surface-variant hover:text-primary rounded-lg hover:bg-surface-container-high transition-colors flex items-center justify-center cursor-pointer"
+                                  title="Editar Categoría"
+                                  aria-label={`Editar categoría ${cat.nombre}`}
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCat(cat.id)}
+                                  className="p-2 text-on-surface-variant hover:text-error rounded-lg hover:bg-surface-container-high transition-colors flex items-center justify-center cursor-pointer"
+                                  title="Eliminar Categoría"
+                                  aria-label={`Eliminar categoría ${cat.nombre}`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                </div>
-
-                {/* Touch targets M3: 48x48px mínimo con state layer */}
-                <div className="mt-4 pt-3 border-t border-outline-variant/15 flex justify-end gap-1">
-                  <button
-                    onClick={() => handleOpenEditCat(cat)}
-                    className="min-w-[48px] min-h-[48px] p-3 text-on-surface-variant hover:text-primary rounded-full state-layer transition-colors flex items-center justify-center cursor-pointer"
-                    title="Editar Categoría"
-                    aria-label={`Editar categoría ${cat.nombre}`}
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteCat(cat.id)}
-                    className="min-w-[48px] min-h-[48px] p-3 text-on-surface-variant hover:text-error rounded-full state-layer transition-colors flex items-center justify-center cursor-pointer"
-                    title="Eliminar Categoría"
-                    aria-label={`Eliminar categoría ${cat.nombre}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                )}
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Modal Crear / Editar Categoría */}
+      {/* ─────────────────────────────────────────────────────────────
+          1. MODAL DE ELECCIÓN: ¿Qué deseas crear? (Mismo patrón que Materiales)
+         ───────────────────────────────────────────────────────────── */}
+      {isChoiceModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-container rounded-3xl w-full max-w-md shadow-2xl p-6 text-on-surface border border-outline-variant/20">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-outline-variant/20">
+              <div>
+                <h3 className="text-base font-bold text-on-surface">¿Qué deseas crear?</h3>
+                <p className="text-xs text-on-surface-variant">Elige el tipo de elemento a dar de alta en tu catálogo</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsChoiceModalOpen(false)}
+                className="p-1 text-on-surface-variant hover:text-on-surface rounded-full"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 py-2">
+              {/* Opción 1: Nueva Categoría */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsChoiceModalOpen(false);
+                  handleOpenCreateCat();
+                }}
+                className="flex items-start gap-3.5 p-4 rounded-2xl bg-surface-container-high hover:bg-primary-container/40 border border-outline-variant/20 hover:border-primary/40 text-left transition-all group cursor-pointer"
+              >
+                <div className="p-3 bg-primary text-on-primary rounded-2xl group-hover:scale-105 transition-transform shrink-0 shadow-sm">
+                  <Tag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-on-surface group-hover:text-primary">
+                    🏷️ Nueva Categoría Técnica
+                  </h4>
+                  <p className="text-xs text-on-surface-variant mt-0.5 leading-relaxed">
+                    Crea una tipología técnica (ej: <em>Caños, Bandejas, Termomagnéticas</em>) y define sus atributos normativos sugeridos.
+                  </p>
+                </div>
+              </button>
+
+              {/* Opción 2: Nueva Familia */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsChoiceModalOpen(false);
+                  setIsCreatingFamilia(true);
+                }}
+                className="flex items-start gap-3.5 p-4 rounded-2xl bg-surface-container-high hover:bg-secondary-container/40 border border-outline-variant/20 hover:border-secondary/40 text-left transition-all group cursor-pointer"
+              >
+                <div className="p-3 bg-secondary text-on-secondary rounded-2xl group-hover:scale-105 transition-transform shrink-0 shadow-sm">
+                  <FolderPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-on-surface group-hover:text-secondary">
+                    📦 Nueva Familia de Materiales
+                  </h4>
+                  <p className="text-xs text-on-surface-variant mt-0.5 leading-relaxed">
+                    Crea un nuevo rubro o grupo contenedor (ej: <em>Seguridad Electrónica & CCTV, Redes & Datos</em>) para agrupar categorías.
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          2. MINI MODAL: Crear Nueva Familia
+         ───────────────────────────────────────────────────────────── */}
+      {isCreatingFamilia && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-container rounded-3xl w-full max-w-md shadow-2xl p-6 text-on-surface border border-outline-variant/20">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-outline-variant/20">
+              <h3 className="text-base font-bold text-on-surface flex items-center gap-2">
+                <FolderPlus className="w-5 h-5 text-secondary" />
+                <span>Nueva Familia de Materiales</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsCreatingFamilia(false)}
+                className="p-1 text-on-surface-variant hover:text-on-surface rounded-full"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveNewFamilia} className="space-y-4">
+              <div>
+                <label className="block text-xs text-on-surface-variant mb-1 font-semibold">
+                  Nombre de la Familia / Rubro *
+                </label>
+                <input
+                  type="text"
+                  value={newFamiliaName}
+                  onChange={(e) => setNewFamiliaName(e.target.value)}
+                  placeholder="Ej: Seguridad Electrónica & CCTV, Redes & Datos..."
+                  className={inputCls}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-outline-variant/20">
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingFamilia(false)}
+                  className="px-4 py-2 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-semibold rounded-full"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newFamiliaName.trim()}
+                  className="px-5 py-2 bg-secondary text-on-secondary hover:bg-secondary/90 disabled:opacity-50 text-xs font-bold rounded-full shadow-sm cursor-pointer"
+                >
+                  Guardar Familia
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          3. MODAL: Crear / Editar Categoría Técnica
+         ───────────────────────────────────────────────────────────── */}
       {isCreatingCat && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface-container rounded-2xl w-full max-w-3xl shadow-2xl p-6 text-on-surface max-h-[90vh] flex flex-col">
+          <div className="bg-surface-container rounded-3xl w-full max-w-3xl shadow-2xl p-6 text-on-surface max-h-[90vh] flex flex-col border border-outline-variant/20">
             <div className="flex items-center justify-between mb-4 border-b border-outline-variant/20 pb-3 shrink-0">
-              <h3 className="text-base font-semibold text-on-surface">
-                {editingCat ? 'Editar Categoría de Material' : 'Nueva Categoría de Material'}
+              <h3 className="text-base font-bold text-on-surface flex items-center gap-2">
+                <Tag className="w-4 h-4 text-primary" />
+                <span>{editingCat ? 'Editar Categoría de Material' : 'Nueva Categoría de Material'}</span>
               </h3>
               <button
                 onClick={() => setIsCreatingCat(false)}
@@ -673,7 +860,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
             <form onSubmit={handleSaveCat} className="space-y-4 overflow-y-auto pr-1 flex-1">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-on-surface-variant mb-1 font-medium">
+                  <label className="block text-xs text-on-surface-variant mb-1 font-semibold">
                     Nombre de la Categoría *
                   </label>
                   <input
@@ -686,118 +873,139 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-on-surface-variant mb-1 font-medium">
-                    Supercategoría / Familia
+                  <label className="block text-xs text-on-surface-variant mb-1 font-semibold">
+                    Familia de Pertenencia *
                   </label>
-                  <select
-                    value={formDataCat.supercategoriaId}
-                    onChange={(e) => handleSupercategoryChange(e.target.value)}
-                    className={inputCls}
-                  >
-                    {DEFAULT_SUPERCATEGORIAS.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nombre}
+                  {!isCustomFamiliaInput ? (
+                    <select
+                      value={formDataCat.supercategoriaId}
+                      onChange={(e) => handleSupercategoryChange(e.target.value)}
+                      className={inputCls}
+                    >
+                      {allFamilias.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.nombre}
+                        </option>
+                      ))}
+                      <option value="__new__" className="text-primary font-bold">
+                        + Crear nueva familia personalizada...
                       </option>
-                    ))}
-                  </select>
+                    </select>
+                  ) : (
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={customFamiliaText}
+                        onChange={(e) => setCustomFamiliaText(e.target.value)}
+                        placeholder="Escribe el nombre de la nueva familia..."
+                        className={inputCls}
+                        required
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomFamiliaInput(false);
+                          setCustomFamiliaText('');
+                        }}
+                        className="p-2 text-on-surface-variant hover:text-on-surface rounded-xl bg-surface-container-high"
+                        title="Cancelar y volver al listado"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <label className="block text-xs text-on-surface-variant font-medium">
-                      Atributos Técnicos Sugeridos
-                    </label>
-                    <p className="text-[11px] text-on-surface-variant/80">
-                      Define los parámetros técnicos normativos, listas de opciones y reglas condicionales para esta familia.
-                    </p>
-                  </div>
+                  <label className="text-xs font-semibold text-on-surface flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-primary" />
+                    <span>Atributos Técnicos Sugeridos</span>
+                  </label>
                   <button
                     type="button"
                     onClick={handleAddAtributoField}
-                    className="flex items-center gap-1 text-xs text-primary font-semibold hover:underline shrink-0 cursor-pointer"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-xs font-semibold cursor-pointer transition-colors"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Agregar Atributo
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Agregar Atributo</span>
                   </button>
                 </div>
 
-                <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
-                  {formDataCat.atributosSugeridos.length > 0 && (
-                    <div className="hidden sm:grid grid-cols-12 gap-2 px-1 text-[11px] font-semibold text-on-surface-variant">
-                      <span className="col-span-4">Nombre / Etiqueta</span>
-                      <span className="col-span-3">Clave (ID interno)</span>
-                      <span className="col-span-2">Unidad</span>
-                      <span className="col-span-2">Tipo</span>
-                      <span className="col-span-1 text-center">Acción</span>
-                    </div>
-                  )}
-
-                  {formDataCat.atributosSugeridos.map((at, idx) => {
-                    const otherAttrs = formDataCat.atributosSugeridos.filter((_, i) => i !== idx);
-
-                    return (
+                {formDataCat.atributosSugeridos.length === 0 ? (
+                  <div className="text-center py-6 border border-dashed border-outline-variant/30 rounded-2xl p-4 text-xs text-on-surface-variant">
+                    No hay atributos definidos. Agrega atributos como <em>Diámetro, Norma, Tipo, Sección</em> para sugerirlos al crear materiales de esta categoría.
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                    {formDataCat.atributosSugeridos.map((attr, index) => (
                       <div
-                        key={idx}
-                        className="bg-surface-container-low p-4 rounded-xl space-y-2.5"
+                        key={index}
+                        className="p-3 bg-surface-container-high/70 border border-outline-variant/30 rounded-2xl space-y-2.5"
                       >
                         <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                           <div className="sm:col-span-4">
-                            <label className="block sm:hidden text-[10px] text-on-surface-variant font-medium mb-0.5">
-                              Etiqueta
+                            <label className="block text-[10px] text-on-surface-variant font-medium mb-0.5">
+                              Etiqueta Visible
                             </label>
                             <input
                               type="text"
-                              value={at.etiqueta}
-                              onChange={(e) => handleUpdateAtributoField(idx, 'etiqueta', e.target.value)}
-                              className={`${inputCls} text-xs`}
-                              placeholder="Ej: Sección"
+                              value={attr.etiqueta}
+                              onChange={(e) => handleUpdateAtributo(index, 'etiqueta', e.target.value)}
+                              placeholder="Ej: Diámetro Nominal"
+                              className={`${inputCls} py-1.5 text-xs min-h-[36px]`}
                               required
                             />
                           </div>
+
                           <div className="sm:col-span-3">
-                            <label className="block sm:hidden text-[10px] text-on-surface-variant font-medium mb-0.5">
-                              Clave slug
+                            <label className="block text-[10px] text-on-surface-variant font-medium mb-0.5">
+                              Clave Interna (ID)
                             </label>
                             <input
                               type="text"
-                              value={at.clave}
-                              onChange={(e) => handleUpdateAtributoField(idx, 'clave', e.target.value)}
-                              className={`${inputCls} text-xs font-mono`}
-                              placeholder="ej: seccion"
+                              value={attr.clave}
+                              onChange={(e) => handleUpdateAtributo(index, 'clave', e.target.value)}
+                              placeholder="ej: diametro"
+                              className={`${inputCls} py-1.5 text-xs font-mono min-h-[36px]`}
                               required
                             />
                           </div>
+
                           <div className="sm:col-span-2">
-                            <label className="block sm:hidden text-[10px] text-on-surface-variant font-medium mb-0.5">
+                            <label className="block text-[10px] text-on-surface-variant font-medium mb-0.5">
                               Unidad
                             </label>
                             <input
                               type="text"
-                              value={at.unidad || ''}
-                              onChange={(e) => handleUpdateAtributoField(idx, 'unidad', e.target.value)}
-                              className={`${inputCls} text-xs font-mono`}
-                              placeholder="mm², A, V"
+                              value={attr.unidad || ''}
+                              onChange={(e) => handleUpdateAtributo(index, 'unidad', e.target.value)}
+                              placeholder="mm, A, W..."
+                              className={`${inputCls} py-1.5 text-xs min-h-[36px]`}
                             />
                           </div>
+
                           <div className="sm:col-span-2">
-                            <label className="block sm:hidden text-[10px] text-on-surface-variant font-medium mb-0.5">
+                            <label className="block text-[10px] text-on-surface-variant font-medium mb-0.5">
                               Tipo
                             </label>
                             <select
-                              value={at.tipo}
-                              onChange={(e) => handleUpdateAtributoField(idx, 'tipo', e.target.value as any)}
-                              className={`${inputCls} text-xs`}
+                              value={attr.tipo}
+                              onChange={(e) => handleUpdateAtributo(index, 'tipo', e.target.value as any)}
+                              className={`${inputCls} py-1.5 text-xs min-h-[36px]`}
                             >
                               <option value="texto">Texto</option>
-                              <option value="numero">Número</option>
+                              <option value="numero">Numérico</option>
                             </select>
                           </div>
-                          <div className="sm:col-span-1 flex justify-end sm:justify-center pt-1 sm:pt-0">
+
+                          <div className="sm:col-span-1 flex justify-end items-end pt-3 sm:pt-0">
                             <button
                               type="button"
-                              onClick={() => handleRemoveAtributoField(idx)}
-                              className="p-2 text-on-surface-variant hover:text-error rounded-full state-layer transition-colors cursor-pointer"
+                              onClick={() => handleRemoveAtributoField(index)}
+                              className="p-2 text-on-surface-variant hover:text-error rounded-xl transition-colors cursor-pointer"
                               title="Eliminar atributo"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -805,53 +1013,32 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                           </div>
                         </div>
 
-                        {/* Options Tag/Chip Editor */}
+                        {/* Editor de opciones predefinidas */}
                         <AttributeOptionsEditor
-                          opciones={at.opciones || []}
-                          onChange={(newOpts) => handleUpdateAtributoField(idx, 'opciones', newOpts)}
-                          inputCls={inputCls}
-                        />
-
-                        {/* Conditional Rules / Dependencies Editor */}
-                        <AttributeDependenciesEditor
-                          dependencias={at.dependencias || []}
-                          onChange={(newDeps) => handleUpdateAtributoField(idx, 'dependencias', newDeps)}
-                          availableAttributes={otherAttrs}
-                          currentAttributeOptions={at.opciones || []}
+                          opciones={attr.opciones || []}
+                          onChange={(newOpts) => handleUpdateAtributo(index, 'opciones', newOpts)}
                           inputCls={inputCls}
                         />
                       </div>
-                    );
-                  })}
-
-                  {formDataCat.atributosSugeridos.length === 0 && (
-                    <div className="text-xs text-on-surface-variant italic py-6 text-center bg-surface-container-low rounded-xl space-y-2">
-                      <p>Sin atributos técnicos normativos definidos para esta categoría.</p>
-                      <button
-                        type="button"
-                        onClick={handleAddAtributoField}
-                        className="px-4 py-2 bg-primary text-on-primary font-semibold text-xs rounded-full state-layer transition-colors inline-flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Agregar primer atributo
-                      </button>
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div className="pt-3 border-t border-outline-variant/20 flex justify-end gap-2 shrink-0">
+              <div className="flex justify-end gap-2 pt-3 border-t border-outline-variant/20 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsCreatingCat(false)}
-                  className="px-5 py-2.5 rounded-full text-xs font-semibold text-on-surface-variant hover:bg-surface-variant state-layer cursor-pointer"
+                  className="px-4 py-2 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-semibold rounded-full"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex items-center gap-2 px-6 py-2.5 bg-primary text-on-primary font-semibold rounded-full text-xs state-layer shadow-sm cursor-pointer"
+                  className="flex items-center gap-1.5 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary text-xs font-bold rounded-full shadow-sm cursor-pointer"
                 >
-                  <Save className="w-3.5 h-3.5" /> Guardar Categoría
+                  <Save className="w-4 h-4" />
+                  <span>Guardar Categoría</span>
                 </button>
               </div>
             </form>
