@@ -617,7 +617,7 @@ describe('buildSearchTerm & searchUtils', () => {
   });
 
   it('verifica que los materiales por defecto contengan cables, cajas, gabinetes, caños, conectores y bandejas válidos', () => {
-    expect(INITIAL_MATERIALES.length).toBeGreaterThanOrEqual(90);
+    expect(INITIAL_MATERIALES.length).toBeGreaterThanOrEqual(170);
 
     // Cables unipolares
     const cables15 = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-cables' && m.atributos.some(a => a.clave === 'seccion' && a.valor === '1.5'));
@@ -652,6 +652,36 @@ describe('buildSearchTerm & searchUtils', () => {
     // Bandejas portacables y accesorios
     const bandejas = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-canalizaciones' && m.atributos.some(a => a.clave === 'tipo_elemento' && (a.valor === 'Bandeja Portacable' || a.valor === 'Accesorio para Bandeja')));
     expect(bandejas.length).toBeGreaterThanOrEqual(25);
+
+    // Protecciones (PIAs y Diferenciales)
+    const pias = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-protecciones' && m.atributos.some(a => a.valor === 'Termomagnética (PIA)'));
+    expect(pias.length).toBeGreaterThanOrEqual(20);
+    const difs = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-protecciones' && m.atributos.some(a => a.valor === 'Interruptor Diferencial (Disyuntor)'));
+    expect(difs.length).toBeGreaterThanOrEqual(8);
+
+    // Módulos y Llaves
+    const modulos = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-modulos-llaves');
+    expect(modulos.length).toBeGreaterThanOrEqual(15);
+    const tomas = modulos.filter(m => m.atributos.some(a => a.clave === 'tipo_modulo' && a.valor.includes('Tomacorriente')));
+    expect(tomas.length).toBeGreaterThanOrEqual(4);
+
+    // Terminales TIF y Distribuidores Tetrapolares / Neutro / Tierra
+    const tif = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-fijacion' && m.atributos.some(a => a.clave === 'tipo_elemento' && a.valor.includes('Terminal Tubular TIF')));
+    expect(tif.length).toBeGreaterThanOrEqual(12);
+
+    const distTetra = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-fijacion' && m.atributos.some(a => a.clave === 'tipo_elemento' && a.valor.includes('Repartidor Tetrapolar')));
+    expect(distTetra.length).toBe(5);
+
+    const distNeutroTierra = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-fijacion' && m.atributos.some(a => a.clave === 'tipo_elemento' && a.valor.includes('Bornera Repartidora')));
+    expect(distNeutroTierra.length).toBe(6);
+
+    // Puesta a Tierra (Jabalinas, Tomacables, Cajas de Inspección)
+    const pat = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-tierra');
+    expect(pat.length).toBeGreaterThanOrEqual(10);
+    const jabalinas = pat.filter(m => m.atributos.some(a => a.clave === 'tipo_elemento' && a.valor === 'Jabalina Copperweld'));
+    expect(jabalinas.length).toBe(4);
+    const cajasPAT = pat.filter(m => m.atributos.some(a => a.clave === 'tipo_elemento' && a.valor === 'Cámara de Inspección PAT'));
+    expect(cajasPAT.length).toBe(3);
   });
 
   it('arma correctamente el término para Producto con Código de Fabricante / SKU', () => {

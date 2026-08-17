@@ -659,14 +659,17 @@
           "tipo": "texto",
           "opciones": [
             "Tomacorriente 2P+T",
-            "Tomacorriente Schuko",
+            "Tomacorriente 2P+T Doble",
+            "Tomacorriente 2P+T 20A",
             "Interruptor Simple",
             "Interruptor de Combinación (Nueve Once)",
+            "Interruptor Bipolar",
             "Pulsador",
             "Dimmer",
             "Tapa Ciega",
             "Bastidor/Marco Soporte",
-            "Tapa Embellecedora"
+            "Tapa Embellecedora",
+            "Tapa Estanca IP55"
           ]
         },
         {
@@ -674,9 +677,13 @@
           "etiqueta": "Línea/Serie",
           "tipo": "texto",
           "opciones": [
+            "Normalizada / Genérica",
             "Cambre Siglo XXII",
             "Cambre 711",
             "Jeluz Iggual",
+            "Jeluz Verona",
+            "Kalop Civil",
+            "Sica Silight",
             "Otra"
           ]
         },
@@ -893,11 +900,11 @@
           "tipo": "texto",
           "opciones": [
             "Jabalina Copperweld",
-            "Soldadura Exotérmica (Cadweld)",
             "Borne/Grampa de PAT",
-            "Cable de PAT Desnudo",
+            "Cámara de Inspección PAT",
             "Barra Equipotencial",
-            "Cámara de Inspección PAT"
+            "Cable de PAT Desnudo",
+            "Soldadura Exotérmica (Cadweld)"
           ]
         },
         {
@@ -906,6 +913,9 @@
           "unidad": "mm²",
           "tipo": "numero",
           "opciones": [
+            "1/2\" (12.7 mm)",
+            "5/8\" (14.3 mm)",
+            "3/4\" (19 mm)",
             "16",
             "25",
             "35",
@@ -929,7 +939,11 @@
           "etiqueta": "Longitud",
           "unidad": "m",
           "tipo": "numero",
-          "opciones": []
+          "opciones": [
+            "1.5",
+            "2.0",
+            "3.0"
+          ]
         }
       ]
     },
@@ -942,6 +956,12 @@
           "etiqueta": "Tipo de Elemento",
           "tipo": "texto",
           "opciones": [
+            "Terminal Tubular TIF Preaislado",
+            "Terminal Tubular TIF Doble (Twin)",
+            "Repartidor Tetrapolar Escalonado",
+            "Bornera Repartidora de Neutro DIN",
+            "Bornera Repartidora de Tierra DIN",
+            "Barra Equipotencial Principal",
             "Conector Caño a Caja PVC",
             "Conector Caño a Caja Metálico",
             "Abrazadera Metálica",
@@ -958,6 +978,27 @@
           "etiqueta": "Medida/Diámetro",
           "tipo": "texto",
           "opciones": [
+            "1.5 mm²",
+            "2.5 mm²",
+            "4 mm²",
+            "6 mm²",
+            "10 mm²",
+            "16 mm²",
+            "25 mm²",
+            "35 mm²",
+            "2x1.5 mm²",
+            "2x2.5 mm²",
+            "2x4 mm²",
+            "2x6 mm²",
+            "125A - 5 Posiciones",
+            "125A - 7 Posiciones",
+            "125A - 12 Posiciones",
+            "250A - 7 Posiciones",
+            "250A - 12 Posiciones",
+            "7 Bornes",
+            "12 Bornes",
+            "15 Bornes",
+            "8 Bornes con Aisladores",
             "19 mm (3/4\")",
             "20 mm",
             "22 mm (7/8\")",
@@ -982,6 +1023,7 @@
           "opciones": [
             "Unidad",
             "Bolsa x100",
+            "Caja x100u",
             "Rollo"
           ]
         }
@@ -4332,6 +4374,2254 @@
         {
           "clave": "color",
           "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-2x10",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 2P 10A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "2"
+        },
+        {
+          "clave": "In",
+          "valor": "10"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-2x16",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 2P 16A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "2"
+        },
+        {
+          "clave": "In",
+          "valor": "16"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-2x20",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 2P 20A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "2"
+        },
+        {
+          "clave": "In",
+          "valor": "20"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-2x25",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 2P 25A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "2"
+        },
+        {
+          "clave": "In",
+          "valor": "25"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-2x32",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 2P 32A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "2"
+        },
+        {
+          "clave": "In",
+          "valor": "32"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-2x40",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 2P 40A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "2"
+        },
+        {
+          "clave": "In",
+          "valor": "40"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-2x50",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 2P 50A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "2"
+        },
+        {
+          "clave": "In",
+          "valor": "50"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-2x63",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 2P 63A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "2"
+        },
+        {
+          "clave": "In",
+          "valor": "63"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-1x10",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 1P 10A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "1"
+        },
+        {
+          "clave": "In",
+          "valor": "10"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-1x16",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 1P 16A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "1"
+        },
+        {
+          "clave": "In",
+          "valor": "16"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-1x20",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 1P 20A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "1"
+        },
+        {
+          "clave": "In",
+          "valor": "20"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-1x25",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 1P 25A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "1"
+        },
+        {
+          "clave": "In",
+          "valor": "25"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-1x32",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 1P 32A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "1"
+        },
+        {
+          "clave": "In",
+          "valor": "32"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-4x16",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 4P 16A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "4"
+        },
+        {
+          "clave": "In",
+          "valor": "16"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-4x20",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 4P 20A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "4"
+        },
+        {
+          "clave": "In",
+          "valor": "20"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-4x25",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 4P 25A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "4"
+        },
+        {
+          "clave": "In",
+          "valor": "25"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-4x32",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 4P 32A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "4"
+        },
+        {
+          "clave": "In",
+          "valor": "32"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-4x40",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 4P 40A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "4"
+        },
+        {
+          "clave": "In",
+          "valor": "40"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-4x50",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 4P 50A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "4"
+        },
+        {
+          "clave": "In",
+          "valor": "50"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-4x63",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 4P 63A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "4"
+        },
+        {
+          "clave": "In",
+          "valor": "63"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-3x16",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 3P 16A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "3"
+        },
+        {
+          "clave": "In",
+          "valor": "16"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-3x20",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 3P 20A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "3"
+        },
+        {
+          "clave": "In",
+          "valor": "20"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-3x25",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 3P 25A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "3"
+        },
+        {
+          "clave": "In",
+          "valor": "25"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-3x32",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 3P 32A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "3"
+        },
+        {
+          "clave": "In",
+          "valor": "32"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pia-3x40",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Termomagnético (PIA) 3P 40A Curva C",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Termomagnética (PIA)"
+        },
+        {
+          "clave": "polos",
+          "valor": "3"
+        },
+        {
+          "clave": "In",
+          "valor": "40"
+        },
+        {
+          "clave": "curva",
+          "valor": "Curva C"
+        },
+        {
+          "clave": "Id",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-dif-2x25-30ma",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Diferencial (Disyuntor) 2P 25A Sensibilidad 30mA",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Interruptor Diferencial (Disyuntor)"
+        },
+        {
+          "clave": "polos",
+          "valor": "2"
+        },
+        {
+          "clave": "In",
+          "valor": "25"
+        },
+        {
+          "clave": "curva",
+          "valor": "N/A"
+        },
+        {
+          "clave": "Id",
+          "valor": "30"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-dif-2x40-30ma",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Diferencial (Disyuntor) 2P 40A Sensibilidad 30mA",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Interruptor Diferencial (Disyuntor)"
+        },
+        {
+          "clave": "polos",
+          "valor": "2"
+        },
+        {
+          "clave": "In",
+          "valor": "40"
+        },
+        {
+          "clave": "curva",
+          "valor": "N/A"
+        },
+        {
+          "clave": "Id",
+          "valor": "30"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-dif-2x63-30ma",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Diferencial (Disyuntor) 2P 63A Sensibilidad 30mA",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Interruptor Diferencial (Disyuntor)"
+        },
+        {
+          "clave": "polos",
+          "valor": "2"
+        },
+        {
+          "clave": "In",
+          "valor": "63"
+        },
+        {
+          "clave": "curva",
+          "valor": "N/A"
+        },
+        {
+          "clave": "Id",
+          "valor": "30"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-dif-2x40-300ma",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Diferencial (Disyuntor) 2P 40A Sensibilidad 300mA",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Interruptor Diferencial (Disyuntor)"
+        },
+        {
+          "clave": "polos",
+          "valor": "2"
+        },
+        {
+          "clave": "In",
+          "valor": "40"
+        },
+        {
+          "clave": "curva",
+          "valor": "N/A"
+        },
+        {
+          "clave": "Id",
+          "valor": "300"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-dif-4x40-30ma",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Diferencial (Disyuntor) 4P 40A Sensibilidad 30mA",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Interruptor Diferencial (Disyuntor)"
+        },
+        {
+          "clave": "polos",
+          "valor": "4"
+        },
+        {
+          "clave": "In",
+          "valor": "40"
+        },
+        {
+          "clave": "curva",
+          "valor": "N/A"
+        },
+        {
+          "clave": "Id",
+          "valor": "30"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-dif-4x63-30ma",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Diferencial (Disyuntor) 4P 63A Sensibilidad 30mA",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Interruptor Diferencial (Disyuntor)"
+        },
+        {
+          "clave": "polos",
+          "valor": "4"
+        },
+        {
+          "clave": "In",
+          "valor": "63"
+        },
+        {
+          "clave": "curva",
+          "valor": "N/A"
+        },
+        {
+          "clave": "Id",
+          "valor": "30"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-dif-4x40-300ma",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Diferencial (Disyuntor) 4P 40A Sensibilidad 300mA",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Interruptor Diferencial (Disyuntor)"
+        },
+        {
+          "clave": "polos",
+          "valor": "4"
+        },
+        {
+          "clave": "In",
+          "valor": "40"
+        },
+        {
+          "clave": "curva",
+          "valor": "N/A"
+        },
+        {
+          "clave": "Id",
+          "valor": "300"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-dif-4x63-300ma",
+      "categoriaId": "cat-protecciones",
+      "nombre": "Interruptor Diferencial (Disyuntor) 4P 63A Sensibilidad 300mA",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_proteccion",
+          "valor": "Interruptor Diferencial (Disyuntor)"
+        },
+        {
+          "clave": "polos",
+          "valor": "4"
+        },
+        {
+          "clave": "In",
+          "valor": "63"
+        },
+        {
+          "clave": "curva",
+          "valor": "N/A"
+        },
+        {
+          "clave": "Id",
+          "valor": "300"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-toma-10a-simple",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Módulo Tomacorriente 2P+T 10A 250V Norma IRAM 2071 (1 Módulo)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Tomacorriente 2P+T"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "1"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "10"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Con Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-toma-10a-doble",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Módulo Tomacorriente 2P+T 10A Doble Monoblock Norma IRAM 2071 (2 Módulos)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Tomacorriente 2P+T Doble"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "2"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "10"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Con Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-toma-20a-cargas",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Módulo Tomacorriente 2P+T 20A 250V Cargas Especiales/Aire Acond. Norma IRAM 2071",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Tomacorriente 2P+T 20A"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "1"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "20"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Con Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-toma-10a-rojo-ups",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Módulo Tomacorriente 2P+T 10A Rojo (Circuito Estabilizado/UPS/Grupo) Norma IRAM 2071",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Tomacorriente 2P+T"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "1"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "10"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Con Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-llave-punto-simple",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Módulo Interruptor Simple 1 Punto 10A (1 Módulo)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Interruptor Simple"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "1"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "10"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Sin Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-llave-combinacion",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Módulo Interruptor de Combinación (Nueve Once / 3 Vías) 10A",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Interruptor de Combinación (Nueve Once)"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "1"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "10"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Sin Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-llave-bipolar",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Módulo Interruptor Bipolar 10A (1 Módulo)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Interruptor Bipolar"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "1"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "10"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Sin Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-pulsador-luz-timbre",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Módulo Pulsador 10A con Resorte (Timbre / Automático de Escalera)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Pulsador"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "1"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "10"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Sin Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-modulo-ciego",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Módulo Tapa Ciega / Ciego de Relleno (1 Módulo)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Tapa Ciega"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "1"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "N/A"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Sin Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-dimmer-rotativo",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Módulo Dimmer Electrónico Rotativo para LED / Incandescente",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Dimmer"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "1"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "10"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Sin Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-bastidor-5x10-3mod",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Bastidor / Marco Soporte 5x10 para 3 Módulos",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Bastidor/Marco Soporte"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "3"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "N/A"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Sin Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-bastidor-10x10-4mod",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Bastidor / Marco Soporte 10x10 para 4 Módulos",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Bastidor/Marco Soporte"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "4"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "N/A"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Sin Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-tapa-5x10-1mod",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Tapa Embellecedora Plástica 5x10 para 1 Módulo Central",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Tapa Embellecedora"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "1"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "N/A"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Sin Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-tapa-5x10-2mod",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Tapa Embellecedora Plástica 5x10 para 2 Módulos",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Tapa Embellecedora"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "2"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "N/A"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Sin Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-tapa-5x10-3mod",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Tapa Embellecedora Plástica 5x10 para 3 Módulos",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Tapa Embellecedora"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "3"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "N/A"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Sin Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-tapa-5x10-ciega",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Tapa Embellecedora Plástica 5x10 Ciega",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Tapa Embellecedora"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "1"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "N/A"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Sin Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mod-tapa-estanca-ip55",
+      "categoriaId": "cat-modulos-llaves",
+      "nombre": "Tapa Estanca IP55 para Exterior con Membrana Flexible 5x10",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_modulo",
+          "valor": "Tapa Estanca IP55"
+        },
+        {
+          "clave": "linea",
+          "valor": "Normalizada / Genérica"
+        },
+        {
+          "clave": "cantidad_modulos",
+          "valor": "3"
+        },
+        {
+          "clave": "amperaje",
+          "valor": "N/A"
+        },
+        {
+          "clave": "con_tierra",
+          "valor": "Sin Tierra"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-terminal-tif-1-5",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Terminal Tubular Preaislado TIF 1.5 mm² (Bolsa x100)",
+      "unidadVenta": "Bolsa x100",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Terminal Tubular TIF Preaislado"
+        },
+        {
+          "clave": "medida",
+          "valor": "1.5 mm²"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Bolsa x100"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-terminal-tif-2-5",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Terminal Tubular Preaislado TIF 2.5 mm² (Bolsa x100)",
+      "unidadVenta": "Bolsa x100",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Terminal Tubular TIF Preaislado"
+        },
+        {
+          "clave": "medida",
+          "valor": "2.5 mm²"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Bolsa x100"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-terminal-tif-4",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Terminal Tubular Preaislado TIF 4 mm² (Bolsa x100)",
+      "unidadVenta": "Bolsa x100",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Terminal Tubular TIF Preaislado"
+        },
+        {
+          "clave": "medida",
+          "valor": "4 mm²"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Bolsa x100"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-terminal-tif-6",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Terminal Tubular Preaislado TIF 6 mm² (Bolsa x100)",
+      "unidadVenta": "Bolsa x100",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Terminal Tubular TIF Preaislado"
+        },
+        {
+          "clave": "medida",
+          "valor": "6 mm²"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Bolsa x100"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-terminal-tif-10",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Terminal Tubular Preaislado TIF 10 mm² (Bolsa x100)",
+      "unidadVenta": "Bolsa x100",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Terminal Tubular TIF Preaislado"
+        },
+        {
+          "clave": "medida",
+          "valor": "10 mm²"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Bolsa x100"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-terminal-tif-16",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Terminal Tubular Preaislado TIF 16 mm² (Bolsa x100)",
+      "unidadVenta": "Bolsa x100",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Terminal Tubular TIF Preaislado"
+        },
+        {
+          "clave": "medida",
+          "valor": "16 mm²"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Bolsa x100"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-terminal-tif-25",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Terminal Tubular Preaislado TIF 25 mm² (Bolsa x100)",
+      "unidadVenta": "Bolsa x100",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Terminal Tubular TIF Preaislado"
+        },
+        {
+          "clave": "medida",
+          "valor": "25 mm²"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Bolsa x100"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-terminal-tif-35",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Terminal Tubular Preaislado TIF 35 mm² (Bolsa x100)",
+      "unidadVenta": "Bolsa x100",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Terminal Tubular TIF Preaislado"
+        },
+        {
+          "clave": "medida",
+          "valor": "35 mm²"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Bolsa x100"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-terminal-tif-twin-2x1-5",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Terminal Tubular Doble Twin TIF 2x1.5 mm² (Bolsa x100)",
+      "unidadVenta": "Bolsa x100",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Terminal Tubular TIF Doble (Twin)"
+        },
+        {
+          "clave": "medida",
+          "valor": "2x1.5 mm²"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Bolsa x100"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-terminal-tif-twin-2x2-5",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Terminal Tubular Doble Twin TIF 2x2.5 mm² (Bolsa x100)",
+      "unidadVenta": "Bolsa x100",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Terminal Tubular TIF Doble (Twin)"
+        },
+        {
+          "clave": "medida",
+          "valor": "2x2.5 mm²"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Bolsa x100"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-terminal-tif-twin-2x4",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Terminal Tubular Doble Twin TIF 2x4 mm² (Bolsa x100)",
+      "unidadVenta": "Bolsa x100",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Terminal Tubular TIF Doble (Twin)"
+        },
+        {
+          "clave": "medida",
+          "valor": "2x4 mm²"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Bolsa x100"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-terminal-tif-twin-2x6",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Terminal Tubular Doble Twin TIF 2x6 mm² (Bolsa x100)",
+      "unidadVenta": "Bolsa x100",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Terminal Tubular TIF Doble (Twin)"
+        },
+        {
+          "clave": "medida",
+          "valor": "2x6 mm²"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Bolsa x100"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-distribuidor-tetra-125a-5p",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Repartidor Tetrapolar Modular Escalonado 125A - 5 Posiciones (Riel DIN)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Repartidor Tetrapolar Escalonado"
+        },
+        {
+          "clave": "medida",
+          "valor": "125A - 5 Posiciones"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-distribuidor-tetra-125a-7p",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Repartidor Tetrapolar Modular Escalonado 125A - 7 Posiciones (Riel DIN)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Repartidor Tetrapolar Escalonado"
+        },
+        {
+          "clave": "medida",
+          "valor": "125A - 7 Posiciones"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-distribuidor-tetra-125a-12p",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Repartidor Tetrapolar Modular Escalonado 125A - 12 Posiciones (Riel DIN)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Repartidor Tetrapolar Escalonado"
+        },
+        {
+          "clave": "medida",
+          "valor": "125A - 12 Posiciones"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-distribuidor-tetra-250a-7p",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Repartidor Tetrapolar Modular Escalonado 250A - 7 Posiciones (Riel DIN)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Repartidor Tetrapolar Escalonado"
+        },
+        {
+          "clave": "medida",
+          "valor": "250A - 7 Posiciones"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-distribuidor-tetra-250a-12p",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Repartidor Tetrapolar Modular Escalonado 250A - 12 Posiciones (Riel DIN)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Repartidor Tetrapolar Escalonado"
+        },
+        {
+          "clave": "medida",
+          "valor": "250A - 12 Posiciones"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-bornera-neutro-7b",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Bornera Repartidora Unipolar de Neutro (Azul) para Riel DIN - 7 Bornes",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Bornera Repartidora de Neutro DIN"
+        },
+        {
+          "clave": "medida",
+          "valor": "7 Bornes"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-bornera-neutro-12b",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Bornera Repartidora Unipolar de Neutro (Azul) para Riel DIN - 12 Bornes",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Bornera Repartidora de Neutro DIN"
+        },
+        {
+          "clave": "medida",
+          "valor": "12 Bornes"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-bornera-neutro-15b",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Bornera Repartidora Unipolar de Neutro (Azul) para Riel DIN - 15 Bornes",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Bornera Repartidora de Neutro DIN"
+        },
+        {
+          "clave": "medida",
+          "valor": "15 Bornes"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-bornera-tierra-7b",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Bornera Repartidora Unipolar de Puesta a Tierra (Verde) para Riel DIN - 7 Bornes",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Bornera Repartidora de Tierra DIN"
+        },
+        {
+          "clave": "medida",
+          "valor": "7 Bornes"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-bornera-tierra-12b",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Bornera Repartidora Unipolar de Puesta a Tierra (Verde) para Riel DIN - 12 Bornes",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Bornera Repartidora de Tierra DIN"
+        },
+        {
+          "clave": "medida",
+          "valor": "12 Bornes"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-bornera-tierra-15b",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Bornera Repartidora Unipolar de Puesta a Tierra (Verde) para Riel DIN - 15 Bornes",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Bornera Repartidora de Tierra DIN"
+        },
+        {
+          "clave": "medida",
+          "valor": "15 Bornes"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-bornera-bep-8b",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Barra Equipotencial Principal de PAT (BEP) 8 Bornes con Aisladores",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Barra Equipotencial Principal"
+        },
+        {
+          "clave": "medida",
+          "valor": "8 Bornes con Aisladores"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pat-jabalina-1-5m-12mm",
+      "categoriaId": "cat-tierra",
+      "nombre": "Jabalina Copperweld 1.50 m x 1/2\" (12.7 mm) IRAM 2309 con Tomacable",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Jabalina Copperweld"
+        },
+        {
+          "clave": "seccion",
+          "valor": "1/2\" (12.7 mm)"
+        },
+        {
+          "clave": "longitud",
+          "valor": "1.5"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pat-jabalina-1-5m-14mm",
+      "categoriaId": "cat-tierra",
+      "nombre": "Jabalina Copperweld 1.50 m x 5/8\" (14.3 mm) IRAM 2309",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Jabalina Copperweld"
+        },
+        {
+          "clave": "seccion",
+          "valor": "5/8\" (14.3 mm)"
+        },
+        {
+          "clave": "longitud",
+          "valor": "1.5"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pat-jabalina-2-0m-14mm",
+      "categoriaId": "cat-tierra",
+      "nombre": "Jabalina Copperweld 2.00 m x 5/8\" (14.3 mm) IRAM 2309",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Jabalina Copperweld"
+        },
+        {
+          "clave": "seccion",
+          "valor": "5/8\" (14.3 mm)"
+        },
+        {
+          "clave": "longitud",
+          "valor": "2.0"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pat-jabalina-3-0m-14mm",
+      "categoriaId": "cat-tierra",
+      "nombre": "Jabalina Copperweld 3.00 m x 5/8\" (14.3 mm) IRAM 2309",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Jabalina Copperweld"
+        },
+        {
+          "clave": "seccion",
+          "valor": "5/8\" (14.3 mm)"
+        },
+        {
+          "clave": "longitud",
+          "valor": "3.0"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pat-tomacable-12mm",
+      "categoriaId": "cat-tierra",
+      "nombre": "Tomacable / Grampa de Bronce para Jabalina 1/2\" y Cable hasta 25 mm²",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Borne/Grampa de PAT"
+        },
+        {
+          "clave": "seccion",
+          "valor": "1/2\" (12.7 mm)"
+        },
+        {
+          "clave": "longitud",
+          "valor": "1.5"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pat-tomacable-14mm",
+      "categoriaId": "cat-tierra",
+      "nombre": "Tomacable / Grampa de Bronce para Jabalina 5/8\" y Cable hasta 50 mm²",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Borne/Grampa de PAT"
+        },
+        {
+          "clave": "seccion",
+          "valor": "5/8\" (14.3 mm)"
+        },
+        {
+          "clave": "longitud",
+          "valor": "1.5"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pat-tomacable-cruz-14mm",
+      "categoriaId": "cat-tierra",
+      "nombre": "Tomacable Tipo Cruz para Jabalina 5/8\" a Pletina / Cable",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Borne/Grampa de PAT"
+        },
+        {
+          "clave": "seccion",
+          "valor": "5/8\" (14.3 mm)"
+        },
+        {
+          "clave": "longitud",
+          "valor": "1.5"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pat-caja-inspeccion-pvc",
+      "categoriaId": "cat-tierra",
+      "nombre": "Caja de Inspección para Jabalina PVC Cónica con Tapa (Nivel Piso)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Cámara de Inspección PAT"
+        },
+        {
+          "clave": "seccion",
+          "valor": "16"
+        },
+        {
+          "clave": "longitud",
+          "valor": "1.5"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pat-caja-inspeccion-hierro-15x15",
+      "categoriaId": "cat-tierra",
+      "nombre": "Caja de Inspección para Jabalina de Fundición / Hierro 15x15 cm con Tapa",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Cámara de Inspección PAT"
+        },
+        {
+          "clave": "seccion",
+          "valor": "16"
+        },
+        {
+          "clave": "longitud",
+          "valor": "1.5"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-pat-camara-inspeccion-hormigon-20x20",
+      "categoriaId": "cat-tierra",
+      "nombre": "Cámara de Inspección para Jabalina de Hormigón Prefabricado 20x20 cm con Tapa",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Cámara de Inspección PAT"
+        },
+        {
+          "clave": "seccion",
+          "valor": "25"
+        },
+        {
+          "clave": "longitud",
+          "valor": "1.5"
         }
       ],
       "activo": true,
