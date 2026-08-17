@@ -154,7 +154,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
   // Estados de vista
   const [selectedFamiliaFilter, setSelectedFamiliaFilter] = useState<string>('todas');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [expandedFamilias, setExpandedFamilias] = useState<Set<string>>(new Set(['canalizaciones', 'conductores', 'protecciones', 'tableros']));
+  const [expandedFamilias, setExpandedFamilias] = useState<Set<string>>(new Set());
   
   // Modales de creación
   const [isChoiceModalOpen, setIsChoiceModalOpen] = useState(false);
@@ -200,6 +200,33 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
     });
     return Array.from(map.values()).sort((a, b) => (a.orden ?? 50) - (b.orden ?? 50));
   }, [categorias, customFamilias]);
+
+  // Filtrado de Familias y Categorías
+  const sTerm = searchTerm.toLowerCase().trim();
+  const filteredFamilias = useMemo(() => {
+    return allFamilias.filter(fam => {
+      if (selectedFamiliaFilter !== 'todas' && fam.id !== selectedFamiliaFilter) return false;
+
+      const famCategories = categorias.filter(c => (c.supercategoriaId || 'general') === fam.id);
+      
+      if (!sTerm) return true;
+
+      const matchFamName = fam.nombre.toLowerCase().includes(sTerm);
+      const matchCat = famCategories.some(c => 
+        c.nombre.toLowerCase().includes(sTerm) ||
+        (c.atributosSugeridos && c.atributosSugeridos.some(a => (a.etiqueta || a.clave).toLowerCase().includes(sTerm)))
+      );
+
+      return matchFamName || matchCat;
+    });
+  }, [allFamilias, categorias, selectedFamiliaFilter, sTerm]);
+
+  // Auto-expandir familias cuando hay un término de búsqueda activo
+  React.useEffect(() => {
+    if (sTerm) {
+      setExpandedFamilias(new Set(filteredFamilias.map(f => f.id)));
+    }
+  }, [sTerm, filteredFamilias]);
 
   // Expandir / Colapsar todas
   const handleToggleExpandAll = () => {
@@ -430,36 +457,16 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
     });
   };
 
-  // Filtrado de Familias y Categorías
-  const sTerm = searchTerm.toLowerCase();
-  const filteredFamilias = useMemo(() => {
-    return allFamilias.filter(fam => {
-      if (selectedFamiliaFilter !== 'todas' && fam.id !== selectedFamiliaFilter) return false;
-
-      const famCategories = categorias.filter(c => (c.supercategoriaId || 'general') === fam.id);
-      
-      if (!sTerm) return true;
-
-      const matchFamName = fam.nombre.toLowerCase().includes(sTerm);
-      const matchCat = famCategories.some(c => 
-        c.nombre.toLowerCase().includes(sTerm) ||
-        (c.atributosSugeridos && c.atributosSugeridos.some(a => (a.etiqueta || a.clave).toLowerCase().includes(sTerm)))
-      );
-
-      return matchFamName || matchCat;
-    });
-  }, [allFamilias, categorias, selectedFamiliaFilter, sTerm]);
-
   return (
     <div className="space-y-4">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-low p-4 rounded-3xl border border-outline-variant/20 shadow-xs">
+      {/* Header Bar - M3 Container Low */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-container-low p-4 sm:p-5 rounded-3xl border border-outline-variant/20 shadow-xs">
         <div>
-          <h3 className="font-bold text-on-surface text-base flex items-center gap-2">
+          <h3 className="font-bold text-on-surface text-base sm:text-lg flex items-center gap-2.5">
             <Layers className="w-5 h-5 text-primary" />
             <span>Familias & Categorías de Materiales</span>
           </h3>
-          <p className="text-xs text-on-surface-variant">
+          <p className="text-xs text-on-surface-variant mt-0.5">
             Organiza tu catálogo por grandes familias y define los atributos técnicos normativos de cada categoría.
           </p>
         </div>
@@ -467,15 +474,15 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
           <button
             type="button"
             onClick={handleToggleExpandAll}
-            className="px-3 py-2 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-semibold rounded-xl border border-outline-variant/20 transition-colors cursor-pointer"
+            className="min-h-[44px] px-3.5 py-2 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-semibold rounded-2xl border border-outline-variant/20 state-layer transition-colors cursor-pointer flex items-center gap-1.5"
             title="Expandir o colapsar todas las familias"
           >
-            {expandedFamilias.size === allFamilias.length ? 'Colapsar todo' : 'Expandir todo'}
+            <span>{expandedFamilias.size === allFamilias.length ? 'Colapsar todo' : 'Expandir todo'}</span>
           </button>
           <button
             type="button"
             onClick={() => setIsChoiceModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs state-layer transition-colors shadow-sm cursor-pointer"
+            className="min-h-[44px] flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs state-layer transition-colors shadow-sm cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>+ Nuevo</span>
@@ -483,65 +490,99 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
         </div>
       </div>
 
-      {/* Search & Family Filter Chips Bar */}
-      <div className="space-y-3 bg-surface-container-low p-3.5 rounded-2xl border border-outline-variant/15">
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por familia, categoría o atributo técnico (ej: corrugado, bandeja, disyuntor)..."
-            className="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
-          {searchTerm && (
+      {/* Filter & Search Bar - Clean M3 Select & Search */}
+      <div className="bg-surface-container-low p-3.5 sm:p-4 rounded-3xl border border-outline-variant/15 space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-center">
+          {/* Search Field */}
+          <div className="relative md:col-span-7">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por familia, categoría o atributo técnico (ej: corrugado, disyuntor)..."
+              className="w-full pl-9.5 pr-8 py-2.5 text-xs rounded-2xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface p-1.5 rounded-full"
+                aria-label="Limpiar búsqueda"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Family Dropdown Selector */}
+          <div className="md:col-span-5">
+            <div className="relative">
+              <select
+                value={selectedFamiliaFilter}
+                onChange={(e) => setSelectedFamiliaFilter(e.target.value)}
+                className="w-full px-3.5 py-2.5 pr-8 text-xs font-semibold rounded-2xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] cursor-pointer appearance-none"
+                aria-label="Filtrar por Familia de Materiales"
+              >
+                <option value="todas">
+                  📦 Todas las Familias ({allFamilias.length} familias · {categorias.length} cat.)
+                </option>
+                {allFamilias.map((fam) => {
+                  const count = categorias.filter((c) => (c.supercategoriaId || 'general') === fam.id).length;
+                  return (
+                    <option key={fam.id} value={fam.id}>
+                      {fam.nombre} ({count} {count === 1 ? 'categoría' : 'categorías'})
+                    </option>
+                  );
+                })}
+              </select>
+              <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+            </div>
+          </div>
+        </div>
+
+        {/* Active Filter Indicators */}
+        {(selectedFamiliaFilter !== 'todas' || searchTerm) && (
+          <div className="flex items-center justify-between pt-2 border-t border-outline-variant/15 text-xs text-on-surface-variant">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-medium">Filtros activos:</span>
+              {selectedFamiliaFilter !== 'todas' && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[11px] font-semibold">
+                  <span>Familia: {allFamilias.find(f => f.id === selectedFamiliaFilter)?.nombre}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFamiliaFilter('todas')}
+                    className="hover:text-error ml-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {searchTerm && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[11px] font-semibold">
+                  <span>Texto: "{searchTerm}"</span>
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="hover:text-error ml-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+            </div>
             <button
               type="button"
-              onClick={() => setSearchTerm('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface p-1"
+              onClick={() => { setSelectedFamiliaFilter('todas'); setSearchTerm(''); }}
+              className="text-primary hover:underline font-semibold text-xs cursor-pointer shrink-0 ml-2"
             >
-              <X className="w-3.5 h-3.5" />
+              Restablecer
             </button>
-          )}
-        </div>
-
-        {/* Filter Chips Horizontal Scroll */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-          <button
-            type="button"
-            onClick={() => setSelectedFamiliaFilter('todas')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${
-              selectedFamiliaFilter === 'todas'
-                ? 'bg-primary text-on-primary shadow-xs'
-                : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
-            }`}
-          >
-            Todas ({categorias.length})
-          </button>
-          {allFamilias.map(fam => {
-            const count = categorias.filter(c => (c.supercategoriaId || 'general') === fam.id).length;
-            const isSelected = selectedFamiliaFilter === fam.id;
-            return (
-              <button
-                key={fam.id}
-                type="button"
-                onClick={() => setSelectedFamiliaFilter(fam.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium shrink-0 transition-all cursor-pointer ${
-                  isSelected
-                    ? 'bg-secondary-container text-on-secondary-container border border-primary/30 font-semibold shadow-xs'
-                    : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
-                }`}
-              >
-                {getFamiliaIcon(fam.id)}
-                <span>{fam.nombre}</span>
-                <span className="text-[10px] opacity-75 font-mono">({count})</span>
-              </button>
-            );
-          })}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* Accordion List by Familia */}
+      {/* Accordion List by Familia - M3 Compressed Collapsible */}
       {filteredFamilias.length === 0 ? (
         <div className="text-center py-16 bg-surface-container-low rounded-3xl p-6 space-y-3 border border-dashed border-outline-variant/30">
           <Package className="w-10 h-10 text-outline mx-auto" />
@@ -549,13 +590,13 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
           <button
             type="button"
             onClick={() => { setSearchTerm(''); setSelectedFamiliaFilter('todas'); }}
-            className="px-4 py-1.5 bg-surface-container-high text-primary hover:underline text-xs font-semibold rounded-xl"
+            className="min-h-[44px] px-4 py-2 bg-surface-container-high text-primary hover:underline text-xs font-semibold rounded-2xl state-layer inline-flex items-center"
           >
             Limpiar filtros
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {filteredFamilias.map(fam => {
             const famCategories = categorias.filter(c => {
               const matchFam = (c.supercategoriaId || 'general') === fam.id;
@@ -576,90 +617,108 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                 key={fam.id}
                 className="bg-surface-container-low rounded-3xl border border-outline-variant/20 overflow-hidden shadow-xs transition-all"
               >
-                {/* Familia Header (Collapsible trigger) */}
+                {/* Familia Header (Collapsible Trigger - M3 Min 48px Touch Area) */}
                 <div
                   onClick={() => toggleFamilia(fam.id)}
-                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container-high/60 select-none transition-colors"
+                  className="flex items-center justify-between p-3.5 sm:p-4 min-h-[56px] cursor-pointer hover:bg-surface-container-high/60 active:bg-surface-container-highest/80 select-none state-layer transition-colors"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isExpanded}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleFamilia(fam.id);
+                    }
+                  }}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-surface-container-highest rounded-2xl shrink-0">
+                  <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
+                    <div className="p-2 sm:p-2.5 bg-surface-container-highest rounded-2xl shrink-0">
                       {getFamiliaIcon(fam.id)}
                     </div>
-                    <div>
-                      <h4 className="font-bold text-on-surface text-sm sm:text-base flex items-center gap-2">
-                        {fam.nombre}
-                      </h4>
-                      <p className="text-[11px] text-on-surface-variant font-medium">
-                        {famCategories.length} categorí{famCategories.length !== 1 ? 'as' : 'a'} · {totalMats} material{totalMats !== 1 ? 'es' : ''}
-                      </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-bold text-on-surface text-sm sm:text-base leading-snug truncate">
+                          {fam.nombre}
+                        </h4>
+                        <span className="text-[11px] font-semibold text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded-lg shrink-0">
+                          {famCategories.length} {famCategories.length === 1 ? 'categoría' : 'categorías'}
+                        </span>
+                        {totalMats > 0 && (
+                          <span className="text-[11px] text-on-surface-variant/80 font-mono hidden sm:inline-block">
+                            · {totalMats} material{totalMats !== 1 ? 'es' : ''}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-1 sm:gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
                       onClick={() => handleOpenCreateCat(fam.id, fam.nombre)}
-                      className="hidden sm:flex items-center gap-1 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold rounded-full transition-colors cursor-pointer"
+                      className="min-h-[40px] px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold rounded-full state-layer transition-colors cursor-pointer flex items-center gap-1"
                       title={`Agregar categoría a ${fam.nombre}`}
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Agregar Categoría</span>
+                      <span className="hidden sm:inline">Nueva Categoría</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => toggleFamilia(fam.id)}
-                      className="p-2 text-on-surface-variant hover:text-on-surface rounded-full transition-colors cursor-pointer"
-                      aria-label={isExpanded ? 'Colapsar familia' : 'Expandir familia'}
+                      className="min-w-[40px] min-h-[40px] flex items-center justify-center text-on-surface-variant hover:text-on-surface rounded-full state-layer transition-transform cursor-pointer"
+                      aria-label={isExpanded ? `Colapsar ${fam.nombre}` : `Expandir ${fam.nombre}`}
                     >
-                      {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                      <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : 'rotate-0'}`} />
                     </button>
                   </div>
                 </div>
 
-                {/* Familia Body (Category Cards Grid) */}
+                {/* Familia Body (Category Compact List) */}
                 {isExpanded && (
-                  <div className="p-4 pt-1 border-t border-outline-variant/15 bg-surface-container/30">
+                  <div className="p-3.5 sm:p-4 pt-1 border-t border-outline-variant/15 bg-surface-container/30">
                     {famCategories.length === 0 ? (
                       <div className="text-center py-6 bg-surface-container-high/40 rounded-2xl p-4 space-y-2">
                         <p className="text-xs text-on-surface-variant">Esta familia aún no tiene categorías asignadas.</p>
                         <button
                           type="button"
                           onClick={() => handleOpenCreateCat(fam.id, fam.nombre)}
-                          className="px-3.5 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-full inline-flex items-center gap-1 shadow-xs"
+                          className="min-h-[40px] px-4 py-2 bg-primary text-on-primary text-xs font-semibold rounded-full inline-flex items-center gap-1.5 shadow-xs state-layer"
                         >
                           <Plus className="w-3.5 h-3.5" /> Crear primera categoría
                         </button>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-2">
+                      <div className="space-y-2 pt-1">
                         {famCategories.map((cat) => {
                           const matCount = materiales.filter((m) => m.categoriaId === cat.id).length;
                           return (
                             <div
                               key={cat.id}
-                              className="bg-surface-container rounded-2xl p-4 border border-outline-variant/20 hover:border-outline-variant/40 hover:shadow-sm transition-all flex flex-col justify-between"
+                              className="bg-surface-container hover:bg-surface-container-high/90 rounded-2xl p-3 sm:p-3.5 border border-outline-variant/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
                             >
-                              <div>
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex items-center gap-2">
-                                    <div className="p-2 bg-primary-container text-on-primary-container rounded-xl shrink-0">
-                                      <Tag className="w-3.5 h-3.5" />
-                                    </div>
-                                    <h5 className="font-bold text-on-surface text-sm">{cat.nombre}</h5>
+                              {/* Category Info */}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2.5 flex-wrap">
+                                  <div className="p-1.5 bg-primary-container text-on-primary-container rounded-xl shrink-0">
+                                    <Tag className="w-3.5 h-3.5" />
                                   </div>
-                                  <span className="text-[10px] font-medium text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded-lg shrink-0 select-none">
-                                    {matCount} {matCount === 1 ? 'mat.' : 'mats.'}
+                                  <h5 className="font-bold text-on-surface text-sm">{cat.nombre}</h5>
+                                  <span className="text-[10px] font-semibold text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded-lg select-none">
+                                    {matCount} {matCount === 1 ? 'material' : 'materiales'}
                                   </span>
                                 </div>
 
-                                <div className="mt-3">
-                                  <p className="text-[10px] font-semibold text-on-surface-variant mb-1">Atributos Sugeridos:</p>
+                                {/* Suggested Attributes Compact Chips */}
+                                <div className="mt-2 pl-0 sm:pl-8">
                                   {cat.atributosSugeridos && cat.atributosSugeridos.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      <span className="text-[10px] text-on-surface-variant/80 font-medium mr-0.5">
+                                        Atributos:
+                                      </span>
                                       {cat.atributosSugeridos.map((at, idx) => (
                                         <span
                                           key={idx}
-                                          className="inline-flex items-center gap-1 text-[10px] bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-md font-mono select-none"
+                                          className="inline-flex items-center gap-1 text-[10px] bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-md font-mono select-none border border-outline-variant/15"
                                         >
                                           <span>
                                             {at.etiqueta || at.clave} {at.unidad ? `(${at.unidad})` : ''}
@@ -667,7 +726,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                                           {at.opciones && at.opciones.length > 0 && (
                                             <span
                                               className="text-[9px] bg-secondary-container text-on-secondary-container px-1 py-0.2 rounded font-bold"
-                                              title={`Opciones: ${at.opciones.join(', ')}`}
+                                              title={`Opciones predefinidas (${at.opciones.length}): ${at.opciones.join(', ')}`}
                                             >
                                               {at.opciones.length}
                                             </span>
@@ -676,27 +735,32 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                                       ))}
                                     </div>
                                   ) : (
-                                    <p className="text-[10px] text-on-surface-variant/70 italic">Sin atributos definidos</p>
+                                    <span className="text-[10px] text-on-surface-variant/60 italic">
+                                      Sin atributos normativos definidos
+                                    </span>
                                   )}
                                 </div>
                               </div>
 
-                              <div className="mt-3.5 pt-2.5 border-t border-outline-variant/15 flex justify-end gap-1">
+                              {/* Category Action Buttons - M3 40-44px Touch Targets */}
+                              <div className="flex items-center justify-end gap-1 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-outline-variant/15">
                                 <button
+                                  type="button"
                                   onClick={() => handleOpenEditCat(cat)}
-                                  className="p-2 text-on-surface-variant hover:text-primary rounded-lg hover:bg-surface-container-high transition-colors flex items-center justify-center cursor-pointer"
+                                  className="min-w-[40px] min-h-[40px] p-2 text-on-surface-variant hover:text-primary rounded-full hover:bg-primary/10 state-layer transition-colors flex items-center justify-center cursor-pointer"
                                   title="Editar Categoría"
                                   aria-label={`Editar categoría ${cat.nombre}`}
                                 >
-                                  <Edit2 className="w-3.5 h-3.5" />
+                                  <Edit2 className="w-4 h-4" />
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={() => handleDeleteCat(cat.id)}
-                                  className="p-2 text-on-surface-variant hover:text-error rounded-lg hover:bg-surface-container-high transition-colors flex items-center justify-center cursor-pointer"
+                                  className="min-w-[40px] min-h-[40px] p-2 text-on-surface-variant hover:text-error rounded-full hover:bg-error/10 state-layer transition-colors flex items-center justify-center cursor-pointer"
                                   title="Eliminar Categoría"
                                   aria-label={`Eliminar categoría ${cat.nombre}`}
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
                             </div>
