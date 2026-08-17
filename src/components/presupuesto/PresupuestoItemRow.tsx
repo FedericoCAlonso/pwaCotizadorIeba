@@ -9,6 +9,7 @@ import {
 import { ItemPresupuesto } from '../../core/types';
 import { formatARS, roundMoney } from '../../core/calculations';
 import { OnlinePriceButton } from '../OnlinePriceButton';
+import { MathInput } from '../common/MathInput';
 
 interface PresupuestoItemRowProps {
   item: ItemPresupuesto;
@@ -17,7 +18,7 @@ interface PresupuestoItemRowProps {
   isExpanded: boolean;
   onToggleExpand: (id: string) => void;
   onUpdateItemCondicion: (index: number, condicion: 'normal' | 'dificultosa' | 'favorable') => void;
-  onUpdateItemQuantity: (index: number, qty: number) => void;
+  onUpdateItemQuantity: (index: number, qty: number, formula?: string) => void;
   onUpdateItemUnit: (index: number, unit: string) => void;
   onUpdateItemUnitDirectCost: (index: number, cost: number) => void;
   onUpdateItemDescription: (index: number, desc: string) => void;
@@ -89,40 +90,26 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
             </select>
           </div>
 
-          {/* Quantity with Touch Stepper */}
+          {/* Quantity with MathInput & Unit */}
           <div className="flex items-center gap-1">
-            <span className="text-xs text-on-surface-variant">Cant:</span>
-            <div className="flex items-center gap-0.5 bg-surface-container-highest border border-outline-variant/30 rounded-xl p-0.5">
-              <button
-                type="button"
-                onClick={() => onUpdateItemQuantity(index, Math.max(0.1, item.cantidad - 1))}
-                className="w-8 h-8 flex items-center justify-center font-bold text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors active:scale-95 touch-manipulation text-base"
-                title="Restar 1"
-              >
-                -
-              </button>
-              <input
-                type="number"
-                step="0.1"
-                inputMode="decimal"
+            <span className="text-xs text-on-surface-variant font-semibold">Cant:</span>
+            <div className="w-28">
+              <MathInput
                 value={item.cantidad}
-                onChange={(e) => onUpdateItemQuantity(index, parseFloat(e.target.value) || 0)}
-                className="w-12 bg-transparent border-none text-xs text-on-surface font-mono font-bold text-center focus:outline-none"
+                formula={item.formulaCantidad}
+                onChange={(val, form) => onUpdateItemQuantity(index, val, form)}
+                suffix={item.unidad}
+                size="sm"
+                min={0.01}
+                step={0.1}
               />
-              <button
-                type="button"
-                onClick={() => onUpdateItemQuantity(index, item.cantidad + 1)}
-                className="w-8 h-8 flex items-center justify-center font-bold text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors active:scale-95 touch-manipulation text-base"
-                title="Sumar 1"
-              >
-                +
-              </button>
             </div>
             <input
               type="text"
               value={item.unidad}
               onChange={(e) => onUpdateItemUnit(index, e.target.value)}
               className="w-12 bg-surface-container-highest border border-outline-variant/30 rounded-xl px-1.5 py-1 text-xs text-on-surface text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
+              title="Unidad de medida (ej: u, boca, m, gl)"
             />
           </div>
 

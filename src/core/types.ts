@@ -298,11 +298,13 @@ export interface InsumoEnTarea {
   insumoId?: string; // alias
   productoId?: string;
   cantidad: number;
+  formula?: string; // Phase 3: Fórmula matemática calculada opcional
 }
 
 export interface ManoObraEnTarea {
   categoriaId: string;
   horas: number;
+  formula?: string; // Phase 3: Fórmula matemática calculada opcional
 }
 
 export interface TareaTipo {
@@ -379,6 +381,7 @@ export interface ItemPresupuesto {
 
   descripcion: string;
   cantidad: number;
+  formulaCantidad?: string; // Phase 3: Fórmula matemática calculada opcional
   unidad: string;
 
   insumosSnapshot: InsumoSnapshot[];

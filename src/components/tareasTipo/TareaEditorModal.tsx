@@ -5,6 +5,7 @@ import { calcularCostoTareaTipo, formatARS } from '../../core/calculations';
 import { ModalContainer } from '../ModalContainer';
 import { useToast } from '../../contexts/ToastContext';
 import { MaterialPickerModal } from './MaterialPickerModal';
+import { MathInput } from '../common/MathInput';
 
 export interface TareaFormData {
   nombre: string;
@@ -72,7 +73,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
     }
   }, [editingTarea, isOpen, categoriasList]);
 
-  const handleAddMaterialFromPicker = (material: Insumo, cantidad: number) => {
+  const handleAddMaterialFromPicker = (material: Insumo, cantidad: number, formula?: string) => {
     setFormData((prev) => {
       const targetId = material.id;
       const existingIdx = prev.insumos.findIndex((i) => (i.materialId || i.insumoId) === targetId);
@@ -82,6 +83,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
         next[existingIdx] = {
           ...next[existingIdx],
           cantidad: next[existingIdx].cantidad + (cantidad > 0 ? cantidad : 1),
+          formula: formula || next[existingIdx].formula,
         };
         return { ...prev, insumos: next };
       }
@@ -94,16 +96,17 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
             materialId: targetId,
             insumoId: targetId,
             cantidad: cantidad > 0 ? cantidad : 1,
+            formula,
           },
         ],
       };
     });
   };
 
-  const handleAddMultipleMaterialsFromPicker = (items: { material: Insumo; cantidad: number }[]) => {
+  const handleAddMultipleMaterialsFromPicker = (items: { material: Insumo; cantidad: number; formula?: string }[]) => {
     setFormData((prev) => {
       const nextInsumos = [...prev.insumos];
-      items.forEach(({ material, cantidad }) => {
+      items.forEach(({ material, cantidad, formula }) => {
         const targetId = material.id;
         const existingIdx = nextInsumos.findIndex((i) => (i.materialId || i.insumoId) === targetId);
 
@@ -111,12 +114,14 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
           nextInsumos[existingIdx] = {
             ...nextInsumos[existingIdx],
             cantidad: nextInsumos[existingIdx].cantidad + (cantidad > 0 ? cantidad : 1),
+            formula: formula || nextInsumos[existingIdx].formula,
           };
         } else {
           nextInsumos.push({
             materialId: targetId,
             insumoId: targetId,
             cantidad: cantidad > 0 ? cantidad : 1,
+            formula,
           });
         }
       });
@@ -131,7 +136,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
     }));
   };
 
-  const updateInsumoRow = (index: number, field: 'materialId' | 'insumoId' | 'cantidad', val: any) => {
+  const updateInsumoRow = (index: number, field: 'materialId' | 'insumoId' | 'cantidad' | 'formula', val: any) => {
     setFormData((prev) => {
       const next = [...prev.insumos];
       next[index] = { ...next[index], [field]: val };
@@ -157,7 +162,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
     }));
   };
 
-  const updateManoObraRow = (index: number, field: 'categoriaId' | 'horas', val: any) => {
+  const updateManoObraRow = (index: number, field: 'categoriaId' | 'horas' | 'formula', val: any) => {
     setFormData((prev) => {
       const next = [...prev.manoObra];
       next[index] = { ...next[index], [field]: val };
@@ -322,16 +327,22 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
                       {/* Quantity Stepper & Remove Action */}
                       <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0 pt-1.5 sm:pt-0 border-t sm:border-t-0 border-outline-variant/15">
-                        <div className="flex items-center gap-1 bg-surface-container-high p-1 rounded-xl border border-outline-variant/30">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0.01"
+                        <div className="w-28 shrink-0">
+                          <MathInput
                             value={item.cantidad}
-                            onChange={(e) => updateInsumoRow(idx, 'cantidad', parseFloat(e.target.value) || 0)}
-                            className="w-16 text-center text-xs font-mono font-bold bg-transparent text-on-surface focus:outline-none"
+                            formula={item.formula}
+                            onChange={(newVal, newForm) => {
+                              setFormData((prev) => {
+                                const next = [...prev.insumos];
+                                next[idx] = { ...next[idx], cantidad: newVal, formula: newForm };
+                                return { ...prev, insumos: next };
+                              });
+                            }}
+                            suffix={unit}
+                            size="sm"
+                            min={0.01}
+                            step={0.1}
                           />
-                          <span className="text-[10px] text-on-surface-variant font-mono pr-1">{unit}</span>
                         </div>
 
                         <button
@@ -391,15 +402,22 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                       ))}
                     </select>
 
-                    <div className="flex items-center gap-1 w-24 shrink-0">
-                      <input
-                        type="number"
-                        step="0.1"
+                    <div className="w-28 shrink-0">
+                      <MathInput
                         value={item.horas}
-                        onChange={(e) => updateManoObraRow(idx, 'horas', parseFloat(e.target.value) || 0)}
-                        className={`${inputCls} text-xs font-mono text-center px-1`}
+                        formula={item.formula}
+                        onChange={(newVal, newForm) => {
+                          setFormData((prev) => {
+                            const next = [...prev.manoObra];
+                            next[idx] = { ...next[idx], horas: newVal, formula: newForm };
+                            return { ...prev, manoObra: next };
+                          });
+                        }}
+                        suffix="hs"
+                        size="sm"
+                        min={0.01}
+                        step={0.1}
                       />
-                      <span className="text-[10px] text-on-surface-variant shrink-0">hs</span>
                     </div>
 
                     <button

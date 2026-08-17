@@ -424,7 +424,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     });
   };
 
-  const handleUpdateItemQuantity = (index: number, qty: number) => {
+  const handleUpdateItemQuantity = (index: number, qty: number, formula?: string) => {
     const safeQty = Math.max(0.01, safeNum(qty) || 1);
     setItems((prev) => {
       const next = [...prev];
@@ -471,6 +471,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       next[index] = {
         ...target,
         cantidad: safeQty,
+        formulaCantidad: formula,
         insumosSnapshot: insumosActualizados,
         manoObraSnapshot: manoObraActualizada,
         costoInsumos,

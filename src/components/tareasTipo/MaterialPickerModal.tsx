@@ -17,14 +17,26 @@ import { Insumo, CategoriaMaterial } from '../../core/types';
 import { formatARS } from '../../core/calculations';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useToast } from '../../contexts/ToastContext';
+import { MathInput } from '../common/MathInput';
+
+export interface StagedItemPayload {
+  material: Insumo;
+  cantidad: number;
+  formula?: string;
+}
 
 interface MaterialPickerModalProps {
   isOpen: boolean;
   onClose: () => void;
   insumosMap: Map<string, Insumo>;
   alreadySelectedIds?: string[];
-  onAddMaterial: (material: Insumo, cantidad: number) => void;
-  onAddMultipleMaterials?: (items: { material: Insumo; cantidad: number }[]) => void;
+  onAddMaterial: (material: Insumo, cantidad: number, formula?: string) => void;
+  onAddMultipleMaterials?: (items: StagedItemPayload[]) => void;
+}
+
+interface StagedEntry {
+  cantidad: number;
+  formula?: string;
 }
 
 export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
@@ -45,8 +57,8 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
-  // Map of materialId -> quantity for staged multi-add
-  const [stagedQuantities, setStagedQuantities] = useState<Map<string, number>>(new Map());
+  // Map of materialId -> staged entry for staged multi-add
+  const [stagedQuantities, setStagedQuantities] = useState<Map<string, StagedEntry>>(new Map());
 
   // Focus search input when modal opens
   useEffect(() => {
@@ -98,9 +110,9 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
   }, [allInsumos, searchTerm, selectedCategory, categoriasMap]);
 
   // Handler for single add (1-tap)
-  const handleQuickAdd = (insumo: Insumo, qty: number = 1) => {
+  const handleQuickAdd = (insumo: Insumo, qty: number = 1, formula?: string) => {
     const quantity = qty > 0 ? qty : 1;
-    onAddMaterial(insumo, quantity);
+    onAddMaterial(insumo, quantity, formula);
     toast.success(`Agregado: ${insumo.nombre} (${quantity} ${insumo.unidadVenta || insumo.unidad || 'u'})`);
   };
 
@@ -108,24 +120,24 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
   const updateStagedQuantity = (insumoId: string, delta: number) => {
     setStagedQuantities((prev) => {
       const next = new Map(prev);
-      const current = next.get(insumoId) || 0;
+      const current = next.get(insumoId)?.cantidad || 0;
       const updated = Math.max(0, current + delta);
       if (updated === 0) {
         next.delete(insumoId);
       } else {
-        next.set(insumoId, updated);
+        next.set(insumoId, { cantidad: updated, formula: undefined });
       }
       return next;
     });
   };
 
-  const setExplicitStagedQuantity = (insumoId: string, val: number) => {
+  const setExplicitStagedQuantity = (insumoId: string, val: number, formula?: string) => {
     setStagedQuantities((prev) => {
       const next = new Map(prev);
       if (val <= 0 || isNaN(val)) {
         next.delete(insumoId);
       } else {
-        next.set(insumoId, val);
+        next.set(insumoId, { cantidad: val, formula });
       }
       return next;
     });
@@ -135,18 +147,18 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
   const handleApplyStaged = () => {
     if (stagedQuantities.size === 0) return;
 
-    const itemsToAdd: { material: Insumo; cantidad: number }[] = [];
-    stagedQuantities.forEach((qty, id) => {
+    const itemsToAdd: StagedItemPayload[] = [];
+    stagedQuantities.forEach((entry, id) => {
       const mat = insumosMap.get(id);
-      if (mat && qty > 0) {
-        itemsToAdd.push({ material: mat, cantidad: qty });
+      if (mat && entry.cantidad > 0) {
+        itemsToAdd.push({ material: mat, cantidad: entry.cantidad, formula: entry.formula });
       }
     });
 
     if (onAddMultipleMaterials) {
       onAddMultipleMaterials(itemsToAdd);
     } else {
-      itemsToAdd.forEach((item) => onAddMaterial(item.material, item.cantidad));
+      itemsToAdd.forEach((item) => onAddMaterial(item.material, item.cantidad, item.formula));
     }
 
     toast.success(`Se agregaron ${itemsToAdd.length} materiales a la Tarea Tipo.`);
@@ -271,7 +283,9 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
           ) : (
             filteredInsumos.map((ins) => {
               const isAlreadyInTarea = alreadySelectedIds.includes(ins.id);
-              const stagedQty = stagedQuantities.get(ins.id) || 0;
+              const stagedEntry = stagedQuantities.get(ins.id);
+              const stagedQty = stagedEntry?.cantidad || 0;
+              const stagedFormula = stagedEntry?.formula;
               const catName = categoriasMap.get(ins.categoriaId || ins.categoria || '') || ins.categoriaId || ins.categoria;
               const unit = ins.unidadVenta || ins.unidad || 'u';
 
@@ -326,35 +340,16 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
                   {/* Right: Quantity Stepper & Quick Action */}
                   <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-outline-variant/15">
                     {/* Stepper for Staged Qty */}
-                    <div className="flex items-center gap-1 bg-surface-container-high p-1 rounded-xl border border-outline-variant/30">
-                      <button
-                        type="button"
-                        onClick={() => updateStagedQuantity(ins.id, -1)}
-                        className="w-7 h-7 rounded-lg bg-surface-variant hover:bg-surface-container-highest text-on-surface flex items-center justify-center transition-colors disabled:opacity-30"
-                        disabled={stagedQty <= 0}
-                        aria-label="Disminuir cantidad"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.1"
-                        value={stagedQty > 0 ? stagedQty : ''}
-                        onChange={(e) => setExplicitStagedQuantity(ins.id, parseFloat(e.target.value) || 0)}
+                    <div className="w-24">
+                      <MathInput
+                        value={stagedQty}
+                        formula={stagedFormula}
+                        onChange={(val, form) => setExplicitStagedQuantity(ins.id, val, form)}
                         placeholder="0"
-                        className="w-12 text-center text-xs font-mono font-bold bg-transparent text-on-surface focus:outline-none"
+                        size="sm"
+                        min={0}
+                        step={0.1}
                       />
-
-                      <button
-                        type="button"
-                        onClick={() => updateStagedQuantity(ins.id, 1)}
-                        className="w-7 h-7 rounded-lg bg-surface-variant hover:bg-surface-container-highest text-on-surface flex items-center justify-center transition-colors"
-                        aria-label="Aumentar cantidad"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
                     </div>
 
                     <span className="text-[11px] font-mono text-on-surface-variant min-w-[24px]">
@@ -364,7 +359,7 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
                     {/* Quick Add Button */}
                     <button
                       type="button"
-                      onClick={() => handleQuickAdd(ins, stagedQty > 0 ? stagedQty : 1)}
+                      onClick={() => handleQuickAdd(ins, stagedQty > 0 ? stagedQty : 1, stagedFormula)}
                       className="px-3 py-1.5 bg-primary hover:bg-primary/90 text-on-primary font-semibold text-xs rounded-xl transition-all shadow-xs flex items-center gap-1 active:scale-95 shrink-0"
                       title={`Agregar ${stagedQty > 0 ? stagedQty : 1} ${unit} de este material`}
                     >
