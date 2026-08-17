@@ -117,20 +117,18 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
           <div className="flex items-center gap-1">
             <span className="text-xs text-on-surface-variant">Costo Unit:</span>
             {isCustom ? (
-              <div className="relative">
-                <span className="text-xs text-on-surface-variant absolute left-2 top-1.5">$</span>
-                <input
-                  type="number"
-                  step="1"
-                  inputMode="decimal"
+              <div className="w-28">
+                <MathInput
                   value={
                     item.costoUnitario !== undefined
                       ? item.costoUnitario
                       : roundMoney((item.costoDirectoTotal || 0) / (item.cantidad || 1))
                   }
-                  onChange={(e) => onUpdateItemUnitDirectCost(index, parseFloat(e.target.value) || 0)}
-                  className="w-24 bg-surface-container-highest border border-outline-variant/30 rounded-xl pl-5 pr-2 py-1 text-xs text-primary font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="0"
+                  onChange={(val) => onUpdateItemUnitDirectCost(index, val)}
+                  prefix="$"
+                  size="sm"
+                  min={0}
+                  step={1}
                 />
               </div>
             ) : (

@@ -3,6 +3,7 @@ import { Zap, X, Plus } from 'lucide-react';
 import { Contacto } from '../../core/types';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useModalKeyboardNavigation } from '../../hooks/useModalKeyboardNavigation';
+import { MathInput } from '../common/MathInput';
 
 interface QuickCreateMaterialModalProps {
   isOpen: boolean;
@@ -139,16 +140,16 @@ export const QuickCreateMaterialModal: React.FC<QuickCreateMaterialModalProps> =
               </div>
               <div className="grid grid-cols-3 gap-1">
                 <div className="col-span-2">
-                  <input
-                    type="number"
-                    step="any"
-                    inputMode="decimal"
-                    value={formDataQuickMat.precio || ''}
-                    onChange={(e) =>
-                      setFormDataQuickMat({ ...formDataQuickMat, precio: parseFloat(e.target.value) || 0 })
+                  <MathInput
+                    value={formDataQuickMat.precio}
+                    onChange={(val) =>
+                      setFormDataQuickMat({ ...formDataQuickMat, precio: val })
                     }
-                    className={inputCls}
+                    prefix="$"
                     placeholder="0.00"
+                    size="md"
+                    min={0}
+                    step={0.01}
                   />
                 </div>
                 <div>

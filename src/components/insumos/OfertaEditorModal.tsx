@@ -10,6 +10,7 @@ import {
 } from '../../core/calculations';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useModalKeyboardNavigation } from '../../hooks/useModalKeyboardNavigation';
+import { MathInput } from '../common/MathInput';
 
 interface OfertaEditorModalProps {
   isOpen: boolean;
@@ -74,21 +75,7 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
         setPrecioBultoDisplay(baseBultoNeto);
       }
     }
-  }, [
-    isOpen,
-    formDataOferta.proveedorId,
-    formDataOferta.proveedorNombre,
-    formDataOferta.precio,
-    formDataOferta.precioNeto,
-    formDataOferta.precioFinal,
-    formDataOferta.alicuotaIVA,
-    formDataOferta.presentacionCompra,
-    formDataOferta.cantidadPorPresentacion,
-    formDataOferta.precioPresentacion,
-    proveedores,
-    modoPrecio,
-    sugerenciasEmpaque
-  ]);
+  }, [isOpen, editingOferta]);
 
   // Cálculos reactivos
   const bultoNeto = modoPrecio === 'con_iva'
@@ -123,6 +110,12 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
   const handlePrecioBultoChange = (val: number) => {
     setPrecioBultoDisplay(val);
     syncFormData(val, factorEmpaque, presentacionSeleccionada, alicuotaIVA, modoPrecio);
+  };
+
+  const handleToggleModoPrecio = (newModo: 'con_iva' | 'neto') => {
+    if (newModo === modoPrecio) return;
+    setModoPrecio(newModo);
+    syncFormData(precioBultoDisplay, factorEmpaque, presentacionSeleccionada, alicuotaIVA, newModo);
   };
 
   const handlePresentacionChange = (etiqueta: string) => {
@@ -315,10 +308,7 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
               <div className="flex items-center gap-1 bg-surface-container-highest p-0.5 rounded-lg border border-outline-variant/30 text-[11px]">
                 <button
                   type="button"
-                  onClick={() => {
-                    setModoPrecio('con_iva');
-                    syncFormData(precioBultoDisplay, factorEmpaque, presentacionSeleccionada, alicuotaIVA, 'con_iva');
-                  }}
+                  onClick={() => handleToggleModoPrecio('con_iva')}
                   className={`px-2 py-0.5 rounded-md font-medium transition-colors ${
                     modoPrecio === 'con_iva'
                       ? 'bg-primary text-on-primary font-bold shadow-2xs'
@@ -329,10 +319,7 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setModoPrecio('neto');
-                    syncFormData(precioBultoDisplay, factorEmpaque, presentacionSeleccionada, alicuotaIVA, 'neto');
-                  }}
+                  onClick={() => handleToggleModoPrecio('neto')}
                   className={`px-2 py-0.5 rounded-md font-medium transition-colors ${
                     modoPrecio === 'neto'
                       ? 'bg-primary text-on-primary font-bold shadow-2xs'
@@ -346,19 +333,15 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
 
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-2">
-                <div className="relative">
-                  <span className="text-xs text-on-surface-variant absolute left-3 top-2.5 font-mono">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={precioBultoDisplay || ''}
-                    onChange={(e) => handlePrecioBultoChange(parseFloat(e.target.value) || 0)}
-                    className={`${inputCls} pl-7 font-mono text-primary font-bold text-base`}
-                    placeholder="0.00"
-                    required
-                  />
-                </div>
+                <MathInput
+                  value={precioBultoDisplay}
+                  onChange={(val) => handlePrecioBultoChange(val)}
+                  prefix="$"
+                  placeholder="0.00"
+                  size="md"
+                  min={0}
+                  step={0.01}
+                />
               </div>
 
               <div>
