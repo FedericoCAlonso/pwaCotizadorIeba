@@ -12,7 +12,8 @@ import {
   Contacto,
   RolContacto,
   MotorBusquedaEcommerce,
-  AppConfig
+  AppConfig,
+  SupercategoriaMaterial
 } from './types';
 import appConfigData from '../config/appConfig.json';
 import bdDefaultData from '../config/bdDefault.json';
@@ -58,6 +59,9 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   categoriasTarea: appConfigData.categoriasTarea || (appConfigData.defaultAppConfig as any).categoriasTarea || ['Bocas', 'Circuitos', 'Tableros', 'Acometidas', 'Medición'],
   motoresBusquedaOnline: DEFAULT_MOTORES_BUSQUEDA
 } as AppConfig;
+
+export const DEFAULT_SUPERCATEGORIAS: SupercategoriaMaterial[] =
+  ((appConfigData as any).supercategorias || []) as SupercategoriaMaterial[];
 
 export const INITIAL_CATEGORIAS_MATERIAL: CategoriaMaterial[] =
   (bdDefaultData.categoriasMaterial || []) as CategoriaMaterial[];

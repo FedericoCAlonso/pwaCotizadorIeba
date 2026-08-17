@@ -242,7 +242,7 @@ export async function initializeDatabaseSeed(): Promise<void> {
       db.proveedores,
       db.config
     ], async () => {
-      // 1. Asegurar que las categorías semillas existan y tengan los atributos sugeridos actualizados
+      // 1. Asegurar que las categorías semillas existan y tengan los atributos sugeridos y supercategorías actualizados
       for (const cat of INITIAL_CATEGORIAS_MATERIAL) {
         const existing = await db.categoriasMaterial.get(cat.id);
         if (!existing) {
@@ -250,6 +250,8 @@ export async function initializeDatabaseSeed(): Promise<void> {
         } else {
           await db.categoriasMaterial.update(cat.id, {
             nombre: cat.nombre,
+            supercategoriaId: cat.supercategoriaId,
+            supercategoriaNombre: cat.supercategoriaNombre,
             atributosSugeridos: cat.atributosSugeridos
           });
         }
@@ -260,7 +262,10 @@ export async function initializeDatabaseSeed(): Promise<void> {
         'cableado': 'cat-cables',
         'cables': 'cat-cables',
         'protecciones': 'cat-protecciones',
-        'canalizaciones': 'cat-canalizaciones',
+        'canalizaciones': 'cat-canos',
+        'canos': 'cat-canos',
+        'bandejas': 'cat-bandejas',
+        'cablecanales': 'cat-cablecanales',
         'cajas': 'cat-cajas',
         'modulos': 'cat-modulos-llaves',
         'llaves': 'cat-modulos-llaves',
@@ -270,6 +275,7 @@ export async function initializeDatabaseSeed(): Promise<void> {
         'medicion': 'cat-tierra',
         'tierra': 'cat-tierra',
         'fijacion': 'cat-fijacion',
+        'terminales': 'cat-terminales',
         'motores': 'cat-motores-automatizacion',
         'automatizacion': 'cat-motores-automatizacion',
         'motores-automatizacion': 'cat-motores-automatizacion',
@@ -287,7 +293,30 @@ export async function initializeDatabaseSeed(): Promise<void> {
         let updated = false;
         let newCatId = m.categoriaId;
 
-        if (categoryMapping[m.categoriaId]) {
+        // Migración específica de materiales antiguos de canalizaciones o fijaciones
+        if (m.categoriaId === 'cat-canalizaciones') {
+          if (m.id.startsWith('mat-cano-')) newCatId = 'cat-canos';
+          else if (m.id.startsWith('mat-bandeja-perf-')) newCatId = 'cat-bandejas';
+          else newCatId = 'cat-accesorios-bandejas';
+          updated = true;
+        } else if (m.categoriaId === 'cat-fijacion') {
+          if (m.id.startsWith('mat-conector-')) {
+            newCatId = 'cat-accesorios-caneria';
+            updated = true;
+          } else if (m.id.startsWith('mat-terminal-tif-')) {
+            newCatId = 'cat-terminales';
+            updated = true;
+          } else if (m.id.startsWith('mat-distribuidor-tetra-') || m.id.startsWith('mat-bornera-neutro-') || m.id.startsWith('mat-bornera-tierra-')) {
+            newCatId = 'cat-accesorios-tablero';
+            updated = true;
+          } else if (m.id === 'mat-bornera-bep-8b') {
+            newCatId = 'cat-tierra';
+            updated = true;
+          }
+        } else if (m.categoriaId === 'cat-modulos-llaves' && (m.id.startsWith('mat-mod-bastidor-') || m.id.startsWith('mat-mod-tapa-'))) {
+          newCatId = 'cat-bastidores-tapas';
+          updated = true;
+        } else if (categoryMapping[m.categoriaId]) {
           newCatId = categoryMapping[m.categoriaId];
           updated = true;
         } else if (!validCatIds.has(m.categoriaId)) {

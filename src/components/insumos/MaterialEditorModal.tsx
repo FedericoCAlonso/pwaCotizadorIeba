@@ -100,11 +100,24 @@ export const MaterialEditorModal: React.FC<MaterialEditorModalProps> = ({
                 className={inputCls}
                 required
               >
-                {categorias.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
-                ))}
+                {(() => {
+                  const groups = categorias.reduce((acc, c) => {
+                    const superName = c.supercategoriaNombre || 'General / Otros';
+                    if (!acc[superName]) acc[superName] = [];
+                    acc[superName].push(c);
+                    return acc;
+                  }, {} as Record<string, CategoriaMaterial[]>);
+
+                  return Object.entries(groups).map(([supercat, cats]) => (
+                    <optgroup key={supercat} label={supercat}>
+                      {cats.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ));
+                })()}
               </select>
             )}
           </div>

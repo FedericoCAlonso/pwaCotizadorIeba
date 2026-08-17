@@ -3,20 +3,381 @@
     {
       "id": "cat-sin-categoria",
       "nombre": "Sin categoría",
+      "supercategoriaId": "general",
+      "supercategoriaNombre": "General / Otros",
       "atributosSugeridos": []
     },
     {
+      "id": "cat-canos",
+      "nombre": "Caños y Tuberías Conduit",
+      "supercategoriaId": "canalizaciones",
+      "supercategoriaNombre": "Canalización y Contención",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_cano",
+          "etiqueta": "Tipo de Caño",
+          "tipo": "texto",
+          "opciones": [
+            "Caño Semipesado Metálico (RS)",
+            "Caño Pesado Metálico (RL)",
+            "Caño PVC Rígido",
+            "Caño Corrugado Reforzado Ignífugo",
+            "Caño Corrugado Liviano",
+            "Caño Flexible Metálico (Bx)",
+            "Caño Flexible Hermético (Liquid-Tight)"
+          ]
+        },
+        {
+          "clave": "diametro",
+          "etiqueta": "Diámetro Nominal",
+          "unidad": "mm",
+          "tipo": "texto",
+          "opciones": [
+            "16",
+            "19 (3/4\")",
+            "20",
+            "22 (7/8\")",
+            "25 (1\")",
+            "32 (1 1/4\")",
+            "38 (1 1/2\")",
+            "40",
+            "50",
+            "51 (2\")",
+            "63"
+          ]
+        },
+        {
+          "clave": "norma",
+          "etiqueta": "Norma Técnica",
+          "tipo": "texto",
+          "opciones": [
+            "IRAM 2005 (Semipesado/Pesado)",
+            "IRAM 2005 (PVC Rígido)",
+            "IRAM 62388 (Corrugado Ignífugo)",
+            "IEC 61386"
+          ]
+        },
+        {
+          "clave": "color",
+          "etiqueta": "Color",
+          "tipo": "texto",
+          "opciones": [
+            "Gris",
+            "Blanco",
+            "Negro",
+            "Naranja",
+            "Metálico Zincado"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cat-accesorios-caneria",
+      "nombre": "Accesorios para Cañerías",
+      "supercategoriaId": "canalizaciones",
+      "supercategoriaNombre": "Canalización y Contención",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_accesorio",
+          "etiqueta": "Tipo de Accesorio",
+          "tipo": "texto",
+          "opciones": [
+            "Conector Caño a Caja Metálico",
+            "Conector Caño a Caja PVC",
+            "Cupla de Unión",
+            "Curva 90° Premoldeada",
+            "Boquilla y Tuerca",
+            "Cabezal de Acometida",
+            "Conector Curvo 90°",
+            "Unión Doble"
+          ]
+        },
+        {
+          "clave": "material",
+          "etiqueta": "Material",
+          "tipo": "texto",
+          "opciones": [
+            "Metálico / Zamak / Aluminio",
+            "PVC Rígido",
+            "Hierro Galvanizado",
+            "Polipropileno"
+          ]
+        },
+        {
+          "clave": "diametro",
+          "etiqueta": "Diámetro Compatible",
+          "unidad": "mm",
+          "tipo": "texto",
+          "opciones": [
+            "16",
+            "19 (3/4\")",
+            "20",
+            "22 (7/8\")",
+            "25 (1\")",
+            "32 (1 1/4\")",
+            "38 (1 1/2\")",
+            "40",
+            "50",
+            "51 (2\")"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cat-bandejas",
+      "nombre": "Bandejas Portacables",
+      "supercategoriaId": "canalizaciones",
+      "supercategoriaNombre": "Canalización y Contención",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_bandeja",
+          "etiqueta": "Tipo de Bandeja",
+          "tipo": "texto",
+          "opciones": [
+            "Perforada",
+            "Tipo Escalera",
+            "Ciega / Canal",
+            "Malla de Alambre (Wiremesh)"
+          ]
+        },
+        {
+          "clave": "ancho",
+          "etiqueta": "Ancho",
+          "unidad": "mm",
+          "tipo": "numero",
+          "opciones": [
+            "50",
+            "100",
+            "150",
+            "200",
+            "300",
+            "450",
+            "600"
+          ]
+        },
+        {
+          "clave": "alto",
+          "etiqueta": "Alto de Ala",
+          "unidad": "mm",
+          "tipo": "numero",
+          "opciones": [
+            "50",
+            "75",
+            "100"
+          ]
+        },
+        {
+          "clave": "espesor",
+          "etiqueta": "Espesor de Chapa",
+          "unidad": "mm",
+          "tipo": "texto",
+          "opciones": [
+            "0.9 mm",
+            "1.2 mm",
+            "1.6 mm",
+            "2.0 mm"
+          ]
+        },
+        {
+          "clave": "terminacion",
+          "etiqueta": "Terminación",
+          "tipo": "texto",
+          "opciones": [
+            "Galvanizado en Origen (Sendzimir)",
+            "Galvanizado por Inmersión en Caliente (HDG)",
+            "Pintura Epoxi"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cat-accesorios-bandejas",
+      "nombre": "Accesorios para Bandejas",
+      "supercategoriaId": "canalizaciones",
+      "supercategoriaNombre": "Canalización y Contención",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_accesorio",
+          "etiqueta": "Tipo de Accesorio",
+          "tipo": "texto",
+          "opciones": [
+            "Curva Plana 90°",
+            "Curva Vertical Articulada",
+            "Te de Derivación",
+            "Cruz de Derivación",
+            "Reducción Derecha/Izquierda",
+            "Tapa a Presión",
+            "Juego de Cuplas de Unión",
+            "Ménsula de Apoyo Reforzada",
+            "Soporte Trapecio",
+            "Grapa C de Suspensión",
+            "Soporte para Cajas"
+          ]
+        },
+        {
+          "clave": "ancho",
+          "etiqueta": "Ancho Compatible",
+          "unidad": "mm",
+          "tipo": "numero",
+          "opciones": [
+            "50",
+            "100",
+            "150",
+            "200",
+            "300",
+            "450",
+            "600"
+          ]
+        },
+        {
+          "clave": "alto",
+          "etiqueta": "Alto de Ala Compatible",
+          "unidad": "mm",
+          "tipo": "numero",
+          "opciones": [
+            "50",
+            "75",
+            "100"
+          ]
+        },
+        {
+          "clave": "terminacion",
+          "etiqueta": "Terminación",
+          "tipo": "texto",
+          "opciones": [
+            "Galvanizado en Origen",
+            "Galvanizado en Caliente",
+            "Zincado"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cat-cablecanales",
+      "nombre": "Cablecanales y Ductos de Superficie",
+      "supercategoriaId": "canalizaciones",
+      "supercategoriaNombre": "Canalización y Contención",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_cablecanal",
+          "etiqueta": "Tipo de Ducto",
+          "tipo": "texto",
+          "opciones": [
+            "Cablecanal Liso con Tapa",
+            "Cablecanal con División/Tabique",
+            "Cablecanal Ranurado (para Tableros)",
+            "Cablecanal de Piso / Pasacables",
+            "Zócalo Técnico"
+          ]
+        },
+        {
+          "clave": "medida",
+          "etiqueta": "Medidas (Base x Altura)",
+          "unidad": "mm",
+          "tipo": "texto",
+          "opciones": [
+            "10x10",
+            "14x7",
+            "20x10",
+            "20x12",
+            "25x25",
+            "40x25",
+            "50x20",
+            "60x40",
+            "80x60",
+            "100x50"
+          ]
+        },
+        {
+          "clave": "fijacion",
+          "etiqueta": "Fijación",
+          "tipo": "texto",
+          "opciones": [
+            "Autoadhesivo",
+            "Para Atornillar"
+          ]
+        },
+        {
+          "clave": "color",
+          "etiqueta": "Color",
+          "tipo": "texto",
+          "opciones": [
+            "Blanco",
+            "Gris",
+            "Marrón"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cat-cajas",
+      "nombre": "Cajas de Paso, Derivación y Centros",
+      "supercategoriaId": "canalizaciones",
+      "supercategoriaNombre": "Canalización y Contención",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_caja",
+          "etiqueta": "Tipo de Caja",
+          "tipo": "texto",
+          "opciones": [
+            "Rectangular 5x10",
+            "Octogonal Chica (80mm)",
+            "Octogonal Grande (100mm)",
+            "Cuadrada 10x10",
+            "Caja de Paso Cuadrada",
+            "Caja Estanca IP65"
+          ]
+        },
+        {
+          "clave": "montaje",
+          "etiqueta": "Tipo de Montaje",
+          "tipo": "texto",
+          "opciones": [
+            "Embutir Mampostería",
+            "Embutir Durlock / En Seco",
+            "Superficie / Exterior"
+          ]
+        },
+        {
+          "clave": "material",
+          "etiqueta": "Material",
+          "tipo": "texto",
+          "opciones": [
+            "Chapa BWG Estampada",
+            "PVC Ignífugo",
+            "Chapa Cincada / Galvanizada",
+            "Termoplástico Estanco IP65",
+            "Aluminio Inyectado"
+          ]
+        },
+        {
+          "clave": "medida",
+          "etiqueta": "Dimensiones",
+          "tipo": "texto",
+          "opciones": [
+            "Estándar",
+            "15x15 cm",
+            "20x20 cm",
+            "30x30 cm",
+            "40x30 cm"
+          ]
+        }
+      ]
+    },
+    {
       "id": "cat-cables",
-      "nombre": "Cables",
+      "nombre": "Cables y Conductores Eléctricos",
+      "supercategoriaId": "conductores",
+      "supercategoriaNombre": "Conductores y Cables",
       "atributosSugeridos": [
         {
           "clave": "norma",
-          "etiqueta": "Tipo",
+          "etiqueta": "Norma / Tipo",
           "tipo": "texto",
           "opciones": [
             "IRAM 247-3 (Unipolar Flexible)",
-            "IRAM 2178 (Tipo Sintenax Subterráneo)",
-            "IRAM 62267 (Libre de Halógenos)",
+            "IRAM 2178 (Sintenax Subterráneo)",
+            "IRAM 62267 (Libre de Halógenos LS0H)",
             "IRAM 2004 (Taller TPR)"
           ]
         },
@@ -40,7 +401,7 @@
             },
             {
               "dependeVinculo": "norma",
-              "valorEsperado": "IRAM 2178 (Tipo Sintenax Subterráneo)",
+              "valorEsperado": "IRAM 2178 (Sintenax Subterráneo)",
               "opcionesFiltradas": [
                 "1",
                 "2",
@@ -83,7 +444,7 @@
         },
         {
           "clave": "color",
-          "etiqueta": "Color / Código",
+          "etiqueta": "Color / Identificación",
           "tipo": "texto",
           "opciones": [
             "Marrón (Fase)",
@@ -126,16 +487,18 @@
           "etiqueta": "Tipo de Aislación",
           "tipo": "texto",
           "opciones": [
-            "PVC",
-            "XLPE",
-            "LS0H (Baja Emisión de Humos)"
+            "PVC 70°C",
+            "XLPE 90°C",
+            "LS0H 70°C"
           ]
         }
       ]
     },
     {
       "id": "cat-protecciones",
-      "nombre": "Protecciones Eléctricas",
+      "nombre": "Protecciones Termomagnéticas y Diferenciales",
+      "supercategoriaId": "protecciones",
+      "supercategoriaNombre": "Protección, Maniobra y Comando",
       "atributosSugeridos": [
         {
           "clave": "tipo_proteccion",
@@ -144,7 +507,9 @@
           "opciones": [
             "Termomagnética (PIA)",
             "Interruptor Diferencial (Disyuntor)",
-            "Descargador Sobretensiones (DPS)"
+            "Descargador Sobretensiones (DPS)",
+            "Protector de Tensión Monofásico/Trifásico",
+            "Guardamotor"
           ]
         },
         {
@@ -156,26 +521,6 @@
             "2",
             "3",
             "4"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_proteccion",
-              "valorEsperado": "Termomagnética (PIA)",
-              "opcionesFiltradas": [
-                "1",
-                "2",
-                "3",
-                "4"
-              ]
-            },
-            {
-              "dependeVinculo": "tipo_proteccion",
-              "valorEsperado": "Interruptor Diferencial (Disyuntor)",
-              "opcionesFiltradas": [
-                "2",
-                "4"
-              ]
-            }
           ]
         },
         {
@@ -194,7 +539,8 @@
             "50",
             "63",
             "80",
-            "100"
+            "100",
+            "125"
           ]
         },
         {
@@ -202,17 +548,9 @@
           "etiqueta": "Curva de Disparo",
           "tipo": "texto",
           "opciones": [
-            "Curva B",
-            "Curva C",
-            "Curva D"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_proteccion",
-              "valorEsperado": "Interruptor Diferencial (Disyuntor)",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            }
+            "Curva C (General)",
+            "Curva B (Resistivo)",
+            "Curva D (Motores/Inductivo)"
           ]
         },
         {
@@ -224,536 +562,15 @@
             "10",
             "30",
             "300"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_proteccion",
-              "valorEsperado": "Termomagnética (PIA)",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_proteccion",
-              "valorEsperado": "Interruptor Diferencial (Disyuntor)",
-              "opcionesFiltradas": [
-                "10",
-                "30",
-                "300"
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cat-canalizaciones",
-      "nombre": "Canalizaciones & Caños",
-      "atributosSugeridos": [
-        {
-          "clave": "tipo_elemento",
-          "etiqueta": "Tipo de Elemento",
-          "tipo": "texto",
-          "opciones": [
-            "Caño PVC Rígido",
-            "Caño Corrugado Reforzado",
-            "Caño Semipesado/Pesado Metálico",
-            "Caño Flexible Metálico (Bx)",
-            "Bandeja Portacable",
-            "Canaleta/Cableducto PVC",
-            "Accesorio para Bandeja"
-          ]
-        },
-        {
-          "clave": "diametro",
-          "etiqueta": "Diámetro Nominal",
-          "unidad": "mm",
-          "tipo": "texto",
-          "opciones": [
-            "13",
-            "16",
-            "19",
-            "20",
-            "22",
-            "25",
-            "32",
-            "38",
-            "40",
-            "50",
-            "51",
-            "63",
-            "75",
-            "110"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Bandeja Portacable",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Canaleta/Cableducto PVC",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Accesorio para Bandeja",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            }
-          ]
-        },
-        {
-          "clave": "ancho",
-          "etiqueta": "Ancho",
-          "unidad": "mm",
-          "tipo": "numero",
-          "opciones": [
-            "20",
-            "40",
-            "50",
-            "60",
-            "100",
-            "150",
-            "200",
-            "300",
-            "400",
-            "450",
-            "600"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Caño PVC Rígido",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Caño Corrugado Reforzado",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Caño Semipesado/Pesado Metálico",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Caño Flexible Metálico (Bx)",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            }
-          ]
-        },
-        {
-          "clave": "alto",
-          "etiqueta": "Alto",
-          "unidad": "mm",
-          "tipo": "numero",
-          "opciones": [
-            "10",
-            "25",
-            "50",
-            "75",
-            "100"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Caño PVC Rígido",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Caño Corrugado Reforzado",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Caño Semipesado/Pesado Metálico",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Caño Flexible Metálico (Bx)",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            }
-          ]
-        },
-        {
-          "clave": "norma",
-          "etiqueta": "Norma Técnica",
-          "tipo": "texto",
-          "opciones": [
-            "IRAM 2005 (Rígido PVC)",
-            "IRAM 62388 (Corrugado)",
-            "IRAM 2005 (Semipesado/Pesado)",
-            "IEC 61386 (Bandeja/Canaleta)"
-          ]
-        },
-        {
-          "clave": "subtipo",
-          "etiqueta": "Subtipo",
-          "tipo": "texto",
-          "opciones": [
-            "Perforada",
-            "Tipo Escalera",
-            "Ciega/Canal",
-            "Curva Plana 90°",
-            "Curva Vertical",
-            "Tapa",
-            "Cupla Unión",
-            "Ménsula de Apoyo",
-            "Soporte para Caja"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Bandeja Portacable",
-              "opcionesFiltradas": [
-                "Perforada",
-                "Tipo Escalera",
-                "Ciega/Canal"
-              ]
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Caño PVC Rígido",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Caño Corrugado Reforzado",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Caño Semipesado/Pesado Metálico",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Caño Flexible Metálico (Bx)",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Canaleta/Cableducto PVC",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Accesorio para Bandeja",
-              "opcionesFiltradas": [
-                "Curva Plana 90°",
-                "Curva Vertical",
-                "Tapa",
-                "Cupla Unión",
-                "Ménsula de Apoyo",
-                "Soporte para Caja"
-              ]
-            }
-          ]
-        },
-        {
-          "clave": "color",
-          "etiqueta": "Color",
-          "tipo": "texto",
-          "opciones": [
-            "Negro",
-            "Gris",
-            "Blanco"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Caño Semipesado/Pesado Metálico",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Caño Flexible Metálico (Bx)",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Bandeja Portacable",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Accesorio para Bandeja",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cat-cajas",
-      "nombre": "Cajas",
-      "atributosSugeridos": [
-        {
-          "clave": "tipo_caja",
-          "etiqueta": "Tipo de Caja",
-          "tipo": "texto",
-          "opciones": [
-            "Rectangular 5x10",
-            "Octogonal Chica",
-            "Octogonal Grande",
-            "Cuadrada 10x10",
-            "Caja de Paso / Otra"
-          ]
-        },
-        {
-          "clave": "montaje",
-          "etiqueta": "Tipo de Montaje",
-          "tipo": "texto",
-          "opciones": [
-            "Embutir Mampostería",
-            "Embutir Durlock / En Seco",
-            "Superficie / Exterior"
-          ]
-        },
-        {
-          "clave": "material",
-          "etiqueta": "Material",
-          "tipo": "texto",
-          "opciones": [
-            "PVC Ignífugo",
-            "Chapa BWG",
-            "Chapa Cincada / Galvanizada",
-            "PVC Estanco / Termoplástico",
-            "Aluminio Inyectado (Tipo Daisa)"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "montaje",
-              "valorEsperado": "Embutir Mampostería",
-              "opcionesFiltradas": [
-                "PVC Ignífugo",
-                "Chapa BWG",
-                "Chapa Cincada / Galvanizada"
-              ]
-            },
-            {
-              "dependeVinculo": "montaje",
-              "valorEsperado": "Embutir Durlock / En Seco",
-              "opcionesFiltradas": [
-                "PVC Ignífugo",
-                "Chapa BWG",
-                "Chapa Cincada / Galvanizada"
-              ]
-            },
-            {
-              "dependeVinculo": "montaje",
-              "valorEsperado": "Superficie / Exterior",
-              "opcionesFiltradas": [
-                "PVC Estanco / Termoplástico",
-                "Aluminio Inyectado (Tipo Daisa)",
-                "Chapa Cincada / Galvanizada",
-                "PVC Ignífugo"
-              ]
-            }
-          ]
-        },
-        {
-          "clave": "medida",
-          "etiqueta": "Medida / Dimensiones",
-          "tipo": "texto",
-          "opciones": [
-            "Estándar",
-            "15x15 cm",
-            "20x20 cm",
-            "30x30 cm",
-            "40x30 cm"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_caja",
-              "valorEsperado": "Rectangular 5x10",
-              "bloqueado": true,
-              "valorFijo": "Estándar (5x10)"
-            },
-            {
-              "dependeVinculo": "tipo_caja",
-              "valorEsperado": "Octogonal Chica",
-              "bloqueado": true,
-              "valorFijo": "Estándar (80mm)"
-            },
-            {
-              "dependeVinculo": "tipo_caja",
-              "valorEsperado": "Octogonal Grande",
-              "bloqueado": true,
-              "valorFijo": "Estándar (100mm)"
-            },
-            {
-              "dependeVinculo": "tipo_caja",
-              "valorEsperado": "Cuadrada 10x10",
-              "bloqueado": true,
-              "valorFijo": "Estándar (10x10)"
-            }
-          ]
-        },
-        {
-          "clave": "grado_ip",
-          "etiqueta": "Grado de Protección",
-          "tipo": "texto",
-          "opciones": [
-            "IP20 (Interior)",
-            "IP40 (Superficie común)",
-            "IP65 (Estanca Intemperie)",
-            "IP67 (Industrial)"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "montaje",
-              "valorEsperado": "Embutir Mampostería",
-              "bloqueado": true,
-              "valorFijo": "IP20"
-            },
-            {
-              "dependeVinculo": "montaje",
-              "valorEsperado": "Embutir Durlock / En Seco",
-              "bloqueado": true,
-              "valorFijo": "IP20"
-            },
-            {
-              "dependeVinculo": "montaje",
-              "valorEsperado": "Superficie / Exterior",
-              "opcionesFiltradas": [
-                "IP40 (Superficie común)",
-                "IP65 (Estanca Intemperie)",
-                "IP67 (Industrial)"
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cat-modulos-llaves",
-      "nombre": "Módulos y Llaves",
-      "atributosSugeridos": [
-        {
-          "clave": "tipo_modulo",
-          "etiqueta": "Tipo de Módulo",
-          "tipo": "texto",
-          "opciones": [
-            "Tomacorriente 2P+T",
-            "Tomacorriente 2P+T Doble",
-            "Tomacorriente 2P+T 20A",
-            "Interruptor Simple",
-            "Interruptor de Combinación (Nueve Once)",
-            "Interruptor Bipolar",
-            "Pulsador",
-            "Dimmer",
-            "Tapa Ciega",
-            "Bastidor/Marco Soporte",
-            "Tapa Embellecedora",
-            "Tapa Estanca IP55"
-          ]
-        },
-        {
-          "clave": "linea",
-          "etiqueta": "Línea/Serie",
-          "tipo": "texto",
-          "opciones": [
-            "Normalizada / Genérica",
-            "Cambre Siglo XXII",
-            "Cambre 711",
-            "Jeluz Iggual",
-            "Jeluz Verona",
-            "Kalop Civil",
-            "Sica Silight",
-            "Otra"
-          ]
-        },
-        {
-          "clave": "cantidad_modulos",
-          "etiqueta": "Cantidad de Módulos que Ocupa",
-          "tipo": "numero",
-          "opciones": [
-            "1",
-            "2",
-            "3",
-            "4"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_modulo",
-              "valorEsperado": "Bastidor/Marco Soporte",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            }
-          ]
-        },
-        {
-          "clave": "amperaje",
-          "etiqueta": "Amperaje",
-          "unidad": "A",
-          "tipo": "numero",
-          "opciones": [
-            "10",
-            "16",
-            "20",
-            "32"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_modulo",
-              "valorEsperado": "Interruptor Simple",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_modulo",
-              "valorEsperado": "Tapa Ciega",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            }
-          ]
-        },
-        {
-          "clave": "con_tierra",
-          "etiqueta": "Con/Sin Puesta a Tierra",
-          "tipo": "texto",
-          "opciones": [
-            "Con Tierra",
-            "Sin Tierra"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_modulo",
-              "valorEsperado": "Interruptor Simple",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            }
           ]
         }
       ]
     },
     {
       "id": "cat-tableros",
-      "nombre": "Tableros & Gabinetes",
+      "nombre": "Tableros, Gabinetes y Cajas de Medidor",
+      "supercategoriaId": "tableros",
+      "supercategoriaNombre": "Tableros y Envolventes",
       "atributosSugeridos": [
         {
           "clave": "tipo_envolvente",
@@ -762,7 +579,8 @@
           "opciones": [
             "Tablero Modular DIN",
             "Gabinete con Placa de Montaje",
-            "Caja de Medidor / Pilar"
+            "Caja de Medidor / Pilar",
+            "Armario Autoportante"
           ]
         },
         {
@@ -773,24 +591,6 @@
             "Embutir",
             "Superficie / Aplicar",
             "Pilar Exterior"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_envolvente",
-              "valorEsperado": "Caja de Medidor / Pilar",
-              "bloqueado": true,
-              "valorFijo": "Pilar Exterior"
-            }
-          ]
-        },
-        {
-          "clave": "ambiente_proteccion",
-          "etiqueta": "Ambiente / Grado IP",
-          "tipo": "texto",
-          "opciones": [
-            "Interior (IP40)",
-            "Estanco / Intemperie (IP65)",
-            "Industrial Pesado (IP66+)"
           ]
         },
         {
@@ -808,45 +608,16 @@
             "48",
             "54",
             "72"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_envolvente",
-              "valorEsperado": "Gabinete con Placa de Montaje",
-              "bloqueado": true,
-              "valorFijo": "N/A (Lleva Placa)"
-            },
-            {
-              "dependeVinculo": "tipo_envolvente",
-              "valorEsperado": "Caja de Medidor / Pilar",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            }
           ]
         },
         {
-          "clave": "tamano_gabinete",
-          "etiqueta": "Porte de Gabinete",
+          "clave": "ambiente_proteccion",
+          "etiqueta": "Grado de Protección",
           "tipo": "texto",
           "opciones": [
-            "Chico (hasta 30x20 cm)",
-            "Mediano (hasta 50x40 cm)",
-            "Grande (hasta 80x60 cm)",
-            "Armario Autoportante (de piso)"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_envolvente",
-              "valorEsperado": "Tablero Modular DIN",
-              "bloqueado": true,
-              "valorFijo": "Según Módulos DIN"
-            },
-            {
-              "dependeVinculo": "tipo_envolvente",
-              "valorEsperado": "Caja de Medidor / Pilar",
-              "bloqueado": true,
-              "valorFijo": "Normalizado"
-            }
+            "Interior (IP40)",
+            "Estanco / Intemperie (IP65)",
+            "Industrial Pesado (IP66+)"
           ]
         },
         {
@@ -873,26 +644,239 @@
       ]
     },
     {
-      "id": "cat-iluminacion",
-      "nombre": "Iluminación & Artefactos",
+      "id": "cat-accesorios-tablero",
+      "nombre": "Accesorios para Tableros",
+      "supercategoriaId": "tableros",
+      "supercategoriaNombre": "Tableros y Envolventes",
       "atributosSugeridos": [
+        {
+          "clave": "tipo_accesorio",
+          "etiqueta": "Tipo de Accesorio",
+          "tipo": "texto",
+          "opciones": [
+            "Repartidor Tetrapolar Modular Escalonado",
+            "Repartidor Bipolar Modular",
+            "Bornera Repartidora de Neutro DIN",
+            "Bornera Repartidora de Tierra DIN",
+            "Peine de Conexión Bipolar (Pin/Horquilla)",
+            "Peine de Conexión Tetrapolar (Pin/Horquilla)",
+            "Riel DIN Simétrico 35mm",
+            "Prensaestopas de Poliamida IP68"
+          ]
+        },
+        {
+          "clave": "amperaje",
+          "etiqueta": "Capacidad / Amperaje",
+          "unidad": "A",
+          "tipo": "numero",
+          "opciones": [
+            "63",
+            "80",
+            "100",
+            "125",
+            "160",
+            "250"
+          ]
+        },
+        {
+          "clave": "posiciones",
+          "etiqueta": "Cantidad de Posiciones / Bornes",
+          "tipo": "texto",
+          "opciones": [
+            "5 Posiciones",
+            "7 Posiciones",
+            "11 Posiciones",
+            "12 Posiciones",
+            "15 Posiciones"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cat-modulos-llaves",
+      "nombre": "Módulos de Maniobra y Tomacorrientes",
+      "supercategoriaId": "mecanismos",
+      "supercategoriaNombre": "Mecanismos, Tomas y Módulos",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_modulo",
+          "etiqueta": "Tipo de Módulo",
+          "tipo": "texto",
+          "opciones": [
+            "Tomacorriente 2P+T 10A (IRAM 2071)",
+            "Tomacorriente 2P+T 10A Doble Monoblock",
+            "Tomacorriente 2P+T 20A (Cargas Especiales)",
+            "Tomacorriente 2P+T 10A Rojo (Estabilizado/UPS)",
+            "Interruptor Simple (1 Punto)",
+            "Interruptor de Combinación (3 Vías / 9/11)",
+            "Interruptor Bipolar 10A",
+            "Pulsador con Resorte",
+            "Dimmer Electrónico",
+            "Módulo Ciego de Relleno"
+          ]
+        },
+        {
+          "clave": "linea",
+          "etiqueta": "Línea / Serie Comercial",
+          "tipo": "texto",
+          "opciones": [
+            "Genérica / Normalizada",
+            "Cambre Siglo XXII",
+            "Cambre Bauhaus",
+            "Jeluz Verona",
+            "Jeluz Iggual",
+            "Kalop Civil",
+            "Sica Silight",
+            "Otra"
+          ]
+        },
+        {
+          "clave": "cantidad_modulos",
+          "etiqueta": "Módulos que Ocupa",
+          "tipo": "numero",
+          "opciones": [
+            "1",
+            "2",
+            "3"
+          ]
+        },
+        {
+          "clave": "amperaje",
+          "etiqueta": "Amperaje",
+          "unidad": "A",
+          "tipo": "numero",
+          "opciones": [
+            "10",
+            "16",
+            "20"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cat-bastidores-tapas",
+      "nombre": "Bastidores, Placas y Tapas",
+      "supercategoriaId": "mecanismos",
+      "supercategoriaNombre": "Mecanismos, Tomas y Módulos",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_elemento",
+          "etiqueta": "Tipo de Elemento",
+          "tipo": "texto",
+          "opciones": [
+            "Bastidor Soporte 5x10",
+            "Bastidor Soporte 10x10",
+            "Tapa Embellecedora 5x10 (1 Módulo)",
+            "Tapa Embellecedora 5x10 (2 Módulos)",
+            "Tapa Embellecedora 5x10 (3 Módulos)",
+            "Tapa Embellecedora 5x10 Ciega",
+            "Tapa Embellecedora 10x10 (4 Módulos)",
+            "Tapa Estanca IP55 para Exterior"
+          ]
+        },
+        {
+          "clave": "medida_caja",
+          "etiqueta": "Medida de Caja",
+          "tipo": "texto",
+          "opciones": [
+            "5x10 cm (Rectangular)",
+            "10x10 cm (Cuadrada)"
+          ]
+        },
+        {
+          "clave": "linea",
+          "etiqueta": "Línea / Serie",
+          "tipo": "texto",
+          "opciones": [
+            "Cambre Siglo XXII",
+            "Cambre Bauhaus",
+            "Jeluz Verona",
+            "Kalop Civil",
+            "Sica Silight",
+            "Universal / Compatible"
+          ]
+        },
+        {
+          "clave": "color",
+          "etiqueta": "Color / Terminación",
+          "tipo": "texto",
+          "opciones": [
+            "Blanco",
+            "Gris / Grafito",
+            "Marfil",
+            "Negro"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cat-iluminacion",
+      "nombre": "Iluminación, Lámparas y Artefactos",
+      "supercategoriaId": "iluminacion",
+      "supercategoriaNombre": "Iluminación y Luminarias",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_artefacto",
+          "etiqueta": "Tipo de Artefacto",
+          "tipo": "texto",
+          "opciones": [
+            "Panel LED Embutir/Aplicar",
+            "Spot / Downlight Embutir",
+            "Plafón LED",
+            "Reflector LED Exterior",
+            "Campana Industrial High-Bay",
+            "Listón / Tubo LED",
+            "Luz de Emergencia Autónoma"
+          ]
+        },
         {
           "clave": "potencia",
           "etiqueta": "Potencia",
           "unidad": "W",
-          "tipo": "numero"
+          "tipo": "numero",
+          "opciones": [
+            "5",
+            "7",
+            "9",
+            "12",
+            "18",
+            "24",
+            "36",
+            "50",
+            "100",
+            "150",
+            "200"
+          ]
         },
         {
-          "clave": "temperatura",
-          "etiqueta": "Color de Luz",
-          "unidad": "K",
-          "tipo": "texto"
+          "clave": "temperatura_color",
+          "etiqueta": "Temperatura de Color",
+          "tipo": "texto",
+          "opciones": [
+            "3000K (Cálido)",
+            "4000K (Neutro / Natural)",
+            "6500K (Frío)",
+            "RGB / Regulable"
+          ]
+        },
+        {
+          "clave": "grado_ip",
+          "etiqueta": "Grado IP",
+          "tipo": "texto",
+          "opciones": [
+            "IP20 (Interior)",
+            "IP44 (Húmedo)",
+            "IP65 (Intemperie)",
+            "IP66 / IP67 (Exterior Pesado)"
+          ]
         }
       ]
     },
     {
       "id": "cat-tierra",
-      "nombre": "Puesta a Tierra",
+      "nombre": "Puesta a Tierra y Protección Atmosférica",
+      "supercategoriaId": "puesta-a-tierra",
+      "supercategoriaNombre": "Puesta a Tierra y Descargas",
       "atributosSugeridos": [
         {
           "clave": "tipo_elemento",
@@ -900,38 +884,30 @@
           "tipo": "texto",
           "opciones": [
             "Jabalina Copperweld",
-            "Borne/Grampa de PAT",
-            "Cámara de Inspección PAT",
-            "Barra Equipotencial",
-            "Cable de PAT Desnudo",
-            "Soldadura Exotérmica (Cadweld)"
+            "Tomacable / Grampa de Bronce",
+            "Tomacable Cruz Pletina",
+            "Caja de Inspección PVC Cónica",
+            "Caja de Inspección Hierro / Fundición",
+            "Cámara de Hormigón Prefabricado",
+            "Barra Equipotencial Principal (BEP)",
+            "Gel Mejorador de Suelo",
+            "Cable Cobre Desnudo"
           ]
         },
         {
-          "clave": "seccion",
-          "etiqueta": "Sección",
-          "unidad": "mm²",
-          "tipo": "numero",
+          "clave": "medida",
+          "etiqueta": "Diámetro / Sección / Dimensiones",
+          "tipo": "texto",
           "opciones": [
             "1/2\" (12.7 mm)",
             "5/8\" (14.3 mm)",
             "3/4\" (19 mm)",
-            "16",
-            "25",
-            "35",
-            "50"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Cable de PAT Desnudo",
-              "opcionesFiltradas": [
-                "16",
-                "25",
-                "35",
-                "50"
-              ]
-            }
+            "16 mm²",
+            "25 mm²",
+            "35 mm²",
+            "50 mm²",
+            "15x15 cm",
+            "20x20 cm"
           ]
         },
         {
@@ -949,71 +925,42 @@
     },
     {
       "id": "cat-fijacion",
-      "nombre": "Fijación, Sujeción & Conectores",
+      "nombre": "Fijación, Tarugos y Soportes",
+      "supercategoriaId": "fijaciones",
+      "supercategoriaNombre": "Fijación, Aislación y Consumibles",
       "atributosSugeridos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_fijacion",
           "etiqueta": "Tipo de Elemento",
           "tipo": "texto",
           "opciones": [
-            "Terminal Tubular TIF Preaislado",
-            "Terminal Tubular TIF Doble (Twin)",
-            "Repartidor Tetrapolar Escalonado",
-            "Bornera Repartidora de Neutro DIN",
-            "Bornera Repartidora de Tierra DIN",
-            "Barra Equipotencial Principal",
-            "Conector Caño a Caja PVC",
-            "Conector Caño a Caja Metálico",
-            "Abrazadera Metálica",
-            "Abrazadera Nylon (Precinto)",
-            "Taco/Tarugo Fischer",
-            "Terminal a Compresión (Ojal/Pala)",
-            "Borne de Conexión (Wago/Regleta)",
-            "Cinta Aisladora",
-            "Termocontraíble"
+            "Tarugo Plástico / Fischer (con/sin tope)",
+            "Tarugo para Durlock / Yeso",
+            "Tornillo Fix / Tirafondo",
+            "Tornillo Autoperforante T1/T2/T3",
+            "Grampa Omega / Media Omega",
+            "Abrazadera Metálica con Tuerca",
+            "Precintos Plásticos Nylon UV",
+            "Varilla Roscada",
+            "Perfil C / Unistrut Galvanizado"
           ]
         },
         {
           "clave": "medida",
-          "etiqueta": "Medida/Diámetro",
+          "etiqueta": "Medida",
           "tipo": "texto",
           "opciones": [
-            "1.5 mm²",
-            "2.5 mm²",
-            "4 mm²",
-            "6 mm²",
-            "10 mm²",
-            "16 mm²",
-            "25 mm²",
-            "35 mm²",
-            "2x1.5 mm²",
-            "2x2.5 mm²",
-            "2x4 mm²",
-            "2x6 mm²",
-            "125A - 5 Posiciones",
-            "125A - 7 Posiciones",
-            "125A - 12 Posiciones",
-            "250A - 7 Posiciones",
-            "250A - 12 Posiciones",
-            "7 Bornes",
-            "12 Bornes",
-            "15 Bornes",
-            "8 Bornes con Aisladores",
-            "19 mm (3/4\")",
-            "20 mm",
-            "22 mm (7/8\")",
-            "22 mm",
-            "25 mm (1\")",
-            "25 mm",
-            "32 mm (1 1/4\")",
-            "32 mm",
-            "38 mm (1 1/2\")",
-            "40 mm",
-            "50 mm",
-            "51 mm (2\")",
             "6 mm",
             "8 mm",
-            "10 mm"
+            "10 mm",
+            "12 mm",
+            "1/4\"",
+            "3/8\"",
+            "1/2\"",
+            "100x2.5 mm",
+            "150x3.6 mm",
+            "200x4.8 mm",
+            "300x4.8 mm"
           ]
         },
         {
@@ -1024,26 +971,115 @@
             "Unidad",
             "Bolsa x100",
             "Caja x100u",
-            "Rollo"
+            "Tira 1m / 2m / 3m"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cat-terminales",
+      "nombre": "Terminales, Punteras y Conexiones",
+      "supercategoriaId": "fijaciones",
+      "supercategoriaNombre": "Fijación, Aislación y Consumibles",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_terminal",
+          "etiqueta": "Tipo de Terminal",
+          "tipo": "texto",
+          "opciones": [
+            "Terminal Tubular Preaislado TIF Simple",
+            "Terminal Tubular Doble Twin TIF",
+            "Terminal a Compresión Ojal",
+            "Terminal a Compresión Pala / Horquilla",
+            "Borne de Conexión Rápida (Tipo Wago)"
+          ]
+        },
+        {
+          "clave": "seccion",
+          "etiqueta": "Sección de Cable Compatible",
+          "unidad": "mm²",
+          "tipo": "texto",
+          "opciones": [
+            "0.75",
+            "1.0",
+            "1.5",
+            "2.5",
+            "4",
+            "6",
+            "10",
+            "16",
+            "25",
+            "35",
+            "50",
+            "2x1.5",
+            "2x2.5",
+            "2x4",
+            "2x6"
+          ]
+        },
+        {
+          "clave": "presentacion",
+          "etiqueta": "Presentación",
+          "tipo": "texto",
+          "opciones": [
+            "Bolsa x100",
+            "Bolsa x50",
+            "Unidad"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cat-accesorios",
+      "nombre": "Cintas, Químicos y Consumibles",
+      "supercategoriaId": "fijaciones",
+      "supercategoriaNombre": "Fijación, Aislación y Consumibles",
+      "atributosSugeridos": [
+        {
+          "clave": "tipo_consumible",
+          "etiqueta": "Tipo de Consumible",
+          "tipo": "texto",
+          "opciones": [
+            "Cinta Aisladora PVC Ignífuga",
+            "Cinta Auto-Vulcanizable / Auto-Soldable",
+            "Tubo Termocontraíble",
+            "Gel Aislante Bicomponente",
+            "Pasacables de Acero/Nylon",
+            "Lubricante para Cables"
+          ]
+        },
+        {
+          "clave": "medida",
+          "etiqueta": "Medida / Presentación",
+          "tipo": "texto",
+          "opciones": [
+            "10 metros",
+            "20 metros",
+            "3/4\" x 19mm",
+            "Diámetro 3mm a 12mm",
+            "Pote 250ml / 500ml",
+            "15 metros",
+            "30 metros"
           ]
         }
       ]
     },
     {
       "id": "cat-motores-automatizacion",
-      "nombre": "Motores, Automatización & Control",
+      "nombre": "Aparamenta de Motor y Automatización",
+      "supercategoriaId": "motores",
+      "supercategoriaNombre": "Motores y Automatización",
       "atributosSugeridos": [
         {
           "clave": "tipo_dispositivo",
           "etiqueta": "Tipo de Dispositivo",
           "tipo": "texto",
           "opciones": [
-            "Contactor",
-            "Relé Térmico",
-            "Guardamotor",
-            "Temporizador",
+            "Contactor Tripolar",
+            "Relé Térmico de Sobrecarga",
+            "Guardamotor Magnetotérmico",
             "Variador de Frecuencia (VDF)",
-            "Selector/Pulsador de Comando"
+            "Temporizador Modular"
           ]
         },
         {
@@ -1071,20 +1107,6 @@
             "110V CA",
             "220V CA",
             "380V CA"
-          ],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_dispositivo",
-              "valorEsperado": "Relé Térmico",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_dispositivo",
-              "valorEsperado": "Guardamotor",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            }
           ]
         },
         {
@@ -1092,33 +1114,22 @@
           "etiqueta": "Rango de Regulación",
           "unidad": "A",
           "tipo": "texto",
-          "opciones": [],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_dispositivo",
-              "valorEsperado": "Contactor",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_dispositivo",
-              "valorEsperado": "Temporizador",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_dispositivo",
-              "valorEsperado": "Variador de Frecuencia (VDF)",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            }
+          "opciones": [
+            "1 - 1.6A",
+            "2.5 - 4A",
+            "4 - 6.3A",
+            "6 - 10A",
+            "9 - 14A",
+            "17 - 25A"
           ]
         }
       ]
     },
     {
       "id": "cat-renovables",
-      "nombre": "Energías Renovables",
+      "nombre": "Solar Fotovoltaica y Respaldo",
+      "supercategoriaId": "renovables",
+      "supercategoriaNombre": "Energías Renovables y Respaldo",
       "atributosSugeridos": [
         {
           "clave": "tipo_elemento",
@@ -1126,45 +1137,29 @@
           "tipo": "texto",
           "opciones": [
             "Panel Solar Fotovoltaico",
-            "Inversor de Corriente",
-            "Regulador de Carga",
-            "Batería de Ciclo Profundo",
-            "Estructura de Montaje"
+            "Inversor On-Grid",
+            "Inversor Híbrido Off-Grid",
+            "Regulador MPPT / PWM",
+            "Batería de Litio (LiFePO4)",
+            "Batería Gel Ciclo Profundo",
+            "Estructura de Montaje",
+            "Cable Solar H1Z2Z2-K",
+            "Par Conectores MC4"
           ]
         },
         {
           "clave": "potencia",
-          "etiqueta": "Potencia",
+          "etiqueta": "Potencia Nominal",
           "unidad": "W",
           "tipo": "numero",
-          "opciones": [],
-          "dependencias": [
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Batería de Ciclo Profundo",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            },
-            {
-              "dependeVinculo": "tipo_elemento",
-              "valorEsperado": "Estructura de Montaje",
-              "bloqueado": true,
-              "valorFijo": "N/A"
-            }
-          ]
-        },
-        {
-          "clave": "tecnologia",
-          "etiqueta": "Tecnología",
-          "tipo": "texto",
           "opciones": [
-            "Monocristalino",
-            "Policristalino",
-            "PWM",
-            "MPPT",
-            "Gel",
-            "AGM",
-            "Litio (LiFePO4)"
+            "150",
+            "330",
+            "450",
+            "550",
+            "1000",
+            "3000",
+            "5000"
           ]
         },
         {
@@ -1176,20 +1171,23 @@
             "12",
             "24",
             "48",
-            "220"
+            "220",
+            "380"
           ]
-        }
-      ]
-    },
-    {
-      "id": "cat-accesorios",
-      "nombre": "Accesorios & Consumibles",
-      "atributosSugeridos": [
+        },
         {
-          "clave": "presentacion",
-          "etiqueta": "Presentación",
-          "unidad": "",
-          "tipo": "texto"
+          "clave": "tecnologia",
+          "etiqueta": "Tecnología",
+          "tipo": "texto",
+          "opciones": [
+            "Monocristalino PERC",
+            "Policristalino",
+            "Litio (LiFePO4)",
+            "Gel Ciclo Profundo",
+            "AGM",
+            "MPPT",
+            "PWM"
+          ]
         }
       ]
     }
@@ -2718,10 +2716,6 @@
           "valor": "Estanco / Intemperie (IP65)"
         },
         {
-          "clave": "capacidad_modulos",
-          "valor": "N/A"
-        },
-        {
           "clave": "tamano_gabinete",
           "valor": "Normalizado"
         },
@@ -2756,10 +2750,6 @@
           "valor": "Estanco / Intemperie (IP65)"
         },
         {
-          "clave": "capacidad_modulos",
-          "valor": "N/A"
-        },
-        {
           "clave": "tamano_gabinete",
           "valor": "Normalizado"
         },
@@ -2777,37 +2767,25 @@
     },
     {
       "id": "mat-cano-rs-19",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-canos",
       "nombre": "Caño Semipesado Metálico RS 19 (3/4\") IRAM 2005 - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Caño Semipesado/Pesado Metálico"
+          "clave": "tipo_cano",
+          "valor": "Caño Semipesado Metálico (RS)"
         },
         {
           "clave": "diametro",
           "valor": "19"
         },
         {
-          "clave": "ancho",
-          "valor": "N/A"
-        },
-        {
-          "clave": "alto",
-          "valor": "N/A"
-        },
-        {
           "clave": "norma",
           "valor": "IRAM 2005 (Semipesado/Pesado)"
         },
         {
-          "clave": "subtipo",
-          "valor": "N/A"
-        },
-        {
           "clave": "color",
-          "valor": "N/A"
+          "valor": "Metálico Zincado"
         }
       ],
       "activo": true,
@@ -2815,37 +2793,25 @@
     },
     {
       "id": "mat-cano-rs-22",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-canos",
       "nombre": "Caño Semipesado Metálico RS 22 (7/8\") IRAM 2005 - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Caño Semipesado/Pesado Metálico"
+          "clave": "tipo_cano",
+          "valor": "Caño Semipesado Metálico (RS)"
         },
         {
           "clave": "diametro",
           "valor": "22"
         },
         {
-          "clave": "ancho",
-          "valor": "N/A"
-        },
-        {
-          "clave": "alto",
-          "valor": "N/A"
-        },
-        {
           "clave": "norma",
           "valor": "IRAM 2005 (Semipesado/Pesado)"
         },
         {
-          "clave": "subtipo",
-          "valor": "N/A"
-        },
-        {
           "clave": "color",
-          "valor": "N/A"
+          "valor": "Metálico Zincado"
         }
       ],
       "activo": true,
@@ -2853,37 +2819,25 @@
     },
     {
       "id": "mat-cano-rs-25",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-canos",
       "nombre": "Caño Semipesado Metálico RS 25 (1\") IRAM 2005 - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Caño Semipesado/Pesado Metálico"
+          "clave": "tipo_cano",
+          "valor": "Caño Semipesado Metálico (RS)"
         },
         {
           "clave": "diametro",
           "valor": "25"
         },
         {
-          "clave": "ancho",
-          "valor": "N/A"
-        },
-        {
-          "clave": "alto",
-          "valor": "N/A"
-        },
-        {
           "clave": "norma",
           "valor": "IRAM 2005 (Semipesado/Pesado)"
         },
         {
-          "clave": "subtipo",
-          "valor": "N/A"
-        },
-        {
           "clave": "color",
-          "valor": "N/A"
+          "valor": "Metálico Zincado"
         }
       ],
       "activo": true,
@@ -2891,37 +2845,25 @@
     },
     {
       "id": "mat-cano-rs-32",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-canos",
       "nombre": "Caño Semipesado Metálico RS 32 (1 1/4\") IRAM 2005 - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Caño Semipesado/Pesado Metálico"
+          "clave": "tipo_cano",
+          "valor": "Caño Semipesado Metálico (RS)"
         },
         {
           "clave": "diametro",
           "valor": "32"
         },
         {
-          "clave": "ancho",
-          "valor": "N/A"
-        },
-        {
-          "clave": "alto",
-          "valor": "N/A"
-        },
-        {
           "clave": "norma",
           "valor": "IRAM 2005 (Semipesado/Pesado)"
         },
         {
-          "clave": "subtipo",
-          "valor": "N/A"
-        },
-        {
           "clave": "color",
-          "valor": "N/A"
+          "valor": "Metálico Zincado"
         }
       ],
       "activo": true,
@@ -2929,12 +2871,12 @@
     },
     {
       "id": "mat-cano-pvc-20",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-canos",
       "nombre": "Caño PVC Rígido 20 mm Gris IRAM 2005 - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_cano",
           "valor": "Caño PVC Rígido"
         },
         {
@@ -2942,20 +2884,8 @@
           "valor": "20"
         },
         {
-          "clave": "ancho",
-          "valor": "N/A"
-        },
-        {
-          "clave": "alto",
-          "valor": "N/A"
-        },
-        {
           "clave": "norma",
-          "valor": "IRAM 2005 (Rígido PVC)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "N/A"
+          "valor": "IRAM 2005 (PVC Rígido)"
         },
         {
           "clave": "color",
@@ -2967,12 +2897,12 @@
     },
     {
       "id": "mat-cano-pvc-22",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-canos",
       "nombre": "Caño PVC Rígido 22 mm Gris IRAM 2005 - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_cano",
           "valor": "Caño PVC Rígido"
         },
         {
@@ -2980,20 +2910,8 @@
           "valor": "22"
         },
         {
-          "clave": "ancho",
-          "valor": "N/A"
-        },
-        {
-          "clave": "alto",
-          "valor": "N/A"
-        },
-        {
           "clave": "norma",
-          "valor": "IRAM 2005 (Rígido PVC)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "N/A"
+          "valor": "IRAM 2005 (PVC Rígido)"
         },
         {
           "clave": "color",
@@ -3005,12 +2923,12 @@
     },
     {
       "id": "mat-cano-pvc-25",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-canos",
       "nombre": "Caño PVC Rígido 25 mm Gris IRAM 2005 - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_cano",
           "valor": "Caño PVC Rígido"
         },
         {
@@ -3018,20 +2936,8 @@
           "valor": "25"
         },
         {
-          "clave": "ancho",
-          "valor": "N/A"
-        },
-        {
-          "clave": "alto",
-          "valor": "N/A"
-        },
-        {
           "clave": "norma",
-          "valor": "IRAM 2005 (Rígido PVC)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "N/A"
+          "valor": "IRAM 2005 (PVC Rígido)"
         },
         {
           "clave": "color",
@@ -3043,12 +2949,12 @@
     },
     {
       "id": "mat-cano-pvc-32",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-canos",
       "nombre": "Caño PVC Rígido 32 mm Gris IRAM 2005 - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_cano",
           "valor": "Caño PVC Rígido"
         },
         {
@@ -3056,20 +2962,8 @@
           "valor": "32"
         },
         {
-          "clave": "ancho",
-          "valor": "N/A"
-        },
-        {
-          "clave": "alto",
-          "valor": "N/A"
-        },
-        {
           "clave": "norma",
-          "valor": "IRAM 2005 (Rígido PVC)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "N/A"
+          "valor": "IRAM 2005 (PVC Rígido)"
         },
         {
           "clave": "color",
@@ -3081,12 +2975,12 @@
     },
     {
       "id": "mat-cano-pvc-40",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-canos",
       "nombre": "Caño PVC Rígido 40 mm Gris IRAM 2005 - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_cano",
           "valor": "Caño PVC Rígido"
         },
         {
@@ -3094,20 +2988,8 @@
           "valor": "40"
         },
         {
-          "clave": "ancho",
-          "valor": "N/A"
-        },
-        {
-          "clave": "alto",
-          "valor": "N/A"
-        },
-        {
           "clave": "norma",
-          "valor": "IRAM 2005 (Rígido PVC)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "N/A"
+          "valor": "IRAM 2005 (PVC Rígido)"
         },
         {
           "clave": "color",
@@ -3119,21 +3001,21 @@
     },
     {
       "id": "mat-conector-met-19",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-caneria",
       "nombre": "Conector Caño a Caja Metálico RS 19 (3/4\") con Tuerca",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Conector Caño a Caja Metálico"
         },
         {
-          "clave": "medida",
-          "valor": "19 mm (3/4\")"
+          "clave": "material",
+          "valor": "Metálico / Zamak / Aluminio"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "diametro",
+          "valor": "19"
         }
       ],
       "activo": true,
@@ -3141,21 +3023,21 @@
     },
     {
       "id": "mat-conector-met-22",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-caneria",
       "nombre": "Conector Caño a Caja Metálico RS 22 (7/8\") con Tuerca",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Conector Caño a Caja Metálico"
         },
         {
-          "clave": "medida",
-          "valor": "22 mm (7/8\")"
+          "clave": "material",
+          "valor": "Metálico / Zamak / Aluminio"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "diametro",
+          "valor": "22"
         }
       ],
       "activo": true,
@@ -3163,21 +3045,21 @@
     },
     {
       "id": "mat-conector-met-25",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-caneria",
       "nombre": "Conector Caño a Caja Metálico RS 25 (1\") con Tuerca",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Conector Caño a Caja Metálico"
         },
         {
-          "clave": "medida",
-          "valor": "25 mm (1\")"
+          "clave": "material",
+          "valor": "Metálico / Zamak / Aluminio"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "diametro",
+          "valor": "25"
         }
       ],
       "activo": true,
@@ -3185,21 +3067,21 @@
     },
     {
       "id": "mat-conector-met-32",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-caneria",
       "nombre": "Conector Caño a Caja Metálico RS 32 (1 1/4\") con Tuerca",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Conector Caño a Caja Metálico"
         },
         {
-          "clave": "medida",
-          "valor": "32 mm (1 1/4\")"
+          "clave": "material",
+          "valor": "Metálico / Zamak / Aluminio"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "diametro",
+          "valor": "32"
         }
       ],
       "activo": true,
@@ -3207,21 +3089,21 @@
     },
     {
       "id": "mat-conector-pvc-20",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-caneria",
       "nombre": "Conector Caño a Caja PVC Rígido 20 mm con Tuerca",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Conector Caño a Caja PVC"
         },
         {
-          "clave": "medida",
-          "valor": "20 mm"
+          "clave": "material",
+          "valor": "PVC Rígido"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "diametro",
+          "valor": "20"
         }
       ],
       "activo": true,
@@ -3229,21 +3111,21 @@
     },
     {
       "id": "mat-conector-pvc-22",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-caneria",
       "nombre": "Conector Caño a Caja PVC Rígido 22 mm con Tuerca",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Conector Caño a Caja PVC"
         },
         {
-          "clave": "medida",
-          "valor": "22 mm"
+          "clave": "material",
+          "valor": "PVC Rígido"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "diametro",
+          "valor": "22"
         }
       ],
       "activo": true,
@@ -3251,21 +3133,21 @@
     },
     {
       "id": "mat-conector-pvc-25",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-caneria",
       "nombre": "Conector Caño a Caja PVC Rígido 25 mm con Tuerca",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Conector Caño a Caja PVC"
         },
         {
-          "clave": "medida",
-          "valor": "25 mm"
+          "clave": "material",
+          "valor": "PVC Rígido"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "diametro",
+          "valor": "25"
         }
       ],
       "activo": true,
@@ -3273,21 +3155,21 @@
     },
     {
       "id": "mat-conector-pvc-32",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-caneria",
       "nombre": "Conector Caño a Caja PVC Rígido 32 mm con Tuerca",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Conector Caño a Caja PVC"
         },
         {
-          "clave": "medida",
-          "valor": "32 mm"
+          "clave": "material",
+          "valor": "PVC Rígido"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "diametro",
+          "valor": "32"
         }
       ],
       "activo": true,
@@ -3295,21 +3177,21 @@
     },
     {
       "id": "mat-conector-pvc-40",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-caneria",
       "nombre": "Conector Caño a Caja PVC Rígido 40 mm con Tuerca",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Conector Caño a Caja PVC"
         },
         {
-          "clave": "medida",
-          "valor": "40 mm"
+          "clave": "material",
+          "valor": "PVC Rígido"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "diametro",
+          "valor": "40"
         }
       ],
       "activo": true,
@@ -3317,17 +3199,13 @@
     },
     {
       "id": "mat-bandeja-perf-50x50",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-bandejas",
       "nombre": "Bandeja Portacable Perforada 50x50 mm Chapa Galvanizada - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Bandeja Portacable"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_bandeja",
+          "valor": "Perforada"
         },
         {
           "clave": "ancho",
@@ -3338,16 +3216,12 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
+          "clave": "espesor",
+          "valor": "1.2 mm"
         },
         {
-          "clave": "subtipo",
-          "valor": "Perforada"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen (Sendzimir)"
         }
       ],
       "activo": true,
@@ -3355,17 +3229,13 @@
     },
     {
       "id": "mat-bandeja-perf-100x50",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-bandejas",
       "nombre": "Bandeja Portacable Perforada 100x50 mm Chapa Galvanizada - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Bandeja Portacable"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_bandeja",
+          "valor": "Perforada"
         },
         {
           "clave": "ancho",
@@ -3376,16 +3246,12 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
+          "clave": "espesor",
+          "valor": "1.2 mm"
         },
         {
-          "clave": "subtipo",
-          "valor": "Perforada"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen (Sendzimir)"
         }
       ],
       "activo": true,
@@ -3393,17 +3259,13 @@
     },
     {
       "id": "mat-bandeja-perf-150x50",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-bandejas",
       "nombre": "Bandeja Portacable Perforada 150x50 mm Chapa Galvanizada - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Bandeja Portacable"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_bandeja",
+          "valor": "Perforada"
         },
         {
           "clave": "ancho",
@@ -3414,16 +3276,12 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
+          "clave": "espesor",
+          "valor": "1.2 mm"
         },
         {
-          "clave": "subtipo",
-          "valor": "Perforada"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen (Sendzimir)"
         }
       ],
       "activo": true,
@@ -3431,17 +3289,13 @@
     },
     {
       "id": "mat-bandeja-perf-200x50",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-bandejas",
       "nombre": "Bandeja Portacable Perforada 200x50 mm Chapa Galvanizada - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Bandeja Portacable"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_bandeja",
+          "valor": "Perforada"
         },
         {
           "clave": "ancho",
@@ -3452,16 +3306,12 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
+          "clave": "espesor",
+          "valor": "1.2 mm"
         },
         {
-          "clave": "subtipo",
-          "valor": "Perforada"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen (Sendzimir)"
         }
       ],
       "activo": true,
@@ -3469,17 +3319,13 @@
     },
     {
       "id": "mat-bandeja-perf-300x50",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-bandejas",
       "nombre": "Bandeja Portacable Perforada 300x50 mm Chapa Galvanizada - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Bandeja Portacable"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_bandeja",
+          "valor": "Perforada"
         },
         {
           "clave": "ancho",
@@ -3490,16 +3336,12 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
+          "clave": "espesor",
+          "valor": "1.2 mm"
         },
         {
-          "clave": "subtipo",
-          "valor": "Perforada"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen (Sendzimir)"
         }
       ],
       "activo": true,
@@ -3507,17 +3349,13 @@
     },
     {
       "id": "mat-bandeja-perf-450x50",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-bandejas",
       "nombre": "Bandeja Portacable Perforada 450x50 mm Chapa Galvanizada - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Bandeja Portacable"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_bandeja",
+          "valor": "Perforada"
         },
         {
           "clave": "ancho",
@@ -3528,16 +3366,12 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
+          "clave": "espesor",
+          "valor": "1.2 mm"
         },
         {
-          "clave": "subtipo",
-          "valor": "Perforada"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen (Sendzimir)"
         }
       ],
       "activo": true,
@@ -3545,17 +3379,13 @@
     },
     {
       "id": "mat-curva-plana-100",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Curva Plana 90° para Bandeja Portacable 100x50 mm",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Curva Plana 90°"
         },
         {
           "clave": "ancho",
@@ -3566,16 +3396,8 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Curva Plana 90°"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -3583,17 +3405,13 @@
     },
     {
       "id": "mat-curva-plana-150",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Curva Plana 90° para Bandeja Portacable 150x50 mm",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Curva Plana 90°"
         },
         {
           "clave": "ancho",
@@ -3604,16 +3422,8 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Curva Plana 90°"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -3621,17 +3431,13 @@
     },
     {
       "id": "mat-curva-plana-200",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Curva Plana 90° para Bandeja Portacable 200x50 mm",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Curva Plana 90°"
         },
         {
           "clave": "ancho",
@@ -3642,16 +3448,8 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Curva Plana 90°"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -3659,17 +3457,13 @@
     },
     {
       "id": "mat-curva-plana-300",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Curva Plana 90° para Bandeja Portacable 300x50 mm",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Curva Plana 90°"
         },
         {
           "clave": "ancho",
@@ -3680,16 +3474,8 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Curva Plana 90°"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -3697,17 +3483,13 @@
     },
     {
       "id": "mat-curva-plana-450",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Curva Plana 90° para Bandeja Portacable 450x50 mm",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Curva Plana 90°"
         },
         {
           "clave": "ancho",
@@ -3718,16 +3500,8 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Curva Plana 90°"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -3735,17 +3509,13 @@
     },
     {
       "id": "mat-curva-vert-100",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Curva Vertical Articulada para Bandeja Portacable 100x50 mm",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Curva Vertical Articulada"
         },
         {
           "clave": "ancho",
@@ -3756,16 +3526,8 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Curva Vertical"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -3773,17 +3535,13 @@
     },
     {
       "id": "mat-curva-vert-150",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Curva Vertical Articulada para Bandeja Portacable 150x50 mm",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Curva Vertical Articulada"
         },
         {
           "clave": "ancho",
@@ -3794,16 +3552,8 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Curva Vertical"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -3811,17 +3561,13 @@
     },
     {
       "id": "mat-curva-vert-200",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Curva Vertical Articulada para Bandeja Portacable 200x50 mm",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Curva Vertical Articulada"
         },
         {
           "clave": "ancho",
@@ -3832,16 +3578,8 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Curva Vertical"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -3849,17 +3587,13 @@
     },
     {
       "id": "mat-curva-vert-300",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Curva Vertical Articulada para Bandeja Portacable 300x50 mm",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Curva Vertical Articulada"
         },
         {
           "clave": "ancho",
@@ -3870,16 +3604,8 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Curva Vertical"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -3887,17 +3613,13 @@
     },
     {
       "id": "mat-curva-vert-450",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Curva Vertical Articulada para Bandeja Portacable 450x50 mm",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Curva Vertical Articulada"
         },
         {
           "clave": "ancho",
@@ -3908,16 +3630,8 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Curva Vertical"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -3925,17 +3639,13 @@
     },
     {
       "id": "mat-tapa-bandeja-100",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Tapa a Presión para Bandeja Portacable 100 mm - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Tapa a Presión"
         },
         {
           "clave": "ancho",
@@ -3943,19 +3653,11 @@
         },
         {
           "clave": "alto",
-          "valor": "10"
+          "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Tapa"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -3963,17 +3665,13 @@
     },
     {
       "id": "mat-tapa-bandeja-150",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Tapa a Presión para Bandeja Portacable 150 mm - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Tapa a Presión"
         },
         {
           "clave": "ancho",
@@ -3981,19 +3679,11 @@
         },
         {
           "clave": "alto",
-          "valor": "10"
+          "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Tapa"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -4001,17 +3691,13 @@
     },
     {
       "id": "mat-tapa-bandeja-200",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Tapa a Presión para Bandeja Portacable 200 mm - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Tapa a Presión"
         },
         {
           "clave": "ancho",
@@ -4019,19 +3705,11 @@
         },
         {
           "clave": "alto",
-          "valor": "10"
+          "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Tapa"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -4039,17 +3717,13 @@
     },
     {
       "id": "mat-tapa-bandeja-300",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Tapa a Presión para Bandeja Portacable 300 mm - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Tapa a Presión"
         },
         {
           "clave": "ancho",
@@ -4057,19 +3731,11 @@
         },
         {
           "clave": "alto",
-          "valor": "10"
+          "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Tapa"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -4077,17 +3743,13 @@
     },
     {
       "id": "mat-tapa-bandeja-450",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Tapa a Presión para Bandeja Portacable 450 mm - Tira 3m",
       "unidadVenta": "tira x3m",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Tapa a Presión"
         },
         {
           "clave": "ancho",
@@ -4095,19 +3757,11 @@
         },
         {
           "clave": "alto",
-          "valor": "10"
+          "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Tapa"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -4115,37 +3769,21 @@
     },
     {
       "id": "mat-cupla-union-h50",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Juego de Cuplas de Unión para Bandeja Portacable H50 (Par con bulonería)",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
-        },
-        {
-          "clave": "ancho",
-          "valor": "20"
+          "clave": "tipo_accesorio",
+          "valor": "Juego de Cuplas de Unión"
         },
         {
           "clave": "alto",
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Cupla Unión"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -4153,207 +3791,13 @@
     },
     {
       "id": "mat-mensula-100",
-      "categoriaId": "cat-canalizaciones",
+      "categoriaId": "cat-accesorios-bandejas",
       "nombre": "Ménsula de Apoyo Reforzada para Bandeja 100 mm",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
-        },
-        {
-          "clave": "ancho",
-          "valor": "100"
-        },
-        {
-          "clave": "alto",
-          "valor": "75"
-        },
-        {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Ménsula de Apoyo"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
-        }
-      ],
-      "activo": true,
-      "fichaIncompleta": false
-    },
-    {
-      "id": "mat-mensula-150",
-      "categoriaId": "cat-canalizaciones",
-      "nombre": "Ménsula de Apoyo Reforzada para Bandeja 150 mm",
-      "unidadVenta": "u",
-      "atributos": [
-        {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
-        },
-        {
-          "clave": "ancho",
-          "valor": "150"
-        },
-        {
-          "clave": "alto",
-          "valor": "75"
-        },
-        {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Ménsula de Apoyo"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
-        }
-      ],
-      "activo": true,
-      "fichaIncompleta": false
-    },
-    {
-      "id": "mat-mensula-200",
-      "categoriaId": "cat-canalizaciones",
-      "nombre": "Ménsula de Apoyo Reforzada para Bandeja 200 mm",
-      "unidadVenta": "u",
-      "atributos": [
-        {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
-        },
-        {
-          "clave": "ancho",
-          "valor": "200"
-        },
-        {
-          "clave": "alto",
-          "valor": "75"
-        },
-        {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Ménsula de Apoyo"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
-        }
-      ],
-      "activo": true,
-      "fichaIncompleta": false
-    },
-    {
-      "id": "mat-mensula-300",
-      "categoriaId": "cat-canalizaciones",
-      "nombre": "Ménsula de Apoyo Reforzada para Bandeja 300 mm",
-      "unidadVenta": "u",
-      "atributos": [
-        {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
-        },
-        {
-          "clave": "ancho",
-          "valor": "300"
-        },
-        {
-          "clave": "alto",
-          "valor": "75"
-        },
-        {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Ménsula de Apoyo"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
-        }
-      ],
-      "activo": true,
-      "fichaIncompleta": false
-    },
-    {
-      "id": "mat-mensula-450",
-      "categoriaId": "cat-canalizaciones",
-      "nombre": "Ménsula de Apoyo Reforzada para Bandeja 450 mm",
-      "unidadVenta": "u",
-      "atributos": [
-        {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
-        },
-        {
-          "clave": "ancho",
-          "valor": "450"
-        },
-        {
-          "clave": "alto",
-          "valor": "75"
-        },
-        {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
-        },
-        {
-          "clave": "subtipo",
-          "valor": "Ménsula de Apoyo"
-        },
-        {
-          "clave": "color",
-          "valor": "N/A"
-        }
-      ],
-      "activo": true,
-      "fichaIncompleta": false
-    },
-    {
-      "id": "mat-soporte-caja-bandeja",
-      "categoriaId": "cat-canalizaciones",
-      "nombre": "Soporte de Montaje Universal para Cajas en Bandeja Portacable",
-      "unidadVenta": "u",
-      "atributos": [
-        {
-          "clave": "tipo_elemento",
-          "valor": "Accesorio para Bandeja"
-        },
-        {
-          "clave": "diametro",
-          "valor": "N/A"
+          "clave": "tipo_accesorio",
+          "valor": "Ménsula de Apoyo Reforzada"
         },
         {
           "clave": "ancho",
@@ -4364,16 +3808,134 @@
           "valor": "50"
         },
         {
-          "clave": "norma",
-          "valor": "IEC 61386 (Bandeja/Canaleta)"
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mensula-150",
+      "categoriaId": "cat-accesorios-bandejas",
+      "nombre": "Ménsula de Apoyo Reforzada para Bandeja 150 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_accesorio",
+          "valor": "Ménsula de Apoyo Reforzada"
         },
         {
-          "clave": "subtipo",
-          "valor": "Soporte para Caja"
+          "clave": "ancho",
+          "valor": "150"
         },
         {
-          "clave": "color",
-          "valor": "N/A"
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mensula-200",
+      "categoriaId": "cat-accesorios-bandejas",
+      "nombre": "Ménsula de Apoyo Reforzada para Bandeja 200 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_accesorio",
+          "valor": "Ménsula de Apoyo Reforzada"
+        },
+        {
+          "clave": "ancho",
+          "valor": "200"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mensula-300",
+      "categoriaId": "cat-accesorios-bandejas",
+      "nombre": "Ménsula de Apoyo Reforzada para Bandeja 300 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_accesorio",
+          "valor": "Ménsula de Apoyo Reforzada"
+        },
+        {
+          "clave": "ancho",
+          "valor": "300"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mensula-450",
+      "categoriaId": "cat-accesorios-bandejas",
+      "nombre": "Ménsula de Apoyo Reforzada para Bandeja 450 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_accesorio",
+          "valor": "Ménsula de Apoyo Reforzada"
+        },
+        {
+          "clave": "ancho",
+          "valor": "450"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-soporte-caja-bandeja",
+      "categoriaId": "cat-accesorios-bandejas",
+      "nombre": "Soporte de Montaje Universal para Cajas en Bandeja Portacable",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_accesorio",
+          "valor": "Soporte para Cajas"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "terminacion",
+          "valor": "Galvanizado en Origen"
         }
       ],
       "activo": true,
@@ -4400,10 +3962,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4430,10 +3988,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4460,10 +4014,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4490,10 +4040,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4520,10 +4066,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4550,10 +4092,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4580,10 +4118,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4610,10 +4144,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4640,10 +4170,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4670,10 +4196,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4700,10 +4222,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4730,10 +4248,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4760,10 +4274,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4790,10 +4300,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4820,10 +4326,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4850,10 +4352,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4880,10 +4378,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4910,10 +4404,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4940,10 +4430,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -4970,10 +4456,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -5000,10 +4482,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -5030,10 +4508,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -5060,10 +4534,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -5090,10 +4560,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -5120,10 +4586,6 @@
         {
           "clave": "curva",
           "valor": "Curva C"
-        },
-        {
-          "clave": "Id",
-          "valor": "N/A"
         }
       ],
       "activo": true,
@@ -5146,10 +4608,6 @@
         {
           "clave": "In",
           "valor": "25"
-        },
-        {
-          "clave": "curva",
-          "valor": "N/A"
         },
         {
           "clave": "Id",
@@ -5178,10 +4636,6 @@
           "valor": "40"
         },
         {
-          "clave": "curva",
-          "valor": "N/A"
-        },
-        {
           "clave": "Id",
           "valor": "30"
         }
@@ -5206,10 +4660,6 @@
         {
           "clave": "In",
           "valor": "63"
-        },
-        {
-          "clave": "curva",
-          "valor": "N/A"
         },
         {
           "clave": "Id",
@@ -5238,10 +4688,6 @@
           "valor": "40"
         },
         {
-          "clave": "curva",
-          "valor": "N/A"
-        },
-        {
           "clave": "Id",
           "valor": "300"
         }
@@ -5266,10 +4712,6 @@
         {
           "clave": "In",
           "valor": "40"
-        },
-        {
-          "clave": "curva",
-          "valor": "N/A"
         },
         {
           "clave": "Id",
@@ -5298,10 +4740,6 @@
           "valor": "63"
         },
         {
-          "clave": "curva",
-          "valor": "N/A"
-        },
-        {
           "clave": "Id",
           "valor": "30"
         }
@@ -5328,10 +4766,6 @@
           "valor": "40"
         },
         {
-          "clave": "curva",
-          "valor": "N/A"
-        },
-        {
           "clave": "Id",
           "valor": "300"
         }
@@ -5356,10 +4790,6 @@
         {
           "clave": "In",
           "valor": "63"
-        },
-        {
-          "clave": "curva",
-          "valor": "N/A"
         },
         {
           "clave": "Id",
@@ -5628,10 +5058,6 @@
           "valor": "1"
         },
         {
-          "clave": "amperaje",
-          "valor": "N/A"
-        },
-        {
           "clave": "con_tierra",
           "valor": "Sin Tierra"
         }
@@ -5671,29 +5097,25 @@
     },
     {
       "id": "mat-mod-bastidor-5x10-3mod",
-      "categoriaId": "cat-modulos-llaves",
+      "categoriaId": "cat-bastidores-tapas",
       "nombre": "Bastidor / Marco Soporte 5x10 para 3 Módulos",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_modulo",
-          "valor": "Bastidor/Marco Soporte"
+          "clave": "tipo_elemento",
+          "valor": "Bastidor Soporte 5x10"
+        },
+        {
+          "clave": "medida_caja",
+          "valor": "5x10 cm (Rectangular)"
         },
         {
           "clave": "linea",
-          "valor": "Normalizada / Genérica"
+          "valor": "Universal / Compatible"
         },
         {
-          "clave": "cantidad_modulos",
-          "valor": "3"
-        },
-        {
-          "clave": "amperaje",
-          "valor": "N/A"
-        },
-        {
-          "clave": "con_tierra",
-          "valor": "Sin Tierra"
+          "clave": "color",
+          "valor": "Blanco"
         }
       ],
       "activo": true,
@@ -5701,29 +5123,25 @@
     },
     {
       "id": "mat-mod-bastidor-10x10-4mod",
-      "categoriaId": "cat-modulos-llaves",
+      "categoriaId": "cat-bastidores-tapas",
       "nombre": "Bastidor / Marco Soporte 10x10 para 4 Módulos",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_modulo",
-          "valor": "Bastidor/Marco Soporte"
+          "clave": "tipo_elemento",
+          "valor": "Bastidor Soporte 10x10"
+        },
+        {
+          "clave": "medida_caja",
+          "valor": "10x10 cm (Cuadrada)"
         },
         {
           "clave": "linea",
-          "valor": "Normalizada / Genérica"
+          "valor": "Universal / Compatible"
         },
         {
-          "clave": "cantidad_modulos",
-          "valor": "4"
-        },
-        {
-          "clave": "amperaje",
-          "valor": "N/A"
-        },
-        {
-          "clave": "con_tierra",
-          "valor": "Sin Tierra"
+          "clave": "color",
+          "valor": "Blanco"
         }
       ],
       "activo": true,
@@ -5731,29 +5149,25 @@
     },
     {
       "id": "mat-mod-tapa-5x10-1mod",
-      "categoriaId": "cat-modulos-llaves",
+      "categoriaId": "cat-bastidores-tapas",
       "nombre": "Tapa Embellecedora Plástica 5x10 para 1 Módulo Central",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_modulo",
-          "valor": "Tapa Embellecedora"
+          "clave": "tipo_elemento",
+          "valor": "Tapa Embellecedora 5x10 (1 Módulo)"
+        },
+        {
+          "clave": "medida_caja",
+          "valor": "5x10 cm (Rectangular)"
         },
         {
           "clave": "linea",
-          "valor": "Normalizada / Genérica"
+          "valor": "Universal / Compatible"
         },
         {
-          "clave": "cantidad_modulos",
-          "valor": "1"
-        },
-        {
-          "clave": "amperaje",
-          "valor": "N/A"
-        },
-        {
-          "clave": "con_tierra",
-          "valor": "Sin Tierra"
+          "clave": "color",
+          "valor": "Blanco"
         }
       ],
       "activo": true,
@@ -5761,29 +5175,25 @@
     },
     {
       "id": "mat-mod-tapa-5x10-2mod",
-      "categoriaId": "cat-modulos-llaves",
+      "categoriaId": "cat-bastidores-tapas",
       "nombre": "Tapa Embellecedora Plástica 5x10 para 2 Módulos",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_modulo",
-          "valor": "Tapa Embellecedora"
+          "clave": "tipo_elemento",
+          "valor": "Tapa Embellecedora 5x10 (2 Módulos)"
+        },
+        {
+          "clave": "medida_caja",
+          "valor": "5x10 cm (Rectangular)"
         },
         {
           "clave": "linea",
-          "valor": "Normalizada / Genérica"
+          "valor": "Universal / Compatible"
         },
         {
-          "clave": "cantidad_modulos",
-          "valor": "2"
-        },
-        {
-          "clave": "amperaje",
-          "valor": "N/A"
-        },
-        {
-          "clave": "con_tierra",
-          "valor": "Sin Tierra"
+          "clave": "color",
+          "valor": "Blanco"
         }
       ],
       "activo": true,
@@ -5791,29 +5201,25 @@
     },
     {
       "id": "mat-mod-tapa-5x10-3mod",
-      "categoriaId": "cat-modulos-llaves",
+      "categoriaId": "cat-bastidores-tapas",
       "nombre": "Tapa Embellecedora Plástica 5x10 para 3 Módulos",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_modulo",
-          "valor": "Tapa Embellecedora"
+          "clave": "tipo_elemento",
+          "valor": "Tapa Embellecedora 5x10 (3 Módulos)"
+        },
+        {
+          "clave": "medida_caja",
+          "valor": "5x10 cm (Rectangular)"
         },
         {
           "clave": "linea",
-          "valor": "Normalizada / Genérica"
+          "valor": "Universal / Compatible"
         },
         {
-          "clave": "cantidad_modulos",
-          "valor": "3"
-        },
-        {
-          "clave": "amperaje",
-          "valor": "N/A"
-        },
-        {
-          "clave": "con_tierra",
-          "valor": "Sin Tierra"
+          "clave": "color",
+          "valor": "Blanco"
         }
       ],
       "activo": true,
@@ -5821,29 +5227,25 @@
     },
     {
       "id": "mat-mod-tapa-5x10-ciega",
-      "categoriaId": "cat-modulos-llaves",
+      "categoriaId": "cat-bastidores-tapas",
       "nombre": "Tapa Embellecedora Plástica 5x10 Ciega",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_modulo",
-          "valor": "Tapa Embellecedora"
+          "clave": "tipo_elemento",
+          "valor": "Tapa Embellecedora 5x10 Ciega"
+        },
+        {
+          "clave": "medida_caja",
+          "valor": "5x10 cm (Rectangular)"
         },
         {
           "clave": "linea",
-          "valor": "Normalizada / Genérica"
+          "valor": "Universal / Compatible"
         },
         {
-          "clave": "cantidad_modulos",
-          "valor": "1"
-        },
-        {
-          "clave": "amperaje",
-          "valor": "N/A"
-        },
-        {
-          "clave": "con_tierra",
-          "valor": "Sin Tierra"
+          "clave": "color",
+          "valor": "Blanco"
         }
       ],
       "activo": true,
@@ -5851,29 +5253,25 @@
     },
     {
       "id": "mat-mod-tapa-estanca-ip55",
-      "categoriaId": "cat-modulos-llaves",
+      "categoriaId": "cat-bastidores-tapas",
       "nombre": "Tapa Estanca IP55 para Exterior con Membrana Flexible 5x10",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_modulo",
-          "valor": "Tapa Estanca IP55"
+          "clave": "tipo_elemento",
+          "valor": "Tapa Estanca IP55 para Exterior"
+        },
+        {
+          "clave": "medida_caja",
+          "valor": "5x10 cm (Rectangular)"
         },
         {
           "clave": "linea",
-          "valor": "Normalizada / Genérica"
+          "valor": "Universal / Compatible"
         },
         {
-          "clave": "cantidad_modulos",
-          "valor": "3"
-        },
-        {
-          "clave": "amperaje",
-          "valor": "N/A"
-        },
-        {
-          "clave": "con_tierra",
-          "valor": "Sin Tierra"
+          "clave": "color",
+          "valor": "Blanco"
         }
       ],
       "activo": true,
@@ -5881,17 +5279,17 @@
     },
     {
       "id": "mat-terminal-tif-1-5",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-terminales",
       "nombre": "Terminal Tubular Preaislado TIF 1.5 mm² (Bolsa x100)",
       "unidadVenta": "Bolsa x100",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Terminal Tubular TIF Preaislado"
+          "clave": "tipo_terminal",
+          "valor": "Terminal Tubular Preaislado TIF Simple"
         },
         {
-          "clave": "medida",
-          "valor": "1.5 mm²"
+          "clave": "seccion",
+          "valor": "1.5"
         },
         {
           "clave": "presentacion",
@@ -5903,17 +5301,17 @@
     },
     {
       "id": "mat-terminal-tif-2-5",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-terminales",
       "nombre": "Terminal Tubular Preaislado TIF 2.5 mm² (Bolsa x100)",
       "unidadVenta": "Bolsa x100",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Terminal Tubular TIF Preaislado"
+          "clave": "tipo_terminal",
+          "valor": "Terminal Tubular Preaislado TIF Simple"
         },
         {
-          "clave": "medida",
-          "valor": "2.5 mm²"
+          "clave": "seccion",
+          "valor": "2.5"
         },
         {
           "clave": "presentacion",
@@ -5925,17 +5323,17 @@
     },
     {
       "id": "mat-terminal-tif-4",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-terminales",
       "nombre": "Terminal Tubular Preaislado TIF 4 mm² (Bolsa x100)",
       "unidadVenta": "Bolsa x100",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Terminal Tubular TIF Preaislado"
+          "clave": "tipo_terminal",
+          "valor": "Terminal Tubular Preaislado TIF Simple"
         },
         {
-          "clave": "medida",
-          "valor": "4 mm²"
+          "clave": "seccion",
+          "valor": "4"
         },
         {
           "clave": "presentacion",
@@ -5947,17 +5345,17 @@
     },
     {
       "id": "mat-terminal-tif-6",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-terminales",
       "nombre": "Terminal Tubular Preaislado TIF 6 mm² (Bolsa x100)",
       "unidadVenta": "Bolsa x100",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Terminal Tubular TIF Preaislado"
+          "clave": "tipo_terminal",
+          "valor": "Terminal Tubular Preaislado TIF Simple"
         },
         {
-          "clave": "medida",
-          "valor": "6 mm²"
+          "clave": "seccion",
+          "valor": "6"
         },
         {
           "clave": "presentacion",
@@ -5969,17 +5367,17 @@
     },
     {
       "id": "mat-terminal-tif-10",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-terminales",
       "nombre": "Terminal Tubular Preaislado TIF 10 mm² (Bolsa x100)",
       "unidadVenta": "Bolsa x100",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Terminal Tubular TIF Preaislado"
+          "clave": "tipo_terminal",
+          "valor": "Terminal Tubular Preaislado TIF Simple"
         },
         {
-          "clave": "medida",
-          "valor": "10 mm²"
+          "clave": "seccion",
+          "valor": "10"
         },
         {
           "clave": "presentacion",
@@ -5991,17 +5389,17 @@
     },
     {
       "id": "mat-terminal-tif-16",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-terminales",
       "nombre": "Terminal Tubular Preaislado TIF 16 mm² (Bolsa x100)",
       "unidadVenta": "Bolsa x100",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Terminal Tubular TIF Preaislado"
+          "clave": "tipo_terminal",
+          "valor": "Terminal Tubular Preaislado TIF Simple"
         },
         {
-          "clave": "medida",
-          "valor": "16 mm²"
+          "clave": "seccion",
+          "valor": "16"
         },
         {
           "clave": "presentacion",
@@ -6013,17 +5411,17 @@
     },
     {
       "id": "mat-terminal-tif-25",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-terminales",
       "nombre": "Terminal Tubular Preaislado TIF 25 mm² (Bolsa x100)",
       "unidadVenta": "Bolsa x100",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Terminal Tubular TIF Preaislado"
+          "clave": "tipo_terminal",
+          "valor": "Terminal Tubular Preaislado TIF Simple"
         },
         {
-          "clave": "medida",
-          "valor": "25 mm²"
+          "clave": "seccion",
+          "valor": "25"
         },
         {
           "clave": "presentacion",
@@ -6035,17 +5433,17 @@
     },
     {
       "id": "mat-terminal-tif-35",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-terminales",
       "nombre": "Terminal Tubular Preaislado TIF 35 mm² (Bolsa x100)",
       "unidadVenta": "Bolsa x100",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Terminal Tubular TIF Preaislado"
+          "clave": "tipo_terminal",
+          "valor": "Terminal Tubular Preaislado TIF Simple"
         },
         {
-          "clave": "medida",
-          "valor": "35 mm²"
+          "clave": "seccion",
+          "valor": "35"
         },
         {
           "clave": "presentacion",
@@ -6057,17 +5455,17 @@
     },
     {
       "id": "mat-terminal-tif-twin-2x1-5",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-terminales",
       "nombre": "Terminal Tubular Doble Twin TIF 2x1.5 mm² (Bolsa x100)",
       "unidadVenta": "Bolsa x100",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Terminal Tubular TIF Doble (Twin)"
+          "clave": "tipo_terminal",
+          "valor": "Terminal Tubular Doble Twin TIF"
         },
         {
-          "clave": "medida",
-          "valor": "2x1.5 mm²"
+          "clave": "seccion",
+          "valor": "2x1.5"
         },
         {
           "clave": "presentacion",
@@ -6079,17 +5477,17 @@
     },
     {
       "id": "mat-terminal-tif-twin-2x2-5",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-terminales",
       "nombre": "Terminal Tubular Doble Twin TIF 2x2.5 mm² (Bolsa x100)",
       "unidadVenta": "Bolsa x100",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Terminal Tubular TIF Doble (Twin)"
+          "clave": "tipo_terminal",
+          "valor": "Terminal Tubular Doble Twin TIF"
         },
         {
-          "clave": "medida",
-          "valor": "2x2.5 mm²"
+          "clave": "seccion",
+          "valor": "2x2.5"
         },
         {
           "clave": "presentacion",
@@ -6101,17 +5499,17 @@
     },
     {
       "id": "mat-terminal-tif-twin-2x4",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-terminales",
       "nombre": "Terminal Tubular Doble Twin TIF 2x4 mm² (Bolsa x100)",
       "unidadVenta": "Bolsa x100",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Terminal Tubular TIF Doble (Twin)"
+          "clave": "tipo_terminal",
+          "valor": "Terminal Tubular Doble Twin TIF"
         },
         {
-          "clave": "medida",
-          "valor": "2x4 mm²"
+          "clave": "seccion",
+          "valor": "2x4"
         },
         {
           "clave": "presentacion",
@@ -6123,17 +5521,17 @@
     },
     {
       "id": "mat-terminal-tif-twin-2x6",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-terminales",
       "nombre": "Terminal Tubular Doble Twin TIF 2x6 mm² (Bolsa x100)",
       "unidadVenta": "Bolsa x100",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Terminal Tubular TIF Doble (Twin)"
+          "clave": "tipo_terminal",
+          "valor": "Terminal Tubular Doble Twin TIF"
         },
         {
-          "clave": "medida",
-          "valor": "2x6 mm²"
+          "clave": "seccion",
+          "valor": "2x6"
         },
         {
           "clave": "presentacion",
@@ -6145,21 +5543,21 @@
     },
     {
       "id": "mat-distribuidor-tetra-125a-5p",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-tablero",
       "nombre": "Repartidor Tetrapolar Modular Escalonado 125A - 5 Posiciones (Riel DIN)",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Repartidor Tetrapolar Escalonado"
+          "clave": "tipo_accesorio",
+          "valor": "Repartidor Tetrapolar Modular Escalonado"
         },
         {
-          "clave": "medida",
-          "valor": "125A - 5 Posiciones"
+          "clave": "amperaje",
+          "valor": "125"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "posiciones",
+          "valor": "5 Posiciones"
         }
       ],
       "activo": true,
@@ -6167,21 +5565,21 @@
     },
     {
       "id": "mat-distribuidor-tetra-125a-7p",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-tablero",
       "nombre": "Repartidor Tetrapolar Modular Escalonado 125A - 7 Posiciones (Riel DIN)",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Repartidor Tetrapolar Escalonado"
+          "clave": "tipo_accesorio",
+          "valor": "Repartidor Tetrapolar Modular Escalonado"
         },
         {
-          "clave": "medida",
-          "valor": "125A - 7 Posiciones"
+          "clave": "amperaje",
+          "valor": "125"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "posiciones",
+          "valor": "7 Posiciones"
         }
       ],
       "activo": true,
@@ -6189,21 +5587,21 @@
     },
     {
       "id": "mat-distribuidor-tetra-125a-12p",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-tablero",
       "nombre": "Repartidor Tetrapolar Modular Escalonado 125A - 12 Posiciones (Riel DIN)",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Repartidor Tetrapolar Escalonado"
+          "clave": "tipo_accesorio",
+          "valor": "Repartidor Tetrapolar Modular Escalonado"
         },
         {
-          "clave": "medida",
-          "valor": "125A - 12 Posiciones"
+          "clave": "amperaje",
+          "valor": "125"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "posiciones",
+          "valor": "12 Posiciones"
         }
       ],
       "activo": true,
@@ -6211,21 +5609,21 @@
     },
     {
       "id": "mat-distribuidor-tetra-250a-7p",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-tablero",
       "nombre": "Repartidor Tetrapolar Modular Escalonado 250A - 7 Posiciones (Riel DIN)",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Repartidor Tetrapolar Escalonado"
+          "clave": "tipo_accesorio",
+          "valor": "Repartidor Tetrapolar Modular Escalonado"
         },
         {
-          "clave": "medida",
-          "valor": "250A - 7 Posiciones"
+          "clave": "amperaje",
+          "valor": "250"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "posiciones",
+          "valor": "7 Posiciones"
         }
       ],
       "activo": true,
@@ -6233,21 +5631,21 @@
     },
     {
       "id": "mat-distribuidor-tetra-250a-12p",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-tablero",
       "nombre": "Repartidor Tetrapolar Modular Escalonado 250A - 12 Posiciones (Riel DIN)",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
-          "valor": "Repartidor Tetrapolar Escalonado"
+          "clave": "tipo_accesorio",
+          "valor": "Repartidor Tetrapolar Modular Escalonado"
         },
         {
-          "clave": "medida",
-          "valor": "250A - 12 Posiciones"
+          "clave": "amperaje",
+          "valor": "250"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "posiciones",
+          "valor": "12 Posiciones"
         }
       ],
       "activo": true,
@@ -6255,21 +5653,21 @@
     },
     {
       "id": "mat-bornera-neutro-7b",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-tablero",
       "nombre": "Bornera Repartidora Unipolar de Neutro (Azul) para Riel DIN - 7 Bornes",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Bornera Repartidora de Neutro DIN"
         },
         {
-          "clave": "medida",
-          "valor": "7 Bornes"
+          "clave": "amperaje",
+          "valor": "80"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "posiciones",
+          "valor": "7 Posiciones"
         }
       ],
       "activo": true,
@@ -6277,21 +5675,21 @@
     },
     {
       "id": "mat-bornera-neutro-12b",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-tablero",
       "nombre": "Bornera Repartidora Unipolar de Neutro (Azul) para Riel DIN - 12 Bornes",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Bornera Repartidora de Neutro DIN"
         },
         {
-          "clave": "medida",
-          "valor": "12 Bornes"
+          "clave": "amperaje",
+          "valor": "80"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "posiciones",
+          "valor": "12 Posiciones"
         }
       ],
       "activo": true,
@@ -6299,21 +5697,21 @@
     },
     {
       "id": "mat-bornera-neutro-15b",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-tablero",
       "nombre": "Bornera Repartidora Unipolar de Neutro (Azul) para Riel DIN - 15 Bornes",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Bornera Repartidora de Neutro DIN"
         },
         {
-          "clave": "medida",
-          "valor": "15 Bornes"
+          "clave": "amperaje",
+          "valor": "80"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "posiciones",
+          "valor": "15 Posiciones"
         }
       ],
       "activo": true,
@@ -6321,21 +5719,21 @@
     },
     {
       "id": "mat-bornera-tierra-7b",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-tablero",
       "nombre": "Bornera Repartidora Unipolar de Puesta a Tierra (Verde) para Riel DIN - 7 Bornes",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Bornera Repartidora de Tierra DIN"
         },
         {
-          "clave": "medida",
-          "valor": "7 Bornes"
+          "clave": "amperaje",
+          "valor": "80"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "posiciones",
+          "valor": "7 Posiciones"
         }
       ],
       "activo": true,
@@ -6343,21 +5741,21 @@
     },
     {
       "id": "mat-bornera-tierra-12b",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-tablero",
       "nombre": "Bornera Repartidora Unipolar de Puesta a Tierra (Verde) para Riel DIN - 12 Bornes",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Bornera Repartidora de Tierra DIN"
         },
         {
-          "clave": "medida",
-          "valor": "12 Bornes"
+          "clave": "amperaje",
+          "valor": "80"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "posiciones",
+          "valor": "12 Posiciones"
         }
       ],
       "activo": true,
@@ -6365,21 +5763,21 @@
     },
     {
       "id": "mat-bornera-tierra-15b",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-accesorios-tablero",
       "nombre": "Bornera Repartidora Unipolar de Puesta a Tierra (Verde) para Riel DIN - 15 Bornes",
       "unidadVenta": "u",
       "atributos": [
         {
-          "clave": "tipo_elemento",
+          "clave": "tipo_accesorio",
           "valor": "Bornera Repartidora de Tierra DIN"
         },
         {
-          "clave": "medida",
-          "valor": "15 Bornes"
+          "clave": "amperaje",
+          "valor": "80"
         },
         {
-          "clave": "presentacion",
-          "valor": "Unidad"
+          "clave": "posiciones",
+          "valor": "15 Posiciones"
         }
       ],
       "activo": true,
@@ -6387,21 +5785,17 @@
     },
     {
       "id": "mat-bornera-bep-8b",
-      "categoriaId": "cat-fijacion",
+      "categoriaId": "cat-tierra",
       "nombre": "Barra Equipotencial Principal de PAT (BEP) 8 Bornes con Aisladores",
       "unidadVenta": "u",
       "atributos": [
         {
           "clave": "tipo_elemento",
-          "valor": "Barra Equipotencial Principal"
+          "valor": "Barra Equipotencial Principal (BEP)"
         },
         {
           "clave": "medida",
           "valor": "8 Bornes con Aisladores"
-        },
-        {
-          "clave": "presentacion",
-          "valor": "Unidad"
         }
       ],
       "activo": true,

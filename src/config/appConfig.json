@@ -1,15 +1,23 @@
 {
   "categories": [
-    "accesorios",
+    "sin-categoria",
+    "canos",
+    "accesorios-caneria",
+    "bandejas",
+    "accesorios-bandejas",
+    "cablecanales",
+    "cajas",
     "cables",
     "protecciones",
-    "canalizaciones",
-    "cajas",
-    "modulos-llaves",
     "tableros",
+    "accesorios-tablero",
+    "modulos-llaves",
+    "bastidores-tapas",
     "iluminacion",
     "tierra",
     "fijacion",
+    "terminales",
+    "accesorios",
     "motores-automatizacion",
     "renovables"
   ],
@@ -59,44 +67,125 @@
     "cancelado"
   ],
   "condicionesTrabajo": [
-    { "value": "normal", "label": "Normal (1.0x)", "multiplicador": 1.0 },
-    { "value": "dificultosa", "label": "Dificultosa (1.25x)", "multiplicador": 1.25 },
-    { "value": "favorable", "label": "Favorable (0.9x)", "multiplicador": 0.9 }
+    {
+      "value": "normal",
+      "label": "Normal (1.0x)",
+      "multiplicador": 1
+    },
+    {
+      "value": "dificultosa",
+      "label": "Dificultosa (1.25x)",
+      "multiplicador": 1.25
+    },
+    {
+      "value": "favorable",
+      "label": "Favorable (0.9x)",
+      "multiplicador": 0.9
+    }
   ],
   "motivosDesvio": [
-    { "value": "material", "label": "Material (demoras/defectos de proveedores)" },
-    { "value": "diseno_cliente", "label": "Diseño / Modificación de Cliente" },
-    { "value": "clima", "label": "Clima / Factores Ambientales" },
-    { "value": "error_calculo", "label": "Error de cálculo en la estimación inicial" },
-    { "value": "otro", "label": "Otro imprevisible" }
+    {
+      "value": "material",
+      "label": "Material (demoras/defectos de proveedores)"
+    },
+    {
+      "value": "diseno_cliente",
+      "label": "Diseño / Modificación de Cliente"
+    },
+    {
+      "value": "clima",
+      "label": "Clima / Factores Ambientales"
+    },
+    {
+      "value": "error_calculo",
+      "label": "Error de cálculo en la estimación inicial"
+    },
+    {
+      "value": "otro",
+      "label": "Otro imprevisible"
+    }
   ],
   "tiposProveedor": [
-    { "value": "material", "label": "Materiales / Insumos Eléctricos" },
-    { "value": "servicio", "label": "Servicios Tercerizados (Subcontratistas)" },
-    { "value": "ambos", "label": "Ambos (Materiales y Servicios)" }
+    {
+      "value": "material",
+      "label": "Materiales / Insumos Eléctricos"
+    },
+    {
+      "value": "servicio",
+      "label": "Servicios Tercerizados (Subcontratistas)"
+    },
+    {
+      "value": "ambos",
+      "label": "Ambos (Materiales y Servicios)"
+    }
   ],
   "tiposCostoIndirecto": [
-    { "value": "porcentual_sobre_costo", "label": "Porcentual sobre Costo Directo (%)" },
-    { "value": "por_visita", "label": "Monto Fijo por Visita (ARS)" },
-    { "value": "fijo_mensual", "label": "Monto Fijo Mensual (ARS)" }
+    {
+      "value": "porcentual_sobre_costo",
+      "label": "Porcentual sobre Costo Directo (%)"
+    },
+    {
+      "value": "por_visita",
+      "label": "Monto Fijo por Visita (ARS)"
+    },
+    {
+      "value": "fijo_mensual",
+      "label": "Monto Fijo Mensual (ARS)"
+    }
   ],
   "mediosPago": [
-    { "value": "efectivo", "label": "Efectivo" },
-    { "value": "transferencia", "label": "Transferencia Bancaria" },
-    { "value": "cheque", "label": "Cheque Diferido" },
-    { "value": "otro", "label": "Otro Medio de Pago" }
+    {
+      "value": "efectivo",
+      "label": "Efectivo"
+    },
+    {
+      "value": "transferencia",
+      "label": "Transferencia Bancaria"
+    },
+    {
+      "value": "cheque",
+      "label": "Cheque Diferido"
+    },
+    {
+      "value": "otro",
+      "label": "Otro Medio de Pago"
+    }
   ],
   "modalidadesPago": [
-    { "value": "pago_unico", "label": "Pago Único al Finalizar" },
-    { "value": "adelanto_saldo", "label": "Adelanto + Saldo al Entregar" },
-    { "value": "certificados_avance", "label": "Certificados de Avance de Obra" },
-    { "value": "cuotas", "label": "Cuotas Programadas" }
+    {
+      "value": "pago_unico",
+      "label": "Pago Único al Finalizar"
+    },
+    {
+      "value": "adelanto_saldo",
+      "label": "Adelanto + Saldo al Entregar"
+    },
+    {
+      "value": "certificados_avance",
+      "label": "Certificados de Avance de Obra"
+    },
+    {
+      "value": "cuotas",
+      "label": "Cuotas Programadas"
+    }
   ],
   "tiposAjustePrecio": [
-    { "value": "porcentaje", "label": "% Porcentaje Manual Directo" },
-    { "value": "dolar_blue", "label": "Dólar Blue" },
-    { "value": "ipc", "label": "IPC (Índice de Precios al Consumidor)" },
-    { "value": "canasta", "label": "Canasta Eléctrica IEBA" }
+    {
+      "value": "porcentaje",
+      "label": "% Porcentaje Manual Directo"
+    },
+    {
+      "value": "dolar_blue",
+      "label": "Dólar Blue"
+    },
+    {
+      "value": "ipc",
+      "label": "IPC (Índice de Precios al Consumidor)"
+    },
+    {
+      "value": "canasta",
+      "label": "Canasta Eléctrica IEBA"
+    }
   ],
   "defaultAppConfig": {
     "id": "config-main",
@@ -121,7 +210,7 @@
     "prefijoPresupuesto": "IEBA",
     "siguienteNumeroCorrelativo": 1001,
     "alphaEmaManoObra": 0.3,
-    "multiplicadorCondicionNormal": 1.0,
+    "multiplicadorCondicionNormal": 1,
     "multiplicadorCondicionDificultosa": 1.25,
     "multiplicadorCondicionFavorable": 0.9,
     "diasVencimientoPrecioVerde": 30,
@@ -135,5 +224,62 @@
       "Acometidas",
       "Medición"
     ]
-  }
+  },
+  "supercategorias": [
+    {
+      "id": "canalizaciones",
+      "nombre": "Canalización y Contención",
+      "orden": 1
+    },
+    {
+      "id": "conductores",
+      "nombre": "Conductores y Cables",
+      "orden": 2
+    },
+    {
+      "id": "protecciones",
+      "nombre": "Protección, Maniobra y Comando",
+      "orden": 3
+    },
+    {
+      "id": "tableros",
+      "nombre": "Tableros y Envolventes",
+      "orden": 4
+    },
+    {
+      "id": "mecanismos",
+      "nombre": "Mecanismos, Tomas y Módulos",
+      "orden": 5
+    },
+    {
+      "id": "iluminacion",
+      "nombre": "Iluminación y Luminarias",
+      "orden": 6
+    },
+    {
+      "id": "puesta-a-tierra",
+      "nombre": "Puesta a Tierra y Descargas",
+      "orden": 7
+    },
+    {
+      "id": "fijaciones",
+      "nombre": "Fijación, Aislación y Consumibles",
+      "orden": 8
+    },
+    {
+      "id": "motores",
+      "nombre": "Motores y Automatización",
+      "orden": 9
+    },
+    {
+      "id": "renovables",
+      "nombre": "Energías Renovables y Respaldo",
+      "orden": 10
+    },
+    {
+      "id": "general",
+      "nombre": "General / Otros",
+      "orden": 99
+    }
+  ]
 }

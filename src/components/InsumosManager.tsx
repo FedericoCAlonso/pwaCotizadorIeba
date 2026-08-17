@@ -786,9 +786,14 @@ export const InsumosManager: React.FC = () => {
 
   // Filtrado de materiales
   const filteredMateriales = useMemo(() => {
+    const sTerm = searchTerm.toLowerCase();
     return materiales.filter(mat => {
-      const matchSearch = mat.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (mat.atributos && mat.atributos.some(a => a.valor.toLowerCase().includes(searchTerm.toLowerCase())));
+      const cat = categoriasMap.get(mat.categoriaId);
+      const matchSearch = !sTerm ||
+        mat.nombre.toLowerCase().includes(sTerm) ||
+        (cat?.nombre && cat.nombre.toLowerCase().includes(sTerm)) ||
+        (cat?.supercategoriaNombre && cat.supercategoriaNombre.toLowerCase().includes(sTerm)) ||
+        (mat.atributos && mat.atributos.some(a => a.valor.toLowerCase().includes(sTerm)));
       const matchCat = selectedCategory === 'todas' || mat.categoriaId === selectedCategory;
 
       let matchFicha = true;
@@ -812,7 +817,7 @@ export const InsumosManager: React.FC = () => {
 
       return matchSearch && matchCat && matchVenc && matchFicha;
     });
-  }, [materiales, searchTerm, selectedCategory, selectedVencimiento, selectedFichaStatus, ofertas, config]);
+  }, [materiales, searchTerm, selectedCategory, selectedVencimiento, selectedFichaStatus, ofertas, config, categoriasMap]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-24">
@@ -961,11 +966,27 @@ export const InsumosManager: React.FC = () => {
                     className="w-full px-3 py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface focus:outline-none"
                   >
                     <option value="todas">Todas las Categorías ({materiales.length})</option>
-                    {categorias.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre} ({materiales.filter(m => m.categoriaId === c.id).length})
-                      </option>
-                    ))}
+                    {(() => {
+                      const groups = categorias.reduce((acc, c) => {
+                        const superName = c.supercategoriaNombre || 'General / Otros';
+                        if (!acc[superName]) acc[superName] = [];
+                        acc[superName].push(c);
+                        return acc;
+                      }, {} as Record<string, typeof categorias>);
+
+                      return Object.entries(groups).map(([supercat, cats]) => (
+                        <optgroup key={supercat} label={supercat}>
+                          {cats.map((c) => {
+                            const count = materiales.filter((m) => m.categoriaId === c.id).length;
+                            return (
+                              <option key={c.id} value={c.id}>
+                                {c.nombre} ({count})
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      ));
+                    })()}
                   </select>
                 </div>
 

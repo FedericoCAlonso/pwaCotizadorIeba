@@ -13,6 +13,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { CategoriaMaterial, Material, AtributoSugerido, AtributoDependencia } from '../../core/types';
+import { DEFAULT_SUPERCATEGORIAS } from '../../core/sampleData';
 import { db, softDelete } from '../../db/database';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
@@ -382,9 +383,13 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
   const [editingCat, setEditingCat] = useState<CategoriaMaterial | null>(null);
   const [formDataCat, setFormDataCat] = useState<{
     nombre: string;
+    supercategoriaId: string;
+    supercategoriaNombre: string;
     atributosSugeridos: AtributoSugerido[];
   }>({
     nombre: '',
+    supercategoriaId: 'canalizaciones',
+    supercategoriaNombre: 'Canalización y Contención',
     atributosSugeridos: [],
   });
 
@@ -397,6 +402,8 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
     setEditingCat(null);
     setFormDataCat({
       nombre: '',
+      supercategoriaId: 'canalizaciones',
+      supercategoriaNombre: 'Canalización y Contención',
       atributosSugeridos: [],
     });
     setIsCreatingCat(true);
@@ -406,6 +413,8 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
     setEditingCat(cat);
     setFormDataCat({
       nombre: cat.nombre,
+      supercategoriaId: cat.supercategoriaId || 'general',
+      supercategoriaNombre: cat.supercategoriaNombre || 'General / Otros',
       atributosSugeridos: cat.atributosSugeridos
         ? cat.atributosSugeridos.map((a) => ({
             ...a,
@@ -420,6 +429,15 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
         : [],
     });
     setIsCreatingCat(true);
+  };
+
+  const handleSupercategoryChange = (superId: string) => {
+    const found = DEFAULT_SUPERCATEGORIAS.find(s => s.id === superId);
+    setFormDataCat(prev => ({
+      ...prev,
+      supercategoriaId: superId,
+      supercategoriaNombre: found ? found.nombre : superId
+    }));
   };
 
   const handleSaveCat = async (e: React.FormEvent) => {
@@ -445,6 +463,8 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
     if (editingCat) {
       await db.categoriasMaterial.update(editingCat.id, {
         nombre: formDataCat.nombre.trim(),
+        supercategoriaId: formDataCat.supercategoriaId,
+        supercategoriaNombre: formDataCat.supercategoriaNombre,
         atributosSugeridos: cleanAtributos,
       });
       toast.success('Categoría actualizada');
@@ -452,6 +472,8 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
       const newCat: CategoriaMaterial = {
         id: `cat-${crypto.randomUUID()}`,
         nombre: formDataCat.nombre.trim(),
+        supercategoriaId: formDataCat.supercategoriaId,
+        supercategoriaNombre: formDataCat.supercategoriaNombre,
         atributosSugeridos: cleanAtributos,
       };
       await db.categoriasMaterial.add(newCat);
@@ -555,7 +577,14 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                       <div className="p-2.5 bg-primary-container text-on-primary-container rounded-xl">
                         <Layers className="w-4 h-4" />
                       </div>
-                      <h4 className="font-bold text-on-surface text-base">{cat.nombre}</h4>
+                      <div>
+                        <h4 className="font-bold text-on-surface text-base">{cat.nombre}</h4>
+                        {cat.supercategoriaNombre && (
+                          <span className="text-[10px] text-primary font-medium tracking-wide">
+                            {cat.supercategoriaNombre}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {/* Chip M3: 8dp (rounded-lg) */}
                     <span className="text-[11px] font-medium text-on-surface-variant bg-surface-container-highest px-2.5 py-0.5 rounded-lg shrink-0 select-none">
@@ -642,18 +671,36 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
             </div>
 
             <form onSubmit={handleSaveCat} className="space-y-4 overflow-y-auto pr-1 flex-1">
-              <div>
-                <label className="block text-xs text-on-surface-variant mb-1 font-medium">
-                  Nombre de la Categoría
-                </label>
-                <input
-                  type="text"
-                  value={formDataCat.nombre}
-                  onChange={(e) => setFormDataCat({ ...formDataCat, nombre: e.target.value })}
-                  className={inputCls}
-                  placeholder="Ej: Tableros Eléctricos, Cables, Protecciones..."
-                  required
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-on-surface-variant mb-1 font-medium">
+                    Nombre de la Categoría *
+                  </label>
+                  <input
+                    type="text"
+                    value={formDataCat.nombre}
+                    onChange={(e) => setFormDataCat({ ...formDataCat, nombre: e.target.value })}
+                    className={inputCls}
+                    placeholder="Ej: Caños y Tuberías Conduit"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-on-surface-variant mb-1 font-medium">
+                    Supercategoría / Familia
+                  </label>
+                  <select
+                    value={formDataCat.supercategoriaId}
+                    onChange={(e) => handleSupercategoryChange(e.target.value)}
+                    className={inputCls}
+                  >
+                    {DEFAULT_SUPERCATEGORIAS.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div>

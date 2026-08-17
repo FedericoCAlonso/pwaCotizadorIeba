@@ -410,11 +410,17 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
 
       if (normCat.includes('cable') || normCat.includes('conductor')) return 'cat-cables';
       if (normCat.includes('termic') || normCat.includes('disyuntor') || normCat.includes('protec')) return 'cat-protecciones';
-      if (normCat.includes('caño') || normCat.includes('canal') || normCat.includes('ducto')) return 'cat-canalizaciones';
-      if (normCat.includes('caja') || normCat.includes('bastidor') || normCat.includes('modulo')) return 'cat-cajas';
+      if (normCat.includes('caño') || normCat.includes('tubo') || normCat.includes('conduit')) return 'cat-canos';
+      if (normCat.includes('bandeja')) return 'cat-bandejas';
+      if (normCat.includes('canal') || normCat.includes('ducto')) return 'cat-cablecanales';
+      if (normCat.includes('caja')) return 'cat-cajas';
+      if (normCat.includes('bastidor') || normCat.includes('tapa')) return 'cat-bastidores-tapas';
+      if (normCat.includes('modulo') || normCat.includes('toma') || normCat.includes('llave')) return 'cat-modulos-llaves';
       if (normCat.includes('tablero') || normCat.includes('gabinete')) return 'cat-tableros';
       if (normCat.includes('ilumin') || normCat.includes('lamp') || normCat.includes('led')) return 'cat-iluminacion';
       if (normCat.includes('tierra') || normCat.includes('jabalina') || normCat.includes('pat') || normCat.includes('medicion')) return 'cat-tierra';
+      if (normCat.includes('terminal') || normCat.includes('puntera')) return 'cat-terminales';
+      if (normCat.includes('tarugo') || normCat.includes('fijac') || normCat.includes('tornill')) return 'cat-fijacion';
 
       const newCatId = `cat-${normCat.replace(/[^a-z0-9]/g, '_')}`;
       if (!catMap.has(newCatId)) {

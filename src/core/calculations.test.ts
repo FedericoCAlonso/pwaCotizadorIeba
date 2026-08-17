@@ -635,7 +635,7 @@ describe('buildSearchTerm & searchUtils', () => {
     expect(tableros.length).toBeGreaterThanOrEqual(10);
 
     // Caños RS (pulgadas) y PVC (milimétricos)
-    const canos = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-canalizaciones' && (m.atributos.some(a => a.valor === 'Caño Semipesado/Pesado Metálico') || m.atributos.some(a => a.valor === 'Caño PVC Rígido')));
+    const canos = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-canos');
     expect(canos.length).toBeGreaterThanOrEqual(8);
     // Verificar que los caños de PVC usen mm (ej. 20 mm para 3/4)
     const canoPvc20 = INITIAL_MATERIALES.find(m => m.id === 'mat-cano-pvc-20');
@@ -643,14 +643,14 @@ describe('buildSearchTerm & searchUtils', () => {
     expect(canoPvc20?.nombre).toBe('Caño PVC Rígido 20 mm Gris IRAM 2005 - Tira 3m');
 
     // Conectores caño a caja
-    const conectores = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-fijacion' && m.atributos.some(a => a.clave === 'tipo_elemento' && a.valor.includes('Conector Caño a Caja')));
+    const conectores = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-accesorios-caneria');
     expect(conectores.length).toBeGreaterThanOrEqual(8);
     const conectorPvc20 = INITIAL_MATERIALES.find(m => m.id === 'mat-conector-pvc-20');
     expect(conectorPvc20).toBeDefined();
     expect(conectorPvc20?.nombre).toBe('Conector Caño a Caja PVC Rígido 20 mm con Tuerca');
 
     // Bandejas portacables y accesorios
-    const bandejas = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-canalizaciones' && m.atributos.some(a => a.clave === 'tipo_elemento' && (a.valor === 'Bandeja Portacable' || a.valor === 'Accesorio para Bandeja')));
+    const bandejas = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-bandejas' || m.categoriaId === 'cat-accesorios-bandejas');
     expect(bandejas.length).toBeGreaterThanOrEqual(25);
 
     // Protecciones (PIAs y Diferenciales)
@@ -659,20 +659,20 @@ describe('buildSearchTerm & searchUtils', () => {
     const difs = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-protecciones' && m.atributos.some(a => a.valor === 'Interruptor Diferencial (Disyuntor)'));
     expect(difs.length).toBeGreaterThanOrEqual(8);
 
-    // Módulos y Llaves
-    const modulos = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-modulos-llaves');
+    // Módulos, Llaves, Bastidores y Tapas
+    const modulos = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-modulos-llaves' || m.categoriaId === 'cat-bastidores-tapas');
     expect(modulos.length).toBeGreaterThanOrEqual(15);
     const tomas = modulos.filter(m => m.atributos.some(a => a.clave === 'tipo_modulo' && a.valor.includes('Tomacorriente')));
     expect(tomas.length).toBeGreaterThanOrEqual(4);
 
     // Terminales TIF y Distribuidores Tetrapolares / Neutro / Tierra
-    const tif = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-fijacion' && m.atributos.some(a => a.clave === 'tipo_elemento' && a.valor.includes('Terminal Tubular TIF')));
+    const tif = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-terminales');
     expect(tif.length).toBeGreaterThanOrEqual(12);
 
-    const distTetra = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-fijacion' && m.atributos.some(a => a.clave === 'tipo_elemento' && a.valor.includes('Repartidor Tetrapolar')));
+    const distTetra = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-accesorios-tablero' && m.atributos.some(a => a.clave === 'tipo_accesorio' && a.valor.includes('Repartidor Tetrapolar')));
     expect(distTetra.length).toBe(5);
 
-    const distNeutroTierra = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-fijacion' && m.atributos.some(a => a.clave === 'tipo_elemento' && a.valor.includes('Bornera Repartidora')));
+    const distNeutroTierra = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-accesorios-tablero' && m.atributos.some(a => a.clave === 'tipo_accesorio' && a.valor.includes('Bornera Repartidora')));
     expect(distNeutroTierra.length).toBe(6);
 
     // Puesta a Tierra (Jabalinas, Tomacables, Cajas de Inspección)

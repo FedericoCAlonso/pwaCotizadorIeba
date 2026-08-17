@@ -65,9 +65,18 @@ export interface AtributoTemplate {
 
 export type AtributoSugerido = AtributoTemplate;
 
+export interface SupercategoriaMaterial {
+  id: string;
+  nombre: string;
+  orden?: number;
+  icono?: string;
+}
+
 export interface CategoriaMaterial {
   id: string;
-  nombre: string; // "Cables", "Protecciones", "Canalizaciones", etc.
+  nombre: string; // "Caños y Tuberías", "Cables Unipolares", etc.
+  supercategoriaId?: string; // "canalizaciones", "conductores", "protecciones", etc.
+  supercategoriaNombre?: string; // "Canalización y Contención", "Conductores y Cables", etc.
   atributosSugeridos: AtributoTemplate[];
   createdAt?: string;
   updatedAt?: string;
