@@ -16,6 +16,7 @@ import {
 } from './calculations';
 import { Insumo, CategoriaManoDeObra, CostoIndirecto, CostoIndirectoItemConfig, TareaTipo, ItemPresupuesto } from './types';
 import { buildSearchTerm } from './searchUtils';
+import { INITIAL_CATEGORIAS_MATERIAL, INITIAL_MATERIALES } from './sampleData';
 
 // ─── Fixtures compartidas (auditoría #14) ────────────────────────────────────
 
@@ -596,11 +597,61 @@ describe('buildSearchTerm & searchUtils', () => {
       nombre: 'Cable Unipolar',
       atributos: [
         { clave: 'seccion', valor: '2.5 mm²' },
-        { clave: 'norma', valor: 'IRAM 247-3' }
+        { clave: 'norma', valor: 'IRAM 247-3' },
+        { clave: 'color', valor: 'Celeste (Neutro)' }
       ]
     };
     const term = buildSearchTerm({ tipo: 'material', material: mat });
-    expect(term).toBe('Cable Unipolar 2.5 mm² IRAM 247-3');
+    expect(term).toBe('Cable Unipolar 2.5 mm² IRAM 247-3 Celeste (Neutro)');
+  });
+
+  it('verifica que la categoría de cables en bdDefault incluya la propiedad color con código de colores', () => {
+    const cablesCat = INITIAL_CATEGORIAS_MATERIAL.find(c => c.id === 'cat-cables');
+    expect(cablesCat).toBeDefined();
+    const colorAttr = cablesCat?.atributosSugeridos.find(a => a.clave === 'color');
+    expect(colorAttr).toBeDefined();
+    expect(colorAttr?.opciones).toContain('Marrón (Fase)');
+    expect(colorAttr?.opciones).toContain('Celeste (Neutro)');
+    expect(colorAttr?.opciones).toContain('Verde/Amarillo (Tierra)');
+    expect(colorAttr?.dependencias).toBeDefined();
+  });
+
+  it('verifica que los materiales por defecto contengan cables, cajas, gabinetes, caños, conectores y bandejas válidos', () => {
+    expect(INITIAL_MATERIALES.length).toBeGreaterThanOrEqual(90);
+
+    // Cables unipolares
+    const cables15 = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-cables' && m.atributos.some(a => a.clave === 'seccion' && a.valor === '1.5'));
+    expect(cables15.length).toBe(7); // 7 colores
+
+    const cables25 = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-cables' && m.atributos.some(a => a.clave === 'seccion' && a.valor === '2.5'));
+    expect(cables25.length).toBe(5); // 5 colores principales
+
+    // Cajas (Chapa y PVC)
+    const cajas = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-cajas');
+    expect(cajas.length).toBe(8); // 4 tipos x 2 materiales
+
+    // Gabinetes
+    const tableros = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-tableros');
+    expect(tableros.length).toBeGreaterThanOrEqual(10);
+
+    // Caños RS (pulgadas) y PVC (milimétricos)
+    const canos = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-canalizaciones' && (m.atributos.some(a => a.valor === 'Caño Semipesado/Pesado Metálico') || m.atributos.some(a => a.valor === 'Caño PVC Rígido')));
+    expect(canos.length).toBeGreaterThanOrEqual(8);
+    // Verificar que los caños de PVC usen mm (ej. 20 mm para 3/4)
+    const canoPvc20 = INITIAL_MATERIALES.find(m => m.id === 'mat-cano-pvc-20');
+    expect(canoPvc20).toBeDefined();
+    expect(canoPvc20?.nombre).toBe('Caño PVC Rígido 20 mm Gris IRAM 2005 - Tira 3m');
+
+    // Conectores caño a caja
+    const conectores = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-fijacion' && m.atributos.some(a => a.clave === 'tipo_elemento' && a.valor.includes('Conector Caño a Caja')));
+    expect(conectores.length).toBeGreaterThanOrEqual(8);
+    const conectorPvc20 = INITIAL_MATERIALES.find(m => m.id === 'mat-conector-pvc-20');
+    expect(conectorPvc20).toBeDefined();
+    expect(conectorPvc20?.nombre).toBe('Conector Caño a Caja PVC Rígido 20 mm con Tuerca');
+
+    // Bandejas portacables y accesorios
+    const bandejas = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-canalizaciones' && m.atributos.some(a => a.clave === 'tipo_elemento' && (a.valor === 'Bandeja Portacable' || a.valor === 'Accesorio para Bandeja')));
+    expect(bandejas.length).toBeGreaterThanOrEqual(25);
   });
 
   it('arma correctamente el término para Producto con Código de Fabricante / SKU', () => {

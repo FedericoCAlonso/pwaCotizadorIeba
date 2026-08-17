@@ -2,6 +2,7 @@ import React from 'react';
 import { Save, X } from 'lucide-react';
 import { Producto } from '../../core/types';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { useModalKeyboardNavigation } from '../../hooks/useModalKeyboardNavigation';
 
 interface ProductoEditorModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export const ProductoEditorModal: React.FC<ProductoEditorModalProps> = ({
   onSave,
 }) => {
   useEscapeKey(isOpen, onClose);
+  const { containerRef, handleKeyDown } = useModalKeyboardNavigation({ isOpen });
 
   if (!isOpen) return null;
 
@@ -27,7 +29,11 @@ export const ProductoEditorModal: React.FC<ProductoEditorModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-sm shadow-2xl p-6 text-on-surface">
+      <div
+        ref={containerRef}
+        onKeyDown={handleKeyDown}
+        className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-sm shadow-2xl p-6 text-on-surface"
+      >
         <div className="flex items-center justify-between mb-4 border-b border-outline-variant/30 pb-3">
           <h3 className="text-base font-semibold text-on-surface">Agregar Producto / Marca</h3>
           <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface p-1">

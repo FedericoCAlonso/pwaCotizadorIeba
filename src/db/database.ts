@@ -20,6 +20,7 @@ import {
 import {
   DEFAULT_APP_CONFIG,
   INITIAL_CATEGORIAS_MATERIAL,
+  INITIAL_MATERIALES,
   INITIAL_CONTACTOS
 } from '../core/sampleData';
 
@@ -305,14 +306,21 @@ export async function initializeDatabaseSeed(): Promise<void> {
         }
       }
 
-      // 4. Asegurar contactos iniciales si la tabla contactos está vacía
+      // 4. Asegurar materiales iniciales si la tabla materiales está vacía
+      if (await db.materiales.count() === 0 && INITIAL_MATERIALES.length > 0) {
+        for (const mat of INITIAL_MATERIALES) {
+          await db.materiales.put(mat);
+        }
+      }
+
+      // 5. Asegurar contactos iniciales si la tabla contactos está vacía
       if (await db.contactos.count() === 0) {
         for (const ct of INITIAL_CONTACTOS) {
           await db.contactos.put(ct);
         }
       }
 
-      // 5. Inicializar configuración por defecto si la base está vacía
+      // 6. Inicializar configuración por defecto si la base está vacía
       if (await db.config.count() === 0) await db.config.add(DEFAULT_APP_CONFIG);
     });
     console.log('Verificación e inicialización de semillas de BD completada.');

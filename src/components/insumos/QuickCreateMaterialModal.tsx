@@ -1,7 +1,8 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { Zap, X, Plus } from 'lucide-react';
 import { Contacto } from '../../core/types';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { useModalKeyboardNavigation } from '../../hooks/useModalKeyboardNavigation';
 
 interface QuickCreateMaterialModalProps {
   isOpen: boolean;
@@ -40,8 +41,8 @@ export const QuickCreateMaterialModal: React.FC<QuickCreateMaterialModalProps> =
   setModoCargaContinua,
   onSave,
 }) => {
-  const quickMatNombreRef = useRef<HTMLInputElement>(null);
   useEscapeKey(isOpen, onClose);
+  const { containerRef, handleKeyDown } = useModalKeyboardNavigation({ isOpen });
 
   if (!isOpen) return null;
 
@@ -50,7 +51,11 @@ export const QuickCreateMaterialModal: React.FC<QuickCreateMaterialModalProps> =
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-md shadow-2xl p-6 text-on-surface">
+      <div
+        ref={containerRef}
+        onKeyDown={handleKeyDown}
+        className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-md shadow-2xl p-6 text-on-surface"
+      >
         <div className="flex items-center justify-between mb-3 border-b border-outline-variant/30 pb-3">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-amber-500/10 rounded-xl text-amber-500">
@@ -74,7 +79,6 @@ export const QuickCreateMaterialModal: React.FC<QuickCreateMaterialModalProps> =
               Nombre o Descripción del Material *
             </label>
             <input
-              ref={quickMatNombreRef}
               type="text"
               value={formDataQuickMat.nombre}
               onChange={(e) => setFormDataQuickMat({ ...formDataQuickMat, nombre: e.target.value })}

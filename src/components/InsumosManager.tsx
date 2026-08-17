@@ -127,12 +127,6 @@ export const InsumosManager: React.FC = () => {
   const [modoCargaContinua, setModoCargaContinua] = useState(false);
   const quickMatNombreRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const handleNew = () => setIsQuickCreateMat(true);
-    window.addEventListener('app:shortcut-new', handleNew);
-    return () => window.removeEventListener('app:shortcut-new', handleNew);
-  }, []);
-
   // Helper para armar ofertas agrupadas por material (priorizando marca preferida)
   const getOfertaVigente = (materialId: string, productoId?: string): Oferta | undefined => {
     if (productoId) {
@@ -302,6 +296,12 @@ export const InsumosManager: React.FC = () => {
     setIsCreatingMat(true);
   };
 
+  useEffect(() => {
+    const handleNew = () => handleOpenCreateMat();
+    window.addEventListener('app:shortcut-new', handleNew);
+    return () => window.removeEventListener('app:shortcut-new', handleNew);
+  }, [categorias]);
+
   const handleOpenEditMat = (mat: Material) => {
     setEditingMat(mat);
     setFormDataMat({
@@ -317,14 +317,65 @@ export const InsumosManager: React.FC = () => {
     setIsCreatingMat(true);
   };
 
+  const applyAttributeDependencies = (
+    cat: CategoriaMaterial | undefined,
+    attrs: { clave: string; valor: string }[]
+  ): { clave: string; valor: string }[] => {
+    if (!cat?.atributosSugeridos) return attrs;
+    let nextAttrs = [...attrs];
+
+    let changed = true;
+    let iterations = 0;
+    while (changed && iterations < 5) {
+      changed = false;
+      iterations++;
+      for (const tpl of cat.atributosSugeridos) {
+        if (!tpl.dependencias || tpl.dependencias.length === 0) continue;
+        let blockedVal: string | null = null;
+        const allFixedValues: string[] = [];
+
+        for (const dep of tpl.dependencias) {
+          if (dep.valorFijo) {
+            allFixedValues.push(dep.valorFijo);
+          }
+          const parentVal = nextAttrs.find(a => a.clave === dep.dependeVinculo)?.valor;
+          if (parentVal && parentVal.includes(dep.valorEsperado) && dep.bloqueado && dep.valorFijo) {
+            blockedVal = dep.valorFijo;
+          }
+        }
+
+        const currentIdx = nextAttrs.findIndex(a => a.clave === tpl.clave);
+        const currentVal = currentIdx >= 0 ? nextAttrs[currentIdx].valor : '';
+
+        if (blockedVal !== null) {
+          if (currentVal !== blockedVal) {
+            if (currentIdx >= 0) {
+              nextAttrs[currentIdx] = { ...nextAttrs[currentIdx], valor: blockedVal };
+            } else {
+              nextAttrs.push({ clave: tpl.clave, valor: blockedVal });
+            }
+            changed = true;
+          }
+        } else if (allFixedValues.length > 0 && allFixedValues.includes(currentVal)) {
+          if (currentIdx >= 0) {
+            nextAttrs[currentIdx] = { ...nextAttrs[currentIdx], valor: '' };
+            changed = true;
+          }
+        }
+      }
+    }
+    return nextAttrs;
+  };
+
   const handleCategoryChange = (catId: string) => {
     const cat = categoriasMap.get(catId);
     const prevAtributos = formDataMat.atributos || [];
-    const newAtributos = cat?.atributosSugeridos?.map(a => {
+    let newAtributos = cat?.atributosSugeridos?.map(a => {
       const existing = prevAtributos.find(pa => pa.clave === a.clave);
       return { clave: a.clave, valor: existing ? existing.valor : '' };
     }) || [];
 
+    newAtributos = applyAttributeDependencies(cat, newAtributos);
     const autoName = buildAutoName(catId, newAtributos);
 
     setFormDataMat(prev => ({
@@ -337,13 +388,16 @@ export const InsumosManager: React.FC = () => {
 
   const handleAttributeValueChange = (clave: string, valor: string) => {
     setFormDataMat(prev => {
-      const currentAttrs = prev.atributos ? [...prev.atributos] : [];
+      let currentAttrs = prev.atributos ? [...prev.atributos] : [];
       const idx = currentAttrs.findIndex(a => a.clave === clave);
       if (idx >= 0) {
         currentAttrs[idx] = { ...currentAttrs[idx], valor };
       } else {
         currentAttrs.push({ clave, valor });
       }
+
+      const cat = categoriasMap.get(prev.categoriaId || '');
+      currentAttrs = applyAttributeDependencies(cat, currentAttrs);
 
       const autoName = buildAutoName(prev.categoriaId, currentAttrs);
 
@@ -393,13 +447,15 @@ export const InsumosManager: React.FC = () => {
   const handleSaveMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
     const now = new Date().toISOString();
+    const cat = categoriasMap.get(formDataMat.categoriaId || '');
+    const cleanAtributos = applyAttributeDependencies(cat, formDataMat.atributos || []);
 
     if (editingMat) {
       await db.materiales.update(editingMat.id, {
         categoriaId: formDataMat.categoriaId || 'cat-sin-categoria',
         nombre: formDataMat.nombre?.trim() || editingMat.nombre,
         unidadVenta: formDataMat.unidadVenta || 'u',
-        atributos: formDataMat.atributos || [],
+        atributos: cleanAtributos,
         activo: formDataMat.activo ?? true,
         urlMercadoLibre: formDataMat.urlMercadoLibre,
         notas: formDataMat.notas,
@@ -415,7 +471,7 @@ export const InsumosManager: React.FC = () => {
         categoriaId: formDataMat.categoriaId || 'cat-sin-categoria',
         nombre: formDataMat.nombre?.trim() || 'Nuevo Material',
         unidadVenta: formDataMat.unidadVenta || 'u',
-        atributos: formDataMat.atributos || [],
+        atributos: cleanAtributos,
         activo: formDataMat.activo ?? true,
         urlMercadoLibre: formDataMat.urlMercadoLibre,
         notas: formDataMat.notas,

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle, RefreshCw, Layers, Plus, Edit2, Trash2, Check, RotateCcw } from 'lucide-react';
 import { AppConfig } from '../core/types';
 import { db } from '../db/database';
-import { TIPOS_FACTURA, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL, DEFAULT_MOTORES_BUSQUEDA, BASE_TAREA_CATEGORIES } from '../core/sampleData';
+import { TIPOS_FACTURA, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL, INITIAL_MATERIALES, DEFAULT_MOTORES_BUSQUEDA, BASE_TAREA_CATEGORIES } from '../core/sampleData';
 import { isFirebaseConfigured, getFirebaseConfig, clearCustomFirebaseConfig } from '../config/firebase';
 import { AuthModal } from './AuthModal';
 import { useToast } from '../contexts/ToastContext';
@@ -66,6 +66,19 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
     if (ok) {
       await db.categoriasMaterial.bulkPut(INITIAL_CATEGORIAS_MATERIAL);
       toast.success('Las categorías de materiales por defecto han sido restauradas.');
+    }
+  };
+
+  const handleRestoreDefaultMaterials = async () => {
+    const ok = await confirm({
+      title: 'Cargar / Restaurar Catálogo Base de Materiales',
+      message: `¿Estás seguro de cargar el catálogo base de materiales (${INITIAL_MATERIALES.length} fichas técnicas: cables unipolares con código de colores, cajas, gabinetes, caños RS y PVC, conectores y bandejas portacables con accesorios)?`,
+      confirmText: 'Cargar Catálogo Base',
+      isDestructive: false
+    });
+    if (ok) {
+      await db.materiales.bulkPut(INITIAL_MATERIALES);
+      toast.success(`${INITIAL_MATERIALES.length} materiales base cargados correctamente en el catálogo.`);
     }
   };
 
@@ -730,6 +743,20 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                   className="px-4 py-2 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 font-semibold text-xs rounded-xl border border-rose-500/30 transition-colors"
                 >
                   Restaurar Categorías de Materiales IEBA
+                </button>
+              </div>
+
+              <div className="pt-3 border-t border-rose-500/20">
+                <h4 className="text-xs font-bold text-on-surface">Cargar / Restaurar Catálogo Base de Materiales</h4>
+                <p className="text-[11px] text-on-surface-variant mt-0.5 mb-2">
+                  Carga las fichas técnicas por defecto en el catálogo: {INITIAL_MATERIALES.length} materiales (cables unipolares con código de colores, cajas de chapa y PVC, gabinetes, caños RS y PVC, conectores y bandejas portacables con accesorios).
+                </p>
+                <button
+                  type="button"
+                  onClick={handleRestoreDefaultMaterials}
+                  className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 font-semibold text-xs rounded-xl border border-primary/30 transition-colors"
+                >
+                  Cargar Catálogo Base de Materiales ({INITIAL_MATERIALES.length} Fichas)
                 </button>
               </div>
 

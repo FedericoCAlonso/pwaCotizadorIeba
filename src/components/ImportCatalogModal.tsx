@@ -818,7 +818,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
               <div className="p-3.5 bg-primary/5 border border-primary/20 rounded-2xl text-xs space-y-1">
                 <span className="font-semibold text-primary block">✨ Autogeneración de Nombres Técnicos</span>
                 <p className="text-on-surface-variant text-[11px]">
-                  Los nombres de los materiales se construirán automáticamente combinando la categoría y los atributos encontrados en las columnas del archivo usando el separador Pipe (ej. <code className="text-primary font-mono font-semibold">Cables & Conductores | Sección = 2,5 mm² | Norma = IRAM 247-3</code>).
+                  Los nombres de los materiales se construirán automáticamente combinando la categoría y los atributos encontrados en las columnas del archivo usando el separador Pipe (ej. <code className="text-primary font-mono font-semibold">Cables | Tipo = IRAM 247-3 | Cantidad de Conductores = 1 | Sección Nominal = 2.5 mm² | Color / Código = Marrón (Fase)</code>).
                 </p>
               </div>
 

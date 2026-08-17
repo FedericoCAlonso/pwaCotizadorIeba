@@ -47,7 +47,7 @@
             "heading": "Familias Normativas de Materiales",
             "content": "El catálogo organiza los insumos en 13 familias técnicas preconfiguradas (Cables, Protecciones, Canalizaciones, Cajas, Módulos y Llaves, Tableros, Iluminación, Puesta a Tierra, etc.). Cada familia define los atributos sugeridos con sus unidades de ingeniería.",
             "bullets": [
-              "Fichas Técnicas Normalizadas: Los nombres se construyen automáticamente combinando los atributos (ej. Cables | Norma = IRAM 247-3 | Conductores = 1 | Sección = 2.5 mm²).",
+              "Fichas Técnicas Normalizadas: Los nombres se construyen automáticamente combinando los atributos (ej. Cables | Norma = IRAM 247-3 | Conductores = 1 | Sección = 2.5 mm² | Color = Celeste (Neutro)).",
               "Alerta de Ficha Incompleta: Identifica inmediatamente materiales creados por alta rápida que requieran completar atributos técnicos."
             ]
           },

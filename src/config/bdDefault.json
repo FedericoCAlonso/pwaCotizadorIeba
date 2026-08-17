@@ -24,7 +24,13 @@
           "clave": "conductores",
           "etiqueta": "Cantidad de Conductores",
           "tipo": "numero",
-          "opciones": ["1", "2", "3", "4", "5"],
+          "opciones": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5"
+          ],
           "dependencias": [
             {
               "dependeVinculo": "norma",
@@ -35,12 +41,23 @@
             {
               "dependeVinculo": "norma",
               "valorEsperado": "IRAM 2178 (Tipo Sintenax Subterráneo)",
-              "opcionesFiltradas": ["1", "2", "3", "4", "5"]
+              "opcionesFiltradas": [
+                "1",
+                "2",
+                "3",
+                "4",
+                "5"
+              ]
             },
             {
               "dependeVinculo": "norma",
               "valorEsperado": "IRAM 2004 (Taller TPR)",
-              "opcionesFiltradas": ["2", "3", "4", "5"]
+              "opcionesFiltradas": [
+                "2",
+                "3",
+                "4",
+                "5"
+              ]
             }
           ]
         },
@@ -49,13 +66,70 @@
           "etiqueta": "Sección Nominal",
           "unidad": "mm²",
           "tipo": "numero",
-          "opciones": ["1.5", "2.5", "4", "6", "10", "16", "25", "35", "50", "70", "95", "120"]
+          "opciones": [
+            "1.5",
+            "2.5",
+            "4",
+            "6",
+            "10",
+            "16",
+            "25",
+            "35",
+            "50",
+            "70",
+            "95",
+            "120"
+          ]
+        },
+        {
+          "clave": "color",
+          "etiqueta": "Color / Código",
+          "tipo": "texto",
+          "opciones": [
+            "Marrón (Fase)",
+            "Negro (Fase)",
+            "Rojo (Fase)",
+            "Celeste (Neutro)",
+            "Verde/Amarillo (Tierra)",
+            "Blanco (Retorno)",
+            "Gris"
+          ],
+          "dependencias": [
+            {
+              "dependeVinculo": "conductores",
+              "valorEsperado": "2",
+              "bloqueado": true,
+              "valorFijo": "Bipolar (Normalizado)"
+            },
+            {
+              "dependeVinculo": "conductores",
+              "valorEsperado": "3",
+              "bloqueado": true,
+              "valorFijo": "Tripolar (Normalizado)"
+            },
+            {
+              "dependeVinculo": "conductores",
+              "valorEsperado": "4",
+              "bloqueado": true,
+              "valorFijo": "Tetrapolar (Normalizado)"
+            },
+            {
+              "dependeVinculo": "conductores",
+              "valorEsperado": "5",
+              "bloqueado": true,
+              "valorFijo": "Pentapolar (Normalizado)"
+            }
+          ]
         },
         {
           "clave": "aislacion",
           "etiqueta": "Tipo de Aislación",
           "tipo": "texto",
-          "opciones": ["PVC", "XLPE", "LS0H (Baja Emisión de Humos)"]
+          "opciones": [
+            "PVC",
+            "XLPE",
+            "LS0H (Baja Emisión de Humos)"
+          ]
         }
       ]
     },
@@ -77,17 +151,30 @@
           "clave": "polos",
           "etiqueta": "Cantidad de Polos",
           "tipo": "numero",
-          "opciones": ["1", "2", "3", "4"],
+          "opciones": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
           "dependencias": [
             {
               "dependeVinculo": "tipo_proteccion",
               "valorEsperado": "Termomagnética (PIA)",
-              "opcionesFiltradas": ["1", "2", "3", "4"]
+              "opcionesFiltradas": [
+                "1",
+                "2",
+                "3",
+                "4"
+              ]
             },
             {
               "dependeVinculo": "tipo_proteccion",
               "valorEsperado": "Interruptor Diferencial (Disyuntor)",
-              "opcionesFiltradas": ["2", "4"]
+              "opcionesFiltradas": [
+                "2",
+                "4"
+              ]
             }
           ]
         },
@@ -96,13 +183,29 @@
           "etiqueta": "Corriente Nominal (In)",
           "unidad": "A",
           "tipo": "numero",
-          "opciones": ["6", "10", "16", "20", "25", "32", "40", "50", "63", "80", "100"]
+          "opciones": [
+            "6",
+            "10",
+            "16",
+            "20",
+            "25",
+            "32",
+            "40",
+            "50",
+            "63",
+            "80",
+            "100"
+          ]
         },
         {
           "clave": "curva",
           "etiqueta": "Curva de Disparo",
           "tipo": "texto",
-          "opciones": ["Curva B", "Curva C", "Curva D"],
+          "opciones": [
+            "Curva B",
+            "Curva C",
+            "Curva D"
+          ],
           "dependencias": [
             {
               "dependeVinculo": "tipo_proteccion",
@@ -117,7 +220,11 @@
           "etiqueta": "Sensibilidad Diferencial (IΔn)",
           "unidad": "mA",
           "tipo": "numero",
-          "opciones": ["10", "30", "300"],
+          "opciones": [
+            "10",
+            "30",
+            "300"
+          ],
           "dependencias": [
             {
               "dependeVinculo": "tipo_proteccion",
@@ -128,7 +235,11 @@
             {
               "dependeVinculo": "tipo_proteccion",
               "valorEsperado": "Interruptor Diferencial (Disyuntor)",
-              "opcionesFiltradas": ["10", "30", "300"]
+              "opcionesFiltradas": [
+                "10",
+                "30",
+                "300"
+              ]
             }
           ]
         }
@@ -148,7 +259,8 @@
             "Caño Semipesado/Pesado Metálico",
             "Caño Flexible Metálico (Bx)",
             "Bandeja Portacable",
-            "Canaleta/Cableducto PVC"
+            "Canaleta/Cableducto PVC",
+            "Accesorio para Bandeja"
           ]
         },
         {
@@ -156,10 +268,41 @@
           "etiqueta": "Diámetro Nominal",
           "unidad": "mm",
           "tipo": "texto",
-          "opciones": ["13", "16", "19", "21", "25", "32", "38", "51", "63", "75", "110"],
+          "opciones": [
+            "13",
+            "16",
+            "19",
+            "20",
+            "22",
+            "25",
+            "32",
+            "38",
+            "40",
+            "50",
+            "51",
+            "63",
+            "75",
+            "110"
+          ],
           "dependencias": [
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Bandeja Portacable", "bloqueado": true, "valorFijo": "N/A" },
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Canaleta/Cableducto PVC", "bloqueado": true, "valorFijo": "N/A" }
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Bandeja Portacable",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Canaleta/Cableducto PVC",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Accesorio para Bandeja",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            }
           ]
         },
         {
@@ -167,12 +310,44 @@
           "etiqueta": "Ancho",
           "unidad": "mm",
           "tipo": "numero",
-          "opciones": ["20", "40", "60", "100", "150", "200", "300", "400", "600"],
+          "opciones": [
+            "20",
+            "40",
+            "50",
+            "60",
+            "100",
+            "150",
+            "200",
+            "300",
+            "400",
+            "450",
+            "600"
+          ],
           "dependencias": [
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño PVC Rígido", "bloqueado": true, "valorFijo": "N/A" },
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Corrugado Reforzado", "bloqueado": true, "valorFijo": "N/A" },
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Semipesado/Pesado Metálico", "bloqueado": true, "valorFijo": "N/A" },
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Flexible Metálico (Bx)", "bloqueado": true, "valorFijo": "N/A" }
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Caño PVC Rígido",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Caño Corrugado Reforzado",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Caño Semipesado/Pesado Metálico",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Caño Flexible Metálico (Bx)",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            }
           ]
         },
         {
@@ -180,12 +355,38 @@
           "etiqueta": "Alto",
           "unidad": "mm",
           "tipo": "numero",
-          "opciones": ["10", "25", "50", "75", "100"],
+          "opciones": [
+            "10",
+            "25",
+            "50",
+            "75",
+            "100"
+          ],
           "dependencias": [
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño PVC Rígido", "bloqueado": true, "valorFijo": "N/A" },
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Corrugado Reforzado", "bloqueado": true, "valorFijo": "N/A" },
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Semipesado/Pesado Metálico", "bloqueado": true, "valorFijo": "N/A" },
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Flexible Metálico (Bx)", "bloqueado": true, "valorFijo": "N/A" }
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Caño PVC Rígido",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Caño Corrugado Reforzado",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Caño Semipesado/Pesado Metálico",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Caño Flexible Metálico (Bx)",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            }
           ]
         },
         {
@@ -203,25 +404,105 @@
           "clave": "subtipo",
           "etiqueta": "Subtipo",
           "tipo": "texto",
-          "opciones": ["Perforada", "Tipo Escalera", "Ciega/Canal"],
+          "opciones": [
+            "Perforada",
+            "Tipo Escalera",
+            "Ciega/Canal",
+            "Curva Plana 90°",
+            "Curva Vertical",
+            "Tapa",
+            "Cupla Unión",
+            "Ménsula de Apoyo",
+            "Soporte para Caja"
+          ],
           "dependencias": [
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Bandeja Portacable", "opcionesFiltradas": ["Perforada", "Tipo Escalera", "Ciega/Canal"] },
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño PVC Rígido", "bloqueado": true, "valorFijo": "N/A" },
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Corrugado Reforzado", "bloqueado": true, "valorFijo": "N/A" },
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Semipesado/Pesado Metálico", "bloqueado": true, "valorFijo": "N/A" },
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Flexible Metálico (Bx)", "bloqueado": true, "valorFijo": "N/A" },
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Canaleta/Cableducto PVC", "bloqueado": true, "valorFijo": "N/A" }
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Bandeja Portacable",
+              "opcionesFiltradas": [
+                "Perforada",
+                "Tipo Escalera",
+                "Ciega/Canal"
+              ]
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Caño PVC Rígido",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Caño Corrugado Reforzado",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Caño Semipesado/Pesado Metálico",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Caño Flexible Metálico (Bx)",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Canaleta/Cableducto PVC",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Accesorio para Bandeja",
+              "opcionesFiltradas": [
+                "Curva Plana 90°",
+                "Curva Vertical",
+                "Tapa",
+                "Cupla Unión",
+                "Ménsula de Apoyo",
+                "Soporte para Caja"
+              ]
+            }
           ]
         },
         {
           "clave": "color",
           "etiqueta": "Color",
           "tipo": "texto",
-          "opciones": ["Negro", "Gris", "Blanco"],
+          "opciones": [
+            "Negro",
+            "Gris",
+            "Blanco"
+          ],
           "dependencias": [
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Semipesado/Pesado Metálico", "bloqueado": true, "valorFijo": "N/A" },
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Caño Flexible Metálico (Bx)", "bloqueado": true, "valorFijo": "N/A" },
-            { "dependeVinculo": "tipo_elemento", "valorEsperado": "Bandeja Portacable", "bloqueado": true, "valorFijo": "N/A" }
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Caño Semipesado/Pesado Metálico",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Caño Flexible Metálico (Bx)",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Bandeja Portacable",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            },
+            {
+              "dependeVinculo": "tipo_elemento",
+              "valorEsperado": "Accesorio para Bandeja",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            }
           ]
         }
       ]
@@ -267,17 +548,30 @@
             {
               "dependeVinculo": "montaje",
               "valorEsperado": "Embutir Mampostería",
-              "opcionesFiltradas": ["PVC Ignífugo", "Chapa BWG", "Chapa Cincada / Galvanizada"]
+              "opcionesFiltradas": [
+                "PVC Ignífugo",
+                "Chapa BWG",
+                "Chapa Cincada / Galvanizada"
+              ]
             },
             {
               "dependeVinculo": "montaje",
               "valorEsperado": "Embutir Durlock / En Seco",
-              "opcionesFiltradas": ["PVC Ignífugo", "Chapa BWG", "Chapa Cincada / Galvanizada"]
+              "opcionesFiltradas": [
+                "PVC Ignífugo",
+                "Chapa BWG",
+                "Chapa Cincada / Galvanizada"
+              ]
             },
             {
               "dependeVinculo": "montaje",
               "valorEsperado": "Superficie / Exterior",
-              "opcionesFiltradas": ["PVC Estanco / Termoplástico", "Aluminio Inyectado (Tipo Daisa)", "Chapa Cincada / Galvanizada", "PVC Ignífugo"]
+              "opcionesFiltradas": [
+                "PVC Estanco / Termoplástico",
+                "Aluminio Inyectado (Tipo Daisa)",
+                "Chapa Cincada / Galvanizada",
+                "PVC Ignífugo"
+              ]
             }
           ]
         },
@@ -345,7 +639,11 @@
             {
               "dependeVinculo": "montaje",
               "valorEsperado": "Superficie / Exterior",
-              "opcionesFiltradas": ["IP40 (Superficie común)", "IP65 (Estanca Intemperie)", "IP67 (Industrial)"]
+              "opcionesFiltradas": [
+                "IP40 (Superficie común)",
+                "IP65 (Estanca Intemperie)",
+                "IP67 (Industrial)"
+              ]
             }
           ]
         }
@@ -375,13 +673,23 @@
           "clave": "linea",
           "etiqueta": "Línea/Serie",
           "tipo": "texto",
-          "opciones": ["Cambre Siglo XXII", "Cambre 711", "Jeluz Iggual", "Otra"]
+          "opciones": [
+            "Cambre Siglo XXII",
+            "Cambre 711",
+            "Jeluz Iggual",
+            "Otra"
+          ]
         },
         {
           "clave": "cantidad_modulos",
           "etiqueta": "Cantidad de Módulos que Ocupa",
           "tipo": "numero",
-          "opciones": ["1", "2", "3", "4"],
+          "opciones": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
           "dependencias": [
             {
               "dependeVinculo": "tipo_modulo",
@@ -396,7 +704,12 @@
           "etiqueta": "Amperaje",
           "unidad": "A",
           "tipo": "numero",
-          "opciones": ["10", "16", "20", "32"],
+          "opciones": [
+            "10",
+            "16",
+            "20",
+            "32"
+          ],
           "dependencias": [
             {
               "dependeVinculo": "tipo_modulo",
@@ -416,7 +729,10 @@
           "clave": "con_tierra",
           "etiqueta": "Con/Sin Puesta a Tierra",
           "tipo": "texto",
-          "opciones": ["Con Tierra", "Sin Tierra"],
+          "opciones": [
+            "Con Tierra",
+            "Sin Tierra"
+          ],
           "dependencias": [
             {
               "dependeVinculo": "tipo_modulo",
@@ -452,7 +768,12 @@
             "Pilar Exterior"
           ],
           "dependencias": [
-            { "dependeVinculo": "tipo_envolvente", "valorEsperado": "Caja de Medidor / Pilar", "bloqueado": true, "valorFijo": "Pilar Exterior" }
+            {
+              "dependeVinculo": "tipo_envolvente",
+              "valorEsperado": "Caja de Medidor / Pilar",
+              "bloqueado": true,
+              "valorFijo": "Pilar Exterior"
+            }
           ]
         },
         {
@@ -469,10 +790,31 @@
           "clave": "capacidad_modulos",
           "etiqueta": "Capacidad (Módulos DIN)",
           "tipo": "numero",
-          "opciones": ["2", "4", "8", "12", "18", "24", "36", "48", "54", "72"],
+          "opciones": [
+            "2",
+            "4",
+            "8",
+            "12",
+            "18",
+            "24",
+            "36",
+            "48",
+            "54",
+            "72"
+          ],
           "dependencias": [
-            { "dependeVinculo": "tipo_envolvente", "valorEsperado": "Gabinete con Placa de Montaje", "bloqueado": true, "valorFijo": "N/A (Lleva Placa)" },
-            { "dependeVinculo": "tipo_envolvente", "valorEsperado": "Caja de Medidor / Pilar", "bloqueado": true, "valorFijo": "N/A" }
+            {
+              "dependeVinculo": "tipo_envolvente",
+              "valorEsperado": "Gabinete con Placa de Montaje",
+              "bloqueado": true,
+              "valorFijo": "N/A (Lleva Placa)"
+            },
+            {
+              "dependeVinculo": "tipo_envolvente",
+              "valorEsperado": "Caja de Medidor / Pilar",
+              "bloqueado": true,
+              "valorFijo": "N/A"
+            }
           ]
         },
         {
@@ -486,8 +828,18 @@
             "Armario Autoportante (de piso)"
           ],
           "dependencias": [
-            { "dependeVinculo": "tipo_envolvente", "valorEsperado": "Tablero Modular DIN", "bloqueado": true, "valorFijo": "Según Módulos DIN" },
-            { "dependeVinculo": "tipo_envolvente", "valorEsperado": "Caja de Medidor / Pilar", "bloqueado": true, "valorFijo": "Normalizado" }
+            {
+              "dependeVinculo": "tipo_envolvente",
+              "valorEsperado": "Tablero Modular DIN",
+              "bloqueado": true,
+              "valorFijo": "Según Módulos DIN"
+            },
+            {
+              "dependeVinculo": "tipo_envolvente",
+              "valorEsperado": "Caja de Medidor / Pilar",
+              "bloqueado": true,
+              "valorFijo": "Normalizado"
+            }
           ]
         },
         {
@@ -553,12 +905,22 @@
           "etiqueta": "Sección",
           "unidad": "mm²",
           "tipo": "numero",
-          "opciones": ["16", "25", "35", "50"],
+          "opciones": [
+            "16",
+            "25",
+            "35",
+            "50"
+          ],
           "dependencias": [
             {
               "dependeVinculo": "tipo_elemento",
               "valorEsperado": "Cable de PAT Desnudo",
-              "opcionesFiltradas": ["16", "25", "35", "50"]
+              "opcionesFiltradas": [
+                "16",
+                "25",
+                "35",
+                "50"
+              ]
             }
           ]
         },
@@ -580,6 +942,8 @@
           "etiqueta": "Tipo de Elemento",
           "tipo": "texto",
           "opciones": [
+            "Conector Caño a Caja PVC",
+            "Conector Caño a Caja Metálico",
             "Abrazadera Metálica",
             "Abrazadera Nylon (Precinto)",
             "Taco/Tarugo Fischer",
@@ -593,13 +957,33 @@
           "clave": "medida",
           "etiqueta": "Medida/Diámetro",
           "tipo": "texto",
-          "opciones": []
+          "opciones": [
+            "19 mm (3/4\")",
+            "20 mm",
+            "22 mm (7/8\")",
+            "22 mm",
+            "25 mm (1\")",
+            "25 mm",
+            "32 mm (1 1/4\")",
+            "32 mm",
+            "38 mm (1 1/2\")",
+            "40 mm",
+            "50 mm",
+            "51 mm (2\")",
+            "6 mm",
+            "8 mm",
+            "10 mm"
+          ]
         },
         {
           "clave": "presentacion",
           "etiqueta": "Presentación",
           "tipo": "texto",
-          "opciones": ["Unidad", "Bolsa x100", "Rollo"]
+          "opciones": [
+            "Unidad",
+            "Bolsa x100",
+            "Rollo"
+          ]
         }
       ]
     },
@@ -625,14 +1009,27 @@
           "etiqueta": "Corriente Nominal (In)",
           "unidad": "A",
           "tipo": "numero",
-          "opciones": ["9", "12", "18", "25", "32", "40", "50"]
+          "opciones": [
+            "9",
+            "12",
+            "18",
+            "25",
+            "32",
+            "40",
+            "50"
+          ]
         },
         {
           "clave": "tension_bobina",
           "etiqueta": "Tensión de Bobina",
           "unidad": "V",
           "tipo": "texto",
-          "opciones": ["24V CC", "110V CA", "220V CA", "380V CA"],
+          "opciones": [
+            "24V CC",
+            "110V CA",
+            "220V CA",
+            "380V CA"
+          ],
           "dependencias": [
             {
               "dependeVinculo": "tipo_dispositivo",
@@ -718,14 +1115,27 @@
           "clave": "tecnologia",
           "etiqueta": "Tecnología",
           "tipo": "texto",
-          "opciones": ["Monocristalino", "Policristalino", "PWM", "MPPT", "Gel", "AGM", "Litio (LiFePO4)"]
+          "opciones": [
+            "Monocristalino",
+            "Policristalino",
+            "PWM",
+            "MPPT",
+            "Gel",
+            "AGM",
+            "Litio (LiFePO4)"
+          ]
         },
         {
           "clave": "tension",
           "etiqueta": "Tensión Nominal",
           "unidad": "V",
           "tipo": "numero",
-          "opciones": ["12", "24", "48", "220"]
+          "opciones": [
+            "12",
+            "24",
+            "48",
+            "220"
+          ]
         }
       ]
     },
@@ -742,7 +1152,3192 @@
       ]
     }
   ],
-  "materiales": [],
+  "materiales": [
+    {
+      "id": "mat-cable-uni-1.5-marron",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 1.5 mm² Marrón (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "1.5"
+        },
+        {
+          "clave": "color",
+          "valor": "Marrón (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-1.5-negro",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 1.5 mm² Negro (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "1.5"
+        },
+        {
+          "clave": "color",
+          "valor": "Negro (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-1.5-rojo",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 1.5 mm² Rojo (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "1.5"
+        },
+        {
+          "clave": "color",
+          "valor": "Rojo (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-1.5-celeste",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 1.5 mm² Celeste (Neutro) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "1.5"
+        },
+        {
+          "clave": "color",
+          "valor": "Celeste (Neutro)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-1.5-verde-amarillo",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 1.5 mm² Verde/Amarillo (Tierra) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "1.5"
+        },
+        {
+          "clave": "color",
+          "valor": "Verde/Amarillo (Tierra)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-1.5-blanco",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 1.5 mm² Blanco (Retorno) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "1.5"
+        },
+        {
+          "clave": "color",
+          "valor": "Blanco (Retorno)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-1.5-gris",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 1.5 mm² Gris IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "1.5"
+        },
+        {
+          "clave": "color",
+          "valor": "Gris"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-2_5-marron",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 2.5 mm² Marrón (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "2.5"
+        },
+        {
+          "clave": "color",
+          "valor": "Marrón (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-2_5-negro",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 2.5 mm² Negro (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "2.5"
+        },
+        {
+          "clave": "color",
+          "valor": "Negro (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-2_5-rojo",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 2.5 mm² Rojo (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "2.5"
+        },
+        {
+          "clave": "color",
+          "valor": "Rojo (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-2_5-celeste",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 2.5 mm² Celeste (Neutro) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "2.5"
+        },
+        {
+          "clave": "color",
+          "valor": "Celeste (Neutro)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-2_5-verde-amarillo",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 2.5 mm² Verde/Amarillo (Tierra) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "2.5"
+        },
+        {
+          "clave": "color",
+          "valor": "Verde/Amarillo (Tierra)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-4-marron",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 4 mm² Marrón (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "4"
+        },
+        {
+          "clave": "color",
+          "valor": "Marrón (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-4-negro",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 4 mm² Negro (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "4"
+        },
+        {
+          "clave": "color",
+          "valor": "Negro (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-4-rojo",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 4 mm² Rojo (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "4"
+        },
+        {
+          "clave": "color",
+          "valor": "Rojo (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-4-celeste",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 4 mm² Celeste (Neutro) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "4"
+        },
+        {
+          "clave": "color",
+          "valor": "Celeste (Neutro)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-4-verde-amarillo",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 4 mm² Verde/Amarillo (Tierra) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "4"
+        },
+        {
+          "clave": "color",
+          "valor": "Verde/Amarillo (Tierra)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-6-marron",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 6 mm² Marrón (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "6"
+        },
+        {
+          "clave": "color",
+          "valor": "Marrón (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-6-negro",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 6 mm² Negro (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "6"
+        },
+        {
+          "clave": "color",
+          "valor": "Negro (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-6-rojo",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 6 mm² Rojo (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "6"
+        },
+        {
+          "clave": "color",
+          "valor": "Rojo (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-6-celeste",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 6 mm² Celeste (Neutro) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "6"
+        },
+        {
+          "clave": "color",
+          "valor": "Celeste (Neutro)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-6-verde-amarillo",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 6 mm² Verde/Amarillo (Tierra) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "6"
+        },
+        {
+          "clave": "color",
+          "valor": "Verde/Amarillo (Tierra)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-10-marron",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 10 mm² Marrón (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "10"
+        },
+        {
+          "clave": "color",
+          "valor": "Marrón (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-10-negro",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 10 mm² Negro (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "10"
+        },
+        {
+          "clave": "color",
+          "valor": "Negro (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-10-rojo",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 10 mm² Rojo (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "10"
+        },
+        {
+          "clave": "color",
+          "valor": "Rojo (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-10-celeste",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 10 mm² Celeste (Neutro) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "10"
+        },
+        {
+          "clave": "color",
+          "valor": "Celeste (Neutro)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-10-verde-amarillo",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 10 mm² Verde/Amarillo (Tierra) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "10"
+        },
+        {
+          "clave": "color",
+          "valor": "Verde/Amarillo (Tierra)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-16-marron",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 16 mm² Marrón (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "16"
+        },
+        {
+          "clave": "color",
+          "valor": "Marrón (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-16-negro",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 16 mm² Negro (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "16"
+        },
+        {
+          "clave": "color",
+          "valor": "Negro (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-16-rojo",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 16 mm² Rojo (Fase) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "16"
+        },
+        {
+          "clave": "color",
+          "valor": "Rojo (Fase)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-16-celeste",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 16 mm² Celeste (Neutro) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "16"
+        },
+        {
+          "clave": "color",
+          "valor": "Celeste (Neutro)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cable-uni-16-verde-amarillo",
+      "categoriaId": "cat-cables",
+      "nombre": "Cable Unipolar 16 mm² Verde/Amarillo (Tierra) IRAM 247-3",
+      "unidadVenta": "m",
+      "atributos": [
+        {
+          "clave": "norma",
+          "valor": "IRAM 247-3 (Unipolar Flexible)"
+        },
+        {
+          "clave": "conductores",
+          "valor": "1"
+        },
+        {
+          "clave": "seccion",
+          "valor": "16"
+        },
+        {
+          "clave": "color",
+          "valor": "Verde/Amarillo (Tierra)"
+        },
+        {
+          "clave": "aislacion",
+          "valor": "PVC"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-caja-rec-5x10-chapa",
+      "categoriaId": "cat-cajas",
+      "nombre": "Caja Rectangular 5x10 Chapa BWG (Embutir)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_caja",
+          "valor": "Rectangular 5x10"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Embutir Mampostería"
+        },
+        {
+          "clave": "material",
+          "valor": "Chapa BWG"
+        },
+        {
+          "clave": "medida",
+          "valor": "Estándar (5x10)"
+        },
+        {
+          "clave": "grado_ip",
+          "valor": "IP20"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-caja-rec-5x10-pvc",
+      "categoriaId": "cat-cajas",
+      "nombre": "Caja Rectangular 5x10 PVC Ignífugo (Embutir)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_caja",
+          "valor": "Rectangular 5x10"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Embutir Mampostería"
+        },
+        {
+          "clave": "material",
+          "valor": "PVC Ignífugo"
+        },
+        {
+          "clave": "medida",
+          "valor": "Estándar (5x10)"
+        },
+        {
+          "clave": "grado_ip",
+          "valor": "IP20"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-caja-oct-chica-chapa",
+      "categoriaId": "cat-cajas",
+      "nombre": "Caja Octogonal Chica 80mm Chapa BWG (Embutir)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_caja",
+          "valor": "Octogonal Chica"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Embutir Mampostería"
+        },
+        {
+          "clave": "material",
+          "valor": "Chapa BWG"
+        },
+        {
+          "clave": "medida",
+          "valor": "Estándar (80mm)"
+        },
+        {
+          "clave": "grado_ip",
+          "valor": "IP20"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-caja-oct-chica-pvc",
+      "categoriaId": "cat-cajas",
+      "nombre": "Caja Octogonal Chica 80mm PVC Ignífugo (Embutir)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_caja",
+          "valor": "Octogonal Chica"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Embutir Mampostería"
+        },
+        {
+          "clave": "material",
+          "valor": "PVC Ignífugo"
+        },
+        {
+          "clave": "medida",
+          "valor": "Estándar (80mm)"
+        },
+        {
+          "clave": "grado_ip",
+          "valor": "IP20"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-caja-oct-grande-chapa",
+      "categoriaId": "cat-cajas",
+      "nombre": "Caja Octogonal Grande 100mm Chapa BWG (Embutir)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_caja",
+          "valor": "Octogonal Grande"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Embutir Mampostería"
+        },
+        {
+          "clave": "material",
+          "valor": "Chapa BWG"
+        },
+        {
+          "clave": "medida",
+          "valor": "Estándar (100mm)"
+        },
+        {
+          "clave": "grado_ip",
+          "valor": "IP20"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-caja-oct-grande-pvc",
+      "categoriaId": "cat-cajas",
+      "nombre": "Caja Octogonal Grande 100mm PVC Ignífugo (Embutir)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_caja",
+          "valor": "Octogonal Grande"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Embutir Mampostería"
+        },
+        {
+          "clave": "material",
+          "valor": "PVC Ignífugo"
+        },
+        {
+          "clave": "medida",
+          "valor": "Estándar (100mm)"
+        },
+        {
+          "clave": "grado_ip",
+          "valor": "IP20"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-caja-cuad-10x10-chapa",
+      "categoriaId": "cat-cajas",
+      "nombre": "Caja Cuadrada 10x10 Chapa BWG (Embutir)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_caja",
+          "valor": "Cuadrada 10x10"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Embutir Mampostería"
+        },
+        {
+          "clave": "material",
+          "valor": "Chapa BWG"
+        },
+        {
+          "clave": "medida",
+          "valor": "Estándar (10x10)"
+        },
+        {
+          "clave": "grado_ip",
+          "valor": "IP20"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-caja-cuad-10x10-pvc",
+      "categoriaId": "cat-cajas",
+      "nombre": "Caja Cuadrada 10x10 PVC Ignífugo (Embutir)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_caja",
+          "valor": "Cuadrada 10x10"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Embutir Mampostería"
+        },
+        {
+          "clave": "material",
+          "valor": "PVC Ignífugo"
+        },
+        {
+          "clave": "medida",
+          "valor": "Estándar (10x10)"
+        },
+        {
+          "clave": "grado_ip",
+          "valor": "IP20"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-tablero-din-4-emb",
+      "categoriaId": "cat-tableros",
+      "nombre": "Tablero Modular DIN 4 Módulos Embutir Plástico Puerta Fumé IP40",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_envolvente",
+          "valor": "Tablero Modular DIN"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Embutir"
+        },
+        {
+          "clave": "ambiente_proteccion",
+          "valor": "Interior (IP40)"
+        },
+        {
+          "clave": "capacidad_modulos",
+          "valor": "4"
+        },
+        {
+          "clave": "tamano_gabinete",
+          "valor": "Según Módulos DIN"
+        },
+        {
+          "clave": "material",
+          "valor": "Plástico / Termoplástico (Aislante)"
+        },
+        {
+          "clave": "puerta",
+          "valor": "Puerta Transparente / Fumé"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-tablero-din-8-emb",
+      "categoriaId": "cat-tableros",
+      "nombre": "Tablero Modular DIN 8 Módulos Embutir Plástico Puerta Fumé IP40",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_envolvente",
+          "valor": "Tablero Modular DIN"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Embutir"
+        },
+        {
+          "clave": "ambiente_proteccion",
+          "valor": "Interior (IP40)"
+        },
+        {
+          "clave": "capacidad_modulos",
+          "valor": "8"
+        },
+        {
+          "clave": "tamano_gabinete",
+          "valor": "Según Módulos DIN"
+        },
+        {
+          "clave": "material",
+          "valor": "Plástico / Termoplástico (Aislante)"
+        },
+        {
+          "clave": "puerta",
+          "valor": "Puerta Transparente / Fumé"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-tablero-din-12-emb",
+      "categoriaId": "cat-tableros",
+      "nombre": "Tablero Modular DIN 12 Módulos Embutir Plástico Puerta Fumé IP40",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_envolvente",
+          "valor": "Tablero Modular DIN"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Embutir"
+        },
+        {
+          "clave": "ambiente_proteccion",
+          "valor": "Interior (IP40)"
+        },
+        {
+          "clave": "capacidad_modulos",
+          "valor": "12"
+        },
+        {
+          "clave": "tamano_gabinete",
+          "valor": "Según Módulos DIN"
+        },
+        {
+          "clave": "material",
+          "valor": "Plástico / Termoplástico (Aislante)"
+        },
+        {
+          "clave": "puerta",
+          "valor": "Puerta Transparente / Fumé"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-tablero-din-18-emb",
+      "categoriaId": "cat-tableros",
+      "nombre": "Tablero Modular DIN 18 Módulos Embutir Plástico Puerta Fumé IP40",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_envolvente",
+          "valor": "Tablero Modular DIN"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Embutir"
+        },
+        {
+          "clave": "ambiente_proteccion",
+          "valor": "Interior (IP40)"
+        },
+        {
+          "clave": "capacidad_modulos",
+          "valor": "18"
+        },
+        {
+          "clave": "tamano_gabinete",
+          "valor": "Según Módulos DIN"
+        },
+        {
+          "clave": "material",
+          "valor": "Plástico / Termoplástico (Aislante)"
+        },
+        {
+          "clave": "puerta",
+          "valor": "Puerta Transparente / Fumé"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-tablero-din-24-emb",
+      "categoriaId": "cat-tableros",
+      "nombre": "Tablero Modular DIN 24 Módulos Embutir Plástico Puerta Fumé IP40",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_envolvente",
+          "valor": "Tablero Modular DIN"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Embutir"
+        },
+        {
+          "clave": "ambiente_proteccion",
+          "valor": "Interior (IP40)"
+        },
+        {
+          "clave": "capacidad_modulos",
+          "valor": "24"
+        },
+        {
+          "clave": "tamano_gabinete",
+          "valor": "Según Módulos DIN"
+        },
+        {
+          "clave": "material",
+          "valor": "Plástico / Termoplástico (Aislante)"
+        },
+        {
+          "clave": "puerta",
+          "valor": "Puerta Transparente / Fumé"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-tablero-din-36-emb",
+      "categoriaId": "cat-tableros",
+      "nombre": "Tablero Modular DIN 36 Módulos Embutir Plástico Puerta Fumé IP40",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_envolvente",
+          "valor": "Tablero Modular DIN"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Embutir"
+        },
+        {
+          "clave": "ambiente_proteccion",
+          "valor": "Interior (IP40)"
+        },
+        {
+          "clave": "capacidad_modulos",
+          "valor": "36"
+        },
+        {
+          "clave": "tamano_gabinete",
+          "valor": "Según Módulos DIN"
+        },
+        {
+          "clave": "material",
+          "valor": "Plástico / Termoplástico (Aislante)"
+        },
+        {
+          "clave": "puerta",
+          "valor": "Puerta Transparente / Fumé"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-tablero-din-12-sup",
+      "categoriaId": "cat-tableros",
+      "nombre": "Tablero Modular DIN 12 Módulos Superficie Plástico Puerta Fumé IP40",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_envolvente",
+          "valor": "Tablero Modular DIN"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Superficie / Aplicar"
+        },
+        {
+          "clave": "ambiente_proteccion",
+          "valor": "Interior (IP40)"
+        },
+        {
+          "clave": "capacidad_modulos",
+          "valor": "12"
+        },
+        {
+          "clave": "tamano_gabinete",
+          "valor": "Según Módulos DIN"
+        },
+        {
+          "clave": "material",
+          "valor": "Plástico / Termoplástico (Aislante)"
+        },
+        {
+          "clave": "puerta",
+          "valor": "Puerta Transparente / Fumé"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-tablero-din-24-sup",
+      "categoriaId": "cat-tableros",
+      "nombre": "Tablero Modular DIN 24 Módulos Superficie Chapa Metálica Puerta Ciega IP40",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_envolvente",
+          "valor": "Tablero Modular DIN"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Superficie / Aplicar"
+        },
+        {
+          "clave": "ambiente_proteccion",
+          "valor": "Interior (IP40)"
+        },
+        {
+          "clave": "capacidad_modulos",
+          "valor": "24"
+        },
+        {
+          "clave": "tamano_gabinete",
+          "valor": "Según Módulos DIN"
+        },
+        {
+          "clave": "material",
+          "valor": "Chapa Metálica"
+        },
+        {
+          "clave": "puerta",
+          "valor": "Puerta Ciega"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-gabinete-pilar-mono",
+      "categoriaId": "cat-tableros",
+      "nombre": "Caja de Medidor Pilar Exterior Monofásico IP65 con Visor",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_envolvente",
+          "valor": "Caja de Medidor / Pilar"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Pilar Exterior"
+        },
+        {
+          "clave": "ambiente_proteccion",
+          "valor": "Estanco / Intemperie (IP65)"
+        },
+        {
+          "clave": "capacidad_modulos",
+          "valor": "N/A"
+        },
+        {
+          "clave": "tamano_gabinete",
+          "valor": "Normalizado"
+        },
+        {
+          "clave": "material",
+          "valor": "Plástico / Termoplástico (Aislante)"
+        },
+        {
+          "clave": "puerta",
+          "valor": "Visor para Medidor"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-gabinete-pilar-tri",
+      "categoriaId": "cat-tableros",
+      "nombre": "Caja de Medidor Pilar Exterior Trifásico IP65 con Visor",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_envolvente",
+          "valor": "Caja de Medidor / Pilar"
+        },
+        {
+          "clave": "montaje",
+          "valor": "Pilar Exterior"
+        },
+        {
+          "clave": "ambiente_proteccion",
+          "valor": "Estanco / Intemperie (IP65)"
+        },
+        {
+          "clave": "capacidad_modulos",
+          "valor": "N/A"
+        },
+        {
+          "clave": "tamano_gabinete",
+          "valor": "Normalizado"
+        },
+        {
+          "clave": "material",
+          "valor": "Plástico / Termoplástico (Aislante)"
+        },
+        {
+          "clave": "puerta",
+          "valor": "Visor para Medidor"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cano-rs-19",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Caño Semipesado Metálico RS 19 (3/4\") IRAM 2005 - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Caño Semipesado/Pesado Metálico"
+        },
+        {
+          "clave": "diametro",
+          "valor": "19"
+        },
+        {
+          "clave": "ancho",
+          "valor": "N/A"
+        },
+        {
+          "clave": "alto",
+          "valor": "N/A"
+        },
+        {
+          "clave": "norma",
+          "valor": "IRAM 2005 (Semipesado/Pesado)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "N/A"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cano-rs-22",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Caño Semipesado Metálico RS 22 (7/8\") IRAM 2005 - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Caño Semipesado/Pesado Metálico"
+        },
+        {
+          "clave": "diametro",
+          "valor": "22"
+        },
+        {
+          "clave": "ancho",
+          "valor": "N/A"
+        },
+        {
+          "clave": "alto",
+          "valor": "N/A"
+        },
+        {
+          "clave": "norma",
+          "valor": "IRAM 2005 (Semipesado/Pesado)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "N/A"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cano-rs-25",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Caño Semipesado Metálico RS 25 (1\") IRAM 2005 - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Caño Semipesado/Pesado Metálico"
+        },
+        {
+          "clave": "diametro",
+          "valor": "25"
+        },
+        {
+          "clave": "ancho",
+          "valor": "N/A"
+        },
+        {
+          "clave": "alto",
+          "valor": "N/A"
+        },
+        {
+          "clave": "norma",
+          "valor": "IRAM 2005 (Semipesado/Pesado)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "N/A"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cano-rs-32",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Caño Semipesado Metálico RS 32 (1 1/4\") IRAM 2005 - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Caño Semipesado/Pesado Metálico"
+        },
+        {
+          "clave": "diametro",
+          "valor": "32"
+        },
+        {
+          "clave": "ancho",
+          "valor": "N/A"
+        },
+        {
+          "clave": "alto",
+          "valor": "N/A"
+        },
+        {
+          "clave": "norma",
+          "valor": "IRAM 2005 (Semipesado/Pesado)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "N/A"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cano-pvc-20",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Caño PVC Rígido 20 mm Gris IRAM 2005 - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Caño PVC Rígido"
+        },
+        {
+          "clave": "diametro",
+          "valor": "20"
+        },
+        {
+          "clave": "ancho",
+          "valor": "N/A"
+        },
+        {
+          "clave": "alto",
+          "valor": "N/A"
+        },
+        {
+          "clave": "norma",
+          "valor": "IRAM 2005 (Rígido PVC)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "N/A"
+        },
+        {
+          "clave": "color",
+          "valor": "Gris"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cano-pvc-22",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Caño PVC Rígido 22 mm Gris IRAM 2005 - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Caño PVC Rígido"
+        },
+        {
+          "clave": "diametro",
+          "valor": "22"
+        },
+        {
+          "clave": "ancho",
+          "valor": "N/A"
+        },
+        {
+          "clave": "alto",
+          "valor": "N/A"
+        },
+        {
+          "clave": "norma",
+          "valor": "IRAM 2005 (Rígido PVC)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "N/A"
+        },
+        {
+          "clave": "color",
+          "valor": "Gris"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cano-pvc-25",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Caño PVC Rígido 25 mm Gris IRAM 2005 - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Caño PVC Rígido"
+        },
+        {
+          "clave": "diametro",
+          "valor": "25"
+        },
+        {
+          "clave": "ancho",
+          "valor": "N/A"
+        },
+        {
+          "clave": "alto",
+          "valor": "N/A"
+        },
+        {
+          "clave": "norma",
+          "valor": "IRAM 2005 (Rígido PVC)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "N/A"
+        },
+        {
+          "clave": "color",
+          "valor": "Gris"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cano-pvc-32",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Caño PVC Rígido 32 mm Gris IRAM 2005 - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Caño PVC Rígido"
+        },
+        {
+          "clave": "diametro",
+          "valor": "32"
+        },
+        {
+          "clave": "ancho",
+          "valor": "N/A"
+        },
+        {
+          "clave": "alto",
+          "valor": "N/A"
+        },
+        {
+          "clave": "norma",
+          "valor": "IRAM 2005 (Rígido PVC)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "N/A"
+        },
+        {
+          "clave": "color",
+          "valor": "Gris"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cano-pvc-40",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Caño PVC Rígido 40 mm Gris IRAM 2005 - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Caño PVC Rígido"
+        },
+        {
+          "clave": "diametro",
+          "valor": "40"
+        },
+        {
+          "clave": "ancho",
+          "valor": "N/A"
+        },
+        {
+          "clave": "alto",
+          "valor": "N/A"
+        },
+        {
+          "clave": "norma",
+          "valor": "IRAM 2005 (Rígido PVC)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "N/A"
+        },
+        {
+          "clave": "color",
+          "valor": "Gris"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-conector-met-19",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Conector Caño a Caja Metálico RS 19 (3/4\") con Tuerca",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Conector Caño a Caja Metálico"
+        },
+        {
+          "clave": "medida",
+          "valor": "19 mm (3/4\")"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-conector-met-22",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Conector Caño a Caja Metálico RS 22 (7/8\") con Tuerca",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Conector Caño a Caja Metálico"
+        },
+        {
+          "clave": "medida",
+          "valor": "22 mm (7/8\")"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-conector-met-25",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Conector Caño a Caja Metálico RS 25 (1\") con Tuerca",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Conector Caño a Caja Metálico"
+        },
+        {
+          "clave": "medida",
+          "valor": "25 mm (1\")"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-conector-met-32",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Conector Caño a Caja Metálico RS 32 (1 1/4\") con Tuerca",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Conector Caño a Caja Metálico"
+        },
+        {
+          "clave": "medida",
+          "valor": "32 mm (1 1/4\")"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-conector-pvc-20",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Conector Caño a Caja PVC Rígido 20 mm con Tuerca",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Conector Caño a Caja PVC"
+        },
+        {
+          "clave": "medida",
+          "valor": "20 mm"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-conector-pvc-22",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Conector Caño a Caja PVC Rígido 22 mm con Tuerca",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Conector Caño a Caja PVC"
+        },
+        {
+          "clave": "medida",
+          "valor": "22 mm"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-conector-pvc-25",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Conector Caño a Caja PVC Rígido 25 mm con Tuerca",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Conector Caño a Caja PVC"
+        },
+        {
+          "clave": "medida",
+          "valor": "25 mm"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-conector-pvc-32",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Conector Caño a Caja PVC Rígido 32 mm con Tuerca",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Conector Caño a Caja PVC"
+        },
+        {
+          "clave": "medida",
+          "valor": "32 mm"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-conector-pvc-40",
+      "categoriaId": "cat-fijacion",
+      "nombre": "Conector Caño a Caja PVC Rígido 40 mm con Tuerca",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Conector Caño a Caja PVC"
+        },
+        {
+          "clave": "medida",
+          "valor": "40 mm"
+        },
+        {
+          "clave": "presentacion",
+          "valor": "Unidad"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-bandeja-perf-50x50",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Bandeja Portacable Perforada 50x50 mm Chapa Galvanizada - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Bandeja Portacable"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "50"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Perforada"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-bandeja-perf-100x50",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Bandeja Portacable Perforada 100x50 mm Chapa Galvanizada - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Bandeja Portacable"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "100"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Perforada"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-bandeja-perf-150x50",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Bandeja Portacable Perforada 150x50 mm Chapa Galvanizada - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Bandeja Portacable"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "150"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Perforada"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-bandeja-perf-200x50",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Bandeja Portacable Perforada 200x50 mm Chapa Galvanizada - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Bandeja Portacable"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "200"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Perforada"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-bandeja-perf-300x50",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Bandeja Portacable Perforada 300x50 mm Chapa Galvanizada - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Bandeja Portacable"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "300"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Perforada"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-bandeja-perf-450x50",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Bandeja Portacable Perforada 450x50 mm Chapa Galvanizada - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Bandeja Portacable"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "450"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Perforada"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-curva-plana-100",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Curva Plana 90° para Bandeja Portacable 100x50 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "100"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Curva Plana 90°"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-curva-plana-150",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Curva Plana 90° para Bandeja Portacable 150x50 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "150"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Curva Plana 90°"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-curva-plana-200",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Curva Plana 90° para Bandeja Portacable 200x50 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "200"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Curva Plana 90°"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-curva-plana-300",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Curva Plana 90° para Bandeja Portacable 300x50 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "300"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Curva Plana 90°"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-curva-plana-450",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Curva Plana 90° para Bandeja Portacable 450x50 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "450"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Curva Plana 90°"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-curva-vert-100",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Curva Vertical Articulada para Bandeja Portacable 100x50 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "100"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Curva Vertical"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-curva-vert-150",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Curva Vertical Articulada para Bandeja Portacable 150x50 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "150"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Curva Vertical"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-curva-vert-200",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Curva Vertical Articulada para Bandeja Portacable 200x50 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "200"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Curva Vertical"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-curva-vert-300",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Curva Vertical Articulada para Bandeja Portacable 300x50 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "300"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Curva Vertical"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-curva-vert-450",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Curva Vertical Articulada para Bandeja Portacable 450x50 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "450"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Curva Vertical"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-tapa-bandeja-100",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Tapa a Presión para Bandeja Portacable 100 mm - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "100"
+        },
+        {
+          "clave": "alto",
+          "valor": "10"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Tapa"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-tapa-bandeja-150",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Tapa a Presión para Bandeja Portacable 150 mm - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "150"
+        },
+        {
+          "clave": "alto",
+          "valor": "10"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Tapa"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-tapa-bandeja-200",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Tapa a Presión para Bandeja Portacable 200 mm - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "200"
+        },
+        {
+          "clave": "alto",
+          "valor": "10"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Tapa"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-tapa-bandeja-300",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Tapa a Presión para Bandeja Portacable 300 mm - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "300"
+        },
+        {
+          "clave": "alto",
+          "valor": "10"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Tapa"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-tapa-bandeja-450",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Tapa a Presión para Bandeja Portacable 450 mm - Tira 3m",
+      "unidadVenta": "tira x3m",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "450"
+        },
+        {
+          "clave": "alto",
+          "valor": "10"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Tapa"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-cupla-union-h50",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Juego de Cuplas de Unión para Bandeja Portacable H50 (Par con bulonería)",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "20"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Cupla Unión"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mensula-100",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Ménsula de Apoyo Reforzada para Bandeja 100 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "100"
+        },
+        {
+          "clave": "alto",
+          "valor": "75"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Ménsula de Apoyo"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mensula-150",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Ménsula de Apoyo Reforzada para Bandeja 150 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "150"
+        },
+        {
+          "clave": "alto",
+          "valor": "75"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Ménsula de Apoyo"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mensula-200",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Ménsula de Apoyo Reforzada para Bandeja 200 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "200"
+        },
+        {
+          "clave": "alto",
+          "valor": "75"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Ménsula de Apoyo"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mensula-300",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Ménsula de Apoyo Reforzada para Bandeja 300 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "300"
+        },
+        {
+          "clave": "alto",
+          "valor": "75"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Ménsula de Apoyo"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-mensula-450",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Ménsula de Apoyo Reforzada para Bandeja 450 mm",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "450"
+        },
+        {
+          "clave": "alto",
+          "valor": "75"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Ménsula de Apoyo"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    },
+    {
+      "id": "mat-soporte-caja-bandeja",
+      "categoriaId": "cat-canalizaciones",
+      "nombre": "Soporte de Montaje Universal para Cajas en Bandeja Portacable",
+      "unidadVenta": "u",
+      "atributos": [
+        {
+          "clave": "tipo_elemento",
+          "valor": "Accesorio para Bandeja"
+        },
+        {
+          "clave": "diametro",
+          "valor": "N/A"
+        },
+        {
+          "clave": "ancho",
+          "valor": "100"
+        },
+        {
+          "clave": "alto",
+          "valor": "50"
+        },
+        {
+          "clave": "norma",
+          "valor": "IEC 61386 (Bandeja/Canaleta)"
+        },
+        {
+          "clave": "subtipo",
+          "valor": "Soporte para Caja"
+        },
+        {
+          "clave": "color",
+          "valor": "N/A"
+        }
+      ],
+      "activo": true,
+      "fichaIncompleta": false
+    }
+  ],
   "productos": [],
   "ofertas": [],
   "manoObra": [],

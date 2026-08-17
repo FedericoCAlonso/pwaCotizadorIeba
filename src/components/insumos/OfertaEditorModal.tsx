@@ -9,6 +9,7 @@ import {
   formatARS
 } from '../../core/calculations';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { useModalKeyboardNavigation } from '../../hooks/useModalKeyboardNavigation';
 
 interface OfertaEditorModalProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
   onSave,
 }) => {
   useEscapeKey(isOpen, onClose);
+  const { containerRef, handleKeyDown } = useModalKeyboardNavigation({ isOpen });
   const [proveedorInput, setProveedorInput] = useState('');
   const [modoPrecio, setModoPrecio] = useState<'con_iva' | 'neto'>('con_iva');
   const [alicuotaIVA, setAlicuotaIVA] = useState<number>(21);
@@ -169,7 +171,11 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-surface-container rounded-2xl w-full max-w-md shadow-2xl p-6 text-on-surface">
+      <div
+        ref={containerRef}
+        onKeyDown={handleKeyDown}
+        className="bg-surface-container rounded-2xl w-full max-w-md shadow-2xl p-6 text-on-surface"
+      >
         <div className="flex items-center justify-between mb-4 border-b border-outline-variant/20 pb-3">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-primary-container text-on-primary-container rounded-xl">

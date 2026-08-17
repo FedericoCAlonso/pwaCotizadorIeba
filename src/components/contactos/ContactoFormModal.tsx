@@ -17,6 +17,7 @@ import {
 } from '../../core/types';
 import { CONDICIONES_IVA } from '../../core/sampleData';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { useModalKeyboardNavigation } from '../../hooks/useModalKeyboardNavigation';
 
 export interface ContactoFormData {
   razonSocial: string;
@@ -55,6 +56,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
   onSave
 }) => {
   useEscapeKey(isOpen, onClose);
+  const { containerRef, handleKeyDown } = useModalKeyboardNavigation({ isOpen });
   const [modalActiveTab, setModalActiveTab] = useState<'general' | 'personas' | 'financiero' | 'notas'>('general');
   const [tagInput, setTagInput] = useState('');
 
@@ -215,7 +217,11 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-      <div className="bg-surface rounded-3xl max-w-2xl w-full p-5 sm:p-6 space-y-4 border border-outline-variant/20 shadow-2xl max-h-[90vh] flex flex-col">
+      <div
+        ref={containerRef}
+        onKeyDown={handleKeyDown}
+        className="bg-surface rounded-3xl max-w-2xl w-full p-5 sm:p-6 space-y-4 border border-outline-variant/20 shadow-2xl max-h-[90vh] flex flex-col"
+      >
         <div className="flex justify-between items-center pb-2 border-b border-outline-variant/20">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-primary/10 text-primary rounded-xl">

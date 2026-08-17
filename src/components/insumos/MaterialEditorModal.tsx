@@ -2,6 +2,7 @@ import React from 'react';
 import { Sparkles, Trash2, Save, X } from 'lucide-react';
 import { CategoriaMaterial, Material } from '../../core/types';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { useModalKeyboardNavigation } from '../../hooks/useModalKeyboardNavigation';
 
 interface MaterialEditorModalProps {
   isOpen: boolean;
@@ -41,6 +42,8 @@ export const MaterialEditorModal: React.FC<MaterialEditorModalProps> = ({
   onSave,
 }) => {
   useEscapeKey(isOpen, onClose);
+  const { containerRef, handleKeyDown } = useModalKeyboardNavigation({ isOpen });
+
   if (!isOpen) return null;
 
   const inputCls =
@@ -53,7 +56,11 @@ export const MaterialEditorModal: React.FC<MaterialEditorModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-xl shadow-2xl p-6 text-on-surface max-h-[90vh] flex flex-col">
+      <div
+        ref={containerRef}
+        onKeyDown={handleKeyDown}
+        className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-xl shadow-2xl p-6 text-on-surface max-h-[90vh] flex flex-col"
+      >
         <div className="flex items-center justify-between mb-4 border-b border-outline-variant/30 pb-3 shrink-0">
           <h3 className="text-base font-semibold text-on-surface">
             {editingMat ? 'Editar Ficha Técnica de Material' : 'Nuevo Material (Ficha Técnica Completa)'}
@@ -242,7 +249,7 @@ export const MaterialEditorModal: React.FC<MaterialEditorModalProps> = ({
               value={formDataMat.nombre || ''}
               onChange={(e) => setFormDataMat({ ...formDataMat, nombre: e.target.value })}
               className={inputCls}
-              placeholder="Ej: Cables & Conductores | Sección = 2,5 mm² | Norma = IRAM 247-3"
+              placeholder="Ej: Cables | Norma = IRAM 247-3 | Conductores = 1 | Sección = 2,5 mm² | Color = Marrón (Fase)"
               required
             />
           </div>
