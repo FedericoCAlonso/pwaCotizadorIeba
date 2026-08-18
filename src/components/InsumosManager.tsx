@@ -136,10 +136,11 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
   const [tipoAjusteIndice, setTipoAjusteIndice] = useState<'porcentaje' | 'dolar_blue' | 'ipc' | 'canasta'>('porcentaje');
   const [massPercentage, setMassPercentage] = useState<number>(10);
   const [viewModeMat, setViewModeMat] = useState<'grid' | 'table'>('grid');
+  const [onlySelectedFilter, setOnlySelectedFilter] = useState(false);
   const [modoCargaContinua, setModoCargaContinua] = useState(false);
   const quickMatNombreRef = useRef<HTMLInputElement>(null);
 
-  // Auto-reset filters when entering with a contextual filter from quote or task
+  // Auto-select materials when entering with a contextual filter from quote or task
   useEffect(() => {
     if (filterContext) {
       setActiveTab('materiales');
@@ -147,9 +148,31 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
       setSearchTerm('');
       setSelectedVencimiento('todos');
       setSelectedFichaStatus('todas');
-      setSelectedMaterialIds(new Set());
+
+      // Match materials by ID, alternate prefix, product ID, or name
+      const targetIds = new Set(filterContext.materialIds || []);
+      const targetNames = new Set((filterContext.materialNames || []).map(n => n.toLowerCase().trim()));
+
+      const matchedIds = new Set<string>();
+      materiales.forEach((mat) => {
+        const directMatch = targetIds.has(mat.id);
+        const altPrefixMatch = targetIds.has(mat.id.replace(/^mat-/, 'ins-')) || targetIds.has(mat.id.replace(/^ins-/, 'mat-'));
+        const prodMatch = productos.some(p => p.materialId === mat.id && targetIds.has(p.id));
+        const nameMatch = targetNames.has(mat.nombre.trim().toLowerCase());
+
+        if (directMatch || altPrefixMatch || prodMatch || nameMatch) {
+          matchedIds.add(mat.id);
+        }
+      });
+
+      setSelectedMaterialIds(matchedIds);
+      if (matchedIds.size > 0) {
+        setOnlySelectedFilter(true);
+      } else {
+        setOnlySelectedFilter(false);
+      }
     }
-  }, [filterContext]);
+  }, [filterContext, materiales, productos]);
 
   const getObraQuantity = (mat: Material) => {
     if (!filterContext?.quantities) return undefined;
@@ -822,9 +845,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
 
   // Filtrado de materiales
   const filteredMateriales = useMemo(() => {
-    const sTerm = searchTerm.toLowerCase();
-    const targetIds = new Set(filterContext?.materialIds || []);
-    const targetNames = new Set((filterContext?.materialNames || []).map(n => n.toLowerCase().trim()));
+    const sTerm = searchTerm.toLowerCase().trim();
 
     return materiales.filter(mat => {
       const cat = categoriasMap.get(mat.categoriaId);
@@ -854,19 +875,14 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
         }
       }
 
-      let matchFilterContext = true;
-      if (filterContext) {
-        const directIdMatch = targetIds.has(mat.id);
-        const altPrefixMatch = targetIds.has(mat.id.replace(/^mat-/, 'ins-')) || targetIds.has(mat.id.replace(/^ins-/, 'mat-'));
-        const prodMatch = productos.some(p => p.materialId === mat.id && targetIds.has(p.id));
-        const nameMatch = targetNames.has(mat.nombre.trim().toLowerCase());
-
-        matchFilterContext = directIdMatch || altPrefixMatch || prodMatch || nameMatch;
+      let matchSelected = true;
+      if (onlySelectedFilter) {
+        matchSelected = selectedMaterialIds.has(mat.id);
       }
 
-      return matchSearch && matchCat && matchVenc && matchFicha && matchFilterContext;
+      return matchSearch && matchCat && matchVenc && matchFicha && matchSelected;
     });
-  }, [materiales, searchTerm, selectedCategory, selectedVencimiento, selectedFichaStatus, ofertas, productos, config, categoriasMap, filterContext]);
+  }, [materiales, searchTerm, selectedCategory, selectedVencimiento, selectedFichaStatus, onlySelectedFilter, selectedMaterialIds, ofertas, config, categoriasMap]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-24">
@@ -1056,6 +1072,65 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
               </div>
             </div>
 
+            {/* Quick Filter Chips (Material Design 3) */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pt-1 pb-0.5 touch-pan-x overscroll-contain">
+              {selectedMaterialIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setOnlySelectedFilter(!onlySelectedFilter)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                    onlySelectedFilter
+                      ? 'bg-amber-500 text-slate-950 font-bold ring-2 ring-amber-500/50'
+                      : 'bg-surface-container-high hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-outline-variant/30'
+                  }`}
+                >
+                  <Star className={`w-3.5 h-3.5 ${onlySelectedFilter ? 'fill-slate-950 text-slate-950' : 'text-amber-500'}`} />
+                  <span>Solo Seleccionados ({selectedMaterialIds.size})</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory('todas');
+                  setOnlySelectedFilter(false);
+                }}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                  selectedCategory === 'todas' && !onlySelectedFilter
+                    ? 'bg-primary text-on-primary font-bold'
+                    : 'bg-surface-container-high hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-outline-variant/30'
+                }`}
+              >
+                <span>Todas</span>
+                <span className="text-[10px] opacity-75 font-mono">({materiales.length})</span>
+              </button>
+
+              {categorias.map((cat) => {
+                const count = materiales.filter((m) => m.categoriaId === cat.id).length;
+                if (count === 0) return null;
+                const isSelected = selectedCategory === cat.id && !onlySelectedFilter;
+
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory(cat.id);
+                      setOnlySelectedFilter(false);
+                    }}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                      isSelected
+                        ? 'bg-primary-container text-on-primary-container border border-primary/30 font-bold'
+                        : 'bg-surface-container-high hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-outline-variant/30'
+                    }`}
+                  >
+                    <span>{cat.nombre}</span>
+                    <span className="text-[10px] opacity-75 font-mono">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+
             {/* Filter Drawers / Pills */}
             {showFilters && (
               <div className="pt-3 border-t border-outline-variant/20 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in duration-150">
@@ -1171,13 +1246,28 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                   : 'Puedes dar de alta un material rápido o crear una ficha técnica completa.'}
               </p>
               <div className="flex flex-wrap justify-center gap-2 pt-2">
+                {(onlySelectedFilter || selectedCategory !== 'todas' || searchTerm || selectedVencimiento !== 'todos' || selectedFichaStatus !== 'todas') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOnlySelectedFilter(false);
+                      setSelectedCategory('todas');
+                      setSearchTerm('');
+                      setSelectedVencimiento('todos');
+                      setSelectedFichaStatus('todas');
+                    }}
+                    className="px-4 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-semibold rounded-full text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" /> Quitar Filtros / Ver Todo
+                  </button>
+                )}
                 {filterContext && onClearFilter && (
                   <button
                     type="button"
                     onClick={onClearFilter}
-                    className="px-4 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-semibold rounded-full text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    className="px-4 py-2 bg-surface-variant hover:bg-surface-variant/80 text-on-surface font-semibold rounded-full text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
-                    <X className="w-3.5 h-3.5" /> Quitar Filtro / Ver Todo el Catálogo
+                    <X className="w-3.5 h-3.5" /> Cerrar Vista Contextual
                   </button>
                 )}
                 <button
