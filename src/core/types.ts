@@ -621,12 +621,26 @@ export interface MotorBusquedaEcommerce {
   esPredeterminado?: boolean;
 }
 
+/**
+ * Contexto de navegación para el filtrado enfocado del catálogo de materiales.
+ * Permite que una Cotización (en edición o detalle) o un Trabajo Tipo abra el
+ * Gestor de Materiales mostrando exclusivamente los insumos involucrados en la obra/tarea,
+ * manteniendo todas las capacidades operativas (búsqueda web, marcas, ofertas y edición de precios).
+ */
 export interface MaterialFilterContext {
+  /** Título descriptivo visible en el banner superior (ej: "Cotización #IEBA-2026-0042" o "Trabajo Tipo: Boca de Iluminación") */
   title: string;
+  /** Lista de identificadores de materiales ('mat-...') que componen la cotización o tarea */
   materialIds: string[];
+  /** Nombres de los materiales para respaldo de búsqueda semántica */
   materialNames?: string[];
+  /** Mapa de cantidades de obra por materialId: { [matId]: { cantidad, unidad } } */
   quantities?: Record<string, { cantidad: number; unidad: string }>;
+  /** Pestaña de origen para retornar al finalizar (ej: 'presupuestos' | 'tareasTipo') */
   returnTab?: string;
+  /** Modo de vista de la cotización para retornar ('editor' | 'detail' | 'list') */
   returnViewMode?: 'list' | 'editor' | 'detail';
+  /** ID del presupuesto activo para restaurar su estado al volver */
   returnPresupuestoId?: string;
 }
+

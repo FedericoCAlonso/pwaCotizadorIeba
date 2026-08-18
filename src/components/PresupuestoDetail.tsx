@@ -72,6 +72,10 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
     await db.presupuestos.update(presupuesto.id, { estado: nuevoEstado });
   };
 
+  /**
+   * Extrae la lista de insumos de las partidas del presupuesto y navega al Gestor de Materiales
+   * en modo contextual filtrado para comparar marcas, buscar ofertas o actualizar precios de lista.
+   */
   const handleOpenMaterialsInCatalog = () => {
     if (!presupuesto || !onViewMaterialsInCatalog) return;
     const matQtyMap: Record<string, { cantidad: number; unidad: string }> = {};
@@ -96,7 +100,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
     });
 
     if (idsSet.size === 0 && namesSet.size === 0) {
-      toast.info('Esta cotización no contiene insumos cargados para ver en el catálogo.');
+      toast.info('Esta cotización está compuesta por partidas libres sin despiece de insumos catalogados.');
       return;
     }
 
@@ -111,6 +115,10 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
     });
   };
 
+  /**
+   * Revalida los costos congelados de la cotización contra las ofertas y precios vigentes del catálogo,
+   * recalculando instantáneamente todos los subtotales, márgenes e impuestos.
+   */
   const handleRevalidateWithCatalog = async () => {
     if (!presupuesto) return;
     const allOfertas = await db.ofertas.toArray();

@@ -123,6 +123,7 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                     >
                       <Copy className="w-4 h-4" />
                     </button>
+                    {/* Acceso contextual al catálogo de materiales para este trabajo tipo */}
                     {onViewMaterialsInCatalog && tarea.insumos.length > 0 && (
                       <button
                         type="button"

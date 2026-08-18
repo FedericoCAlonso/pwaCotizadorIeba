@@ -25,7 +25,8 @@ import {
   TipoFactura,
   ImpuestoItem,
   Oferta,
-  OpcionesEmisionPresupuesto
+  OpcionesEmisionPresupuesto,
+  MaterialFilterContext
 } from '../core/types';
 import {
   calcularTotalesPresupuesto,
@@ -51,6 +52,7 @@ interface PresupuestoEditorProps {
   config: AppConfig;
   onBack: () => void;
   onSaved: (id: string) => void;
+  onViewMaterialsInCatalog?: (ctx: MaterialFilterContext) => void;
 }
 
 export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
@@ -58,7 +60,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   initialClienteId,
   config,
   onBack,
-  onSaved
+  onSaved,
+  onViewMaterialsInCatalog
 }) => {
   const { tiposFactura, condicionesTrabajo } = useAppOptions();
   const { toast } = useToast();
@@ -691,6 +694,49 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     onSaved(finalPresupuesto.id);
   };
 
+  /**
+   * Extrae los materiales computados en los ítems de la cotización y abre el Gestor de Materiales
+   * en modo contextual enfocado para actualizar precios, consultar marcas u ofertas.
+   */
+  const handleOpenMaterialsInCatalog = () => {
+    if (!onViewMaterialsInCatalog) return;
+    const matQtyMap: Record<string, { cantidad: number; unidad: string }> = {};
+    const idsSet = new Set<string>();
+    const namesSet = new Set<string>();
+
+    items.forEach((it) => {
+      (it.insumosSnapshot || []).forEach((ins: any) => {
+        const id = ins.materialId || ins.insumoId || ins.id;
+        if (id) {
+          idsSet.add(id);
+          const current = matQtyMap[id]?.cantidad || 0;
+          matQtyMap[id] = {
+            cantidad: roundMoney(current + (ins.cantidadTotal || 0)),
+            unidad: ins.unidadVenta || ins.unidad || 'u'
+          };
+        }
+        if (ins.nombre && ins.nombre.trim() && ins.nombre !== 'Insumo no encontrado') {
+          namesSet.add(ins.nombre.trim());
+        }
+      });
+    });
+
+    if (idsSet.size === 0 && namesSet.size === 0) {
+      toast.info('Esta cotización está compuesta por partidas libres sin despiece de insumos catalogados.');
+      return;
+    }
+
+    onViewMaterialsInCatalog({
+      title: `Cotización ${existingPresupuesto?.numero || 'en borrador'}`,
+      materialIds: Array.from(idsSet),
+      materialNames: Array.from(namesSet),
+      quantities: matQtyMap,
+      returnTab: 'presupuestos',
+      returnViewMode: 'editor',
+      returnPresupuestoId: presupuestoId
+    });
+  };
+
   useEffect(() => {
     const handleSave = () => handleSavePresupuesto('borrador');
     const handleNew = () => setShowItemPickerModal(true);
@@ -736,6 +782,17 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap">
+          {onViewMaterialsInCatalog && items.length > 0 && (
+            <button
+              type="button"
+              onClick={handleOpenMaterialsInCatalog}
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-semibold rounded-full text-xs transition-colors flex items-center justify-center gap-1.5 shadow-xs"
+              title="Abrir catálogo filtrado con los materiales de esta cotización para consultar ofertas o actualizar precios"
+            >
+              <Package className="w-4 h-4 text-primary" />
+              <span>Insumos en Catálogo</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => handleSavePresupuesto('borrador')}

@@ -157,6 +157,9 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
     }
   }, [filterContext]);
 
+  /**
+   * Obtiene la cantidad de cómputo métrico asignada a este material en la cotización o tarea activa.
+   */
   const getObraQuantity = (mat: Material) => {
     if (!filterContext?.quantities) return undefined;
     if (filterContext.quantities[mat.id]) return filterContext.quantities[mat.id];
@@ -167,6 +170,10 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
     return undefined;
   };
 
+  /**
+   * Normaliza cadenas de texto eliminando tildes, mayúsculas y caracteres especiales
+   * para comparaciones fonéticas y de palabras clave.
+   */
   const normalizeStr = (s: string) =>
     s
       .toLowerCase()
@@ -176,7 +183,13 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
       .replace(/\s+/g, ' ')
       .trim();
 
-  // Helper de coincidencia directa con el contexto de cotización o tarea
+  /**
+   * Determina si un material del catálogo coincide con los requerimientos de la obra o tarea activa.
+   * Utiliza una estrategia escalonada de 3 niveles:
+   * 1. Coincidencia exacta por ID de Material o prefijo alternativo ('mat-' / 'ins-')
+   * 2. Coincidencia por producto comercial vinculado (Marca / Modelo)
+   * 3. Coincidencia por tokens y similitud fonética en el nombre (resguardo para partidas sin ID directo)
+   */
   const matchesContext = (mat: Material, ctx: MaterialFilterContext) => {
     // 1. Coincidencia por ID directo o alternativo
     const targetIds = new Set((ctx.materialIds || []).map(id => id.toLowerCase().trim()));
@@ -197,6 +210,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
     const matTokens = normMatName.split(' ').filter(w => w.length >= 2);
 
     for (const tName of targetNames) {
+      if (tName === 'insumo no encontrado') continue;
       if (normMatName.includes(tName) || tName.includes(normMatName)) {
         return true;
       }

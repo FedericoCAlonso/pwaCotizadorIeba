@@ -195,6 +195,7 @@ export function App() {
                   config={config}
                   onBack={() => setViewMode('list')}
                   onSaved={handleSavedPresupuesto}
+                  onViewMaterialsInCatalog={handleViewMaterialsInCatalog}
                 />
               )}
               {viewMode === 'detail' && selectedPresupuestoId && config && (
