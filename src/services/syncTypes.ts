@@ -39,6 +39,8 @@ export interface MasterDatabasePayload {
   presupuestos: Presupuesto[];
   registrosTrabajo: RegistroTrabajo[];
   config: AppConfig[];
+  trazaProyectos?: any[];
+  [key: string]: any;
 }
 
 export interface MergeStats {

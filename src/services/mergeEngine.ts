@@ -104,7 +104,8 @@ export async function mergeLastWriteWins(
   const mergedPayload: Partial<MasterDatabasePayload> = {
     version: 1,
     schemaVersion: 4,
-    exportedAt: new Date().toISOString()
+    exportedAt: new Date().toISOString(),
+    trazaProyectos: remotePayload.trazaProyectos || []
   };
 
   await db.transaction('rw', [
