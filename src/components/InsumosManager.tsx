@@ -167,20 +167,50 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
     return undefined;
   };
 
+  const normalizeStr = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
   // Helper de coincidencia directa con el contexto de cotización o tarea
   const matchesContext = (mat: Material, ctx: MaterialFilterContext) => {
-    const targetIds = new Set(ctx.materialIds || []);
-    const targetNames = (ctx.materialNames || []).map(n => n.toLowerCase().trim()).filter(Boolean);
-
+    // 1. Coincidencia por ID directo o alternativo
+    const targetIds = new Set((ctx.materialIds || []).map(id => id.toLowerCase().trim()));
     const matIdLower = mat.id.toLowerCase();
-    const matNameLower = mat.nombre.toLowerCase().trim();
 
-    const directMatch = targetIds.has(mat.id) || targetIds.has(matIdLower);
-    const altPrefixMatch = targetIds.has(mat.id.replace(/^mat-/, 'ins-')) || targetIds.has(mat.id.replace(/^ins-/, 'mat-'));
-    const prodMatch = productos.some(p => p.materialId === mat.id && (targetIds.has(p.id) || targetIds.has(p.id.toLowerCase())));
-    const nameMatch = targetNames.some(tName => matNameLower.includes(tName) || tName.includes(matNameLower));
+    if (targetIds.has(mat.id) || targetIds.has(matIdLower)) return true;
+    if (targetIds.has(mat.id.replace(/^mat-/, 'ins-')) || targetIds.has(mat.id.replace(/^ins-/, 'mat-'))) return true;
 
-    return directMatch || altPrefixMatch || prodMatch || nameMatch;
+    // 2. Coincidencia por Producto asociado
+    const hasProdMatch = productos.some(p => p.materialId === mat.id && (targetIds.has(p.id.toLowerCase()) || targetIds.has(p.id)));
+    if (hasProdMatch) return true;
+
+    // 3. Coincidencia flexible por Palabras Clave y Nombres
+    const targetNames = (ctx.materialNames || []).map(n => normalizeStr(n)).filter(n => n.length >= 2);
+    if (targetNames.length === 0) return false;
+
+    const normMatName = normalizeStr(mat.nombre);
+    const matTokens = normMatName.split(' ').filter(w => w.length >= 2);
+
+    for (const tName of targetNames) {
+      if (normMatName.includes(tName) || tName.includes(normMatName)) {
+        return true;
+      }
+
+      const tTokens = tName.split(' ').filter(w => w.length >= 2);
+      if (tTokens.length > 0) {
+        const commonTokens = tTokens.filter(tok => matTokens.includes(tok));
+        if (commonTokens.length >= 2 || (tTokens.length === 1 && commonTokens.length === 1)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   };
 
   // Helper para armar ofertas agrupadas por material (priorizando marca preferida)
@@ -1224,19 +1254,32 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
 
           {/* Materiales List / Grid */}
           {filteredMateriales.length === 0 ? (
-            <div className="text-center py-16 bg-surface-container-low border border-dashed border-outline-variant/30 rounded-3xl p-6 space-y-3">
-              <Package className="w-10 h-10 text-outline mx-auto" />
-              <p className="text-sm font-semibold text-on-surface">
-                {filterContext
-                  ? `No se encontraron materiales coincidentes en el catálogo para "${filterContext.title}".`
-                  : 'No se encontraron materiales con los filtros aplicados.'}
-              </p>
-              <p className="text-xs text-on-surface-variant max-w-md mx-auto">
-                {filterContext
-                  ? 'Es posible que los materiales de esta tarea o cotización hayan sido creados con nombres personalizados o eliminados del catálogo.'
-                  : 'Puedes dar de alta un material rápido o crear una ficha técnica completa.'}
-              </p>
-              <div className="flex flex-wrap justify-center gap-2 pt-2">
+            <div className="text-center py-16 bg-surface-container-low border border-dashed border-outline-variant/30 rounded-3xl p-6 space-y-4">
+              <Package className="w-12 h-12 text-outline mx-auto opacity-70" />
+              <div className="space-y-1">
+                <p className="text-base font-bold text-on-surface">
+                  {filterContext
+                    ? `No se encontraron materiales catalogados para "${filterContext.title}"`
+                    : 'No se encontraron materiales con los filtros aplicados'}
+                </p>
+                <p className="text-xs text-on-surface-variant max-w-md mx-auto">
+                  {filterContext
+                    ? 'Esta cotización o tarea está compuesta por partidas libres o insumos personalizados que aún no tienen una ficha técnica en el catálogo.'
+                    : 'Puedes dar de alta un material rápido o crear una ficha técnica completa.'}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap justify-center gap-2.5 pt-2">
+                {filterContext && onClearFilter && (
+                  <button
+                    type="button"
+                    onClick={onClearFilter}
+                    className="px-5 py-2.5 bg-primary text-on-primary font-bold rounded-full text-xs flex items-center gap-2 shadow-sm hover:bg-primary/90 cursor-pointer"
+                  >
+                    <Package className="w-4 h-4" />
+                    <span>Ver Catálogo Completo ({materiales.length} materiales)</span>
+                  </button>
+                )}
                 {(selectedCategory !== 'todas' || searchTerm || selectedVencimiento !== 'todos' || selectedFichaStatus !== 'todas') && (
                   <button
                     type="button"
@@ -1246,31 +1289,22 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                       setSelectedVencimiento('todos');
                       setSelectedFichaStatus('todas');
                     }}
-                    className="px-4 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-semibold rounded-full text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    className="px-4 py-2.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-semibold rounded-full text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" /> Quitar Filtros Secundarios
-                  </button>
-                )}
-                {filterContext && onClearFilter && (
-                  <button
-                    type="button"
-                    onClick={onClearFilter}
-                    className="px-4 py-2 bg-surface-variant hover:bg-surface-variant/80 text-on-surface font-semibold rounded-full text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" /> Cerrar Vista Contextual
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={handleOpenQuickCreateMat}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-full text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-full text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
-                  <Zap className="w-3.5 h-3.5" /> Alta Rápida
+                  <Zap className="w-3.5 h-3.5" /> Alta Rápida de Material
                 </button>
                 <button
                   type="button"
                   onClick={handleOpenCreateMat}
-                  className="px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  className="px-4 py-2.5 bg-surface-container-high hover:bg-surface-variant text-on-surface font-semibold rounded-full text-xs flex items-center gap-1.5 shadow-xs border border-outline-variant/30 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" /> Ficha Completa
                 </button>
