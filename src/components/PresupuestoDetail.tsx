@@ -76,10 +76,11 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
     if (!presupuesto || !onViewMaterialsInCatalog) return;
     const matQtyMap: Record<string, { cantidad: number; unidad: string }> = {};
     const idsSet = new Set<string>();
+    const namesSet = new Set<string>();
 
     presupuesto.items.forEach((it) => {
       (it.insumosSnapshot || []).forEach((ins: any) => {
-        const id = ins.materialId || ins.insumoId;
+        const id = ins.materialId || ins.insumoId || ins.id;
         if (id) {
           idsSet.add(id);
           const current = matQtyMap[id]?.cantidad || 0;
@@ -88,10 +89,13 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
             unidad: ins.unidadVenta || ins.unidad || 'u'
           };
         }
+        if (ins.nombre && ins.nombre.trim()) {
+          namesSet.add(ins.nombre.trim());
+        }
       });
     });
 
-    if (idsSet.size === 0) {
+    if (idsSet.size === 0 && namesSet.size === 0) {
       toast.info('Esta cotización no contiene insumos cargados para ver en el catálogo.');
       return;
     }
@@ -99,6 +103,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
     onViewMaterialsInCatalog({
       title: `Cotización ${presupuesto.numero}`,
       materialIds: Array.from(idsSet),
+      materialNames: Array.from(namesSet),
       quantities: matQtyMap,
       returnTab: 'presupuestos',
       returnViewMode: 'detail',

@@ -139,6 +139,28 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
   const [modoCargaContinua, setModoCargaContinua] = useState(false);
   const quickMatNombreRef = useRef<HTMLInputElement>(null);
 
+  // Auto-reset filters when entering with a contextual filter from quote or task
+  useEffect(() => {
+    if (filterContext) {
+      setActiveTab('materiales');
+      setSelectedCategory('todas');
+      setSearchTerm('');
+      setSelectedVencimiento('todos');
+      setSelectedFichaStatus('todas');
+      setSelectedMaterialIds(new Set());
+    }
+  }, [filterContext]);
+
+  const getObraQuantity = (mat: Material) => {
+    if (!filterContext?.quantities) return undefined;
+    if (filterContext.quantities[mat.id]) return filterContext.quantities[mat.id];
+    const altId1 = mat.id.replace(/^mat-/, 'ins-');
+    if (filterContext.quantities[altId1]) return filterContext.quantities[altId1];
+    const altId2 = mat.id.replace(/^ins-/, 'mat-');
+    if (filterContext.quantities[altId2]) return filterContext.quantities[altId2];
+    return undefined;
+  };
+
   // Helper para armar ofertas agrupadas por material (priorizando marca preferida)
   const getOfertaVigente = (materialId: string, productoId?: string): Oferta | undefined => {
     if (productoId) {
@@ -801,6 +823,9 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
   // Filtrado de materiales
   const filteredMateriales = useMemo(() => {
     const sTerm = searchTerm.toLowerCase();
+    const targetIds = new Set(filterContext?.materialIds || []);
+    const targetNames = new Set((filterContext?.materialNames || []).map(n => n.toLowerCase().trim()));
+
     return materiales.filter(mat => {
       const cat = categoriasMap.get(mat.categoriaId);
       const matchSearch = !sTerm ||
@@ -830,13 +855,18 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
       }
 
       let matchFilterContext = true;
-      if (filterContext && filterContext.materialIds && filterContext.materialIds.length > 0) {
-        matchFilterContext = filterContext.materialIds.includes(mat.id);
+      if (filterContext) {
+        const directIdMatch = targetIds.has(mat.id);
+        const altPrefixMatch = targetIds.has(mat.id.replace(/^mat-/, 'ins-')) || targetIds.has(mat.id.replace(/^ins-/, 'mat-'));
+        const prodMatch = productos.some(p => p.materialId === mat.id && targetIds.has(p.id));
+        const nameMatch = targetNames.has(mat.nombre.trim().toLowerCase());
+
+        matchFilterContext = directIdMatch || altPrefixMatch || prodMatch || nameMatch;
       }
 
       return matchSearch && matchCat && matchVenc && matchFicha && matchFilterContext;
     });
-  }, [materiales, searchTerm, selectedCategory, selectedVencimiento, selectedFichaStatus, ofertas, config, categoriasMap, filterContext]);
+  }, [materiales, searchTerm, selectedCategory, selectedVencimiento, selectedFichaStatus, ofertas, productos, config, categoriasMap, filterContext]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-24">
@@ -1130,20 +1160,37 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
           {filteredMateriales.length === 0 ? (
             <div className="text-center py-16 bg-surface-container-low border border-dashed border-outline-variant/30 rounded-3xl p-6 space-y-3">
               <Package className="w-10 h-10 text-outline mx-auto" />
-              <p className="text-sm font-semibold text-on-surface">No se encontraron materiales con los filtros aplicados.</p>
-              <p className="text-xs text-on-surface-variant">Puedes dar de alta un material rápido o crear una ficha técnica completa.</p>
-              <div className="flex justify-center gap-2 pt-2">
+              <p className="text-sm font-semibold text-on-surface">
+                {filterContext
+                  ? `No se encontraron materiales coincidentes en el catálogo para "${filterContext.title}".`
+                  : 'No se encontraron materiales con los filtros aplicados.'}
+              </p>
+              <p className="text-xs text-on-surface-variant max-w-md mx-auto">
+                {filterContext
+                  ? 'Es posible que los materiales de esta tarea o cotización hayan sido creados con nombres personalizados o eliminados del catálogo.'
+                  : 'Puedes dar de alta un material rápido o crear una ficha técnica completa.'}
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 pt-2">
+                {filterContext && onClearFilter && (
+                  <button
+                    type="button"
+                    onClick={onClearFilter}
+                    className="px-4 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-semibold rounded-full text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" /> Quitar Filtro / Ver Todo el Catálogo
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleOpenQuickCreateMat}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-full text-xs flex items-center gap-1.5 shadow-sm"
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-full text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <Zap className="w-3.5 h-3.5" /> Alta Rápida
                 </button>
                 <button
                   type="button"
                   onClick={handleOpenCreateMat}
-                  className="px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs flex items-center gap-1.5 shadow-sm"
+                  className="px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" /> Ficha Completa
                 </button>

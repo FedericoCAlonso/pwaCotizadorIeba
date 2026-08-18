@@ -624,6 +624,7 @@ export interface MotorBusquedaEcommerce {
 export interface MaterialFilterContext {
   title: string;
   materialIds: string[];
+  materialNames?: string[];
   quantities?: Record<string, { cantidad: number; unidad: string }>;
   returnTab?: string;
   returnViewMode?: 'list' | 'editor' | 'detail';

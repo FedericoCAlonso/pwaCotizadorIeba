@@ -129,16 +129,21 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                         onClick={() => {
                           const ids = tarea.insumos.map(i => i.materialId || i.insumoId).filter(Boolean) as string[];
                           const quantities: Record<string, { cantidad: number; unidad: string }> = {};
+                          const names: string[] = [];
                           tarea.insumos.forEach(i => {
                             const id = i.materialId || i.insumoId;
                             const mat = insumosMap.get(id || '');
                             if (id) {
                               quantities[id] = { cantidad: i.cantidad, unidad: mat?.unidadVenta || mat?.unidad || 'u' };
                             }
+                            if (mat?.nombre) {
+                              names.push(mat.nombre.trim());
+                            }
                           });
                           onViewMaterialsInCatalog({
                             title: `Trabajo Tipo: ${tarea.nombre}`,
                             materialIds: ids,
+                            materialNames: names,
                             quantities,
                             returnTab: 'tareasTipo'
                           });
