@@ -1,13 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { X, Save, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle, RefreshCw, Layers, Plus, Edit2, Trash2, Check, RotateCcw } from 'lucide-react';
+import React from 'react';
+import { X, Save, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle, RefreshCw, Layers, Plus, Edit2, Trash2, Check, RotateCcw, AlertTriangle } from 'lucide-react';
 import { AppConfig } from '../core/types';
-import { db } from '../db/database';
-import { TIPOS_FACTURA, DEFAULT_APP_CONFIG, INITIAL_CATEGORIAS_MATERIAL, INITIAL_MATERIALES, INITIAL_MANO_OBRA, INITIAL_COSTOS_INDIRECTOS, DEFAULT_MOTORES_BUSQUEDA, BASE_TAREA_CATEGORIES } from '../core/sampleData';
-import { isFirebaseConfigured, getFirebaseConfig, clearCustomFirebaseConfig } from '../config/firebase';
+import { TIPOS_FACTURA, INITIAL_MATERIALES, INITIAL_MANO_OBRA, INITIAL_COSTOS_INDIRECTOS, INITIAL_TAREAS_TIPO, BASE_TAREA_CATEGORIES, DEFAULT_MOTORES_BUSQUEDA, DEFAULT_APP_CONFIG } from '../core/sampleData';
 import { AuthModal } from './AuthModal';
-import { useToast } from '../contexts/ToastContext';
-import { useConfirm } from '../contexts/ConfirmContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useToast } from '../contexts/ToastContext';
+import { useConfigViewModel } from '../viewmodels/useConfigViewModel';
 
 interface ConfigModalProps {
   config: AppConfig;
@@ -19,181 +17,38 @@ interface ConfigModalProps {
 export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClose, onSave }) => {
   useEscapeKey(isOpen, onClose);
   const { toast } = useToast();
-  const confirm = useConfirm();
 
-  const [formData, setFormData] = useState<AppConfig>({
-    ...config,
-    categoriasTarea: config.categoriasTarea && config.categoriasTarea.length > 0 ? config.categoriasTarea : [...BASE_TAREA_CATEGORIES]
-  });
-  const [showAuthSetup, setShowAuthSetup] = useState(false);
-  const firebaseConfigured = isFirebaseConfigured();
-  const currentFbConfig = getFirebaseConfig();
-
-  // Categorías de Trabajos / Tareas
-  const [newCatName, setNewCatName] = useState('');
-  const [editingCatIndex, setEditingCatIndex] = useState<number | null>(null);
-  const [editingCatValue, setEditingCatValue] = useState('');
-
-  useEffect(() => {
-    if (isOpen) {
-      setFormData({
-        ...config,
-        categoriasTarea: config.categoriasTarea && config.categoriasTarea.length > 0 ? config.categoriasTarea : [...BASE_TAREA_CATEGORIES]
-      });
-      setNewCatName('');
-      setEditingCatIndex(null);
-      setEditingCatValue('');
-    }
-  }, [isOpen, config]);
+  const {
+    formData,
+    setFormData,
+    updateFormData,
+    handleSubmit,
+    showAuthSetup,
+    setShowAuthSetup,
+    firebaseConfigured,
+    currentFbConfig,
+    newCatName,
+    setNewCatName,
+    editingCatIndex,
+    editingCatValue,
+    setEditingCatValue,
+    handleSaveConfig,
+    handleRestoreDefaultCategories,
+    handleRestoreDefaultMaterials,
+    handleRestoreDefaultManoObra,
+    handleRestoreDefaultCostosIndirectos,
+    handleRestoreDefaultTareasTipo,
+    handleRestoreDefaultTareaCategories,
+    handleResetToDefaults,
+    handleAddCategory,
+    handleStartEditCat,
+    handleSaveEditCat,
+    handleCancelEditCat,
+    handleDeleteCategory,
+    handleClearCustomFirebase
+  } = useConfigViewModel({ config, isOpen, onClose, onSave });
 
   if (!isOpen) return null;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await db.config.put(formData);
-    toast.success('Configuración guardada exitosamente');
-    onSave();
-    onClose();
-  };
-
-  const handleRestoreDefaultCategories = async () => {
-    const ok = await confirm({
-      title: 'Restaurar Categorías de Materiales',
-      message: '¿Estás seguro de restablecer las categorías iniciales? Esta acción se recomienda solo si tus categorías sufrieron alteraciones.',
-      confirmText: 'Restaurar',
-      isDestructive: true
-    });
-    if (ok) {
-      await db.categoriasMaterial.bulkPut(INITIAL_CATEGORIAS_MATERIAL);
-      toast.success('Las categorías de materiales por defecto han sido restauradas.');
-    }
-  };
-
-  const handleRestoreDefaultMaterials = async () => {
-    const ok = await confirm({
-      title: 'Cargar / Restaurar Catálogo Base de Materiales',
-      message: `¿Estás seguro de cargar el catálogo base de materiales (${INITIAL_MATERIALES.length} fichas técnicas: cables unipolares con código de colores, cajas, gabinetes, caños RS y PVC, conectores y bandejas portacables con accesorios)?`,
-      confirmText: 'Cargar Catálogo Base',
-      isDestructive: false
-    });
-    if (ok) {
-      await db.materiales.bulkPut(INITIAL_MATERIALES);
-      toast.success(`${INITIAL_MATERIALES.length} materiales base cargados correctamente en el catálogo.`);
-    }
-  };
-
-  const handleRestoreDefaultManoObra = async () => {
-    const ok = await confirm({
-      title: 'Cargar / Restaurar Categorías de Mano de Obra',
-      message: `¿Estás seguro de cargar los ${INITIAL_MANO_OBRA.length} roles estándar de mano de obra eléctrica (Oficial Especializado, Oficial, Medio Oficial, Ayudante, Capataz, Matriculado, Tablerista, Proyectista)? Los valores/tarifas horarias se inicializarán en 0.`,
-      confirmText: 'Cargar Mano de Obra',
-      isDestructive: false
-    });
-    if (ok) {
-      await db.manoObra.bulkPut(INITIAL_MANO_OBRA);
-      toast.success(`${INITIAL_MANO_OBRA.length} categorías de mano de obra cargadas.`);
-    }
-  };
-
-  const handleRestoreDefaultCostosIndirectos = async () => {
-    const ok = await confirm({
-      title: 'Cargar / Restaurar Gastos Generales y Estructura',
-      message: `¿Estás seguro de cargar los ${INITIAL_COSTOS_INDIRECTOS.length} conceptos de gastos generales y de estructura estándar (Movilidad, Seguros AP/ART, EPP, Desgaste de herramientas, Gastos administrativos, Taller/Depósito, Matrícula, Imprevistos, Andamios)? Los valores se inicializarán en 0.`,
-      confirmText: 'Cargar Gastos Generales',
-      isDestructive: false
-    });
-    if (ok) {
-      await db.costosIndirectos.bulkPut(INITIAL_COSTOS_INDIRECTOS);
-      toast.success(`${INITIAL_COSTOS_INDIRECTOS.length} conceptos de gastos generales cargados.`);
-    }
-  };
-
-  const handleAddCategory = () => {
-    const trimmed = newCatName.trim();
-    if (!trimmed) return;
-    const currentCats = formData.categoriasTarea || [...BASE_TAREA_CATEGORIES];
-    if (currentCats.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
-      toast.warning('Ya existe una categoría con ese nombre.');
-      return;
-    }
-    setFormData({
-      ...formData,
-      categoriasTarea: [...currentCats, trimmed]
-    });
-    setNewCatName('');
-    toast.success(`Categoría "${trimmed}" agregada`);
-  };
-
-  const handleStartEditCat = (index: number, name: string) => {
-    setEditingCatIndex(index);
-    setEditingCatValue(name);
-  };
-
-  const handleSaveEditCat = (index: number) => {
-    const trimmed = editingCatValue.trim();
-    if (!trimmed) return;
-    const currentCats = [...(formData.categoriasTarea || BASE_TAREA_CATEGORIES)];
-    if (currentCats.some((c, idx) => idx !== index && c.toLowerCase() === trimmed.toLowerCase())) {
-      toast.warning('Ya existe otra categoría con ese nombre.');
-      return;
-    }
-    currentCats[index] = trimmed;
-    setFormData({
-      ...formData,
-      categoriasTarea: currentCats
-    });
-    setEditingCatIndex(null);
-    setEditingCatValue('');
-    toast.success('Categoría actualizada');
-  };
-
-  const handleCancelEditCat = () => {
-    setEditingCatIndex(null);
-    setEditingCatValue('');
-  };
-
-  const handleDeleteCategory = async (index: number) => {
-    const currentCats = formData.categoriasTarea || [...BASE_TAREA_CATEGORIES];
-    if (currentCats.length <= 1) {
-      toast.warning('Debe haber al menos una categoría de trabajo.');
-      return;
-    }
-    const catToDelete = currentCats[index];
-    const ok = await confirm({
-      title: 'Eliminar Categoría de Tarea',
-      message: `¿Estás seguro de eliminar la categoría "${catToDelete}" de la lista de tareas?`,
-      confirmText: 'Eliminar',
-      isDestructive: true
-    });
-    if (ok) {
-      const nextCats = currentCats.filter((_, i) => i !== index);
-      setFormData({
-        ...formData,
-        categoriasTarea: nextCats
-      });
-      if (editingCatIndex === index) {
-        setEditingCatIndex(null);
-        setEditingCatValue('');
-      }
-      toast.success(`Categoría "${catToDelete}" eliminada`);
-    }
-  };
-
-  const handleRestoreDefaultTareaCategories = async () => {
-    const ok = await confirm({
-      title: 'Restaurar Categorías de Tareas',
-      message: '¿Restablecer las categorías de tareas a los valores por defecto (Bocas, Circuitos, Tableros, Acometidas, Medición)?',
-      confirmText: 'Restablecer',
-      isDestructive: false
-    });
-    if (ok) {
-      setFormData({
-        ...formData,
-        categoriasTarea: [...BASE_TAREA_CATEGORIES]
-      });
-      toast.success('Categorías de tareas restauradas a valores de fábrica');
-    }
-  };
 
   const inputCls = "w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-on-surface-variant/70 min-h-[44px] transition-shadow";
   const sectionTitle = "text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3";
@@ -815,6 +670,20 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
               </div>
 
               <div className="pt-3 border-t border-rose-500/20">
+                <h4 className="text-xs font-bold text-on-surface">Cargar / Restaurar Trabajos Tipo Base</h4>
+                <p className="text-[11px] text-on-surface-variant mt-0.5 mb-2">
+                  Carga los trabajos tipo recomendados de fábrica, incluyendo el modelo paramétrico de Recableado Integral (con coeficientes de antigüedad, accesibilidad, altura, artefactos especiales y cláusula técnica de protección).
+                </p>
+                <button
+                  type="button"
+                  onClick={handleRestoreDefaultTareasTipo}
+                  className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 font-semibold text-xs rounded-xl border border-primary/30 transition-colors"
+                >
+                  Cargar Trabajos Tipo Recomendados ({INITIAL_TAREAS_TIPO.length} Plantillas)
+                </button>
+              </div>
+
+              <div className="pt-3 border-t border-rose-500/20">
                 <h4 className="text-xs font-bold text-on-surface">Restaurar Categorías de Trabajos Tipo por Defecto</h4>
                 <p className="text-[11px] text-on-surface-variant mt-0.5 mb-2">
                   Restablece las categorías de trabajos tipo a los valores de fábrica (Bocas, Circuitos, Tableros, Acometidas, Medición).
@@ -825,6 +694,25 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                   className="px-4 py-2 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 font-semibold text-xs rounded-xl border border-rose-500/30 transition-colors"
                 >
                   Restaurar Categorías de Trabajos Tipo
+                </button>
+              </div>
+
+              {/* Botón Maestro de Reseteo Total */}
+              <div className="pt-4 border-t-2 border-rose-500/40 bg-rose-500/10 p-3.5 rounded-xl">
+                <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider">Zona de Peligro: Restablecer Todo de Fábrica</h4>
+                </div>
+                <p className="text-[11px] text-on-surface-variant mt-1 mb-3">
+                  Borra todos los presupuestos, clientes, proveedores y tareas creadas, y restablece completamente la base de datos a sus valores iniciales limpios de fábrica.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleResetToDefaults}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Restablecer TODO a Valores por Defecto
                 </button>
               </div>
             </div>

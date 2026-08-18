@@ -4,7 +4,11 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
-  Sparkles
+  Sparkles,
+  Sliders,
+  ShieldAlert,
+  Ruler,
+  Calculator
 } from 'lucide-react';
 import { ItemPresupuesto } from '../../core/types';
 import { formatARS, roundMoney } from '../../core/calculations';
@@ -24,6 +28,8 @@ interface PresupuestoItemRowProps {
   onUpdateItemDescription: (index: number, desc: string) => void;
   onRemoveItem: (index: number) => void;
   onSaveAsTemplate: (item: ItemPresupuesto) => void;
+  onOpenParametricModal?: (index: number) => void;
+  onOpenMaterialModal?: (index: number) => void;
   condicionesTrabajo: Array<{ value: string; label: string }>;
 }
 
@@ -40,6 +46,8 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
   onUpdateItemDescription,
   onRemoveItem,
   onSaveAsTemplate,
+  onOpenParametricModal,
+  onOpenMaterialModal,
   condicionesTrabajo,
 }) => {
   const hasSnapshots =
@@ -71,6 +79,50 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
             onChange={(e) => onUpdateItemDescription(index, e.target.value)}
             className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-1.5 text-sm font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
+
+          {/* Badges de Parámetros Dinámicos del Trabajo Tipo */}
+          {item.valoresVariables && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              <button
+                type="button"
+                onClick={() => onOpenParametricModal?.(index)}
+                className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 font-mono flex items-center gap-1.5 transition"
+                title="Click para reajustar los parámetros de este trabajo tipo"
+              >
+                <Sliders className="w-3 h-3" />
+                <span>Parámetros:</span>
+                {Object.entries(item.valoresVariables).map(([key, val]) => (
+                  <span key={key} className="font-semibold opacity-90">
+                    {key}: {typeof val === 'number' ? (Number.isInteger(val) ? val : val.toFixed(2)) : val}
+                  </span>
+                ))}
+              </button>
+
+              {item.clausulaExclusiones && (
+                <span
+                  className="text-[10px] px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1 font-medium"
+                  title={item.clausulaExclusiones}
+                >
+                  <ShieldAlert className="w-3 h-3 text-amber-500" />
+                  <span>Exclusiones Activas</span>
+                </span>
+              )}
+            </div>
+          )}
+          {/* Badges de Cómputo Paramétrico de Materiales */}
+          {item.parametrosEstimacionMaterial && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+              <button
+                type="button"
+                onClick={() => onOpenMaterialModal?.(index)}
+                className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-mono flex items-center gap-1 transition text-left"
+                title="Click para reajustar cálculo paramétrico de material"
+              >
+                <Ruler className="w-3 h-3 shrink-0" />
+                <span>{item.parametrosEstimacionMaterial.explicacionCalculo}</span>
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center justify-between md:justify-end gap-2.5">
@@ -90,7 +142,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
             </select>
           </div>
 
-          {/* Quantity with MathInput & Unit */}
+          {/* Quantity with MathInput, Unit & Parametric Ruler Button */}
           <div className="flex items-center gap-1">
             <span className="text-xs text-on-surface-variant font-semibold">Cant:</span>
             <div className="w-28">
@@ -111,6 +163,16 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
               className="w-12 bg-surface-container-highest border border-outline-variant/30 rounded-xl px-1.5 py-1 text-xs text-on-surface text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
               title="Unidad de medida (ej: u, boca, m, gl)"
             />
+            {onOpenMaterialModal && (
+              <button
+                type="button"
+                onClick={() => onOpenMaterialModal(index)}
+                className="p-1.5 bg-surface-container-highest hover:bg-primary/20 hover:text-primary text-on-surface-variant rounded-xl border border-outline-variant/30 transition flex items-center justify-center shrink-0"
+                title="Cómputo Métrico Paramétrico (Superficie, Cañería, Desperdicio)"
+              >
+                <Ruler className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Direct Unit Cost */}
@@ -156,6 +218,22 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
               title={isExpanded ? 'Ocultar desglose de insumos y mano de obra' : 'Ver desglose de insumos y mano de obra'}
             >
               {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          )}
+
+          {/* Parametric Job Complexity Settings Button */}
+          {onOpenParametricModal && (
+            <button
+              type="button"
+              onClick={() => onOpenParametricModal(index)}
+              className={`p-1.5 rounded-xl transition-colors ${
+                item.parametrosTrabajoTipo
+                  ? 'text-primary bg-primary/10 hover:bg-primary/20'
+                  : 'text-on-surface-variant hover:text-primary hover:bg-surface-variant'
+              }`}
+              title="Configurar parámetros de complejidad (Antigüedad, Altura, Accesibilidad, Desarmado)"
+            >
+              <Sliders className="w-4 h-4" />
             </button>
           )}
 

@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { Calculator, Plus, BookOpen, Sliders, BarChart3, ShieldAlert } from 'lucide-react';
-import { db, softDelete } from '../db/database';
-import { TareaTipo, Insumo, CategoriaManoDeObra, Oferta, Producto, MaterialFilterContext } from '../core/types';
+import { db } from '../db/database';
+import { TareaTipo, MaterialFilterContext } from '../core/types';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useToast } from '../contexts/ToastContext';
-import { useConfirm } from '../contexts/ConfirmContext';
 import { CatalogoSubmodulo } from './tareasTipo/CatalogoSubmodulo';
 import { SimulacionWhatIfSubmodulo } from './tareasTipo/SimulacionWhatIfSubmodulo';
 import { CalibracionEmaSubmodulo } from './tareasTipo/CalibracionEmaSubmodulo';
 import { AuditoriaSubmodulo } from './tareasTipo/AuditoriaSubmodulo';
 import { TareaEditorModal, TareaFormData } from './tareasTipo/TareaEditorModal';
+import { useTareasTipoViewModel } from '../viewmodels/useTareasTipoViewModel';
 
 interface TareasTipoManagerProps {
   onViewMaterialsInCatalog?: (ctx: MaterialFilterContext) => void;
@@ -21,43 +20,26 @@ export const TareasTipoManager: React.FC<TareasTipoManagerProps> = ({
 }) => {
   const { config, categoriasTarea } = useAppConfig();
   const { toast } = useToast();
-  const confirm = useConfirm();
 
-  const tareasTipo = (useLiveQuery(() => db.tareasTipo.toArray()) || []).filter((t) => !t.deleted);
-  const legacyInsumos = (useLiveQuery(() => db.insumos.toArray()) || []).filter((i) => !i.deleted);
-  const materiales = (useLiveQuery(() => db.materiales.toArray()) || []).filter((m) => !m.deleted);
-  const productos = (useLiveQuery(() => db.productos.toArray()) || []).filter((p) => !p.deleted);
-  const ofertas = (useLiveQuery(() => db.ofertas.toArray()) || []).filter((o) => !o.deleted);
-  const manoObraList = (useLiveQuery(() => db.manoObra.toArray()) || []).filter((m) => !m.deleted);
-  const registrosTrabajo = (useLiveQuery(() => db.registrosTrabajo.toArray()) || []).filter((r) => !r.deleted);
-
-  const insumosMap = new Map<string, Insumo>();
-  legacyInsumos.forEach((i) => insumosMap.set(i.id, i));
-  const sortedOfertas = [...ofertas].sort((a, b) => new Date(a.fecha || 0).getTime() - new Date(b.fecha || 0).getTime());
-  materiales.forEach((m) => {
-    const matProds = productos.filter((p) => p.materialId === m.id);
-    const preferido = matProds.find((p) => p.esPreferido);
-    let oferta: Oferta | undefined;
-    if (preferido) {
-      oferta = sortedOfertas.filter((o) => o.materialId === m.id && o.productoId === preferido.id).pop();
-    }
-    if (!oferta) {
-      oferta = sortedOfertas.filter((o) => o.materialId === m.id).pop();
-    }
-    insumosMap.set(m.id, {
-      ...m,
-      id: m.id,
-      nombre: m.nombre,
-      unidad: m.unidadVenta || 'u',
-      categoria: m.categoriaId,
-      precioActual: oferta ? oferta.precio : (m as any).precioActual || 0,
-      fechaActualizacion: oferta ? oferta.fecha : new Date().toISOString(),
-      historialPrecios: [],
-    });
+  const {
+    tareasTipo,
+    insumosMap,
+    manoObraList,
+    manoObraMap,
+    registrosTrabajo,
+    activeSubmodulo,
+    setActiveSubmodulo,
+    isCreating,
+    setIsCreating,
+    editingTarea,
+    setEditingTarea,
+    handleSaveTarea: vmSaveTarea,
+    handleDeleteTarea,
+    handleDuplicateTarea: vmDuplicateTarea
+  } = useTareasTipoViewModel({
+    onViewMaterialsInCatalog
   });
-  const manoObraMap = new Map<string, CategoriaManoDeObra>(manoObraList.map((m) => [m.id, m]));
 
-  const [activeSubmodulo, setActiveSubmodulo] = useState<'catalogo' | 'simulacion' | 'calibracion' | 'auditoria'>('catalogo');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('todas');
 
@@ -67,10 +49,6 @@ export const TareasTipoManager: React.FC<TareasTipoManagerProps> = ({
   const [simManoObraPct, setSimManoObraPct] = useState<number>(0);
   const [simHorasExtra, setSimHorasExtra] = useState<number>(0);
   const [simMargenPct, setSimMargenPct] = useState<number>(config?.margenPorDefectoPct || 35);
-
-  // Editor Modal States
-  const [editingTarea, setEditingTarea] = useState<TareaTipo | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
 
   const handleOpenCreate = () => {
     setEditingTarea(null);
@@ -89,60 +67,22 @@ export const TareasTipoManager: React.FC<TareasTipoManagerProps> = ({
   };
 
   const handleDuplicateTarea = (t: TareaTipo) => {
-    setEditingTarea({
-      ...t,
-      id: '',
-      nombre: `${t.nombre} (Copia)`,
-    });
-    setIsCreating(true);
+    vmDuplicateTarea(t);
   };
 
   const handleDelete = async (id: string) => {
-    const ok = await confirm({
-      title: 'Eliminar Tarea Tipo',
-      message: '¿Estás seguro de eliminar esta tarea tipo del catálogo?',
-      confirmText: 'Eliminar',
-      isDestructive: true,
-    });
-    if (ok) {
-      await softDelete('tareasTipo', id);
-      toast.success('Tarea tipo eliminada correctamente');
-    }
+    await handleDeleteTarea(id);
   };
 
   const handleSaveTarea = async (formData: TareaFormData) => {
-    const now = new Date().toISOString();
-
-    if (isCreating || !editingTarea?.id) {
-      await db.tareasTipo.add({
-        id: `tt-${crypto.randomUUID()}`,
-        nombre: formData.nombre.trim(),
-        categoria: formData.categoria.trim(),
-        unidad: formData.unidad.trim() || 'punto',
-        notasTecnicas: formData.notasTecnicas.trim() || undefined,
-        insumos: formData.insumos,
-        manoObra: formData.manoObra,
-        factorCorreccion: 1.0,
-        createdAt: now,
-        updatedAt: now,
-        deleted: false,
-      });
-      toast.success('¡Tarea tipo creada con éxito!');
-      setIsCreating(false);
-      setEditingTarea(null);
-    } else {
-      await db.tareasTipo.update(editingTarea.id, {
-        nombre: formData.nombre.trim(),
-        categoria: formData.categoria.trim(),
-        unidad: formData.unidad.trim() || 'punto',
-        notasTecnicas: formData.notasTecnicas.trim() || undefined,
-        insumos: formData.insumos,
-        manoObra: formData.manoObra,
-        updatedAt: now,
-      });
-      toast.success('Tarea tipo actualizada correctamente');
-      setEditingTarea(null);
-    }
+    await vmSaveTarea({
+      nombre: formData.nombre.trim(),
+      categoria: formData.categoria.trim(),
+      unidad: formData.unidad.trim() || 'u',
+      notasTecnicas: formData.notasTecnicas?.trim() || '',
+      insumos: formData.insumos,
+      manoObra: formData.manoObra
+    });
   };
 
   const handleCalibrarEma = async (tareaId: string, factorSugerido: number) => {

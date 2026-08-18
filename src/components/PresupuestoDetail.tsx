@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import {
   ArrowLeft,
   Printer,
@@ -7,14 +6,14 @@ import {
   Zap,
   Sparkles,
   Package,
-  RefreshCw
+  RefreshCw,
+  ShieldAlert
 } from 'lucide-react';
-import { db } from '../db/database';
 import { AppConfig, Presupuesto, EstadoPresupuesto, InsumoEnTarea, ManoObraEnTarea, MaterialFilterContext } from '../core/types';
-import { formatARS, formatUSD, roundMoney, calcularTotalesPresupuesto } from '../core/calculations';
+import { formatARS, formatUSD } from '../core/calculations';
 import { ESTADOS_PRESUPUESTO } from '../core/sampleData';
 import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
-import { useToast } from '../contexts/ToastContext';
+import { usePresupuestoDetailViewModel } from '../viewmodels/usePresupuestoDetailViewModel';
 
 interface PresupuestoDetailProps {
   presupuestoId: string;
@@ -33,17 +32,21 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
   onDuplicate,
   onViewMaterialsInCatalog,
 }) => {
-  const { toast } = useToast();
-  const presupuesto = useLiveQuery(() => db.presupuestos.get(presupuestoId), [presupuestoId]);
-  const cliente = useLiveQuery(
-    async () => {
-      if (!presupuesto?.clienteId) return undefined;
-      const cto = await db.contactos.get(presupuesto.clienteId);
-      if (cto) return cto;
-      return db.clientes.get(presupuesto.clienteId);
-    },
-    [presupuesto?.clienteId]
-  );
+  const {
+    presupuesto,
+    cliente,
+    isUpdatingPrices,
+    handleUpdateStatus,
+    handleOpenMaterialsInCatalog,
+    handleRevalidateWithCatalog,
+    handleUpdateOpcionesEmision
+  } = usePresupuestoDetailViewModel({
+    presupuestoId,
+    config,
+    onEdit,
+    onDuplicate,
+    onViewMaterialsInCatalog
+  });
 
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [saveAsTemplateData, setSaveAsTemplateData] = useState<{
@@ -58,147 +61,14 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
 
   if (!presupuesto) {
     return (
-      <div className="p-8 text-center text-slate-400">
-        Cargando documento de presupuesto...
+      <div className="text-center py-12">
+        <p className="text-on-surface-variant">Cargando presupuesto...</p>
       </div>
     );
   }
 
   const handlePrint = () => {
     window.print();
-  };
-
-  const handleUpdateStatus = async (nuevoEstado: EstadoPresupuesto) => {
-    await db.presupuestos.update(presupuesto.id, { estado: nuevoEstado });
-  };
-
-  /**
-   * Extrae la lista de insumos de las partidas del presupuesto y navega al Gestor de Materiales
-   * en modo contextual filtrado para comparar marcas, buscar ofertas o actualizar precios de lista.
-   */
-  const handleOpenMaterialsInCatalog = () => {
-    if (!presupuesto || !onViewMaterialsInCatalog) return;
-    const matQtyMap: Record<string, { cantidad: number; unidad: string }> = {};
-    const idsSet = new Set<string>();
-    const namesSet = new Set<string>();
-
-    presupuesto.items.forEach((it) => {
-      (it.insumosSnapshot || []).forEach((ins: any) => {
-        const id = ins.materialId || ins.insumoId || ins.id;
-        if (id) {
-          idsSet.add(id);
-          const current = matQtyMap[id]?.cantidad || 0;
-          matQtyMap[id] = {
-            cantidad: roundMoney(current + (ins.cantidadTotal || 0)),
-            unidad: ins.unidadVenta || ins.unidad || 'u'
-          };
-        }
-        if (ins.nombre && ins.nombre.trim()) {
-          namesSet.add(ins.nombre.trim());
-        }
-      });
-    });
-
-    if (idsSet.size === 0 && namesSet.size === 0) {
-      toast.info('Esta cotización está compuesta por partidas libres sin despiece de insumos catalogados.');
-      return;
-    }
-
-    onViewMaterialsInCatalog({
-      title: `Cotización ${presupuesto.numero}`,
-      materialIds: Array.from(idsSet),
-      materialNames: Array.from(namesSet),
-      quantities: matQtyMap,
-      returnTab: 'presupuestos',
-      returnViewMode: 'detail',
-      returnPresupuestoId: presupuesto.id
-    });
-  };
-
-  /**
-   * Revalida los costos congelados de la cotización contra las ofertas y precios vigentes del catálogo,
-   * recalculando instantáneamente todos los subtotales, márgenes e impuestos.
-   */
-  const handleRevalidateWithCatalog = async () => {
-    if (!presupuesto) return;
-    const allOfertas = await db.ofertas.toArray();
-    const sortedOfertas = [...allOfertas].filter(o => !o.deleted).sort((a, b) => new Date(a.fecha || 0).getTime() - new Date(b.fecha || 0).getTime());
-
-    let updatedCount = 0;
-    const updatedItems = presupuesto.items.map((it) => {
-      if (!it.insumosSnapshot || it.insumosSnapshot.length === 0) return it;
-      const nextSnap = it.insumosSnapshot.map((ins) => {
-        const matId = ins.materialId || (ins as any).insumoId;
-        const latestOferta = sortedOfertas.filter(o => o.materialId === matId).pop();
-        if (latestOferta && latestOferta.precio > 0) {
-          const newPrice = latestOferta.precio;
-          const ali = ins.alicuotaIVA ?? 21;
-          const newFinalPrice = latestOferta.precioFinal ?? (newPrice * (1 + ali / 100));
-          if (newPrice !== ins.precioUnitarioCongelado) {
-            updatedCount++;
-          }
-          return {
-            ...ins,
-            precioUnitarioCongelado: newPrice,
-            precioFinalUnitarioCongelado: newFinalPrice,
-            subtotalInsumo: roundMoney(newPrice * (ins.cantidadTotal || 1)),
-            subtotalInsumoFinal: roundMoney(newFinalPrice * (ins.cantidadTotal || 1))
-          };
-        }
-        return ins;
-      });
-
-      const isFacturaC_or_X = presupuesto.tipoFactura === 'Factura C' || presupuesto.tipoFactura === 'Presupuesto X (Sin Factura)';
-      const costoInsumosNeto = roundMoney(nextSnap.reduce((acc, i) => acc + i.subtotalInsumo, 0));
-      const costoInsumosFinal = roundMoney(nextSnap.reduce((acc, i) => acc + (i.subtotalInsumoFinal ?? i.subtotalInsumo), 0));
-      const costoInsumos = isFacturaC_or_X ? costoInsumosFinal : costoInsumosNeto;
-      const costoMO = it.costoManoObra || 0;
-      const costoDirectoTotal = roundMoney(costoInsumos + costoMO);
-
-      return {
-        ...it,
-        insumosSnapshot: nextSnap,
-        costoInsumos,
-        costoDirectoTotal,
-        costoUnitario: roundMoney(costoDirectoTotal / (it.cantidad || 1)),
-        costoTotal: costoDirectoTotal
-      };
-    });
-
-    const calculatedTotals = calcularTotalesPresupuesto({
-      items: updatedItems,
-      costosIndirectosConfig: presupuesto.costosIndirectosConfig,
-      margenPorcentaje: presupuesto.margenPorcentaje,
-      beneficioPorcentaje: presupuesto.beneficioPorcentaje,
-      impuestosDetalle: presupuesto.impuestosDetalle || [],
-      tipoFactura: presupuesto.tipoFactura,
-      cotizacionMonedaExtranjera: presupuesto.cotizacionMonedaExtranjera
-    });
-
-    await db.presupuestos.update(presupuesto.id, {
-      items: calculatedTotals.itemsCalculados || updatedItems,
-      costoGlobal: calculatedTotals.costoGlobal,
-      gastosGeneralesTotal: calculatedTotals.gastosGeneralesTotal,
-      beneficioMonto: calculatedTotals.beneficioMonto,
-      subtotalSinImpuestos: calculatedTotals.subtotalSinImpuestos,
-      montoImpuestosTotal: calculatedTotals.montoImpuestosTotal,
-      precioFinalGlobal: calculatedTotals.precioFinalGlobal,
-      coeficienteK: calculatedTotals.coeficienteK,
-      subtotalInsumos: calculatedTotals.subtotalInsumos,
-      subtotalManoObra: calculatedTotals.subtotalManoObra,
-      subtotalCostosDirectos: calculatedTotals.subtotalCostosDirectos,
-      subtotalCostosIndirectos: calculatedTotals.subtotalCostosIndirectos,
-      costoTotalObra: calculatedTotals.costoTotalObra,
-      montoGanancia: calculatedTotals.montoGanancia,
-      totalARS: calculatedTotals.totalARS,
-      fechaModificacion: new Date().toISOString()
-    });
-
-    if (updatedCount > 0) {
-      toast.success(`Se actualizaron ${updatedCount} precios de materiales con el catálogo vigente.`);
-    } else {
-      toast.info('Los materiales de esta cotización ya están sincronizados con los precios del catálogo.');
-    }
   };
 
   return (
@@ -214,39 +84,24 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
           </button>
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-on-surface font-mono">{presupuesto.numero}</h2>
-              <span className={`text-[11px] font-bold px-3 py-1 rounded-full capitalize tracking-wide ${
-                {
-                  borrador: 'bg-surface-variant text-on-surface-variant',
-                  enviado: 'bg-primary-container text-on-primary-container',
-                  aprobado: 'bg-tertiary-container text-on-tertiary-container',
-                  rechazado: 'bg-error-container text-on-error-container',
-                  vencido: 'bg-surface-container-highest text-on-surface-variant'
-                }[presupuesto.estado]
-              }`}>
-                {presupuesto.estado}
-              </span>
+              <h2 className="text-2xl font-bold text-on-surface tracking-tight">
+                {presupuesto.numero}
+              </h2>
             </div>
-            <p className="text-xs text-on-surface-variant mt-1">
-              Emitido el {new Date(presupuesto.fechaEmision).toLocaleDateString('es-AR')} | Válido por {presupuesto.validezDias} días
+            <p className="text-sm text-on-surface-variant mt-0.5">
+              Cliente: <strong className="text-on-surface">{cliente ? cliente.nombre : 'Sin asignar'}</strong>
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2.5">
           {/* Emission Options Toggles in Action Bar (no-print) */}
           <div className="flex items-center gap-3 bg-surface-container-highest px-4 py-1.5 rounded-full text-xs font-medium text-on-surface">
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={presupuesto.opcionesEmision?.mostrarItemizado ?? true}
-                onChange={async (e) => {
-                  const updated = {
-                    ...presupuesto.opcionesEmision,
-                    mostrarItemizado: e.target.checked
-                  };
-                  await db.presupuestos.update(presupuesto.id, { opcionesEmision: updated });
-                }}
+                onChange={(e) => handleUpdateOpcionesEmision({ mostrarItemizado: e.target.checked })}
                 className="w-3.5 h-3.5 text-primary rounded"
               />
               <span>Itemizado</span>
@@ -256,13 +111,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
               <input
                 type="checkbox"
                 checked={presupuesto.opcionesEmision?.mostrarDetalleCostos ?? false}
-                onChange={async (e) => {
-                  const updated = {
-                    ...presupuesto.opcionesEmision,
-                    mostrarDetalleCostos: e.target.checked
-                  };
-                  await db.presupuestos.update(presupuesto.id, { opcionesEmision: updated });
-                }}
+                onChange={(e) => handleUpdateOpcionesEmision({ mostrarDetalleCostos: e.target.checked })}
                 className="w-3.5 h-3.5 text-primary rounded"
               />
               <span>Detalle Costos</span>
@@ -447,10 +296,42 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                     <React.Fragment key={idx}>
                       <tr className="hover:bg-slate-50">
                         <td className="px-4 py-3 text-slate-400 font-mono text-center w-10">{idx + 1}</td>
-                        <td className="px-4 py-3 font-semibold text-slate-900">
-                          {item.descripcion}
-                          {item.condicionTrabajo && item.condicionTrabajo !== 'normal' && (
-                            <span className="ml-2 text-[10px] text-slate-500 font-normal italic">
+                        <td className="px-4 py-3 text-slate-900">
+                          <div className="font-semibold">{item.descripcion}</div>
+                          {item.valoresVariables && (
+                            <div className="flex flex-wrap items-center gap-1 mt-1 text-[10px] text-slate-500 font-mono">
+                              <span className="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded font-bold text-slate-700">
+                                🎛️ Parámetros
+                              </span>
+                              {Object.entries(item.valoresVariables).map(([k, v]) => (
+                                <span key={k} className="bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">
+                                  {k}: {typeof v === 'number' ? (Number.isInteger(v) ? v : v.toFixed(2)) : v}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {item.parametrosTrabajoTipo && (
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] text-slate-500 font-mono">
+                              <span className="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded font-bold text-slate-700">
+                                K_comp: {item.parametrosTrabajoTipo.coeficienteComplejidadTotal.toFixed(2)}x
+                              </span>
+                              <span className="capitalize">
+                                ({item.parametrosTrabajoTipo.estadoAntiguedad} • {item.parametrosTrabajoTipo.accesibilidad} • {item.parametrosTrabajoTipo.altura})
+                              </span>
+                              {item.parametrosTrabajoTipo.artefactosEspecialesCantidad ? (
+                                <span className="text-amber-700 font-medium">
+                                  • +{item.parametrosTrabajoTipo.artefactosEspecialesCantidad} desarmados
+                                </span>
+                              ) : null}
+                            </div>
+                          )}
+                          {item.parametrosEstimacionMaterial && (
+                            <div className="text-[10px] text-emerald-800 dark:text-emerald-700 font-mono mt-0.5">
+                              📐 Cómputo: {item.parametrosEstimacionMaterial.explicacionCalculo}
+                            </div>
+                          )}
+                          {item.condicionTrabajo && item.condicionTrabajo !== 'normal' && !item.parametrosTrabajoTipo && (
+                            <span className="text-[10px] text-slate-500 font-normal italic block">
                               (Condición Obra: {item.condicionTrabajo})
                             </span>
                           )}
@@ -483,20 +364,48 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
           </table>
         </div>
 
-        {/* Totals Summary & Payment Terms */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-          {/* Terms & Payment Conditions */}
-          <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Condiciones de Comercialización & Pago
-            </h4>
-            <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
-              {presupuesto.opcionesEmision?.condicionesComerciales || presupuesto.condicionesPagoTexto}
-            </p>
+        {/* Footer Notes & Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-4 border-t border-slate-300">
+          <div className="space-y-4">
+            <div className="space-y-2 text-xs text-slate-600">
+              <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Condiciones Comerciales</h4>
+              <p className="whitespace-pre-line leading-relaxed">
+                {presupuesto.opcionesEmision?.condicionesComerciales || presupuesto.condicionesPagoTexto || 'Pago: 50% anticipo al inicio y 50% contra entrega de obra finalizada.'}
+              </p>
 
-            <p className="text-[11px] text-slate-500 italic pt-2 border-t border-slate-200">
-              * Los precios cotizados se congelan a la fecha de emisión durante los {presupuesto.validezDias} días de validez.
-            </p>
+              <p className="text-[11px] text-slate-500 italic pt-2 border-t border-slate-200">
+                * Los precios cotizados se congelan a la fecha de emisión durante los {presupuesto.validezDias} días de validez.
+              </p>
+            </div>
+
+            {/* Technical Risk Clauses & Exclusions Section */}
+            {(() => {
+              const clausulas = Array.from(
+                new Set(
+                  presupuesto.items
+                    .map((i) => i.clausulaExclusiones || i.clausulaTecnica)
+                    .filter((c): c is string => Boolean(c && c.trim().length > 0))
+                )
+              );
+
+              if (clausulas.length === 0) return null;
+
+              return (
+                <div className="bg-amber-50/70 border border-amber-200 p-4 rounded-xl space-y-2">
+                  <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-amber-600" />
+                    Condiciones Técnicas de Obra & Resguardo Constructivo
+                  </h4>
+                  <div className="space-y-2 text-xs text-slate-700 leading-relaxed">
+                    {clausulas.map((c, cIdx) => (
+                      <p key={cIdx} className="italic text-[11px] leading-relaxed">
+                        • {c}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Grand Total Box */}

@@ -236,7 +236,10 @@ class MathParser {
  * evaluateMathExpression("=(12 + 8) / 2") -> { value: 10, isValid: true, isFormula: true, cleanFormula: "(12 + 8) / 2" }
  * evaluateMathExpression("45") -> { value: 45, isValid: true, isFormula: false }
  */
-export function evaluateMathExpression(input: string | number): MathEvalResult {
+export function evaluateMathExpression(
+  input: string | number,
+  scope?: Record<string, number>
+): MathEvalResult {
   if (typeof input === 'number') {
     if (isNaN(input) || !isFinite(input)) return { value: null, isValid: false, isFormula: false };
     return { value: input, isValid: true, isFormula: false };
@@ -247,8 +250,19 @@ export function evaluateMathExpression(input: string | number): MathEvalResult {
   }
 
   const raw = input.trim();
-  const isFormula = isFormulaString(raw);
-  const cleanFormula = sanitizeMathString(raw);
+  let cleanFormula = sanitizeMathString(raw);
+
+  // Si se proporciona un scope de variables, sustituirlas de forma segura
+  if (scope && Object.keys(scope).length > 0) {
+    const sortedKeys = Object.keys(scope).sort((a, b) => b.length - a.length);
+    for (const key of sortedKeys) {
+      const val = scope[key] !== undefined && !isNaN(scope[key]) ? scope[key] : 0;
+      const regex = new RegExp(`\\b${key}\\b`, 'gi');
+      cleanFormula = cleanFormula.replace(regex, String(val));
+    }
+  }
+
+  const isFormula = isFormulaString(raw) || (scope !== undefined && Object.keys(scope).length > 0);
 
   // Si es simplemente un número simple
   if (!isFormula && /^-?\d+(\.\d+)?$/.test(cleanFormula)) {
@@ -260,7 +274,7 @@ export function evaluateMathExpression(input: string | number): MathEvalResult {
     };
   }
 
-  const tokens = tokenize(raw);
+  const tokens = tokenize(cleanFormula);
   if (!tokens || tokens.length === 0) {
     return {
       value: null,

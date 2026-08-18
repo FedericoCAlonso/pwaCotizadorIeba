@@ -91,6 +91,34 @@ export interface AtributoMaterial {
   valor: string;
 }
 
+// ─── 1b. Cómputo Métrico Paramétrico de Materiales (Superficie, Trazado, Error) ──
+export type ModeloEstimacionMaterial =
+  | 'superficie_m2'              // Estimación por Superficie cubierta (m²)
+  | 'longitud_caneria_fases'     // Estimación por Metros de cañería y N° de conductores
+  | 'bocas_distancia'            // Estimación por Cantidad de bocas y distancia media
+  | 'desperdicio_simple'         // Cantidad neta * (1 + % desperdicio)
+  | 'formula_personalizada';     // Expresión matemática libre
+
+export interface ParametrosEstimacionMaterial {
+  modelo: ModeloEstimacionMaterial;
+  // Variables de dimensionamiento
+  superficieM2?: number;
+  factorDensidadM2?: number;          // m de conductor o caño por m² de superficie cubierta
+  longitudCaneriaM?: number;          // metros lineales de cañería / bandeja
+  conductoresPorCaneria?: number;     // cantidad de conductores en simultáneo (ej: 3 para F+N+PE)
+  adicionalBajadasPct?: number;       // % adicional por bajadas a cajas de tomas/llaves (ej: 15%)
+  cantidadBocas?: number;
+  distanciaPromedioBocasM?: number;
+  
+  // Margen de desperdicio, error de trazado, curvas y colas de empalme
+  margenDesperdicioErrorPct: number;  // % error/desperdicio (ej: 10% = *1.10)
+  
+  // Resultado
+  cantidadEstimadaTotal: number;
+  formulaGenerada?: string;
+  explicacionCalculo?: string;
+}
+
 export interface Material {
   id: string;
   categoriaId: string;
@@ -104,6 +132,7 @@ export interface Material {
   urlMercadoLibre?: string; // Phase 2: Enlace directo opcional ML
   frecuenciaUso?: number; // Phase 2: Smart autocomplete frecuencia
   ultimoUsoFecha?: string; // Phase 2: ISO timestamp último uso
+  reglaEstimacionDefault?: Partial<ParametrosEstimacionMaterial>;
   createdAt?: string;
   updatedAt?: string;
   deleted?: boolean;
@@ -299,6 +328,7 @@ export interface InsumoEnTarea {
   productoId?: string;
   cantidad: number;
   formula?: string; // Phase 3: Fórmula matemática calculada opcional
+  parametrosEstimacion?: ParametrosEstimacionMaterial;
 }
 
 export interface ManoObraEnTarea {
@@ -307,20 +337,90 @@ export interface ManoObraEnTarea {
   formula?: string; // Phase 3: Fórmula matemática calculada opcional
 }
 
+// ─── 8. Variables y Fórmulas Paramétricas de Trabajos Tipo ─────────────────────
+export interface OpcionVariableTrabajo {
+  id: string;
+  label: string;
+  valor: number;
+}
+
+export interface VariableTrabajoTipo {
+  id: string; // Identificador en fórmulas (ej: "bocas", "sup", "k_estado", "desarmes")
+  nombre: string; // Nombre visible (ej: "Cantidad de Bocas", "Superficie en m²")
+  tipo: 'numero' | 'select';
+  valorDefault: number;
+  unidad?: string; // ej: "bocas", "m²", "ml", "u"
+  descripcion?: string; // Texto de ayuda
+  opciones?: OpcionVariableTrabajo[]; // Cuando tipo === 'select'
+}
+
 export interface TareaTipo {
   id: string;
   nombre: string;
   categoria: string;
-  insumos: InsumoEnTarea[];
-  manoObra: ManoObraEnTarea[];
   unidad: string;
   notasTecnicas?: string;
+  clausulaExclusiones?: string; // Texto de exclusiones y resguardo legal / técnico
+
+  // Motor de Variables del Trabajo Tipo
+  variables?: VariableTrabajoTipo[];
+
+  // Costo Fijo de Operación / Setup / Base de Salida (no escala con las unidades)
+  costoFijoOperativo?: number;
+  descripcionCostoFijo?: string;
+
+  insumos: InsumoEnTarea[];
+  manoObra: ManoObraEnTarea[];
   factorCorreccion?: number;
   frecuenciaUso?: number;
   ultimoUsoFecha?: string;
+
+  // Compatibilidad retroactiva opcional
+  esParametrico?: boolean;
+  tipoParametrizacion?: 'recableado_integral' | 'canalizacion_cableado' | 'personalizado';
+  clausulaTecnicaDefault?: string;
+  parametrosDefault?: Partial<ParametrosTrabajoTipo>;
+
   createdAt?: string;
   updatedAt?: string;
   deleted?: boolean;
+}
+
+// ─── 8b. Parámetros de Complejidad y Multiplicadores de Trabajo Tipo ─────────
+export type NivelAntiguedadEstado = 'moderna' | 'intermedia' | 'antigua' | 'personalizado';
+export type NivelAccesibilidad = 'despejada' | 'habitada' | 'obstruida' | 'personalizado';
+export type NivelAltura = 'estandar' | 'doble_altura' | 'gran_altura' | 'personalizado';
+
+export interface ParametrosTrabajoTipo {
+  // 1. Dimensionamiento Base
+  cantidad: number;
+  unidad: string;
+  dimensionSecundariaValor?: number;
+  dimensionSecundariaUnidad?: 'ml' | 'm2' | 'ninguna';
+  escalaMaterialesConSecundaria?: boolean;
+
+  // 2. Coeficientes de Complejidad
+  estadoAntiguedad: NivelAntiguedadEstado;
+  coeficienteEstado: number; // 1.0 (Moderna) | 1.25 (Intermedia) | 1.60 (Antigua)
+
+  accesibilidad: NivelAccesibilidad;
+  coeficienteAccesibilidad: number; // 1.0 (Despejada) | 1.15 (Habitada) | 1.35 (Obstruida)
+
+  altura: NivelAltura;
+  coeficienteAltura: number; // 1.0 (<=2.7m) | 1.25 (2.7m a 4m) | 1.50 (>4m)
+
+  // Multiplicador acumulado = K_estado * K_acceso * K_altura
+  coeficienteComplejidadTotal: number;
+
+  // 3. Adicionales de Desarmado / Rearmado Especial
+  artefactosEspecialesCantidad?: number;
+  artefactosEspecialesDescripcion?: string;
+  artefactosEspecialesCostoUnitario?: number;
+  adicionalesDesarmadoTotal?: number;
+
+  // 4. Cláusula Técnica Automática de Riesgo / Garantía
+  clausulaTecnica?: string;
+  incluirClausulaEnPresupuesto?: boolean;
 }
 
 export interface ServicioTercerizado {
@@ -352,6 +452,7 @@ export interface InsumoSnapshot {
   subtotalInsumoFinal?: number; // Subtotal con IVA (precioFinalUnitarioCongelado * cantidadTotal)
   esAdHoc?: boolean;
   requiereCotizacionDirecta?: boolean;
+  parametrosEstimacion?: ParametrosEstimacionMaterial;
 }
 
 export interface ManoObraSnapshot {
@@ -394,6 +495,13 @@ export interface ItemPresupuesto {
   costoDirectoTotal: number;
 
   condicionTrabajo?: 'normal' | 'dificultosa' | 'favorable';
+  parametrosTrabajoTipo?: ParametrosTrabajoTipo;
+  parametrosEstimacionMaterial?: ParametrosEstimacionMaterial;
+  valoresVariables?: Record<string, number>;
+  costoFijoOperativo?: number;
+  descripcionCostoFijo?: string;
+  clausulaExclusiones?: string;
+  clausulaTecnica?: string;
   esAdHoc?: boolean;
 
   // Campos de Análisis de Precios Unitarios (APU) y Prorrateo de GG Absolutos

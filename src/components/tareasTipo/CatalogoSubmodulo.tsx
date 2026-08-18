@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Copy, Edit2, Trash2, Sliders, Package } from 'lucide-react';
+import { Search, Copy, Edit2, Trash2, Sliders, Package, ShieldAlert } from 'lucide-react';
 import { TareaTipo, Insumo, CategoriaManoDeObra, AppConfig, MaterialFilterContext } from '../../core/types';
 import { calcularCostoTareaTipo, formatARS, auditarRentabilidadTareaTipo } from '../../core/calculations';
 
@@ -97,9 +97,23 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                 <div className="flex justify-between items-start">
                   <div>
                     {/* Chip M3: 8dp (rounded-lg) */}
-                    <span className="text-[11px] font-semibold text-on-tertiary-container bg-tertiary-container px-2.5 py-0.5 rounded-lg uppercase tracking-wider select-none">
-                      {tarea.categoria}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-semibold text-on-tertiary-container bg-tertiary-container px-2.5 py-0.5 rounded-lg uppercase tracking-wider select-none">
+                        {tarea.categoria}
+                      </span>
+                      {((tarea.variables && tarea.variables.length > 0) || tarea.esParametrico) && (
+                        <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none">
+                          <Sliders className="w-3 h-3" />
+                          <span>Paramétrico {tarea.variables ? `(${tarea.variables.length} var)` : ''}</span>
+                        </span>
+                      )}
+                      {tarea.clausulaExclusiones && (
+                        <span className="text-[10px] font-medium text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/25 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none" title={tarea.clausulaExclusiones}>
+                          <ShieldAlert className="w-3 h-3 text-amber-500" />
+                          <span>Exclusiones</span>
+                        </span>
+                      )}
+                    </div>
                     <h3 className="font-bold text-on-surface text-base mt-1.5 leading-snug">{tarea.nombre}</h3>
                   </div>
 

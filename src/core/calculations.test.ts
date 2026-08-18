@@ -12,7 +12,15 @@ import {
   calcularNuevoFactorEMA,
   obtenerMultiplicadorCondicion,
   obtenerEstadoVencimientoInsumo,
-  calcularDispersionHorasTareaLegacy
+  calcularDispersionHorasTareaLegacy,
+  obtenerCoeficienteEstado,
+  obtenerCoeficienteAccesibilidad,
+  obtenerCoeficienteAltura,
+  calcularCoeficienteComplejidad,
+  calcularCostoParametricoTareaTipo,
+  calcularEstimacionParametricaMaterial,
+  calcularConsumosTareaTipo,
+  DEFAULT_CLAUSULA_OBRA_EXISTENTE
 } from './calculations';
 import { Insumo, CategoriaManoDeObra, CostoIndirecto, CostoIndirectoItemConfig, TareaTipo, ItemPresupuesto } from './types';
 import { buildSearchTerm } from './searchUtils';
@@ -909,4 +917,354 @@ describe('Presentaciones de Compra y Factores de Empaque (Rollos, Cajas, Bobinas
     expect(presetsUnidad.some(p => p.cantidad === 100)).toBe(true);
   });
 });
+
+describe('Modelado Paramétrico de Trabajos Tipo y Coeficientes de Complejidad', () => {
+  const tareaEjemplo: TareaTipo = {
+    id: 'tt-recableado-boca',
+    nombre: 'Recableado de Boca Existente',
+    categoria: 'Bocas',
+    unidad: 'boca',
+    insumos: [
+      { materialId: 'ins-1', cantidad: 12 } // 12m de cable 2.5mm ($800/m = $9.600)
+    ],
+    manoObra: [
+      { categoriaId: 'mo-1', horas: 1.5 } // 1.5 hs Oficial ($5.000/h = $7.500)
+    ]
+  };
+
+  it('obtiene los coeficientes correctos para cada nivel de estado, acceso y altura', () => {
+    expect(obtenerCoeficienteEstado('moderna')).toBe(1.0);
+    expect(obtenerCoeficienteEstado('intermedia')).toBe(1.25);
+    expect(obtenerCoeficienteEstado('antigua')).toBe(1.60);
+    expect(obtenerCoeficienteEstado('personalizado', 1.85)).toBe(1.85);
+
+    expect(obtenerCoeficienteAccesibilidad('despejada')).toBe(1.0);
+    expect(obtenerCoeficienteAccesibilidad('habitada')).toBe(1.15);
+    expect(obtenerCoeficienteAccesibilidad('obstruida')).toBe(1.35);
+
+    expect(obtenerCoeficienteAltura('estandar')).toBe(1.0);
+    expect(obtenerCoeficienteAltura('doble_altura')).toBe(1.25);
+    expect(obtenerCoeficienteAltura('gran_altura')).toBe(1.50);
+  });
+
+  it('calcula el coeficiente de complejidad compuesto (K_estado * K_acceso * K_altura)', () => {
+    // Antigua (1.6) * Habitada (1.15) * Doble Altura (1.25) = 1.6 * 1.15 * 1.25 = 2.30
+    const kComp = calcularCoeficienteComplejidad(1.60, 1.15, 1.25);
+    expect(kComp).toBe(2.3);
+  });
+
+  it('calcula costo de trabajo tipo con parámetros estándar (K=1.0, sin adicionales)', () => {
+    const res = calcularCostoParametricoTareaTipo(
+      tareaEjemplo,
+      {
+        cantidad: 10,
+        unidad: 'boca',
+        estadoAntiguedad: 'moderna',
+        coeficienteEstado: 1.0,
+        accesibilidad: 'despejada',
+        coeficienteAccesibilidad: 1.0,
+        altura: 'estandar',
+        coeficienteAltura: 1.0,
+        coeficienteComplejidadTotal: 1.0
+      },
+      insumosMap,
+      manoObraMap
+    );
+
+    // Insumos: 10 bocas * 12m * $800 = $96.000 (Unitario $9.600)
+    expect(res.costoInsumosUnitario).toBe(9600);
+    expect(res.costoInsumosTotal).toBe(96000);
+
+    // Mano de Obra: 10 bocas * 1.5 hs * $7.500 = $112.500 (Unitario $11.250)
+    expect(res.costoManoObraUnitario).toBe(11250);
+    expect(res.costoManoObraTotal).toBe(112500);
+
+    // Costo Directo Total: $96.000 + $112.500 = $208.500 (Unitario $20.850)
+    expect(res.costoDirectoTotal).toBe(208500);
+    expect(res.costoDirectoUnitario).toBe(20850);
+    expect(res.coeficienteComplejidadTotal).toBe(1.0);
+  });
+
+  it('aplica multiplicadores de complejidad y adicionales por desarmado especial', () => {
+    // 6 bocas, Instalación Antigua (1.6), Habitada (1.15), Altura Estándar (1.0)
+    // K_comp = 1.6 * 1.15 = 1.84
+    // MO Base = 6 * (1.5 hs * $7.500) = $67.500
+    // MO Ajustada por K_comp = $67.500 * 1.84 = $124.200
+    // Adicionales: 2 ventiladores de techo a $15.000 c/u = $30.000
+    // MO Total = $124.200 + $30.000 = $154.200
+    // Insumos = 6 * (12m * $800) = $57.600
+    // Costo Directo Total = $57.600 + $154.200 = $211.800
+    const res = calcularCostoParametricoTareaTipo(
+      tareaEjemplo,
+      {
+        cantidad: 6,
+        unidad: 'boca',
+        estadoAntiguedad: 'antigua',
+        coeficienteEstado: 1.60,
+        accesibilidad: 'habitada',
+        coeficienteAccesibilidad: 1.15,
+        altura: 'estandar',
+        coeficienteAltura: 1.0,
+        coeficienteComplejidadTotal: 1.84,
+        artefactosEspecialesCantidad: 2,
+        artefactosEspecialesDescripcion: 'Ventiladores de techo pesados',
+        artefactosEspecialesCostoUnitario: 15000,
+        incluirClausulaEnPresupuesto: true
+      },
+      insumosMap,
+      manoObraMap
+    );
+
+    expect(res.coeficienteComplejidadTotal).toBe(1.84);
+    expect(res.adicionalesDesarmadoTotal).toBe(30000);
+    expect(res.costoInsumosTotal).toBe(57600);
+    expect(res.costoManoObraTotal).toBe(154200);
+    expect(res.costoDirectoTotal).toBe(211800);
+    expect(res.clausulaTecnica).toBe(DEFAULT_CLAUSULA_OBRA_EXISTENTE);
+
+    // Debe contener el snapshot del adicional de desarmado
+    expect(res.manoObraSnapshot.some(m => m.categoriaId === 'mo-adicional-desarmado')).toBe(true);
+  });
+});
+
+describe('Cómputo Métrico Paramétrico de Materiales (Superficie, Trazado, Error)', () => {
+  it('calcula cantidad de cable por superficie (m²) con margen de desperdicio', () => {
+    // 80 m² de propiedad con 3.5 m de cable por m² y +10% de desperdicio/curvas/empalmes
+    // Base = 80 * 3.5 = 280 m
+    // Con +10% error = 280 * 1.10 = 308 m
+    const res = calcularEstimacionParametricaMaterial({
+      modelo: 'superficie_m2',
+      superficieM2: 80,
+      factorDensidadM2: 3.5,
+      margenDesperdicioErrorPct: 10
+    }, 'm');
+
+    expect(res.cantidadEstimadaTotal).toBe(308);
+    expect(res.formulaGenerada).toBe('(80 * 3.5) * 1.10');
+    expect(res.explicacionCalculo).toContain('80 m² × 3.5 m/m² (+10% desperdicio/curvas)');
+  });
+
+  it('calcula cantidad de conductores por metraje de cañería, cantidad de hilos y bajadas a cajas', () => {
+    // 40 m de cañería con 3 hilos (F+N+PE), +15% de bajadas a tomas/llaves y +10% de desperdicio/corte
+    // Base = 40 * 3 = 120 m
+    // Con +15% bajadas = 120 * 1.15 = 138 m
+    // Con +10% desperdicio = 138 * 1.10 = 151.8 m
+    const res = calcularEstimacionParametricaMaterial({
+      modelo: 'longitud_caneria_fases',
+      longitudCaneriaM: 40,
+      conductoresPorCaneria: 3,
+      adicionalBajadasPct: 15,
+      margenDesperdicioErrorPct: 10
+    }, 'm');
+
+    expect(res.cantidadEstimadaTotal).toBe(151.8);
+    expect(res.formulaGenerada).toBe('(40 * 3 * 1.15) * 1.10');
+    expect(res.explicacionCalculo).toContain('40 m cañería × 3 hilos');
+  });
+
+  it('calcula conductores por cantidad de bocas y distancia media entre centros', () => {
+    // 10 bocas a 4 metros de distancia promedio con 3 hilos y +10% desperdicio
+    // Base = 10 * 4 * 3 = 120 m
+    // Con +10% = 120 * 1.10 = 132 m
+    const res = calcularEstimacionParametricaMaterial({
+      modelo: 'bocas_distancia',
+      cantidadBocas: 10,
+      distanciaPromedioBocasM: 4,
+      conductoresPorCaneria: 3,
+      margenDesperdicioErrorPct: 10
+    }, 'm');
+
+    expect(res.cantidadEstimadaTotal).toBe(132);
+    expect(res.formulaGenerada).toBe('(10 * 4 * 3) * 1.10');
+  });
+});
+
+describe('Motor Universal de Fórmulas y Variables para Trabajos Tipo', () => {
+  it('evalúa dinámicamente insumos y mano de obra a partir de las variables de entrada', () => {
+    const tareaDinamica: TareaTipo = {
+      id: 'tt-dinamica-recableado',
+      nombre: 'Recableado Personalizado',
+      categoria: 'Bocas',
+      unidad: 'boca',
+      clausulaExclusiones: 'No incluye apertura de losas.',
+      variables: [
+        { id: 'bocas', nombre: 'Bocas', tipo: 'numero', valorDefault: 10 },
+        { id: 'k_estado', nombre: 'Estado', tipo: 'select', valorDefault: 1.6 },
+        { id: 'k_altura', nombre: 'Altura', tipo: 'select', valorDefault: 1.0 },
+        { id: 'desarmes', nombre: 'Desarmes', tipo: 'numero', valorDefault: 2 }
+      ],
+      insumos: [
+        {
+          materialId: 'mat-cable-25-marron',
+          cantidad: 12,
+          formula: 'bocas * 12 * 1.10'
+        }
+      ],
+      manoObra: [
+        {
+          categoriaId: 'mo-oficial',
+          horas: 1.5,
+          formula: '(bocas * 1.5) * k_estado * k_altura + (desarmes * 1.5)'
+        },
+        {
+          categoriaId: 'mo-ayudante',
+          horas: 0.8,
+          formula: '(bocas * 0.8) * k_estado * k_altura'
+        }
+      ]
+    };
+
+    const variablesInput = {
+      bocas: 10,
+      k_estado: 1.6,
+      k_altura: 1.0,
+      desarmes: 2
+    };
+
+    const testInsumosMap = new Map<string, Insumo>([
+      [
+        'mat-cable-25-marron',
+        {
+          id: 'mat-cable-25-marron',
+          categoriaId: 'cableado',
+          nombre: 'Cable Unipolar 2.5 mm2 Marrón',
+          unidadVenta: 'm',
+          atributos: [],
+          activo: true,
+          precioActual: 800
+        }
+      ]
+    ]);
+
+    const testManoObraMap = new Map<string, CategoriaManoDeObra>([
+      [
+        'mo-oficial',
+        {
+          id: 'mo-oficial',
+          nombre: 'Oficial Electricista',
+          costoHora: 7500,
+          fechaActualizacion: new Date().toISOString()
+        }
+      ],
+      [
+        'mo-ayudante',
+        {
+          id: 'mo-ayudante',
+          nombre: 'Ayudante',
+          costoHora: 5000,
+          fechaActualizacion: new Date().toISOString()
+        }
+      ]
+    ]);
+
+    const resultado = calcularConsumosTareaTipo(
+      tareaDinamica,
+      variablesInput,
+      testInsumosMap,
+      testManoObraMap,
+      { tipoFactura: 'Factura A' }
+    );
+
+    // Insumos: 10 * 12 * 1.10 = 132 m de cable a $800 = $105.600
+    expect(resultado.insumosSnapshot[0].cantidadTotal).toBe(132);
+    expect(resultado.costoInsumosTotal).toBe(105600);
+
+    // Oficial: (10 * 1.5) * 1.6 * 1.0 + (2 * 1.5) = 24 + 3 = 27 horas a $7.500 = $202.500
+    expect(resultado.manoObraSnapshot[0].horasTotales).toBe(27);
+    expect(resultado.manoObraSnapshot[0].subtotalManoObra).toBe(202500);
+
+    // Ayudante: (10 * 0.8) * 1.6 * 1.0 = 12.8 horas a $5.000 = $64.000
+    expect(resultado.manoObraSnapshot[1].horasTotales).toBe(12.8);
+    expect(resultado.manoObraSnapshot[1].subtotalManoObra).toBe(64000);
+
+    // Costo Total = Insumos ($105.600) + Oficial ($202.500) + Ayudante ($64.000) = $372.100
+    expect(resultado.costoManoObraTotal).toBe(266500);
+    expect(resultado.costoDirectoTotal).toBe(372100);
+    expect(resultado.clausulaExclusiones).toBe('No incluye apertura de losas.');
+  });
+
+  it('calcula dinámicamente horas de setup/salida de mano de obra en función de tarifas vigentes y variables', () => {
+    const tareaConSetupDinamico: TareaTipo = {
+      id: 'tt-con-setup-dinamico',
+      nombre: 'Instalación con Setup Calculado',
+      categoria: 'Bocas',
+      unidad: 'boca',
+      variables: [
+        { id: 'bocas', nombre: 'Bocas', tipo: 'numero', valorDefault: 2 },
+        { id: 'visitas', nombre: 'Visitas a Obra', tipo: 'numero', valorDefault: 1 }
+      ],
+      insumos: [
+        // 5 metros fijos de cabecera/bajada + 10 m por boca
+        { materialId: 'mat-cable-25-marron', cantidad: 10, formula: '5 + (bocas * 10)' }
+      ],
+      manoObra: [
+        // 1.5 hs fijas de oficial por visita + 1.2 hs por boca
+        { categoriaId: 'mo-oficial', horas: 1.0, formula: '(visitas * 1.5) + (bocas * 1.2)' },
+        // 1.0 hs fija de ayudante por visita + 0.8 hs por boca
+        { categoriaId: 'mo-ayudante', horas: 0.8, formula: '(visitas * 1.0) + (bocas * 0.8)' }
+      ]
+    };
+
+    const testInsumosMap = new Map<string, Insumo>([
+      [
+        'mat-cable-25-marron',
+        {
+          id: 'mat-cable-25-marron',
+          categoriaId: 'cableado',
+          nombre: 'Cable',
+          unidadVenta: 'm',
+          atributos: [],
+          activo: true,
+          precioActual: 1000
+        }
+      ]
+    ]);
+
+    const testManoObraMap = new Map<string, CategoriaManoDeObra>([
+      [
+        'mo-oficial',
+        {
+          id: 'mo-oficial',
+          nombre: 'Oficial Electricista',
+          costoHora: 10000,
+          fechaActualizacion: new Date().toISOString()
+        }
+      ],
+      [
+        'mo-ayudante',
+        {
+          id: 'mo-ayudante',
+          nombre: 'Ayudante',
+          costoHora: 6000,
+          fechaActualizacion: new Date().toISOString()
+        }
+      ]
+    ]);
+
+    // Para 2 bocas y 1 visita:
+    // Insumos = 5 + (2 * 10) = 25 m * $1000 = $25.000
+    // Oficial = (1 * 1.5) + (2 * 1.2) = 1.5 + 2.4 = 3.9 hs * $10.000 = $39.000
+    // Ayudante = (1 * 1.0) + (2 * 0.8) = 1.0 + 1.6 = 2.6 hs * $6.000 = $15.600
+    // Total Directo = $25.000 + $39.000 + $15.600 = $79.600
+    const res = calcularConsumosTareaTipo(
+      tareaConSetupDinamico,
+      { bocas: 2, visitas: 1 },
+      testInsumosMap,
+      testManoObraMap,
+      { tipoFactura: 'Factura A' }
+    );
+
+    expect(res.insumosSnapshot[0].cantidadTotal).toBe(25);
+    expect(res.costoInsumosTotal).toBe(25000);
+    expect(res.manoObraSnapshot[0].horasTotales).toBe(3.9);
+    expect(res.manoObraSnapshot[0].subtotalManoObra).toBe(39000);
+    expect(res.manoObraSnapshot[1].horasTotales).toBe(2.6);
+    expect(res.manoObraSnapshot[1].subtotalManoObra).toBe(15600);
+    expect(res.costoManoObraTotal).toBe(54600);
+    expect(res.costoDirectoTotal).toBe(79600);
+  });
+});
+
+
+
 

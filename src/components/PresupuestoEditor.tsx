@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   FileText,
   Plus,
@@ -11,40 +10,29 @@ import {
   Calendar,
   Lock
 } from 'lucide-react';
-import { db } from '../db/database';
 import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
 import {
-  Presupuesto,
-  ItemPresupuesto,
   AppConfig,
-  TareaTipo,
-  Insumo,
-  CategoriaManoDeObra,
-  CostoIndirectoItemConfig,
-  EstadoPresupuesto,
+  ItemPresupuesto,
   TipoFactura,
-  ImpuestoItem,
-  Oferta,
-  OpcionesEmisionPresupuesto,
   MaterialFilterContext
 } from '../core/types';
 import {
-  calcularTotalesPresupuesto,
-  calcularCostoTareaTipo,
   formatARS,
   formatUSD,
-  generarImpuestosPorDefecto,
   obtenerMultiplicadorCondicion,
   roundMoney,
   safeNum
 } from '../core/calculations';
 import { useAppOptions } from '../hooks/useAppOptions';
 import { useToast } from '../contexts/ToastContext';
-import { useConfirm } from '../contexts/ConfirmContext';
 import { PresupuestoItemRow } from './presupuesto/PresupuestoItemRow';
 import { PresupuestoTotalsCard } from './presupuesto/PresupuestoTotalsCard';
 import { ItemPickerModal } from './presupuesto/ItemPickerModal';
 import { EmisionPresupuestoModal } from './presupuesto/EmisionPresupuestoModal';
+import { ParametricJobModal } from './presupuesto/ParametricJobModal';
+import { ParametricMaterialModal } from './presupuesto/ParametricMaterialModal';
+import { usePresupuestoEditorViewModel } from '../viewmodels/usePresupuestoEditorViewModel';
 
 interface PresupuestoEditorProps {
   presupuestoId?: string;
@@ -65,107 +53,82 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 }) => {
   const { tiposFactura, condicionesTrabajo } = useAppOptions();
   const { toast } = useToast();
-  const _confirm = useConfirm();
 
-  const rawContactos = useLiveQuery(() => db.contactos.toArray()) || [];
-  const rawClientes = useLiveQuery(() => db.clientes.toArray()) || [];
-  const clientes = useMemo(() => {
-    const fromContactos = rawContactos.filter(c => !c.deleted && (c.roles?.includes('cliente') || !c.roles?.length));
-    if (fromContactos.length > 0) return fromContactos;
-    return rawClientes.filter(c => !c.deleted);
-  }, [rawContactos, rawClientes]);
-
-  const tareasTipo = (useLiveQuery(() => db.tareasTipo.toArray()) || []).filter(t => !t.deleted);
-  const favoriteTareas = [...tareasTipo].sort((a, b) => (b.frecuenciaUso || 0) - (a.frecuenciaUso || 0)).slice(0, 8);
-
-  const legacyInsumos = (useLiveQuery(() => db.insumos.toArray()) || []).filter(i => !i.deleted);
-  const materiales = (useLiveQuery(() => db.materiales.toArray()) || []).filter(m => !m.deleted);
-  const productos = (useLiveQuery(() => db.productos.toArray()) || []).filter(p => !p.deleted);
-  const ofertas = (useLiveQuery(() => db.ofertas.toArray()) || []).filter(o => !o.deleted);
-  const manoObraList = (useLiveQuery(() => db.manoObra.toArray()) || []).filter(m => !m.deleted);
-  const costosIndirectos = (useLiveQuery(() => db.costosIndirectos.toArray()) || []).filter(c => !c.deleted);
-
-  const insumosMap = useMemo(() => {
-    const sortedOfertas = [...ofertas].sort((a, b) => new Date(a.fecha || 0).getTime() - new Date(b.fecha || 0).getTime());
-
-    const map = new Map<string, Insumo>();
-    legacyInsumos.forEach(i => map.set(i.id, i));
-    materiales.forEach(m => {
-      // 1. Si el material tiene una marca preferida con oferta, priorizarla
-      const matProds = productos.filter(p => p.materialId === m.id);
-      const preferido = matProds.find(p => p.esPreferido);
-      let oferta: Oferta | undefined;
-      if (preferido) {
-        oferta = sortedOfertas.filter(o => o.materialId === m.id && o.productoId === preferido.id).pop();
-      }
-      // 2. Si no hay preferido o no tiene precio, tomar la oferta más reciente
-      if (!oferta) {
-        oferta = sortedOfertas.filter(o => o.materialId === m.id).pop();
-      }
-
-      map.set(m.id, {
-        ...m,
-        id: m.id,
-        nombre: m.nombre,
-        unidad: m.unidadVenta || 'u',
-        categoria: m.categoriaId,
-        precioActual: oferta ? oferta.precio : (m as any).precioActual || 0,
-        fechaActualizacion: oferta ? oferta.fecha : new Date().toISOString(),
-        historialPrecios: []
-      });
-    });
-    return map;
-  }, [legacyInsumos, materiales, productos, ofertas]);
-
-  const manoObraMap = useMemo(
-    () => new Map<string, CategoriaManoDeObra>(manoObraList.map((m) => [m.id, m])),
-    [manoObraList]
-  );
-
-  const existingPresupuesto = useLiveQuery(
-    () => (presupuestoId ? db.presupuestos.get(presupuestoId) : undefined),
-    [presupuestoId]
-  );
-
-  const [tipoFactura, setTipoFactura] = useState<TipoFactura>(
-    config.tipoFacturaPorDefecto || 'Factura B'
-  );
-  const [impuestosDetalle, setImpuestosDetalle] = useState<ImpuestoItem[]>(
-    generarImpuestosPorDefecto(
-      config.tipoFacturaPorDefecto || 'Factura B',
-      config.porcentajeIVAPorDefecto ?? 21,
-      config.porcentajeIIBBPorDefecto ?? 3.5
-    )
-  );
-
-  const [clienteId, setClienteId] = useState<string>('');
-  const [validezDias, setValidezDias] = useState<number>(config.validezDiasPorDefecto || 15);
-  const [margenPorcentaje, setMargenPorcentaje] = useState<number>(config.margenPorDefectoPct || 35);
-  
-  const [mostrarDolar, setMostrarDolar] = useState<boolean>(config.mostrarDolarPorDefecto ?? false);
-  const [nombreDolar, setNombreDolar] = useState<string>(config.dolarReferenciaNombre || 'USD');
-  const [cotizacionDolar, setCotizacionDolar] = useState<number>(config.dolarReferenciaValor || 1250);
-
-  const [condicionesPagoTexto, setCondicionesPagoTexto] = useState<string>(
-    '50% de anticipo al confirmar para acopio de materiales. 30% contra certificado de avance de obra. 20% saldo contra recepción final.'
-  );
-
-  const [opcionesEmision, setOpcionesEmision] = useState<OpcionesEmisionPresupuesto>({
-    mostrarItemizado: true,
-    mostrarDetalleCostos: false,
-    condicionesComerciales: ''
+  const {
+    clientes,
+    tareasTipo,
+    favoriteTareas,
+    costosIndirectos,
+    existingPresupuesto,
+    insumosMap,
+    manoObraMap,
+    totales,
+    clienteId,
+    setClienteId,
+    numero,
+    setNumero,
+    validezDias,
+    setValidezDias,
+    margenPorcentaje,
+    setMargenPorcentaje,
+    tipoFactura,
+    setTipoFactura,
+    items,
+    setItems,
+    costosIndirectosConfig,
+    setCostosIndirectosConfig,
+    mostrarDolar,
+    setMostrarDolar,
+    nombreDolar,
+    setNombreDolar,
+    cotizacionDolar,
+    setCotizacionDolar,
+    condicionesPagoTexto,
+    setCondicionesPagoTexto,
+    opcionesEmision,
+    setOpcionesEmision,
+    showItemPickerModal,
+    setShowItemPickerModal,
+    showEmitirModal,
+    setShowEmitirModal,
+    itemParaGuardarComoTarea,
+    setItemParaGuardarComoTarea,
+    showParametricModal,
+    setShowParametricModal,
+    selectedTareaForParametricModal,
+    setSelectedTareaForParametricModal,
+    editingItemIndexForParametricModal,
+    setEditingItemIndexForParametricModal,
+    showParametricMaterialModal,
+    setShowParametricMaterialModal,
+    editingItemIndexForMaterialModal,
+    setEditingItemIndexForMaterialModal,
+    handleAddTareaTipoItem,
+    handleOpenParametricModalForNewTask,
+    handleOpenParametricModalForExistingItem,
+    handleOpenMaterialModalForExistingItem,
+    handleApplyMaterialEstimation,
+    handleConfirmParametricJob,
+    handleAddInsumoItem,
+    handleAddCustomItem,
+    handleAddAdHocItem,
+    handleUpdateItem,
+    handleRemoveItem,
+    handleToggleTax,
+    handleUpdateTaxPct,
+    handleRemoveTax,
+    handleAddCustomTax,
+    handleOpenMaterialsInCatalog,
+    handleSavePresupuesto
+  } = usePresupuestoEditorViewModel({
+    presupuestoId,
+    initialClienteId,
+    config,
+    onSaved,
+    onViewMaterialsInCatalog
   });
-  const [showEmitirModal, setShowEmitirModal] = useState(false);
 
-  const [items, setItems] = useState<ItemPresupuesto[]>([]);
-  const [costosIndirectosConfig, setCostosIndirectosConfig] = useState<CostoIndirectoItemConfig[]>([]);
-  const [_estado, setEstado] = useState<EstadoPresupuesto>('borrador');
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
-
-  const [showItemPickerModal, setShowItemPickerModal] = useState(false);
-
-  const isInitializedRef = useRef<boolean>(false);
-  const currentPresupuestoIdRef = useRef<string | undefined>(presupuestoId);
 
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [saveAsTemplateData, setSaveAsTemplateData] = useState<{
@@ -178,209 +141,11 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     manoObra: []
   });
 
-  // Reset initialization flag when switching presupuestoId
-  if (currentPresupuestoIdRef.current !== presupuestoId) {
-    currentPresupuestoIdRef.current = presupuestoId;
-    isInitializedRef.current = false;
-  }
-
-  // Initial load
-  useEffect(() => {
-    if (isInitializedRef.current) return;
-
-    if (presupuestoId) {
-      if (existingPresupuesto) {
-        setTipoFactura(existingPresupuesto.tipoFactura || 'Factura B');
-        setImpuestosDetalle(
-          existingPresupuesto.impuestosDetalle && existingPresupuesto.impuestosDetalle.length > 0
-            ? existingPresupuesto.impuestosDetalle
-            : generarImpuestosPorDefecto(
-                existingPresupuesto.tipoFactura || 'Factura B',
-                config.porcentajeIVAPorDefecto ?? 21,
-                config.porcentajeIIBBPorDefecto ?? 3.5
-              )
-        );
-        setClienteId(existingPresupuesto.clienteId);
-        setValidezDias(existingPresupuesto.validezDias || 15);
-        setMargenPorcentaje(
-          existingPresupuesto.beneficioPorcentaje ?? existingPresupuesto.margenPorcentaje ?? (config.margenPorDefectoPct || 35)
-        );
-        setMostrarDolar(existingPresupuesto.mostrarReferenciaMonedaExtranjera ?? (config.mostrarDolarPorDefecto || false));
-        setNombreDolar(existingPresupuesto.nombreMonedaExtranjera || config.dolarReferenciaNombre || 'USD');
-        setCotizacionDolar(existingPresupuesto.cotizacionMonedaExtranjera || config.dolarReferenciaValor || 1250);
-        setCondicionesPagoTexto(
-          existingPresupuesto.condicionesPagoTexto ||
-            '50% de anticipo al confirmar para acopio de materiales. 30% contra certificado de avance de obra. 20% saldo contra recepción final.'
-        );
-        if (existingPresupuesto.opcionesEmision) {
-          setOpcionesEmision(existingPresupuesto.opcionesEmision);
-        }
-        setEstado(existingPresupuesto.estado);
-
-        // Normalize items with safe fallbacks
-        const normalizedItems = (existingPresupuesto.items || []).map((item) => {
-          const prevQty = item.cantidad || 1;
-          const insumosSnap = (item.insumosSnapshot || []).map((i) => ({
-            ...i,
-            cantidadUnitaria: i.cantidadUnitaria !== undefined ? i.cantidadUnitaria : i.cantidadTotal / prevQty
-          }));
-          const manoObraSnap = (item.manoObraSnapshot || []).map((m) => ({
-            ...m,
-            horasUnitarias: m.horasUnitarias !== undefined ? m.horasUnitarias : m.horasTotales / prevQty
-          }));
-          return {
-            ...item,
-            insumosSnapshot: insumosSnap,
-            manoObraSnapshot: manoObraSnap
-          };
-        });
-        setItems(normalizedItems);
-
-        // Indirect costs
-        if (existingPresupuesto.costosIndirectosConfig && existingPresupuesto.costosIndirectosConfig.length > 0) {
-          setCostosIndirectosConfig(existingPresupuesto.costosIndirectosConfig);
-        } else if (costosIndirectos.length > 0) {
-          setCostosIndirectosConfig(
-            costosIndirectos.map((ci) => ({
-              id: ci.id,
-              nombre: ci.nombre,
-              tipo: ci.tipo,
-              valor: ci.valor,
-              aplica: true
-            }))
-          );
-        }
-
-        isInitializedRef.current = true;
-      }
-    } else {
-      // New budget
-      if (initialClienteId) setClienteId(initialClienteId);
-      if (costosIndirectos.length > 0 && costosIndirectosConfig.length === 0) {
-        setCostosIndirectosConfig(
-          costosIndirectos.map((ci) => ({
-            id: ci.id,
-            nombre: ci.nombre,
-            tipo: ci.tipo,
-            valor: ci.valor,
-            aplica: true
-          }))
-        );
-      }
-      isInitializedRef.current = true;
-    }
-  }, [presupuestoId, existingPresupuesto, initialClienteId, config, costosIndirectos, costosIndirectosConfig.length]);
-
   const handleTipoFacturaChange = (newTipo: TipoFactura) => {
     setTipoFactura(newTipo);
-    setImpuestosDetalle(
-      generarImpuestosPorDefecto(
-        newTipo,
-        config.porcentajeIVAPorDefecto ?? 21,
-        config.porcentajeIIBBPorDefecto ?? 3.5
-      )
-    );
   };
 
-  // Calculations
-  const totales = useMemo(() => {
-    return calcularTotalesPresupuesto({
-      items,
-      costosIndirectosConfig,
-      margenPorcentaje,
-      impuestosDetalle,
-      tipoFactura,
-      cotizacionMonedaExtranjera: mostrarDolar ? cotizacionDolar : undefined
-    });
-  }, [items, costosIndirectosConfig, margenPorcentaje, impuestosDetalle, tipoFactura, mostrarDolar, cotizacionDolar]);
 
-  // Add items handlers
-  const handleAddTareaTipoItem = (tarea: TareaTipo) => {
-    const costData = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap, {
-      tipoFactura,
-      alicuotaIVADefault: config.alicuotaIVAPorDefecto ?? 21
-    });
-    const unitInsumos = costData.insumosSnapshotUnitario.map(i => ({
-      ...i,
-      cantidadUnitaria: i.cantidadTotal,
-      cantidadTotal: i.cantidadTotal,
-      subtotalInsumo: i.subtotalInsumo
-    }));
-    const unitManoObra = costData.manoObraSnapshotUnitario.map(m => ({
-      ...m,
-      horasUnitarias: m.horasTotales,
-      horasTotales: m.horasTotales,
-      subtotalManoObra: m.subtotalManoObra
-    }));
-
-    const newItem: ItemPresupuesto = {
-      id: `item-${crypto.randomUUID()}`,
-      tareaTipoId: tarea.id,
-      descripcion: tarea.nombre,
-      cantidad: 1,
-      unidad: tarea.unidad || 'punto',
-      condicionTrabajo: 'normal',
-      costoUnitario: costData.costoDirectoUnitario,
-      costoDirectoTotal: costData.costoDirectoUnitario,
-      costoInsumos: costData.costoInsumosUnitario,
-      costoManoObra: costData.costoManoObraUnitario,
-      costoServiciosTercerizados: 0,
-      costoTotal: costData.costoDirectoUnitario,
-      precioVentaUnitario: 0,
-      precioVentaTotal: 0,
-      insumosSnapshot: unitInsumos,
-      manoObraSnapshot: unitManoObra,
-      serviciosTercerizados: []
-    };
-
-    setItems((prev) => [...prev, newItem]);
-    toast.success(`Tarea "${tarea.nombre}" agregada`);
-  };
-
-  const handleAddCustomItem = () => {
-    const newItem: ItemPresupuesto = {
-      id: `item-${crypto.randomUUID()}`,
-      descripcion: 'Nueva Partida / Trabajo Libre',
-      cantidad: 1,
-      unidad: 'gl',
-      condicionTrabajo: 'normal',
-      costoUnitario: 0,
-      costoDirectoTotal: 0,
-      costoInsumos: 0,
-      costoManoObra: 0,
-      costoServiciosTercerizados: 0,
-      costoTotal: 0,
-      precioVentaUnitario: 0,
-      precioVentaTotal: 0,
-      insumosSnapshot: [],
-      manoObraSnapshot: [],
-      serviciosTercerizados: []
-    };
-    setItems((prev) => [...prev, newItem]);
-  };
-
-  const handleAddAdHocItem = () => {
-    const newItem: ItemPresupuesto = {
-      id: `item-adhoc-${crypto.randomUUID()}`,
-      descripcion: 'Material / Partida Ad-Hoc no catalogada',
-      cantidad: 1,
-      unidad: 'u',
-      condicionTrabajo: 'normal',
-      esAdHoc: true,
-      costoUnitario: 0,
-      costoDirectoTotal: 0,
-      costoInsumos: 0,
-      costoManoObra: 0,
-      costoServiciosTercerizados: 0,
-      costoTotal: 0,
-      precioVentaUnitario: 0,
-      precioVentaTotal: 0,
-      insumosSnapshot: [],
-      manoObraSnapshot: [],
-      serviciosTercerizados: []
-    };
-    setItems((prev) => [...prev, newItem]);
-  };
 
   const handleToggleExpandItem = (itemId: string) => {
     setExpandedItems(prev => ({ ...prev, [itemId]: !prev[itemId] }));
@@ -521,11 +286,6 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     });
   };
 
-  const handleRemoveItem = (index: number) => {
-    setItems((prev) => prev.filter((_, idx) => idx !== index));
-    toast.info('Partida eliminada');
-  };
-
   // Indirect Costs handlers
   const handleToggleIndirectCost = (index: number) => {
     setCostosIndirectosConfig((prev) => {
@@ -581,161 +341,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     toast.success('Gastos Generales restablecidos del catálogo');
   };
 
-  // Tax handlers
-  const handleToggleTax = (index: number) => {
-    setImpuestosDetalle((prev) => {
-      const next = [...prev];
-      next[index] = { ...next[index], aplica: !next[index].aplica };
-      return next;
-    });
-  };
 
-  const handleUpdateTaxPct = (index: number, pct: number) => {
-    setImpuestosDetalle((prev) => {
-      const next = [...prev];
-      next[index] = { ...next[index], porcentaje: Math.max(0, safeNum(pct)) };
-      return next;
-    });
-  };
-
-  const handleRemoveTax = (index: number) => {
-    setImpuestosDetalle((prev) => prev.filter((_, idx) => idx !== index));
-  };
-
-  const handleAddCustomTax = () => {
-    setImpuestosDetalle((prev) => [
-      ...prev,
-      {
-        id: `tax-custom-${Date.now()}`,
-        nombre: 'Nuevo Impuesto',
-        porcentaje: 3.0,
-        aplica: true,
-        discriminar: false,
-        montoCalculado: 0
-      }
-    ]);
-  };
-
-  // Save budget
-  const handleSavePresupuesto = async (
-    targetEstado: EstadoPresupuesto = 'borrador',
-    customEmission?: OpcionesEmisionPresupuesto
-  ) => {
-    if (!clienteId) {
-      toast.warning('Por favor selecciona un cliente para el presupuesto.');
-      return;
-    }
-
-    const now = new Date().toISOString();
-    let numeroStr = existingPresupuesto?.numero;
-
-    if (!numeroStr) {
-      const seq = config.siguienteNumeroCorrelativo || 1001;
-      const year = new Date().getFullYear();
-      numeroStr = `${config.prefijoPresupuesto || 'IEBA'}-${year}-${seq.toString().padStart(4, '0')}`;
-
-      await db.config.update(config.id, {
-        siguienteNumeroCorrelativo: seq + 1
-      });
-    }
-
-    const finalEmission = customEmission || opcionesEmision;
-
-    const finalPresupuesto: Presupuesto = {
-      id: existingPresupuesto?.id || `pres-${crypto.randomUUID()}`,
-      numero: numeroStr,
-      clienteId,
-      fechaEmision: existingPresupuesto?.fechaEmision || now,
-      validezDias,
-      tipoFactura,
-      items: totales.itemsCalculados,
-      costosIndirectosConfig,
-      costosIndirectosAplicados: totales.costosIndirectosAplicados,
-
-      // Calculation Engine
-      costoGlobal: totales.costoGlobal,
-      gastosGeneralesTotal: totales.gastosGeneralesTotal,
-      beneficioPorcentaje: margenPorcentaje,
-      beneficioMonto: totales.beneficioMonto,
-      subtotalSinImpuestos: totales.subtotalSinImpuestos,
-      montoImpuestosTotal: totales.montoImpuestosTotal,
-      precioFinalGlobal: totales.precioFinalGlobal,
-      coeficienteK: totales.coeficienteK,
-      opcionesEmision: finalEmission,
-
-      // Compatibility fields
-      subtotalInsumos: totales.subtotalInsumos,
-      subtotalManoObra: totales.subtotalManoObra,
-      subtotalServiciosTercerizados: totales.subtotalServiciosTercerizados,
-      subtotalCostosDirectos: totales.costoGlobal,
-      subtotalCostosIndirectos: totales.gastosGeneralesTotal,
-      costoTotalObra: totales.costoTotalObra,
-      margenPorcentaje,
-      montoGanancia: totales.beneficioMonto,
-      impuestosDetalle: totales.impuestosCalculados,
-      impuestosPorcentaje: totales.impuestosPorcentajeTotal,
-      montoImpuestos: totales.montoImpuestosTotal,
-      totalARS: totales.precioFinalGlobal,
-      mostrarReferenciaMonedaExtranjera: mostrarDolar,
-      nombreMonedaExtranjera: nombreDolar,
-      cotizacionMonedaExtranjera: cotizacionDolar,
-      totalMonedaExtranjera: totales.totalMonedaExtranjera,
-      condicionesPagoTexto: finalEmission.condicionesComerciales || condicionesPagoTexto,
-      estado: targetEstado,
-      fechaModificacion: now,
-      createdAt: existingPresupuesto?.createdAt || now,
-      updatedAt: now,
-      deleted: false
-    };
-
-    await db.presupuestos.put(finalPresupuesto);
-    setShowEmitirModal(false);
-    toast.success(targetEstado === 'enviado' ? '¡Presupuesto emitido con éxito!' : 'Presupuesto guardado en borrador');
-    onSaved(finalPresupuesto.id);
-  };
-
-  /**
-   * Extrae los materiales computados en los ítems de la cotización y abre el Gestor de Materiales
-   * en modo contextual enfocado para actualizar precios, consultar marcas u ofertas.
-   */
-  const handleOpenMaterialsInCatalog = () => {
-    if (!onViewMaterialsInCatalog) return;
-    const matQtyMap: Record<string, { cantidad: number; unidad: string }> = {};
-    const idsSet = new Set<string>();
-    const namesSet = new Set<string>();
-
-    items.forEach((it) => {
-      (it.insumosSnapshot || []).forEach((ins: any) => {
-        const id = ins.materialId || ins.insumoId || ins.id;
-        if (id) {
-          idsSet.add(id);
-          const current = matQtyMap[id]?.cantidad || 0;
-          matQtyMap[id] = {
-            cantidad: roundMoney(current + (ins.cantidadTotal || 0)),
-            unidad: ins.unidadVenta || ins.unidad || 'u'
-          };
-        }
-        if (ins.nombre && ins.nombre.trim() && ins.nombre !== 'Insumo no encontrado') {
-          namesSet.add(ins.nombre.trim());
-        }
-      });
-    });
-
-    if (idsSet.size === 0 && namesSet.size === 0) {
-      toast.info('Esta cotización está compuesta por partidas libres sin despiece de insumos catalogados.');
-      return;
-    }
-
-    onViewMaterialsInCatalog({
-      title: `Cotización ${existingPresupuesto?.numero || 'en borrador'}`,
-      materialIds: Array.from(idsSet),
-      materialNames: Array.from(namesSet),
-      quantities: matQtyMap,
-      returnTab: 'presupuestos',
-      returnViewMode: 'editor',
-      returnPresupuestoId: presupuestoId
-    });
-  };
 
   useEffect(() => {
     const handleSave = () => handleSavePresupuesto('borrador');
@@ -1026,6 +632,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                         });
                         setShowSaveAsTemplateModal(true);
                       }}
+                      onOpenParametricModal={handleOpenParametricModalForExistingItem}
+                      onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
                       condicionesTrabajo={condicionesTrabajo}
                     />
                   );
@@ -1085,7 +693,53 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         insumosMap={insumosMap}
         manoObraMap={manoObraMap}
         onSelectTarea={handleAddTareaTipoItem}
+        onConfigureParametricTarea={handleOpenParametricModalForNewTask}
       />
+
+      {/* Parametric Job Dynamic Variables & Formulas Modal */}
+      {selectedTareaForParametricModal && (
+        <ParametricJobModal
+          isOpen={showParametricModal}
+          onClose={() => {
+            setShowParametricModal(false);
+            setSelectedTareaForParametricModal(null);
+            setEditingItemIndexForParametricModal(null);
+          }}
+          tarea={selectedTareaForParametricModal}
+          initialVariables={
+            editingItemIndexForParametricModal !== null
+              ? items[editingItemIndexForParametricModal]?.valoresVariables
+              : undefined
+          }
+          initialClausula={
+            editingItemIndexForParametricModal !== null
+              ? items[editingItemIndexForParametricModal]?.clausulaExclusiones
+              : undefined
+          }
+          insumosMap={insumosMap}
+          manoObraMap={manoObraMap}
+          tipoFactura={tipoFactura}
+          onConfirm={(resultado) => {
+            handleConfirmParametricJob(selectedTareaForParametricModal, resultado);
+          }}
+        />
+      )}
+
+      {/* Parametric Material Estimation Modal (Superficie, Cañería, Desperdicio) */}
+      {showParametricMaterialModal && editingItemIndexForMaterialModal !== null && items[editingItemIndexForMaterialModal] && (
+        <ParametricMaterialModal
+          isOpen={showParametricMaterialModal}
+          onClose={() => {
+            setShowParametricMaterialModal(false);
+            setEditingItemIndexForMaterialModal(null);
+          }}
+          materialNombre={items[editingItemIndexForMaterialModal].descripcion}
+          unidad={items[editingItemIndexForMaterialModal].unidad || 'm'}
+          initialCantidad={items[editingItemIndexForMaterialModal].cantidad}
+          initialParametros={items[editingItemIndexForMaterialModal].parametrosEstimacionMaterial}
+          onConfirm={handleApplyMaterialEstimation}
+        />
+      )}
 
       {/* Emisión Modal */}
       <EmisionPresupuestoModal

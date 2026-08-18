@@ -21,8 +21,12 @@ import {
   DEFAULT_APP_CONFIG,
   INITIAL_CATEGORIAS_MATERIAL,
   INITIAL_MATERIALES,
+  INITIAL_PRODUCTOS,
+  INITIAL_OFERTAS,
+  INITIAL_INSUMOS,
   INITIAL_MANO_OBRA,
   INITIAL_COSTOS_INDIRECTOS,
+  INITIAL_TAREAS_TIPO,
   INITIAL_CONTACTOS
 } from '../core/sampleData';
 
@@ -344,28 +348,56 @@ export async function initializeDatabaseSeed(): Promise<void> {
         }
       }
 
-      // 5. Asegurar contactos iniciales si la tabla contactos está vacía
+      // 5. Asegurar productos y marcas iniciales si la tabla productos está vacía
+      if (await db.productos.count() === 0 && INITIAL_PRODUCTOS.length > 0) {
+        for (const prod of INITIAL_PRODUCTOS) {
+          await db.productos.put(prod);
+        }
+      }
+
+      // 6. Asegurar ofertas/precios iniciales si la tabla ofertas está vacía
+      if (await db.ofertas.count() === 0 && INITIAL_OFERTAS.length > 0) {
+        for (const ofr of INITIAL_OFERTAS) {
+          await db.ofertas.put(ofr);
+        }
+      }
+
+      // 7. Asegurar insumos legacy si la tabla insumos está vacía
+      if (await db.insumos.count() === 0 && INITIAL_INSUMOS.length > 0) {
+        for (const ins of INITIAL_INSUMOS) {
+          await db.insumos.put(ins);
+        }
+      }
+
+      // 8. Asegurar contactos iniciales si la tabla contactos está vacía
       if (await db.contactos.count() === 0) {
         for (const ct of INITIAL_CONTACTOS) {
           await db.contactos.put(ct);
         }
       }
 
-      // 6. Asegurar mano de obra inicial si la tabla está vacía
+      // 9. Asegurar mano de obra inicial si la tabla está vacía
       if (await db.manoObra.count() === 0 && INITIAL_MANO_OBRA.length > 0) {
         for (const mo of INITIAL_MANO_OBRA) {
           await db.manoObra.put(mo);
         }
       }
 
-      // 7. Asegurar costos indirectos iniciales si la tabla está vacía
+      // 10. Asegurar costos indirectos iniciales si la tabla está vacía
       if (await db.costosIndirectos.count() === 0 && INITIAL_COSTOS_INDIRECTOS.length > 0) {
         for (const ci of INITIAL_COSTOS_INDIRECTOS) {
           await db.costosIndirectos.put(ci);
         }
       }
 
-      // 8. Inicializar configuración por defecto si la base está vacía
+      // 11. Asegurar tareas tipo iniciales si la tabla está vacía
+      if (await db.tareasTipo.count() === 0 && INITIAL_TAREAS_TIPO.length > 0) {
+        for (const tt of INITIAL_TAREAS_TIPO) {
+          await db.tareasTipo.put(tt);
+        }
+      }
+
+      // 12. Inicializar configuración por defecto si la base está vacía
       if (await db.config.count() === 0) await db.config.add(DEFAULT_APP_CONFIG);
     });
     console.log('Verificación e inicialización de semillas de BD completada.');
@@ -466,6 +498,62 @@ export async function importDatabaseJSON(jsonStr: string): Promise<void> {
     if (data.presupuestos) { await db.presupuestos.clear(); await db.presupuestos.bulkPut(data.presupuestos); }
     if (data.registrosTrabajo) { await db.registrosTrabajo.clear(); await db.registrosTrabajo.bulkPut(data.registrosTrabajo); }
     if (data.config) { await db.config.clear(); await db.config.bulkPut(data.config); }
+  });
+}
+
+/**
+ * Restablece todas las tablas del sistema a sus valores iniciales limpios por defecto.
+ * Limpia presupuestos, registros, tareas, ofertas y recarga los catálogos base
+ * (Categorías, Materiales, Productos, Ofertas base, Mano de Obra, Gastos Generales y Configuración inicial).
+ */
+export async function resetDatabaseToDefaults(): Promise<void> {
+  await db.transaction('rw', [
+    db.categoriasMaterial,
+    db.materiales,
+    db.productos,
+    db.ofertas,
+    db.solicitudesCotizacion,
+    db.insumos,
+    db.manoObra,
+    db.costosIndirectos,
+    db.tareasTipo,
+    db.contactos,
+    db.clientes,
+    db.proveedores,
+    db.proyectos,
+    db.presupuestos,
+    db.registrosTrabajo,
+    db.config
+  ], async () => {
+    // 1. Limpiar todas las tablas
+    await db.categoriasMaterial.clear();
+    await db.materiales.clear();
+    await db.productos.clear();
+    await db.ofertas.clear();
+    await db.solicitudesCotizacion.clear();
+    await db.insumos.clear();
+    await db.manoObra.clear();
+    await db.costosIndirectos.clear();
+    await db.tareasTipo.clear();
+    await db.contactos.clear();
+    await db.clientes.clear();
+    await db.proveedores.clear();
+    await db.proyectos.clear();
+    await db.presupuestos.clear();
+    await db.registrosTrabajo.clear();
+    await db.config.clear();
+
+    // 2. Re-sembrar datos de fábrica
+    if (INITIAL_CATEGORIAS_MATERIAL.length > 0) await db.categoriasMaterial.bulkPut(INITIAL_CATEGORIAS_MATERIAL);
+    if (INITIAL_MATERIALES.length > 0) await db.materiales.bulkPut(INITIAL_MATERIALES);
+    if (INITIAL_PRODUCTOS.length > 0) await db.productos.bulkPut(INITIAL_PRODUCTOS);
+    if (INITIAL_OFERTAS.length > 0) await db.ofertas.bulkPut(INITIAL_OFERTAS);
+    if (INITIAL_INSUMOS.length > 0) await db.insumos.bulkPut(INITIAL_INSUMOS);
+    if (INITIAL_MANO_OBRA.length > 0) await db.manoObra.bulkPut(INITIAL_MANO_OBRA);
+    if (INITIAL_COSTOS_INDIRECTOS.length > 0) await db.costosIndirectos.bulkPut(INITIAL_COSTOS_INDIRECTOS);
+    if (INITIAL_TAREAS_TIPO.length > 0) await db.tareasTipo.bulkPut(INITIAL_TAREAS_TIPO);
+    if (INITIAL_CONTACTOS.length > 0) await db.contactos.bulkPut(INITIAL_CONTACTOS);
+    await db.config.add(DEFAULT_APP_CONFIG);
   });
 }
 

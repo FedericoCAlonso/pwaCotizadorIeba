@@ -20,8 +20,14 @@ import {
   ImpuestoItem,
   TipoFactura,
   RegistroTrabajo,
-  AppConfig
+  AppConfig,
+  ParametrosTrabajoTipo,
+  NivelAntiguedadEstado,
+  NivelAccesibilidad,
+  NivelAltura,
+  ParametrosEstimacionMaterial
 } from './types';
+import { evaluateMathExpression } from './mathEvaluator';
 
 // ─── Helper monetario (auditoría #7: CRITICAL) ───────────────────────────────
 /**
@@ -133,6 +139,7 @@ export function calcularCostoTareaTipo(
 ): {
   costoInsumosUnitario: number;
   costoManoObraUnitario: number;
+  costoFijoOperativo?: number;
   costoDirectoUnitario: number;
   insumosSnapshotUnitario: InsumoSnapshot[];
   manoObraSnapshotUnitario: ManoObraSnapshot[];
@@ -186,12 +193,190 @@ export function calcularCostoTareaTipo(
     });
   }
 
+  const costoFijo = roundMoney(safeNum(tarea.costoFijoOperativo));
+
   return {
     costoInsumosUnitario,
     costoManoObraUnitario,
-    costoDirectoUnitario: roundMoney(costoInsumosUnitario + costoManoObraUnitario),
+    costoFijoOperativo: costoFijo,
+    costoDirectoUnitario: roundMoney(costoInsumosUnitario + costoManoObraUnitario + costoFijo),
     insumosSnapshotUnitario,
     manoObraSnapshotUnitario
+  };
+}
+
+// ─── Cláusulas y Modelado Paramétrico de Trabajos Tipo (Multi-Parámetro) ────────
+
+export const DEFAULT_CLAUSULA_OBRA_EXISTENTE =
+  'La cotización contempla el reemplazo de conductores a través de las canalizaciones existentes en condiciones transitables. En caso de detectarse cañerías obstruidas, colapsadas o cajas ciegas no accesibles que demanden apertura de mampostería o colocación de conductos a la vista, los trabajos de destape o recanalización se cotizarán como adicionales previa conformidad del cliente.';
+
+/**
+ * Obtiene el coeficiente de Antigüedad y Estado de la Instalación (K_estado).
+ * Moderna (<15 años, caño corrugado PVC/hierro sano): 1.0 (sin recargo)
+ * Intermedia (15 a 30 años, hierro semipesado / conductores envejecidos): 1.25 (+25% tiempo)
+ * Antigua (>30 años, chapa fina/Bergman, tela/goma, signos de humedad): 1.60 (+60% tiempo)
+ */
+export function obtenerCoeficienteEstado(
+  estado: NivelAntiguedadEstado = 'moderna',
+  customVal?: number
+): number {
+  if (estado === 'intermedia') return 1.25;
+  if (estado === 'antigua') return 1.60;
+  if (estado === 'personalizado' && customVal !== undefined) return Math.max(0.1, safeNum(customVal));
+  return 1.0;
+}
+
+/**
+ * Obtiene el coeficiente de Accesibilidad y Obstrucción del Entorno (K_acceso).
+ * Despejada / Vacía (obra desocupada / ambientes libres): 1.0
+ * Habitada estándar (cuidado de mobiliario, protección de pisos): 1.15
+ * Obstruida / Cajas no registrables (muebles empotrados, cielorrasos suspendidos sin registro): 1.35
+ */
+export function obtenerCoeficienteAccesibilidad(
+  acceso: NivelAccesibilidad = 'despejada',
+  customVal?: number
+): number {
+  if (acceso === 'habitada') return 1.15;
+  if (acceso === 'obstruida') return 1.35;
+  if (acceso === 'personalizado' && customVal !== undefined) return Math.max(0.1, safeNum(customVal));
+  return 1.0;
+}
+
+/**
+ * Obtiene el coeficiente de Altura y Logística Operativa (K_altura).
+ * Altura estándar (<= 2.70 m, escalera tijera común): 1.0
+ * Doble altura o techos altos (> 2.70 m hasta 4 m, escaleras extensibles o andamios livianos): 1.25
+ * Gran altura (> 4 m, andamios tubulares pesados / elevador): 1.50
+ */
+export function obtenerCoeficienteAltura(
+  altura: NivelAltura = 'estandar',
+  customVal?: number
+): number {
+  if (altura === 'doble_altura') return 1.25;
+  if (altura === 'gran_altura') return 1.50;
+  if (altura === 'personalizado' && customVal !== undefined) return Math.max(0.1, safeNum(customVal));
+  return 1.0;
+}
+
+/**
+ * Calcula el coeficiente compuesto total de complejidad para la mano de obra:
+ * K_total = K_estado * K_acceso * K_altura
+ */
+export function calcularCoeficienteComplejidad(
+  kEstado: number,
+  kAcceso: number,
+  kAltura: number
+): number {
+  const kE = Math.max(0.1, safeNum(kEstado) || 1.0);
+  const kA = Math.max(0.1, safeNum(kAcceso) || 1.0);
+  const kH = Math.max(0.1, safeNum(kAltura) || 1.0);
+  return Math.round(kE * kA * kH * 1000) / 1000;
+}
+
+/**
+ * Calcula el costo completo de un Trabajo Tipo con modelado multi-paramétrico:
+ * 1. Costo Base MO = Σ(horas_i * costoHora_i)
+ * 2. Multiplicador de Complejidad K_comp = K_estado * K_acceso * K_altura
+ * 3. Adicionales de Desarmado = cantArtefactos * costoUnitarioArtefacto
+ * 4. Costo MO Total = (Costo Base MO * cantidad * K_comp) + Adicionales Desarmado
+ * 5. Costo Insumos Total = (Costo Base Insumos * cantidad)
+ * 6. Costo Directo Total = Costo Insumos Total + Costo MO Total
+ */
+export function calcularCostoParametricoTareaTipo(
+  tarea: TareaTipo,
+  parametros: ParametrosTrabajoTipo,
+  insumosMap: Map<string, Insumo>,
+  manoObraMap: Map<string, CategoriaManoDeObra>,
+  options?: {
+    tipoFactura?: TipoFactura;
+    alicuotaIVADefault?: number;
+  }
+): {
+  cantidad: number;
+  costoInsumosUnitario: number;
+  costoInsumosTotal: number;
+  costoManoObraUnitario: number;
+  costoManoObraTotal: number;
+  adicionalesDesarmadoTotal: number;
+  costoDirectoUnitario: number;
+  costoDirectoTotal: number;
+  coeficienteComplejidadTotal: number;
+  insumosSnapshot: InsumoSnapshot[];
+  manoObraSnapshot: ManoObraSnapshot[];
+  clausulaTecnica?: string;
+} {
+  const cantidad = Math.max(0.0001, safeNum(parametros.cantidad) || 1);
+  const costData = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap, options);
+
+  const kEstado = safeNum(parametros.coeficienteEstado) || obtenerCoeficienteEstado(parametros.estadoAntiguedad);
+  const kAcceso = safeNum(parametros.coeficienteAccesibilidad) || obtenerCoeficienteAccesibilidad(parametros.accesibilidad);
+  const kAltura = safeNum(parametros.coeficienteAltura) || obtenerCoeficienteAltura(parametros.altura);
+  const kComplejidad = calcularCoeficienteComplejidad(kEstado, kAcceso, kAltura);
+
+  const cantArtefactos = Math.max(0, safeNum(parametros.artefactosEspecialesCantidad) || 0);
+  const costoArtefacto = Math.max(0, safeNum(parametros.artefactosEspecialesCostoUnitario) || 0);
+  const adicionalesDesarmadoTotal = roundMoney(cantArtefactos * costoArtefacto);
+
+  // Escala de insumos
+  const costoInsumosUnitario = costData.costoInsumosUnitario;
+  const costoInsumosTotal = roundMoney(costoInsumosUnitario * cantidad);
+
+  // Escala de mano de obra con complejidad y adicionales
+  const costoManoObraBaseUnitario = costData.costoManoObraUnitario;
+  const costoManoObraAjustadoUnitario = roundMoney(costoManoObraBaseUnitario * kComplejidad);
+  const costoManoObraTotal = roundMoney((costoManoObraAjustadoUnitario * cantidad) + adicionalesDesarmadoTotal);
+  const costoManoObraUnitario = roundMoney(costoManoObraTotal / cantidad);
+
+  const costoDirectoTotal = roundMoney(costoInsumosTotal + costoManoObraTotal);
+  const costoDirectoUnitario = roundMoney(costoDirectoTotal / cantidad);
+
+  // Generar snapshots completos multiplicados por la cantidad y factor de complejidad
+  const insumosSnapshot: InsumoSnapshot[] = costData.insumosSnapshotUnitario.map(i => {
+    const cantTot = roundMoney(i.cantidadTotal * cantidad);
+    return {
+      ...i,
+      cantidadUnitaria: i.cantidadTotal,
+      cantidadTotal: cantTot,
+      subtotalInsumo: roundMoney(i.precioUnitarioCongelado * cantTot),
+      subtotalInsumoFinal: roundMoney((i.precioFinalUnitarioCongelado || i.precioUnitarioCongelado) * cantTot)
+    };
+  });
+
+  const manoObraSnapshot: ManoObraSnapshot[] = costData.manoObraSnapshotUnitario.map(m => {
+    const horasTotales = roundMoney(m.horasTotales * cantidad * kComplejidad);
+    return {
+      ...m,
+      horasUnitarias: m.horasTotales,
+      horasTotales,
+      subtotalManoObra: roundMoney(m.costoHoraCongelado * horasTotales)
+    };
+  });
+
+  // Si hay adicionales de desarmado, se agrega una línea de snapshot para trazabilidad
+  if (adicionalesDesarmadoTotal > 0) {
+    manoObraSnapshot.push({
+      categoriaId: 'mo-adicional-desarmado',
+      nombreCategoria: `Adicional Desarmado: ${parametros.artefactosEspecialesDescripcion || 'Artefactos Especiales'} (${cantArtefactos} u)`,
+      horasUnitarias: 0,
+      horasTotales: 0,
+      costoHoraCongelado: costoArtefacto,
+      subtotalManoObra: adicionalesDesarmadoTotal
+    });
+  }
+
+  return {
+    cantidad,
+    costoInsumosUnitario,
+    costoInsumosTotal,
+    costoManoObraUnitario,
+    costoManoObraTotal,
+    adicionalesDesarmadoTotal,
+    costoDirectoUnitario,
+    costoDirectoTotal,
+    coeficienteComplejidadTotal: kComplejidad,
+    insumosSnapshot,
+    manoObraSnapshot,
+    clausulaTecnica: parametros.incluirClausulaEnPresupuesto ? (parametros.clausulaTecnica || DEFAULT_CLAUSULA_OBRA_EXISTENTE) : undefined
   };
 }
 
@@ -996,3 +1181,228 @@ export function auditarRentabilidadTareaTipo(
     insumosIncompletos
   };
 }
+
+// ─── Cómputo Métrico Paramétrico de Materiales (Superficie, Trazado, Error) ───
+
+/**
+ * Realiza el cómputo métrico paramétrico de un material (cables, cañerías, cajas)
+ * según el modelo seleccionado:
+ * - Superficie (m²): Superficie × Factor m/m² × (1 + Desperdicio/Error %)
+ * - Longitud de Cañería: Metros de cañería × Cantidad de hilos × (1 + % bajadas) × (1 + Desperdicio %)
+ * - Bocas y Centros: Cantidad bocas × Distancia media × Hilos × (1 + Desperdicio %)
+ * - Desperdicio Simple: Cantidad Base × (1 + Desperdicio %)
+ */
+export function calcularEstimacionParametricaMaterial(
+  params: Partial<ParametrosEstimacionMaterial>,
+  unidad = 'm'
+): ParametrosEstimacionMaterial {
+  const modelo = params.modelo || 'superficie_m2';
+  const desperdicioPct = params.margenDesperdicioErrorPct !== undefined
+    ? Math.max(0, safeNum(params.margenDesperdicioErrorPct))
+    : 10; // Default 10%
+  const factorDesperdicio = 1 + desperdicioPct / 100;
+
+  let cantidadBase = 0;
+  let formulaGenerada = '';
+  let explicacionCalculo = '';
+
+  switch (modelo) {
+    case 'superficie_m2': {
+      const sup = params.superficieM2 !== undefined ? Math.max(0, safeNum(params.superficieM2)) : 0;
+      const densidad = params.factorDensidadM2 !== undefined ? Math.max(0.01, safeNum(params.factorDensidadM2)) : 3.5; // 3.5 m/m² default
+      cantidadBase = sup * densidad;
+      const total = roundMoney(cantidadBase * factorDesperdicio);
+      formulaGenerada = `(${sup} * ${densidad}) * ${factorDesperdicio.toFixed(2)}`;
+      explicacionCalculo = `${sup} m² × ${densidad} ${unidad}/m² (+${desperdicioPct}% desperdicio/curvas)`;
+      return {
+        modelo,
+        superficieM2: sup,
+        factorDensidadM2: densidad,
+        margenDesperdicioErrorPct: desperdicioPct,
+        cantidadEstimadaTotal: total,
+        formulaGenerada,
+        explicacionCalculo
+      };
+    }
+
+    case 'longitud_caneria_fases': {
+      const long = params.longitudCaneriaM !== undefined ? Math.max(0, safeNum(params.longitudCaneriaM)) : 0;
+      const conductores = params.conductoresPorCaneria !== undefined ? Math.max(1, safeNum(params.conductoresPorCaneria)) : 3;
+      const bajadasPct = params.adicionalBajadasPct !== undefined ? Math.max(0, safeNum(params.adicionalBajadasPct)) : 15; // +15% bajadas
+      const factorBajadas = 1 + bajadasPct / 100;
+      cantidadBase = long * conductores * factorBajadas;
+      const total = roundMoney(cantidadBase * factorDesperdicio);
+      formulaGenerada = `(${long} * ${conductores} * ${factorBajadas.toFixed(2)}) * ${factorDesperdicio.toFixed(2)}`;
+      explicacionCalculo = `${long} m cañería × ${conductores} hilos (+${bajadasPct}% bajadas a cajas, +${desperdicioPct}% desperdicio)`;
+      return {
+        modelo,
+        longitudCaneriaM: long,
+        conductoresPorCaneria: conductores,
+        adicionalBajadasPct: bajadasPct,
+        margenDesperdicioErrorPct: desperdicioPct,
+        cantidadEstimadaTotal: total,
+        formulaGenerada,
+        explicacionCalculo
+      };
+    }
+
+    case 'bocas_distancia': {
+      const bocas = params.cantidadBocas !== undefined ? Math.max(0, safeNum(params.cantidadBocas)) : 0;
+      const dist = params.distanciaPromedioBocasM !== undefined ? Math.max(0, safeNum(params.distanciaPromedioBocasM)) : 4.0;
+      const conductores = params.conductoresPorCaneria !== undefined ? Math.max(1, safeNum(params.conductoresPorCaneria)) : 3;
+      cantidadBase = bocas * dist * conductores;
+      const total = roundMoney(cantidadBase * factorDesperdicio);
+      formulaGenerada = `(${bocas} * ${dist} * ${conductores}) * ${factorDesperdicio.toFixed(2)}`;
+      explicacionCalculo = `${bocas} bocas × ${dist} m entre centros × ${conductores} hilos (+${desperdicioPct}% empalmes/cortes)`;
+      return {
+        modelo,
+        cantidadBocas: bocas,
+        distanciaPromedioBocasM: dist,
+        conductoresPorCaneria: conductores,
+        margenDesperdicioErrorPct: desperdicioPct,
+        cantidadEstimadaTotal: total,
+        formulaGenerada,
+        explicacionCalculo
+      };
+    }
+
+    case 'desperdicio_simple':
+    default: {
+      const base = params.cantidadEstimadaTotal !== undefined ? Math.max(0, safeNum(params.cantidadEstimadaTotal)) : 0;
+      const total = roundMoney(base * factorDesperdicio);
+      formulaGenerada = `${base} * ${factorDesperdicio.toFixed(2)}`;
+      explicacionCalculo = `${base} ${unidad} base (+${desperdicioPct}% desperdicio/corte)`;
+      return {
+        modelo: 'desperdicio_simple',
+        margenDesperdicioErrorPct: desperdicioPct,
+        cantidadEstimadaTotal: total,
+        formulaGenerada,
+        explicacionCalculo
+      };
+    }
+  }
+}
+
+// ─── Motor Universal de Fórmulas y Variables para Trabajos Tipo ──────────────
+
+export interface ConsumosCalculadosResultado {
+  cantidadPrincipal: number;
+  valoresVariables: Record<string, number>;
+  costoFijoOperativo: number;
+  insumosSnapshot: InsumoSnapshot[];
+  manoObraSnapshot: ManoObraSnapshot[];
+  costoInsumosTotal: number;
+  costoManoObraTotal: number;
+  costoDirectoTotal: number;
+  clausulaExclusiones?: string;
+}
+
+/**
+ * Evalúa las fórmulas de insumos y mano de obra de una TareaTipo en función de las variables ingresadas
+ * y suma el costo fijo operativo de movilización / setup si corresponde.
+ */
+export function calcularConsumosTareaTipo(
+  tarea: TareaTipo,
+  variables: Record<string, number>,
+  insumosMap: Map<string, Insumo>,
+  manoObraMap: Map<string, CategoriaManoDeObra>,
+  options?: {
+    tipoFactura?: TipoFactura;
+    alicuotaIVADefault?: number;
+  }
+): ConsumosCalculadosResultado {
+  const isFacturaA = options?.tipoFactura === 'Factura A';
+  const aliDefault = options?.alicuotaIVADefault ?? 21;
+  const costoFijo = roundMoney(safeNum(tarea.costoFijoOperativo));
+
+  // 1. Evaluar Insumos
+  let costoInsumosTotal = 0;
+  const insumosSnapshot: InsumoSnapshot[] = [];
+
+  for (const item of tarea.insumos) {
+    const targetId = item.materialId || item.insumoId || '';
+    const mat = insumosMap.get(targetId);
+    const ali = mat?.alicuotaIVA ?? aliDefault;
+    const precioNeto = roundMoney(safeNum(mat?.precioActual));
+    const precioFinal = roundMoney(precioNeto * (1 + ali / 100));
+    const precioUnitarioComputable = isFacturaA ? precioNeto : precioFinal;
+
+    let cantEvaluada = item.cantidad ?? 1;
+    if (item.formula && item.formula.trim()) {
+      const evalRes = evaluateMathExpression(item.formula, variables);
+      if (evalRes.isValid && evalRes.value !== null) {
+        cantEvaluada = evalRes.value;
+      }
+    }
+
+    const subtotal = roundMoney(precioUnitarioComputable * cantEvaluada);
+    costoInsumosTotal = roundMoney(costoInsumosTotal + subtotal);
+
+    insumosSnapshot.push({
+      materialId: targetId,
+      nombre: mat?.nombre || targetId,
+      marca: mat?.atributos?.find(a => a.clave.toLowerCase() === 'marca')?.valor,
+      unidad: mat?.unidadVenta || mat?.unidad || 'u',
+      cantidadUnitaria: cantEvaluada,
+      cantidadTotal: cantEvaluada,
+      precioUnitarioCongelado: precioNeto,
+      alicuotaIVA: ali,
+      precioFinalUnitarioCongelado: precioFinal,
+      subtotalInsumo: subtotal,
+      subtotalInsumoFinal: roundMoney(precioFinal * cantEvaluada),
+      esAdHoc: false,
+      requiereCotizacionDirecta: mat?.requiereCotizacionDirecta ?? false
+    });
+  }
+
+  // 2. Evaluar Mano de Obra
+  let costoManoObraTotal = 0;
+  const manoObraSnapshot: ManoObraSnapshot[] = [];
+
+  for (const mo of tarea.manoObra) {
+    const catMO = manoObraMap.get(mo.categoriaId);
+    const costoHora = roundMoney(safeNum(catMO?.costoHora));
+
+    let horasEvaluadas = mo.horas ?? 0;
+    if (mo.formula && mo.formula.trim()) {
+      const evalRes = evaluateMathExpression(mo.formula, variables);
+      if (evalRes.isValid && evalRes.value !== null) {
+        horasEvaluadas = evalRes.value;
+      }
+    }
+
+    const subtotal = roundMoney(costoHora * horasEvaluadas);
+    costoManoObraTotal = roundMoney(costoManoObraTotal + subtotal);
+
+    manoObraSnapshot.push({
+      categoriaId: mo.categoriaId,
+      nombreCategoria: catMO?.nombre || 'Mano de Obra',
+      horasUnitarias: horasEvaluadas,
+      horasTotales: horasEvaluadas,
+      costoHoraCongelado: costoHora,
+      subtotalManoObra: subtotal
+    });
+  }
+
+  const costoDirectoTotal = roundMoney(costoInsumosTotal + costoManoObraTotal + costoFijo);
+
+  // Variable representativa principal (ej: primera variable definida o la que tenga valor > 0)
+  const primeraVar = tarea.variables?.[0];
+  const cantidadPrincipal = primeraVar && variables[primeraVar.id] !== undefined
+    ? variables[primeraVar.id]
+    : (variables['cantidad'] || variables['bocas'] || variables['sup'] || 1);
+
+  return {
+    cantidadPrincipal,
+    valoresVariables: variables,
+    costoFijoOperativo: costoFijo,
+    insumosSnapshot,
+    manoObraSnapshot,
+    costoInsumosTotal,
+    costoManoObraTotal,
+    costoDirectoTotal,
+    clausulaExclusiones: tarea.clausulaExclusiones || tarea.clausulaTecnicaDefault
+  };
+}
+
+

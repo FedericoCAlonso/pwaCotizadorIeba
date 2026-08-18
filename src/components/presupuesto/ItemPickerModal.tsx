@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layers, X, Search } from 'lucide-react';
+import { Layers, X, Search, Sliders, Plus } from 'lucide-react';
 import { TareaTipo, Insumo, CategoriaManoDeObra } from '../../core/types';
 import { calcularCostoTareaTipo, formatARS } from '../../core/calculations';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
@@ -11,6 +11,7 @@ interface ItemPickerModalProps {
   insumosMap: Map<string, Insumo>;
   manoObraMap: Map<string, CategoriaManoDeObra>;
   onSelectTarea: (tarea: TareaTipo) => void;
+  onConfigureParametricTarea?: (tarea: TareaTipo) => void;
 }
 
 export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
@@ -20,6 +21,7 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
   insumosMap,
   manoObraMap,
   onSelectTarea,
+  onConfigureParametricTarea,
 }) => {
   useEscapeKey(isOpen, onClose);
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,15 +78,31 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
                 <div
                   key={tarea.id}
                   onClick={() => {
-                    onSelectTarea(tarea);
-                    onClose();
+                    if (tarea.esParametrico && onConfigureParametricTarea) {
+                      onConfigureParametricTarea(tarea);
+                      onClose();
+                    } else {
+                      onSelectTarea(tarea);
+                      onClose();
+                    }
                   }}
                   className="bg-surface-container-low border border-outline-variant/20 hover:border-primary/50 hover:bg-surface-container/80 p-4 rounded-2xl cursor-pointer transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 group"
                 >
-                  <div>
-                    <span className="text-[10px] font-bold text-on-tertiary-container bg-tertiary-container px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                      {tarea.categoria}
-                    </span>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-bold text-on-tertiary-container bg-tertiary-container px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        {tarea.categoria}
+                      </span>
+                      {tarea.esParametrico && (
+                        <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-md flex items-center gap-1 select-none font-mono">
+                          <Sliders className="w-3 h-3" />
+                          <span>Paramétrico</span>
+                        </span>
+                      )}
+                      <span className="text-[10px] font-mono text-on-surface-variant">
+                        /{tarea.unidad}
+                      </span>
+                    </div>
                     <h4 className="font-bold text-on-surface group-hover:text-primary transition-colors mt-1">
                       {tarea.nombre}
                     </h4>
@@ -95,13 +113,51 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="text-left sm:text-right shrink-0">
-                    <span className="text-[10px] text-on-surface-variant uppercase tracking-wider block">
-                      Costo Base / {tarea.unidad}
-                    </span>
-                    <span className="font-mono text-base font-bold text-primary">
-                      {formatARS(cost.costoDirectoUnitario)}
-                    </span>
+                  <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                    <div className="text-left sm:text-right">
+                      <span className="text-[10px] text-on-surface-variant uppercase tracking-wider block">
+                        Costo Base Unit.
+                      </span>
+                      <span className="font-mono text-base font-bold text-primary">
+                        {formatARS(cost.costoDirectoUnitario)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {(tarea.variables && tarea.variables.length > 0) || tarea.esParametrico ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onConfigureParametricTarea) {
+                              onConfigureParametricTarea(tarea);
+                              onClose();
+                            } else {
+                              onSelectTarea(tarea);
+                              onClose();
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-primary hover:bg-primary/90 text-on-primary rounded-xl text-xs font-bold flex items-center gap-1 shadow-xs transition"
+                          title="Configurar parámetros de este trabajo tipo"
+                        >
+                          <Sliders className="w-3.5 h-3.5" />
+                          <span>Configurar</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectTarea(tarea);
+                            onClose();
+                          }}
+                          className="p-2 bg-surface-variant hover:bg-primary hover:text-on-primary text-on-surface-variant rounded-xl transition"
+                          title="Agregar ítem al presupuesto"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

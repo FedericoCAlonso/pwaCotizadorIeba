@@ -1,5 +1,4 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Package,
   Plus,
@@ -26,6 +25,7 @@ import {
 import { db, softDelete } from '../db/database';
 import { CategoriaMaterial, Material, Producto, Oferta, Contacto, MaterialFilterContext } from '../core/types';
 import { formatARS, obtenerEstadoVencimientoOferta, calcularPrecioNeto, calcularPrecioFinal } from '../core/calculations';
+import { normalizeStr, matchesMaterialContext, getObraQuantity, resolveOfertaVigente } from '../core/materialMatching';
 import { INITIAL_CATEGORIAS_MATERIAL } from '../core/sampleData';
 import { ImportCatalogModal } from './ImportCatalogModal';
 import { OnlinePriceButton } from './OnlinePriceButton';
@@ -37,6 +37,7 @@ import { QuickCreateMaterialModal } from './insumos/QuickCreateMaterialModal';
 import { ProductoEditorModal } from './insumos/ProductoEditorModal';
 import { OfertaEditorModal } from './insumos/OfertaEditorModal';
 import { MassPriceAdjustModal } from './insumos/MassPriceAdjustModal';
+import { useInsumosManagerViewModel } from '../viewmodels/useInsumosManagerViewModel';
 
 interface InsumosManagerProps {
   filterContext?: MaterialFilterContext | null;
@@ -52,209 +53,86 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
   const { toast } = useToast();
   const confirm = useConfirm();
 
-  const rawCategorias = useLiveQuery(() => db.categoriasMaterial.toArray());
-  const rawMateriales = useLiveQuery(() => db.materiales.toArray());
-  const rawProductos = useLiveQuery(() => db.productos.toArray());
-  const rawOfertas = useLiveQuery(() => db.ofertas.reverse().toArray());
-  const rawContactos = useLiveQuery(() => db.contactos.toArray()) || [];
-  const rawProveedores = useLiveQuery(() => db.proveedores.toArray()) || [];
-
-  const categorias = useMemo(() => (rawCategorias || []).filter(c => !c.deleted), [rawCategorias]);
-  const materiales = useMemo(() => (rawMateriales || []).filter(m => !m.deleted), [rawMateriales]);
-  const productos = useMemo(() => (rawProductos || []).filter(p => !p.deleted), [rawProductos]);
-  const ofertas = useMemo(() => (rawOfertas || []).filter(o => !o.deleted), [rawOfertas]);
-
-  const proveedores: Contacto[] = useMemo(() => {
-    const fromContactos = rawContactos.filter(c => !c.deleted && (c.roles?.includes('proveedor') || !c.roles?.length));
-    if (fromContactos.length > 0) return fromContactos;
-    return rawProveedores.filter(p => !p.deleted);
-  }, [rawContactos, rawProveedores]);
-  const configs = useLiveQuery(() => db.config.toArray()) || [];
-  const config = configs[0];
-
-  const categoriasMap = useMemo(() => new Map(categorias.map(c => [c.id, c])), [categorias]);
-  const proveedoresMap = useMemo(() => new Map(proveedores.map(p => [p.id, p])), [proveedores]);
-  const materialesMap = useMemo(() => new Map(materiales.map(m => [m.id, m])), [materiales]);
-  const _productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
-
-  const [activeTab, setActiveTab] = useState<'materiales' | 'categorias'>('materiales');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('todas');
-  const [selectedVencimiento, setSelectedVencimiento] = useState<'todos' | 'verde' | 'amarillo' | 'rojo'>('todos');
-  const [selectedMaterialIds, setSelectedMaterialIds] = useState<Set<string>>(new Set());
-  const [showFilters, setShowFilters] = useState(false);
-  const [isSpeedDialOpen, setIsSpeedDialOpen] = useState(false);
-
-  // Modal Estados
-  const [isCreatingMat, setIsCreatingMat] = useState(false);
-  const [editingMat, setEditingMat] = useState<Material | null>(null);
-  const [formDataMat, setFormDataMat] = useState<Partial<Material>>({
-    categoriaId: '',
-    nombre: '',
-    unidadVenta: 'u',
-    atributos: [],
-    activo: true
+  const {
+    categorias,
+    materiales,
+    productos,
+    ofertas,
+    proveedores,
+    config,
+    categoriasMap,
+    proveedoresMap,
+    materialesMap,
+    filteredMateriales,
+    activeTab,
+    setActiveTab,
+    searchTerm,
+    setSearchTerm,
+    selectedCategory,
+    setSelectedCategory,
+    selectedVencimiento,
+    setSelectedVencimiento,
+    selectedFichaStatus,
+    setSelectedFichaStatus,
+    selectedMaterialIds,
+    setSelectedMaterialIds,
+    showFilters,
+    setShowFilters,
+    isSpeedDialOpen,
+    setIsSpeedDialOpen,
+    viewModeMat,
+    setViewModeMat,
+    isCreatingMat,
+    setIsCreatingMat,
+    editingMat,
+    setEditingMat,
+    formDataMat,
+    setFormDataMat,
+    isCreatingProd,
+    setIsCreatingProd,
+    targetMatId,
+    setTargetMatId,
+    formDataProd,
+    setFormDataProd,
+    isCreatingOferta,
+    setIsCreatingOferta,
+    editingOferta,
+    setEditingOferta,
+    formDataOferta,
+    setFormDataOferta,
+    isCreatingCat,
+    setIsCreatingCat,
+    editingCat,
+    setEditingCat,
+    formDataCat,
+    setFormDataCat,
+    isQuickCreateMat,
+    setIsQuickCreateMat,
+    formDataQuickMat,
+    setFormDataQuickMat,
+    showMassUpdateModal,
+    setShowMassUpdateModal,
+    showImportCatalogModal,
+    setShowImportCatalogModal,
+    tipoAjusteIndice,
+    setTipoAjusteIndice,
+    massPercentage,
+    setMassPercentage,
+    modoCargaContinua,
+    setModoCargaContinua,
+    quickMatNombreRef,
+    getOfertaVigente,
+    getObraQuantity,
+    handleTogglePreferido,
+    handleToggleSelectMaterial,
+    handleToggleSelectAll,
+    handleApplyMassUpdate,
+    handleExportCatalog
+  } = useInsumosManagerViewModel({
+    filterContext,
+    onClearFilter,
+    onReturnToSource
   });
-
-  const [isCreatingProd, setIsCreatingProd] = useState(false);
-  const [targetMatId, setTargetMatId] = useState<string>('');
-  const [formDataProd, setFormDataProd] = useState<Partial<Producto>>({
-    materialId: '',
-    marca: '',
-    modelo: '',
-    tierCalidad: 'estandar',
-    esPreferido: false
-  });
-
-  const [isCreatingOferta, setIsCreatingOferta] = useState(false);
-  const [editingOferta, setEditingOferta] = useState<Oferta | null>(null);
-  const [formDataOferta, setFormDataOferta] = useState<Partial<Oferta>>({
-    materialId: '',
-    productoId: undefined,
-    proveedorId: '',
-    precio: 0,
-    fuente: 'manual'
-  });
-
-  // Modal Categorías Estado
-  const [isCreatingCat, setIsCreatingCat] = useState(false);
-
-  const [selectedFichaStatus, setSelectedFichaStatus] = useState<'todas' | 'completas' | 'incompletas'>('todas');
-  const [isQuickCreateMat, setIsQuickCreateMat] = useState(false);
-  const [formDataQuickMat, setFormDataQuickMat] = useState<{
-    nombre: string;
-    unidadVenta: string;
-    precio: number;
-    alicuotaIVA?: number;
-    modoPrecio?: 'con_iva' | 'neto';
-    proveedorId: string;
-  }>({
-    nombre: '',
-    unidadVenta: 'u',
-    precio: 0,
-    alicuotaIVA: 21,
-    modoPrecio: 'con_iva',
-    proveedorId: ''
-  });
-
-  const [showMassUpdateModal, setShowMassUpdateModal] = useState(false);
-  const [showImportCatalogModal, setShowImportCatalogModal] = useState(false);
-  const [tipoAjusteIndice, setTipoAjusteIndice] = useState<'porcentaje' | 'dolar_blue' | 'ipc' | 'canasta'>('porcentaje');
-  const [massPercentage, setMassPercentage] = useState<number>(10);
-  const [viewModeMat, setViewModeMat] = useState<'grid' | 'table'>('grid');
-  const [modoCargaContinua, setModoCargaContinua] = useState(false);
-  const quickMatNombreRef = useRef<HTMLInputElement>(null);
-
-  // Auto-reset filters when entering with a contextual filter from quote or task
-  useEffect(() => {
-    if (filterContext) {
-      setActiveTab('materiales');
-      setSelectedCategory('todas');
-      setSearchTerm('');
-      setSelectedVencimiento('todos');
-      setSelectedFichaStatus('todas');
-      setSelectedMaterialIds(new Set());
-    }
-  }, [filterContext]);
-
-  /**
-   * Obtiene la cantidad de cómputo métrico asignada a este material en la cotización o tarea activa.
-   */
-  const getObraQuantity = (mat: Material) => {
-    if (!filterContext?.quantities) return undefined;
-    if (filterContext.quantities[mat.id]) return filterContext.quantities[mat.id];
-    const altId1 = mat.id.replace(/^mat-/, 'ins-');
-    if (filterContext.quantities[altId1]) return filterContext.quantities[altId1];
-    const altId2 = mat.id.replace(/^ins-/, 'mat-');
-    if (filterContext.quantities[altId2]) return filterContext.quantities[altId2];
-    return undefined;
-  };
-
-  /**
-   * Normaliza cadenas de texto eliminando tildes, mayúsculas y caracteres especiales
-   * para comparaciones fonéticas y de palabras clave.
-   */
-  const normalizeStr = (s: string) =>
-    s
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-  /**
-   * Determina si un material del catálogo coincide con los requerimientos de la obra o tarea activa.
-   * Utiliza una estrategia escalonada de 3 niveles:
-   * 1. Coincidencia exacta por ID de Material o prefijo alternativo ('mat-' / 'ins-')
-   * 2. Coincidencia por producto comercial vinculado (Marca / Modelo)
-   * 3. Coincidencia por tokens y similitud fonética en el nombre (resguardo para partidas sin ID directo)
-   */
-  const matchesContext = (mat: Material, ctx: MaterialFilterContext) => {
-    // 1. Coincidencia por ID directo o alternativo
-    const targetIds = new Set((ctx.materialIds || []).map(id => id.toLowerCase().trim()));
-    const matIdLower = mat.id.toLowerCase();
-
-    if (targetIds.has(mat.id) || targetIds.has(matIdLower)) return true;
-    if (targetIds.has(mat.id.replace(/^mat-/, 'ins-')) || targetIds.has(mat.id.replace(/^ins-/, 'mat-'))) return true;
-
-    // 2. Coincidencia por Producto asociado
-    const hasProdMatch = productos.some(p => p.materialId === mat.id && (targetIds.has(p.id.toLowerCase()) || targetIds.has(p.id)));
-    if (hasProdMatch) return true;
-
-    // 3. Coincidencia flexible por Palabras Clave y Nombres
-    const targetNames = (ctx.materialNames || []).map(n => normalizeStr(n)).filter(n => n.length >= 2);
-    if (targetNames.length === 0) return false;
-
-    const normMatName = normalizeStr(mat.nombre);
-    const matTokens = normMatName.split(' ').filter(w => w.length >= 2);
-
-    for (const tName of targetNames) {
-      if (tName === 'insumo no encontrado') continue;
-      if (normMatName.includes(tName) || tName.includes(normMatName)) {
-        return true;
-      }
-
-      const tTokens = tName.split(' ').filter(w => w.length >= 2);
-      if (tTokens.length > 0) {
-        const commonTokens = tTokens.filter(tok => matTokens.includes(tok));
-        if (commonTokens.length >= 2 || (tTokens.length === 1 && commonTokens.length === 1)) {
-          return true;
-        }
-      }
-    }
-
-    return false;
-  };
-
-  // Helper para armar ofertas agrupadas por material (priorizando marca preferida)
-  const getOfertaVigente = (materialId: string, productoId?: string): Oferta | undefined => {
-    if (productoId) {
-      return ofertas.find(o => o.materialId === materialId && o.productoId === productoId);
-    }
-    // 1. Si el material tiene un producto preferido con precio, tomarlo
-    const matProds = productos.filter(p => p.materialId === materialId);
-    const preferido = matProds.find(p => p.esPreferido);
-    if (preferido) {
-      const ofertaPreferido = ofertas.find(o => o.materialId === materialId && o.productoId === preferido.id);
-      if (ofertaPreferido) return ofertaPreferido;
-    }
-    // 2. Si no, tomar la oferta más reciente (genérica o de cualquier marca)
-    return ofertas.find(o => o.materialId === materialId);
-  };
-
-  const handleTogglePreferido = async (p: Producto) => {
-    const isNowPreferido = !p.esPreferido;
-    const sameMatProds = productos.filter(prod => prod.materialId === p.materialId);
-    for (const prod of sameMatProds) {
-      if (prod.id === p.id) {
-        await db.productos.update(prod.id, { esPreferido: isNowPreferido });
-      } else if (isNowPreferido && prod.esPreferido) {
-        await db.productos.update(prod.id, { esPreferido: false });
-      }
-    }
-    toast.success(isNowPreferido ? `${p.marca} establecida como marca preferida ⭐` : 'Marca preferida desmarcada');
-  };
 
   // --- Handlers Alta Rápida ---
   const handleOpenQuickCreateMat = () => {
@@ -613,87 +491,6 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
     toast.success('Marca/Producto añadido');
   };
 
-  const handleToggleSelectMaterial = (id: string) => {
-    setSelectedMaterialIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const handleToggleSelectAll = (filtered: Material[]) => {
-    if (selectedMaterialIds.size === filtered.length) {
-      setSelectedMaterialIds(new Set());
-    } else {
-      setSelectedMaterialIds(new Set(filtered.map(m => m.id)));
-    }
-  };
-
-  const handleExportCatalog = async (filtered: Material[]) => {
-    const targetMats = selectedMaterialIds.size > 0
-      ? materiales.filter(m => selectedMaterialIds.has(m.id))
-      : filtered;
-
-    if (targetMats.length === 0) {
-      toast.warning('No hay materiales seleccionados para exportar.');
-      return;
-    }
-
-    try {
-      const ExcelModule = await import('exceljs');
-      const ExcelJS = ExcelModule.default || ExcelModule;
-      const workbook = new ExcelJS.Workbook();
-      workbook.creator = 'Cotizador IEBA';
-      const ws = workbook.addWorksheet('Catálogo de Materiales', {
-        views: [{ showGridLines: true }]
-      });
-
-      ws.columns = [
-        { header: 'ID Material', key: 'id', width: 24 },
-        { header: 'Categoría', key: 'categoria', width: 28 },
-        { header: 'Material / Descripción Técnica', key: 'material', width: 55 },
-        { header: 'Unidad', key: 'unidad', width: 12 },
-        { header: 'Atributos Técnicos', key: 'atributos', width: 45 }
-      ];
-
-      targetMats.forEach(m => {
-        const cat = categoriasMap.get(m.categoriaId);
-        const attrStr = m.atributos?.map(a => `${a.clave}: ${a.valor}`).join(' | ') || '';
-        ws.addRow({
-          id: m.id,
-          categoria: cat?.nombre || m.categoriaId,
-          material: m.nombre,
-          unidad: m.unidadVenta || 'u',
-          atributos: attrStr
-        });
-      });
-
-      const headerRow = ws.getRow(1);
-      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      headerRow.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF1E293B' }
-      };
-
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Catalogo_Materiales_IEBA_${new Date().toISOString().slice(0, 10)}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success('Catálogo de materiales exportado a Excel.');
-    } catch (err) {
-      console.error('Error al exportar catálogo:', err);
-      toast.error('Error al generar planilla del catálogo.');
-    }
-  };
-
   const handleDeleteMaterial = async (matId: string) => {
     const mat = materialesMap.get(matId);
     const ok = await confirm({
@@ -822,119 +619,6 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
     setIsCreatingOferta(false);
     setEditingOferta(null);
   };
-
-  const handleMassUpdate = async () => {
-    if (massPercentage === 0) return;
-
-    const factor = 1 + massPercentage / 100;
-    const now = new Date().toISOString();
-
-    const targetMats = selectedMaterialIds.size > 0
-      ? materiales.filter(m => selectedMaterialIds.has(m.id))
-      : (filterContext
-          ? filteredMateriales
-          : (selectedCategory === 'todas' ? materiales : materiales.filter(m => m.categoriaId === selectedCategory)));
-
-    if (targetMats.length === 0) {
-      toast.warning('No hay materiales en la selección o categoría indicada.');
-      return;
-    }
-
-    const newOfertas: Oferta[] = [];
-
-    for (const mat of targetMats) {
-      const prods = productos.filter(p => p.materialId === mat.id);
-      if (prods.length > 0) {
-        for (const prod of prods) {
-          const vig = getOfertaVigente(mat.id, prod.id);
-          if (vig) {
-            newOfertas.push({
-              id: `oferta-${crypto.randomUUID()}`,
-              materialId: mat.id,
-              productoId: prod.id,
-              proveedorId: vig.proveedorId,
-              precio: Math.round(vig.precio * factor * 100) / 100,
-              fecha: now,
-              fuente: 'indice',
-              tipoAjustePrecio: tipoAjusteIndice
-            });
-          }
-        }
-      } else {
-        const vig = getOfertaVigente(mat.id);
-        if (vig) {
-          newOfertas.push({
-            id: `oferta-${crypto.randomUUID()}`,
-            materialId: mat.id,
-            proveedorId: vig.proveedorId,
-            precio: Math.round(vig.precio * factor * 100) / 100,
-            fecha: now,
-            fuente: 'indice',
-            tipoAjustePrecio: tipoAjusteIndice
-          });
-        }
-      }
-    }
-
-    if (newOfertas.length > 0) {
-      await db.ofertas.bulkAdd(newOfertas);
-      toast.success(`Aumento de ${massPercentage}% aplicado a ${newOfertas.length} ofertas`);
-    } else {
-      toast.info('No se encontraron ofertas previas para ajustar.');
-    }
-
-    setShowMassUpdateModal(false);
-  };
-
-  // Filtrado de materiales
-  const filteredMateriales = useMemo(() => {
-    const sTerm = searchTerm.toLowerCase().trim();
-
-    return materiales.filter(mat => {
-      // 1. Filtro Contextual Directo (desde Cotización o Tarea Tipo)
-      if (filterContext) {
-        if (!matchesContext(mat, filterContext)) {
-          return false;
-        }
-      }
-
-      // 2. Búsqueda por texto libre
-      if (sTerm) {
-        const cat = categoriasMap.get(mat.categoriaId);
-        const matchSearch = mat.nombre.toLowerCase().includes(sTerm) ||
-          (cat?.nombre && cat.nombre.toLowerCase().includes(sTerm)) ||
-          (cat?.supercategoriaNombre && cat.supercategoriaNombre.toLowerCase().includes(sTerm)) ||
-          (mat.atributos && mat.atributos.some(a => a.valor.toLowerCase().includes(sTerm)));
-        if (!matchSearch) return false;
-      }
-
-      // 3. Filtro por Categoría
-      if (selectedCategory !== 'todas') {
-        if (mat.categoriaId !== selectedCategory) return false;
-      }
-
-      // 4. Filtro por Ficha Técnica
-      if (selectedFichaStatus === 'completas' && mat.fichaIncompleta) return false;
-      if (selectedFichaStatus === 'incompletas' && !mat.fichaIncompleta) return false;
-
-      // 5. Filtro por Vencimiento de Precios
-      if (selectedVencimiento !== 'todos') {
-        const oferta = getOfertaVigente(mat.id);
-        if (!oferta) {
-          if (selectedVencimiento !== 'rojo') return false;
-        } else {
-          const st = obtenerEstadoVencimientoOferta(
-            oferta.fecha,
-            config?.diasVencimientoPrecioVerde ?? 30,
-            config?.diasVencimientoPrecioAmarillo ?? 60
-          );
-          if (st !== selectedVencimiento) return false;
-        }
-      }
-
-      return true;
-    });
-  }, [materiales, filterContext, productos, searchTerm, selectedCategory, selectedVencimiento, selectedFichaStatus, ofertas, config, categoriasMap]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-24">
@@ -1386,11 +1070,11 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                           <td className="p-3 max-w-xs">
                             <div className="font-semibold text-on-surface truncate flex items-center gap-2" title={mat.nombre}>
                               <span>{mat.nombre}</span>
-                              {filterContext?.quantities?.[mat.id] && (
+                              {(() => { const q = getObraQuantity(mat.id); return q ? (
                                 <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md shrink-0">
-                                  Obra: {filterContext.quantities[mat.id].cantidad} {filterContext.quantities[mat.id].unidad}
+                                  Obra: {q.cantidad} {q.unidad}
                                 </span>
-                              )}
+                              ) : null; })()}
                             </div>
                             {mat.fichaIncompleta && (
                               <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
@@ -1551,11 +1235,11 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                           <span className="text-[11px] font-semibold text-on-primary-container bg-primary-container px-2.5 py-0.5 rounded-lg select-none">
                             {cat?.nombre || 'General'}
                           </span>
-                          {filterContext?.quantities?.[mat.id] && (
+                          {(() => { const q = getObraQuantity(mat.id); return q ? (
                             <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg select-none">
-                              Obra: {filterContext.quantities[mat.id].cantidad} {filterContext.quantities[mat.id].unidad}
+                              Obra: {q.cantidad} {q.unidad}
                             </span>
-                          )}
+                          ) : null; })()}
                         </div>
 
                         <div className="flex items-center gap-1.5">
@@ -1840,7 +1524,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
         setTipoAjusteIndice={setTipoAjusteIndice}
         massPercentage={massPercentage}
         setMassPercentage={setMassPercentage}
-        onApply={handleMassUpdate}
+        onApply={handleApplyMassUpdate}
       />
 
       <ImportCatalogModal
