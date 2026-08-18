@@ -620,3 +620,12 @@ export interface MotorBusquedaEcommerce {
   icono?: string;
   esPredeterminado?: boolean;
 }
+
+export interface MaterialFilterContext {
+  title: string;
+  materialIds: string[];
+  quantities?: Record<string, { cantidad: number; unidad: string }>;
+  returnTab?: string;
+  returnViewMode?: 'list' | 'editor' | 'detail';
+  returnPresupuestoId?: string;
+}

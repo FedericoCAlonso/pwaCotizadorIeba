@@ -1,6 +1,6 @@
 import React from 'react';
-import { Search, Copy, Edit2, Trash2, Sliders } from 'lucide-react';
-import { TareaTipo, Insumo, CategoriaManoDeObra, AppConfig } from '../../core/types';
+import { Search, Copy, Edit2, Trash2, Sliders, Package } from 'lucide-react';
+import { TareaTipo, Insumo, CategoriaManoDeObra, AppConfig, MaterialFilterContext } from '../../core/types';
 import { calcularCostoTareaTipo, formatARS, auditarRentabilidadTareaTipo } from '../../core/calculations';
 
 interface CatalogoSubmoduloProps {
@@ -17,6 +17,7 @@ interface CatalogoSubmoduloProps {
   onEdit: (tarea: TareaTipo) => void;
   onDelete: (id: string) => void;
   onSimulate: (id: string) => void;
+  onViewMaterialsInCatalog?: (ctx: MaterialFilterContext) => void;
 }
 
 export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
@@ -33,6 +34,7 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
   onEdit,
   onDelete,
   onSimulate,
+  onViewMaterialsInCatalog,
 }) => {
   const inputCls = "w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow";
 
@@ -121,6 +123,33 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                     >
                       <Copy className="w-4 h-4" />
                     </button>
+                    {onViewMaterialsInCatalog && tarea.insumos.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const ids = tarea.insumos.map(i => i.materialId || i.insumoId).filter(Boolean) as string[];
+                          const quantities: Record<string, { cantidad: number; unidad: string }> = {};
+                          tarea.insumos.forEach(i => {
+                            const id = i.materialId || i.insumoId;
+                            const mat = insumosMap.get(id || '');
+                            if (id) {
+                              quantities[id] = { cantidad: i.cantidad, unidad: mat?.unidadVenta || mat?.unidad || 'u' };
+                            }
+                          });
+                          onViewMaterialsInCatalog({
+                            title: `Trabajo Tipo: ${tarea.nombre}`,
+                            materialIds: ids,
+                            quantities,
+                            returnTab: 'tareasTipo'
+                          });
+                        }}
+                        className="min-w-[40px] min-h-[40px] p-2 text-on-surface-variant hover:text-primary rounded-full state-layer transition-colors flex items-center justify-center cursor-pointer"
+                        title="Ver y actualizar materiales en el Catálogo"
+                        aria-label="Ver materiales en el catálogo"
+                      >
+                        <Package className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => onEdit(tarea)}

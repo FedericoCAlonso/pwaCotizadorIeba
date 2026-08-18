@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, initializeDatabaseSeed } from './db/database';
-import { AppConfig, Presupuesto } from './core/types';
+import { AppConfig, Presupuesto, MaterialFilterContext } from './core/types';
 import { Header } from './components/Header';
 import { ConfigModal } from './components/ConfigModal';
 import { InsumosManager } from './components/InsumosManager';
@@ -26,6 +26,7 @@ export function App() {
   const [viewMode, setViewMode] = useState<'list' | 'editor' | 'detail'>('list');
   const [selectedPresupuestoId, setSelectedPresupuestoId] = useState<string | undefined>(undefined);
   const [initialClienteId, setInitialClienteId] = useState<string | undefined>(undefined);
+  const [materialFilterContext, setMaterialFilterContext] = useState<MaterialFilterContext | null>(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
@@ -43,6 +44,32 @@ export function App() {
     setSelectedPresupuestoId(undefined);
     setInitialClienteId(undefined);
     setViewMode('editor');
+  };
+
+  const handleViewMaterialsInCatalog = (ctx: MaterialFilterContext) => {
+    setMaterialFilterContext(ctx);
+    setActiveTab('insumos');
+    setViewMode('list');
+  };
+
+  const handleClearMaterialFilter = () => {
+    setMaterialFilterContext(null);
+  };
+
+  const handleReturnFromMaterialFilter = () => {
+    if (materialFilterContext?.returnTab) {
+      setActiveTab(materialFilterContext.returnTab);
+      if (materialFilterContext.returnViewMode) {
+        setViewMode(materialFilterContext.returnViewMode);
+      }
+      if (materialFilterContext.returnPresupuestoId) {
+        setSelectedPresupuestoId(materialFilterContext.returnPresupuestoId);
+      }
+    } else {
+      setActiveTab('presupuestos');
+      setViewMode('list');
+    }
+    setMaterialFilterContext(null);
   };
 
   useKeyboardShortcuts({
@@ -177,14 +204,25 @@ export function App() {
                   onBack={() => setViewMode('list')}
                   onEdit={() => setViewMode('editor')}
                   onDuplicate={handleDuplicatePresupuesto}
+                  onViewMaterialsInCatalog={handleViewMaterialsInCatalog}
                 />
               )}
             </>
           )}
 
-          {activeTab === 'insumos' && <InsumosManager />}
+          {activeTab === 'insumos' && (
+            <InsumosManager
+              filterContext={materialFilterContext}
+              onClearFilter={handleClearMaterialFilter}
+              onReturnToSource={handleReturnFromMaterialFilter}
+            />
+          )}
           {activeTab === 'manoObra' && <ManoObraManager />}
-          {activeTab === 'tareasTipo' && <TareasTipoManager />}
+          {activeTab === 'tareasTipo' && (
+            <TareasTipoManager
+              onViewMaterialsInCatalog={handleViewMaterialsInCatalog}
+            />
+          )}
           {(activeTab === 'contactos' || activeTab === 'clientes' || activeTab === 'proveedores') && (
             <ContactosManager
               onSelectPresupuesto={handleSelectPresupuestoFromClientes}

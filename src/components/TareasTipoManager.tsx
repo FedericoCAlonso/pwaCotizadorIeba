@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Calculator, Plus, BookOpen, Sliders, BarChart3, ShieldAlert } from 'lucide-react';
 import { db, softDelete } from '../db/database';
-import { TareaTipo, Insumo, CategoriaManoDeObra, Oferta, Producto } from '../core/types';
+import { TareaTipo, Insumo, CategoriaManoDeObra, Oferta, Producto, MaterialFilterContext } from '../core/types';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -12,7 +12,13 @@ import { CalibracionEmaSubmodulo } from './tareasTipo/CalibracionEmaSubmodulo';
 import { AuditoriaSubmodulo } from './tareasTipo/AuditoriaSubmodulo';
 import { TareaEditorModal, TareaFormData } from './tareasTipo/TareaEditorModal';
 
-export const TareasTipoManager: React.FC = () => {
+interface TareasTipoManagerProps {
+  onViewMaterialsInCatalog?: (ctx: MaterialFilterContext) => void;
+}
+
+export const TareasTipoManager: React.FC<TareasTipoManagerProps> = ({
+  onViewMaterialsInCatalog,
+}) => {
   const { config, categoriasTarea } = useAppConfig();
   const { toast } = useToast();
   const confirm = useConfirm();
@@ -241,6 +247,7 @@ export const TareasTipoManager: React.FC = () => {
             setSimulatedTareaId(id);
             setActiveSubmodulo('simulacion');
           }}
+          onViewMaterialsInCatalog={onViewMaterialsInCatalog}
         />
       )}
 

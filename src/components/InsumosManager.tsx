@@ -19,10 +19,12 @@ import {
   List,
   SlidersHorizontal,
   FileText,
-  Check
+  Check,
+  ArrowLeft,
+  X
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
-import { CategoriaMaterial, Material, Producto, Oferta, Contacto } from '../core/types';
+import { CategoriaMaterial, Material, Producto, Oferta, Contacto, MaterialFilterContext } from '../core/types';
 import { formatARS, obtenerEstadoVencimientoOferta, calcularPrecioNeto, calcularPrecioFinal } from '../core/calculations';
 import { INITIAL_CATEGORIAS_MATERIAL } from '../core/sampleData';
 import { ImportCatalogModal } from './ImportCatalogModal';
@@ -36,7 +38,17 @@ import { ProductoEditorModal } from './insumos/ProductoEditorModal';
 import { OfertaEditorModal } from './insumos/OfertaEditorModal';
 import { MassPriceAdjustModal } from './insumos/MassPriceAdjustModal';
 
-export const InsumosManager: React.FC = () => {
+interface InsumosManagerProps {
+  filterContext?: MaterialFilterContext | null;
+  onClearFilter?: () => void;
+  onReturnToSource?: () => void;
+}
+
+export const InsumosManager: React.FC<InsumosManagerProps> = ({
+  filterContext,
+  onClearFilter,
+  onReturnToSource,
+}) => {
   const { toast } = useToast();
   const confirm = useConfirm();
 
@@ -731,7 +743,9 @@ export const InsumosManager: React.FC = () => {
 
     const targetMats = selectedMaterialIds.size > 0
       ? materiales.filter(m => selectedMaterialIds.has(m.id))
-      : (selectedCategory === 'todas' ? materiales : materiales.filter(m => m.categoriaId === selectedCategory));
+      : (filterContext && filterContext.materialIds.length > 0
+          ? materiales.filter(m => filterContext.materialIds.includes(m.id))
+          : (selectedCategory === 'todas' ? materiales : materiales.filter(m => m.categoriaId === selectedCategory)));
 
     if (targetMats.length === 0) {
       toast.warning('No hay materiales en la selección o categoría indicada.');
@@ -815,12 +829,69 @@ export const InsumosManager: React.FC = () => {
         }
       }
 
-      return matchSearch && matchCat && matchVenc && matchFicha;
+      let matchFilterContext = true;
+      if (filterContext && filterContext.materialIds && filterContext.materialIds.length > 0) {
+        matchFilterContext = filterContext.materialIds.includes(mat.id);
+      }
+
+      return matchSearch && matchCat && matchVenc && matchFicha && matchFilterContext;
     });
-  }, [materiales, searchTerm, selectedCategory, selectedVencimiento, selectedFichaStatus, ofertas, config, categoriasMap]);
+  }, [materiales, searchTerm, selectedCategory, selectedVencimiento, selectedFichaStatus, ofertas, config, categoriasMap, filterContext]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-24">
+      {/* Contextual Filter Banner when viewing from Budget or Task */}
+      {filterContext && (
+        <div className="bg-primary-container/80 backdrop-blur-sm text-on-primary-container p-4 sm:p-5 rounded-3xl border border-primary/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-3.5">
+            <div className="p-3 bg-primary text-on-primary rounded-2xl shadow-xs shrink-0">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
+                  Filtro de Insumos Activo
+                </span>
+                <span className="text-xs font-mono font-bold text-on-primary-container">
+                  {filteredMateriales.length} {filteredMateriales.length === 1 ? 'material listado' : 'materiales listados'}
+                </span>
+              </div>
+              <h3 className="font-bold text-base sm:text-lg text-on-primary-container leading-snug">
+                {filterContext.title}
+              </h3>
+              <p className="text-xs text-on-primary-container/80 mt-0.5">
+                Mostrando exclusivamente los insumos de esta obra o tarea para actualizar precios o aplicar índices.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-primary/20">
+            {onClearFilter && (
+              <button
+                type="button"
+                onClick={onClearFilter}
+                className="px-3.5 py-2 rounded-full text-xs font-semibold hover:bg-on-primary-container/10 transition-colors flex items-center gap-1.5 cursor-pointer text-on-primary-container"
+                title="Quitar filtro y ver todo el catálogo"
+              >
+                <X className="w-4 h-4" />
+                <span>Ver Todo</span>
+              </button>
+            )}
+            {onReturnToSource && (
+              <button
+                type="button"
+                onClick={onReturnToSource}
+                className="px-4 py-2 bg-primary text-on-primary rounded-full text-xs font-bold shadow-xs hover:shadow-md transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                title="Volver a la pantalla de origen"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Volver al Origen</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Top Header & Tab Navigation */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container-low p-4 rounded-2xl">
         <div>
@@ -1138,8 +1209,13 @@ export const InsumosManager: React.FC = () => {
                             />
                           </td>
                           <td className="p-3 max-w-xs">
-                            <div className="font-semibold text-on-surface truncate" title={mat.nombre}>
-                              {mat.nombre}
+                            <div className="font-semibold text-on-surface truncate flex items-center gap-2" title={mat.nombre}>
+                              <span>{mat.nombre}</span>
+                              {filterContext?.quantities?.[mat.id] && (
+                                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md shrink-0">
+                                  Obra: {filterContext.quantities[mat.id].cantidad} {filterContext.quantities[mat.id].unidad}
+                                </span>
+                              )}
                             </div>
                             {mat.fichaIncompleta && (
                               <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
@@ -1290,7 +1366,7 @@ export const InsumosManager: React.FC = () => {
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -1300,6 +1376,11 @@ export const InsumosManager: React.FC = () => {
                           <span className="text-[11px] font-semibold text-on-primary-container bg-primary-container px-2.5 py-0.5 rounded-lg select-none">
                             {cat?.nombre || 'General'}
                           </span>
+                          {filterContext?.quantities?.[mat.id] && (
+                            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg select-none">
+                              Obra: {filterContext.quantities[mat.id].cantidad} {filterContext.quantities[mat.id].unidad}
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-1.5">

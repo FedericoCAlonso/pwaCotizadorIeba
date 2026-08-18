@@ -5,13 +5,16 @@ import {
   Printer,
   Copy,
   Zap,
-  Sparkles
+  Sparkles,
+  Package,
+  RefreshCw
 } from 'lucide-react';
 import { db } from '../db/database';
-import { AppConfig, Presupuesto, EstadoPresupuesto, InsumoEnTarea, ManoObraEnTarea } from '../core/types';
-import { formatARS, formatUSD } from '../core/calculations';
+import { AppConfig, Presupuesto, EstadoPresupuesto, InsumoEnTarea, ManoObraEnTarea, MaterialFilterContext } from '../core/types';
+import { formatARS, formatUSD, roundMoney, calcularTotalesPresupuesto } from '../core/calculations';
 import { ESTADOS_PRESUPUESTO } from '../core/sampleData';
 import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
+import { useToast } from '../contexts/ToastContext';
 
 interface PresupuestoDetailProps {
   presupuestoId: string;
@@ -19,6 +22,7 @@ interface PresupuestoDetailProps {
   onBack: () => void;
   onEdit: () => void;
   onDuplicate: (p: Presupuesto) => void;
+  onViewMaterialsInCatalog?: (ctx: MaterialFilterContext) => void;
 }
 
 export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
@@ -26,8 +30,10 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
   config,
   onBack,
   onEdit,
-  onDuplicate
+  onDuplicate,
+  onViewMaterialsInCatalog,
 }) => {
+  const { toast } = useToast();
   const presupuesto = useLiveQuery(() => db.presupuestos.get(presupuestoId), [presupuestoId]);
   const cliente = useLiveQuery(
     async () => {
@@ -64,6 +70,122 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
 
   const handleUpdateStatus = async (nuevoEstado: EstadoPresupuesto) => {
     await db.presupuestos.update(presupuesto.id, { estado: nuevoEstado });
+  };
+
+  const handleOpenMaterialsInCatalog = () => {
+    if (!presupuesto || !onViewMaterialsInCatalog) return;
+    const matQtyMap: Record<string, { cantidad: number; unidad: string }> = {};
+    const idsSet = new Set<string>();
+
+    presupuesto.items.forEach((it) => {
+      (it.insumosSnapshot || []).forEach((ins: any) => {
+        const id = ins.materialId || ins.insumoId;
+        if (id) {
+          idsSet.add(id);
+          const current = matQtyMap[id]?.cantidad || 0;
+          matQtyMap[id] = {
+            cantidad: roundMoney(current + (ins.cantidadTotal || 0)),
+            unidad: ins.unidadVenta || ins.unidad || 'u'
+          };
+        }
+      });
+    });
+
+    if (idsSet.size === 0) {
+      toast.info('Esta cotización no contiene insumos cargados para ver en el catálogo.');
+      return;
+    }
+
+    onViewMaterialsInCatalog({
+      title: `Cotización ${presupuesto.numero}`,
+      materialIds: Array.from(idsSet),
+      quantities: matQtyMap,
+      returnTab: 'presupuestos',
+      returnViewMode: 'detail',
+      returnPresupuestoId: presupuesto.id
+    });
+  };
+
+  const handleRevalidateWithCatalog = async () => {
+    if (!presupuesto) return;
+    const allOfertas = await db.ofertas.toArray();
+    const sortedOfertas = [...allOfertas].filter(o => !o.deleted).sort((a, b) => new Date(a.fecha || 0).getTime() - new Date(b.fecha || 0).getTime());
+
+    let updatedCount = 0;
+    const updatedItems = presupuesto.items.map((it) => {
+      if (!it.insumosSnapshot || it.insumosSnapshot.length === 0) return it;
+      const nextSnap = it.insumosSnapshot.map((ins) => {
+        const matId = ins.materialId || (ins as any).insumoId;
+        const latestOferta = sortedOfertas.filter(o => o.materialId === matId).pop();
+        if (latestOferta && latestOferta.precio > 0) {
+          const newPrice = latestOferta.precio;
+          const ali = ins.alicuotaIVA ?? 21;
+          const newFinalPrice = latestOferta.precioFinal ?? (newPrice * (1 + ali / 100));
+          if (newPrice !== ins.precioUnitarioCongelado) {
+            updatedCount++;
+          }
+          return {
+            ...ins,
+            precioUnitarioCongelado: newPrice,
+            precioFinalUnitarioCongelado: newFinalPrice,
+            subtotalInsumo: roundMoney(newPrice * (ins.cantidadTotal || 1)),
+            subtotalInsumoFinal: roundMoney(newFinalPrice * (ins.cantidadTotal || 1))
+          };
+        }
+        return ins;
+      });
+
+      const isFacturaC_or_X = presupuesto.tipoFactura === 'Factura C' || presupuesto.tipoFactura === 'Presupuesto X (Sin Factura)';
+      const costoInsumosNeto = roundMoney(nextSnap.reduce((acc, i) => acc + i.subtotalInsumo, 0));
+      const costoInsumosFinal = roundMoney(nextSnap.reduce((acc, i) => acc + (i.subtotalInsumoFinal ?? i.subtotalInsumo), 0));
+      const costoInsumos = isFacturaC_or_X ? costoInsumosFinal : costoInsumosNeto;
+      const costoMO = it.costoManoObra || 0;
+      const costoDirectoTotal = roundMoney(costoInsumos + costoMO);
+
+      return {
+        ...it,
+        insumosSnapshot: nextSnap,
+        costoInsumos,
+        costoDirectoTotal,
+        costoUnitario: roundMoney(costoDirectoTotal / (it.cantidad || 1)),
+        costoTotal: costoDirectoTotal
+      };
+    });
+
+    const calculatedTotals = calcularTotalesPresupuesto({
+      items: updatedItems,
+      costosIndirectosConfig: presupuesto.costosIndirectosConfig,
+      margenPorcentaje: presupuesto.margenPorcentaje,
+      beneficioPorcentaje: presupuesto.beneficioPorcentaje,
+      impuestosDetalle: presupuesto.impuestosDetalle || [],
+      tipoFactura: presupuesto.tipoFactura,
+      cotizacionMonedaExtranjera: presupuesto.cotizacionMonedaExtranjera
+    });
+
+    await db.presupuestos.update(presupuesto.id, {
+      items: calculatedTotals.itemsCalculados || updatedItems,
+      costoGlobal: calculatedTotals.costoGlobal,
+      gastosGeneralesTotal: calculatedTotals.gastosGeneralesTotal,
+      beneficioMonto: calculatedTotals.beneficioMonto,
+      subtotalSinImpuestos: calculatedTotals.subtotalSinImpuestos,
+      montoImpuestosTotal: calculatedTotals.montoImpuestosTotal,
+      precioFinalGlobal: calculatedTotals.precioFinalGlobal,
+      coeficienteK: calculatedTotals.coeficienteK,
+      subtotalInsumos: calculatedTotals.subtotalInsumos,
+      subtotalManoObra: calculatedTotals.subtotalManoObra,
+      subtotalCostosDirectos: calculatedTotals.subtotalCostosDirectos,
+      subtotalCostosIndirectos: calculatedTotals.subtotalCostosIndirectos,
+      costoTotalObra: calculatedTotals.costoTotalObra,
+      montoGanancia: calculatedTotals.montoGanancia,
+      totalARS: calculatedTotals.totalARS,
+      fechaModificacion: new Date().toISOString()
+    });
+
+    if (updatedCount > 0) {
+      toast.success(`Se actualizaron ${updatedCount} precios de materiales con el catálogo vigente.`);
+    } else {
+      toast.info('Los materiales de esta cotización ya están sincronizados con los precios del catálogo.');
+    }
   };
 
   return (
@@ -146,6 +268,28 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
               </option>
             ))}
           </select>
+
+          {/* View Materials in Catalog Button */}
+          {onViewMaterialsInCatalog && (
+            <button
+              onClick={handleOpenMaterialsInCatalog}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-primary font-semibold hover:bg-primary/10 rounded-full text-xs transition-colors border border-primary/20 cursor-pointer"
+              title="Ver y actualizar los precios de los materiales de esta cotización en el catálogo"
+            >
+              <Package className="w-3.5 h-3.5" />
+              <span>Ver Materiales en Catálogo</span>
+            </button>
+          )}
+
+          {/* Revalidate Prices with Catalog Button */}
+          <button
+            onClick={handleRevalidateWithCatalog}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-full text-xs font-semibold transition-colors border border-outline-variant/30 cursor-pointer"
+            title="Refrescar costos congelados con las últimas ofertas vigentes del catálogo"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Revalidar Precios</span>
+          </button>
 
           <button
             onClick={() => {
