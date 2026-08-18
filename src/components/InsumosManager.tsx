@@ -52,12 +52,18 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
   const { toast } = useToast();
   const confirm = useConfirm();
 
-  const categorias = (useLiveQuery(() => db.categoriasMaterial.toArray()) || []).filter(c => !c.deleted);
-  const materiales = (useLiveQuery(() => db.materiales.toArray()) || []).filter(m => !m.deleted);
-  const productos = (useLiveQuery(() => db.productos.toArray()) || []).filter(p => !p.deleted);
-  const ofertas = (useLiveQuery(() => db.ofertas.reverse().toArray()) || []).filter(o => !o.deleted);
+  const rawCategorias = useLiveQuery(() => db.categoriasMaterial.toArray());
+  const rawMateriales = useLiveQuery(() => db.materiales.toArray());
+  const rawProductos = useLiveQuery(() => db.productos.toArray());
+  const rawOfertas = useLiveQuery(() => db.ofertas.reverse().toArray());
   const rawContactos = useLiveQuery(() => db.contactos.toArray()) || [];
   const rawProveedores = useLiveQuery(() => db.proveedores.toArray()) || [];
+
+  const categorias = useMemo(() => (rawCategorias || []).filter(c => !c.deleted), [rawCategorias]);
+  const materiales = useMemo(() => (rawMateriales || []).filter(m => !m.deleted), [rawMateriales]);
+  const productos = useMemo(() => (rawProductos || []).filter(p => !p.deleted), [rawProductos]);
+  const ofertas = useMemo(() => (rawOfertas || []).filter(o => !o.deleted), [rawOfertas]);
+
   const proveedores: Contacto[] = useMemo(() => {
     const fromContactos = rawContactos.filter(c => !c.deleted && (c.roles?.includes('proveedor') || !c.roles?.length));
     if (fromContactos.length > 0) return fromContactos;
@@ -139,38 +145,57 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
   const [onlySelectedFilter, setOnlySelectedFilter] = useState(false);
   const [modoCargaContinua, setModoCargaContinua] = useState(false);
   const quickMatNombreRef = useRef<HTMLInputElement>(null);
+  const lastProcessedContextRef = useRef<string | null>(null);
 
   // Auto-select materials when entering with a contextual filter from quote or task
   useEffect(() => {
-    if (filterContext) {
-      setActiveTab('materiales');
-      setSelectedCategory('todas');
-      setSearchTerm('');
-      setSelectedVencimiento('todos');
-      setSelectedFichaStatus('todas');
+    if (!filterContext) {
+      lastProcessedContextRef.current = null;
+      return;
+    }
 
-      // Match materials by ID, alternate prefix, product ID, or name
-      const targetIds = new Set(filterContext.materialIds || []);
-      const targetNames = new Set((filterContext.materialNames || []).map(n => n.toLowerCase().trim()));
+    if (materiales.length === 0) {
+      return;
+    }
 
-      const matchedIds = new Set<string>();
-      materiales.forEach((mat) => {
-        const directMatch = targetIds.has(mat.id);
-        const altPrefixMatch = targetIds.has(mat.id.replace(/^mat-/, 'ins-')) || targetIds.has(mat.id.replace(/^ins-/, 'mat-'));
-        const prodMatch = productos.some(p => p.materialId === mat.id && targetIds.has(p.id));
-        const nameMatch = targetNames.has(mat.nombre.trim().toLowerCase());
+    const contextKey = `${filterContext.title}__${(filterContext.materialIds || []).join(',')}__${(filterContext.materialNames || []).join(',')}`;
+    if (lastProcessedContextRef.current === contextKey) {
+      return;
+    }
+    lastProcessedContextRef.current = contextKey;
 
-        if (directMatch || altPrefixMatch || prodMatch || nameMatch) {
-          matchedIds.add(mat.id);
-        }
-      });
+    setActiveTab('materiales');
+    setSelectedCategory('todas');
+    setSearchTerm('');
+    setSelectedVencimiento('todos');
+    setSelectedFichaStatus('todas');
 
-      setSelectedMaterialIds(matchedIds);
-      if (matchedIds.size > 0) {
-        setOnlySelectedFilter(true);
-      } else {
-        setOnlySelectedFilter(false);
+    // Match materials by ID, alternate prefix, product ID, or name
+    const targetIds = new Set(filterContext.materialIds || []);
+    const targetNames = (filterContext.materialNames || []).map(n => n.toLowerCase().trim()).filter(Boolean);
+
+    const matchedIds = new Set<string>();
+    materiales.forEach((mat) => {
+      const matIdLower = mat.id.toLowerCase();
+      const matNameLower = mat.nombre.toLowerCase().trim();
+
+      const directMatch = targetIds.has(mat.id) || targetIds.has(matIdLower);
+      const altPrefixMatch = targetIds.has(mat.id.replace(/^mat-/, 'ins-')) || targetIds.has(mat.id.replace(/^ins-/, 'mat-'));
+      const prodMatch = productos.some(p => p.materialId === mat.id && (targetIds.has(p.id) || targetIds.has(p.id.toLowerCase())));
+      const nameMatch = targetNames.some(tName => matNameLower.includes(tName) || tName.includes(matNameLower));
+
+      if (directMatch || altPrefixMatch || prodMatch || nameMatch) {
+        matchedIds.add(mat.id);
       }
+    });
+
+    setSelectedMaterialIds(matchedIds);
+    if (matchedIds.size > 0) {
+      setOnlySelectedFilter(true);
+      toast.success(`Se seleccionaron ${matchedIds.size} materiales de: ${filterContext.title}`);
+    } else {
+      setOnlySelectedFilter(false);
+      toast.info(`Mostrando catálogo completo (${materiales.length} materiales). No se encontraron insumos específicos en la cotización para pre-seleccionar.`);
     }
   }, [filterContext, materiales, productos]);
 
