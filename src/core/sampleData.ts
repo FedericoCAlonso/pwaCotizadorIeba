@@ -190,28 +190,90 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
     deleted: false
   },
   {
-    id: 'tt-tablero-seccional-8m',
-    nombre: 'Armado y Conexión de Tablero Seccional Embutido (Hasta 8 Módulos)',
+    id: 'tt-tablero-seccional-monofasico',
+    nombre: 'Armado y conexión de tablero seccional monofásico en vivienda',
     categoria: 'Tableros',
     unidad: 'tablero',
-    notasTecnicas: 'Fijación de gabinete DIN, peinado y conexionado de interruptor diferencial y termomagnéticas, rotulado de circuitos.',
+    notasTecnicas: 'Montaje de gabinete DIN embutido, provisión y conexionado de interruptor termomagnético general, interruptor diferencial coordinado según AEA 90364, peines bipolares de distribución y termomagnéticas bipolares de circuitos derivados. Rotulado normalizado y prueba de disparo diferencial.',
+    clausulaExclusiones: 'La cotización comprende el armado, peinado y conexionado en el gabinete del tablero. No incluye rotura de mampostería si el nicho no estuviera amurado previamente, ni tendido de líneas seccionales principales o circuitos troncales hacia bocas.',
     variables: [
       {
-        id: 'tableros',
-        nombre: 'Cantidad de Tableros',
+        id: 'circuitos',
+        nombre: 'Cantidad de Circuitos Derivados (IUG/TUG/TUE)',
         tipo: 'numero',
-        valorDefault: 1,
-        unidad: 'tableros'
+        valorDefault: 4,
+        unidad: 'circuitos',
+        descripcion: 'Número de circuitos monofásicos a proteger (ej: 1 ilum + 2 tomas + 1 aire)'
+      },
+      {
+        id: 'calibre_principal',
+        nombre: 'Térmica General de Cabecera',
+        tipo: 'select',
+        valorDefault: 32,
+        descripcion: 'Selecciona la corriente nominal del interruptor termomagnético principal',
+        opciones: [
+          { id: '25', label: '25 A (Curva C)', valor: 25 },
+          { id: '32', label: '32 A (Curva C)', valor: 32 },
+          { id: '40', label: '40 A (Curva C)', valor: 40 },
+          { id: '50', label: '50 A (Curva C)', valor: 50 },
+          { id: '63', label: '63 A (Curva C)', valor: 63 }
+        ]
+      },
+      {
+        id: 'requiere_certificacion',
+        nombre: '¿Incluye Medición de PAT y Protocolo SRT 900/15?',
+        tipo: 'boolean',
+        valorDefault: 0,
+        descripcion: 'Medición con telurímetro calibrado y emisión de protocolo firmado'
       }
     ],
     insumos: [
-      { materialId: 'mat-tablero-din-8-emb', cantidad: 1, formula: 'tableros * 1' }
+      // Slot 1: Gabinete DIN modular según cantidad de circuitos
+      {
+        nombreSlot: 'Gabinete DIN Embutir',
+        cantidad: 1,
+        reglasDinamicas: [
+          { condicion: 'circuitos <= 2', materialId: 'mat-tablero-din-8-emb', descripcion: 'Gabinete DIN 8 Módulos' },
+          { condicion: 'circuitos > 2 && circuitos <= 4', materialId: 'mat-tablero-din-12-emb', descripcion: 'Gabinete DIN 12 Módulos' },
+          { condicion: 'circuitos > 4 && circuitos <= 7', materialId: 'mat-tablero-din-18-emb', descripcion: 'Gabinete DIN 18 Módulos' },
+          { condicion: 'circuitos > 7', materialId: 'mat-tablero-din-24-emb', descripcion: 'Gabinete DIN 24 Módulos' }
+        ]
+      },
+      // Slot 2: Interruptor Termomagnético General de Cabecera
+      {
+        nombreSlot: 'Interruptor Termomagnético General',
+        cantidad: 1,
+        reglasDinamicas: [
+          { condicion: 'calibre_principal == 25', materialId: 'mat-pia-2x25', descripcion: 'Térmica 2x25A' },
+          { condicion: 'calibre_principal == 32', materialId: 'mat-pia-2x32', descripcion: 'Térmica 2x32A' },
+          { condicion: 'calibre_principal == 40', materialId: 'mat-pia-2x40', descripcion: 'Térmica 2x40A' },
+          { condicion: 'calibre_principal == 50', materialId: 'mat-pia-2x50', descripcion: 'Térmica 2x50A' },
+          { condicion: 'calibre_principal == 63', materialId: 'mat-pia-2x63', descripcion: 'Térmica 2x63A' }
+        ]
+      },
+      // Slot 3: Interruptor Diferencial Coordinado (según AEA 90364: In_ID >= In_TM)
+      {
+        nombreSlot: 'Interruptor Diferencial Coordinado',
+        cantidad: 1,
+        reglasDinamicas: [
+          { condicion: 'calibre_principal <= 25', materialId: 'mat-dif-2x25-30ma', descripcion: 'Diferencial 2x25A 30mA' },
+          { condicion: 'calibre_principal > 25 && calibre_principal <= 40', materialId: 'mat-dif-2x40-30ma', descripcion: 'Diferencial 2x40A 30mA' },
+          { condicion: 'calibre_principal > 40', materialId: 'mat-dif-2x63-30ma', descripcion: 'Diferencial 2x63A 30mA' }
+        ]
+      },
+      // Insumo 4: Térmicas Bipolares para Circuitos Derivados (Curva C 16A)
+      {
+        materialId: 'mat-pia-2x16',
+        cantidad: 1,
+        formula: 'circuitos'
+      }
     ],
     manoObra: [
-      { categoriaId: 'mo-oficial-electricista', horas: 3.5, formula: 'tableros * 3.5' },
-      { categoriaId: 'mo-ayudante', horas: 1.5, formula: 'tableros * 1.5' }
+      { categoriaId: 'mo-oficial-electricista', horas: 2.5, formula: '2.5 + circuitos * 0.75' },
+      { categoriaId: 'mo-ayudante', horas: 1.0, formula: '1.0 + circuitos * 0.35' },
+      { categoriaId: 'mo-oficial-electricista', horas: 1.5, condicion: 'requiere_certificacion == 1' }
     ],
-    frecuenciaUso: 3,
+    frecuenciaUso: 10,
     createdAt: now,
     updatedAt: now,
     deleted: false

@@ -318,3 +318,88 @@ export function evaluateMathExpression(
     };
   }
 }
+
+/**
+ * Evalúa una condición lógica o de comparación de forma segura.
+ * Soporta operadores de comparación (<=, >=, ==, ===, !=, !==, <, >)
+ * y operadores lógicos (&&, ||).
+ *
+ * @example
+ * evaluateCondition("calibre_principal <= 25", { calibre_principal: 25 }) -> true
+ * evaluateCondition("calibre_principal > 25 && calibre_principal <= 40", { calibre_principal: 32 }) -> true
+ * evaluateCondition("requiere_certificacion == 1", { requiere_certificacion: 0 }) -> false
+ * evaluateCondition("requiere_certificacion", { requiere_certificacion: 1 }) -> true
+ */
+export function evaluateCondition(
+  condition?: string | null,
+  scope?: Record<string, number>
+): boolean {
+  if (!condition || typeof condition !== 'string') return true;
+  const trimmed = condition.trim();
+  if (!trimmed) return true;
+
+  // Split by OR ('||') first
+  const orClauses = trimmed.split('||');
+  for (const orClause of orClauses) {
+    // Within each OR, split by AND ('&&')
+    const andClauses = orClause.split('&&');
+    let andResult = true;
+
+    for (const andClause of andClauses) {
+      const clause = andClause.trim();
+      if (!clause) continue;
+
+      let clauseResult = false;
+
+      // Check comparison operators (longer operators first: <=, >=, ==, !=, <, >)
+      const compMatch = clause.match(/^(.*?)(<=|>=|===|==|!==|!=|<|>)(.*)$/);
+      if (compMatch) {
+        const leftExpr = compMatch[1].trim();
+        const op = compMatch[2].trim();
+        const rightExpr = compMatch[3].trim();
+
+        const leftRes = evaluateMathExpression(leftExpr, scope);
+        const rightRes = evaluateMathExpression(rightExpr, scope);
+
+        if (leftRes.isValid && rightRes.isValid && leftRes.value !== null && rightRes.value !== null) {
+          const l = leftRes.value;
+          const r = rightRes.value;
+
+          switch (op) {
+            case '<=': clauseResult = l <= r; break;
+            case '>=': clauseResult = l >= r; break;
+            case '==':
+            case '===': clauseResult = Math.abs(l - r) < 1e-6; break;
+            case '!=':
+            case '!==': clauseResult = Math.abs(l - r) >= 1e-6; break;
+            case '<': clauseResult = l < r; break;
+            case '>': clauseResult = l > r; break;
+            default: clauseResult = false;
+          }
+        }
+      } else {
+        // Truthiness check of single expression (e.g. "requiere_certificacion")
+        const singleRes = evaluateMathExpression(clause, scope);
+        if (singleRes.isValid && singleRes.value !== null) {
+          clauseResult = singleRes.value > 0;
+        } else {
+          // If not a number, maybe it's boolean string
+          if (clause.toLowerCase() === 'true' || clause === '1') clauseResult = true;
+          else if (clause.toLowerCase() === 'false' || clause === '0') clauseResult = false;
+          else clauseResult = false;
+        }
+      }
+
+      if (!clauseResult) {
+        andResult = false;
+        break;
+      }
+    }
+
+    if (andResult) {
+      return true; // At least one OR branch succeeded
+    }
+  }
+
+  return false;
+}

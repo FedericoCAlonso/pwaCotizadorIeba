@@ -390,10 +390,23 @@ export async function initializeDatabaseSeed(): Promise<void> {
         }
       }
 
-      // 11. Asegurar tareas tipo iniciales si la tabla está vacía
+      // 11. Asegurar tareas tipo iniciales y migrar tareas tipo enriquecidas
       if (await db.tareasTipo.count() === 0 && INITIAL_TAREAS_TIPO.length > 0) {
         for (const tt of INITIAL_TAREAS_TIPO) {
           await db.tareasTipo.put(tt);
+        }
+      } else {
+        // Eliminar tarea antigua 'tt-tablero-seccional-8m' si existía y asegurar la nueva 'tt-tablero-seccional-monofasico'
+        const oldTablero = await db.tareasTipo.get('tt-tablero-seccional-8m');
+        if (oldTablero) {
+          await db.tareasTipo.delete('tt-tablero-seccional-8m');
+        }
+        const newTablero = INITIAL_TAREAS_TIPO.find(t => t.id === 'tt-tablero-seccional-monofasico');
+        if (newTablero) {
+          const existingNew = await db.tareasTipo.get(newTablero.id);
+          if (!existingNew || !existingNew.insumos?.some(i => i.reglasDinamicas && i.reglasDinamicas.length > 0)) {
+            await db.tareasTipo.put(newTablero);
+          }
         }
       }
 

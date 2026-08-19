@@ -62,7 +62,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
     (item.insumosSnapshot && item.insumosSnapshot.length > 0) ||
     (item.manoObraSnapshot && item.manoObraSnapshot.length > 0);
   const isCustom = !item.tareaTipoId && !hasSnapshots;
-  const isParametric = Boolean(item.valoresVariables || item.parametrosTrabajoTipo);
+  const isParametric = Boolean(item.valoresVariables || item.parametrosTrabajoTipo || item.tareaTipoId);
   const hasMaterialCalc = Boolean(item.parametrosEstimacionMaterial);
 
   return (
@@ -88,6 +88,18 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
 
         {/* Acciones principales de la fila */}
         <div className="flex items-center gap-1.5">
+          {isParametric && onOpenParametricModal && (
+            <button
+              type="button"
+              onClick={() => onOpenParametricModal(index)}
+              className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 px-2.5 py-1 rounded-xl transition shadow-2xs"
+              title="Configurar variables de cálculo y opciones paramétricas de este trabajo"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Parámetros</span>
+            </button>
+          )}
+
           {onOpenInSituEditor && (
             <button
               type="button"

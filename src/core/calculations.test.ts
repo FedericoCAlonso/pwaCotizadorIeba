@@ -22,6 +22,7 @@ import {
   calcularConsumosTareaTipo,
   DEFAULT_CLAUSULA_OBRA_EXISTENTE
 } from './calculations';
+import { evaluateCondition } from './mathEvaluator';
 import { Insumo, CategoriaManoDeObra, CostoIndirecto, CostoIndirectoItemConfig, TareaTipo, ItemPresupuesto } from './types';
 import { buildSearchTerm } from './searchUtils';
 import { INITIAL_CATEGORIAS_MATERIAL, INITIAL_MATERIALES, INITIAL_MANO_OBRA, INITIAL_COSTOS_INDIRECTOS } from './sampleData';
@@ -1262,6 +1263,172 @@ describe('Motor Universal de Fórmulas y Variables para Trabajos Tipo', () => {
     expect(res.manoObraSnapshot[1].subtotalManoObra).toBe(15600);
     expect(res.costoManoObraTotal).toBe(54600);
     expect(res.costoDirectoTotal).toBe(79600);
+  });
+
+  it('evalúa condiciones lógicas y comparaciones de materiales/MO correctamente (evaluateCondition)', () => {
+    expect(evaluateCondition('', {})).toBe(true);
+    expect(evaluateCondition(undefined, {})).toBe(true);
+    expect(evaluateCondition('calibre_principal <= 25', { calibre_principal: 25 })).toBe(true);
+    expect(evaluateCondition('calibre_principal <= 25', { calibre_principal: 32 })).toBe(false);
+    expect(evaluateCondition('calibre_principal > 25 && calibre_principal <= 40', { calibre_principal: 32 })).toBe(true);
+    expect(evaluateCondition('calibre_principal > 25 && calibre_principal <= 40', { calibre_principal: 50 })).toBe(false);
+    expect(evaluateCondition('requiere_certificacion == 1', { requiere_certificacion: 0 })).toBe(false);
+    expect(evaluateCondition('requiere_certificacion == 1', { requiere_certificacion: 1 })).toBe(true);
+  });
+
+  it('aplica selección condicional de protecciones (térmicas y disyuntores coordinados) en TareaTipo', () => {
+    const testInsumosMap = new Map<string, Insumo>([
+      ['mat-pia-25', { id: 'mat-pia-25', categoriaId: 'cat-protecciones', nombre: 'PIA 2x25A', unidadVenta: 'u', atributos: [], activo: true, precioActual: 10000 }],
+      ['mat-pia-32', { id: 'mat-pia-32', categoriaId: 'cat-protecciones', nombre: 'PIA 2x32A', unidadVenta: 'u', atributos: [], activo: true, precioActual: 12000 }],
+      ['mat-dif-25', { id: 'mat-dif-25', categoriaId: 'cat-protecciones', nombre: 'Diferencial 2x25A', unidadVenta: 'u', atributos: [], activo: true, precioActual: 30000 }],
+      ['mat-dif-40', { id: 'mat-dif-40', categoriaId: 'cat-protecciones', nombre: 'Diferencial 2x40A', unidadVenta: 'u', atributos: [], activo: true, precioActual: 35000 }]
+    ]);
+
+    const testManoObraMap = new Map<string, CategoriaManoDeObra>([
+      ['mo-oficial', { id: 'mo-oficial', nombre: 'Oficial', costoHora: 10000, fechaActualizacion: '' }]
+    ]);
+
+    const tareaTablero: TareaTipo = {
+      id: 'tt-test-tablero',
+      nombre: 'Tablero Seccional',
+      categoria: 'Tableros',
+      unidad: 'tablero',
+      variables: [
+        { id: 'calibre_principal', nombre: 'Calibre', tipo: 'select', valorDefault: 25 },
+        { id: 'requiere_certificacion', nombre: 'Certificado', tipo: 'boolean', valorDefault: 0 }
+      ],
+      insumos: [
+        { materialId: 'mat-pia-25', cantidad: 1, condicion: 'calibre_principal == 25' },
+        { materialId: 'mat-pia-32', cantidad: 1, condicion: 'calibre_principal == 32' },
+        { materialId: 'mat-dif-25', cantidad: 1, condicion: 'calibre_principal <= 25' },
+        { materialId: 'mat-dif-40', cantidad: 1, condicion: 'calibre_principal > 25 && calibre_principal <= 40' }
+      ],
+      manoObra: [
+        { categoriaId: 'mo-oficial', horas: 3, formula: '3' },
+        { categoriaId: 'mo-oficial', horas: 1.5, condicion: 'requiere_certificacion == 1' }
+      ]
+    };
+
+    // Caso 1: Calibre 25A sin certificación
+    const res25 = calcularConsumosTareaTipo(tareaTablero, { calibre_principal: 25, requiere_certificacion: 0 }, testInsumosMap, testManoObraMap, { tipoFactura: 'Factura A' });
+    expect(res25.insumosSnapshot.map(i => i.materialId)).toEqual(['mat-pia-25', 'mat-dif-25']);
+    expect(res25.costoInsumosTotal).toBe(40000); // 10000 + 30000
+    expect(res25.manoObraSnapshot[0].horasTotales).toBe(3);
+    expect(res25.costoManoObraTotal).toBe(30000);
+
+    // Caso 2: Calibre 32A con certificación
+    const res32 = calcularConsumosTareaTipo(tareaTablero, { calibre_principal: 32, requiere_certificacion: 1 }, testInsumosMap, testManoObraMap, { tipoFactura: 'Factura A' });
+    expect(res32.insumosSnapshot.map(i => i.materialId)).toEqual(['mat-pia-32', 'mat-dif-40']);
+    expect(res32.costoInsumosTotal).toBe(47000); // 12000 + 35000
+    expect(res32.manoObraSnapshot.length).toBe(2);
+    expect(res32.costoManoObraTotal).toBe(45000); // (3 + 1.5) * 10000
+  });
+
+  it('resuelve correctamente slots dinámicos por reglas (Opción A) en TareaTipo', () => {
+    const testInsumosMap = new Map<string, Insumo>([
+      ['mat-tablero-8', { id: 'mat-tablero-8', categoriaId: 'cat-tableros', nombre: 'Gabinete 8M', unidadVenta: 'u', atributos: [], activo: true, precioActual: 15000 }],
+      ['mat-tablero-12', { id: 'mat-tablero-12', categoriaId: 'cat-tableros', nombre: 'Gabinete 12M', unidadVenta: 'u', atributos: [], activo: true, precioActual: 22000 }],
+      ['mat-tablero-18', { id: 'mat-tablero-18', categoriaId: 'cat-tableros', nombre: 'Gabinete 18M', unidadVenta: 'u', atributos: [], activo: true, precioActual: 30000 }],
+      ['mat-pia-25', { id: 'mat-pia-25', categoriaId: 'cat-protecciones', nombre: 'PIA 2x25A', unidadVenta: 'u', atributos: [], activo: true, precioActual: 10000 }],
+      ['mat-pia-32', { id: 'mat-pia-32', categoriaId: 'cat-protecciones', nombre: 'PIA 2x32A', unidadVenta: 'u', atributos: [], activo: true, precioActual: 12000 }],
+      ['mat-dif-25', { id: 'mat-dif-25', categoriaId: 'cat-protecciones', nombre: 'Diferencial 2x25A', unidadVenta: 'u', atributos: [], activo: true, precioActual: 30000 }],
+      ['mat-dif-40', { id: 'mat-dif-40', categoriaId: 'cat-protecciones', nombre: 'Diferencial 2x40A', unidadVenta: 'u', atributos: [], activo: true, precioActual: 35000 }],
+      ['mat-pia-16', { id: 'mat-pia-16', categoriaId: 'cat-protecciones', nombre: 'PIA 2x16A', unidadVenta: 'u', atributos: [], activo: true, precioActual: 9000 }]
+    ]);
+
+    const testManoObraMap = new Map<string, CategoriaManoDeObra>([
+      ['mo-oficial', { id: 'mo-oficial', nombre: 'Oficial', costoHora: 10000, fechaActualizacion: '' }],
+      ['mo-ayudante', { id: 'mo-ayudante', nombre: 'Ayudante', costoHora: 6000, fechaActualizacion: '' }]
+    ]);
+
+    const tareaSlotTablero: TareaTipo = {
+      id: 'tt-test-slots',
+      nombre: 'Tablero Monofásico',
+      categoria: 'Tableros',
+      unidad: 'tablero',
+      variables: [
+        { id: 'circuitos', nombre: 'Circuitos', tipo: 'numero', valorDefault: 4 },
+        { id: 'calibre_principal', nombre: 'Térmica Cabecera', tipo: 'select', valorDefault: 32 },
+        { id: 'requiere_certificacion', nombre: 'Certificación', tipo: 'boolean', valorDefault: 0 }
+      ],
+      insumos: [
+        // Slot 1: Gabinete
+        {
+          nombreSlot: 'Gabinete DIN',
+          cantidad: 1,
+          reglasDinamicas: [
+            { condicion: 'circuitos <= 2', materialId: 'mat-tablero-8' },
+            { condicion: 'circuitos > 2 && circuitos <= 4', materialId: 'mat-tablero-12' },
+            { condicion: 'circuitos > 4', materialId: 'mat-tablero-18' }
+          ]
+        },
+        // Slot 2: Térmica General
+        {
+          nombreSlot: 'Térmica General',
+          cantidad: 1,
+          reglasDinamicas: [
+            { condicion: 'calibre_principal == 25', materialId: 'mat-pia-25' },
+            { condicion: 'calibre_principal == 32', materialId: 'mat-pia-32' }
+          ]
+        },
+        // Slot 3: Diferencial Coordinado
+        {
+          nombreSlot: 'Diferencial Coordinado',
+          cantidad: 1,
+          reglasDinamicas: [
+            { condicion: 'calibre_principal <= 25', materialId: 'mat-dif-25' },
+            { condicion: 'calibre_principal > 25', materialId: 'mat-dif-40' }
+          ]
+        },
+        // Insumo 4: Térmicas derivadas
+        {
+          materialId: 'mat-pia-16',
+          cantidad: 1,
+          formula: 'circuitos'
+        }
+      ],
+      manoObra: [
+        { categoriaId: 'mo-oficial', horas: 2.5, formula: '2.5 + circuitos * 0.75' },
+        { categoriaId: 'mo-ayudante', horas: 1.0, formula: '1.0 + circuitos * 0.35' },
+        { categoriaId: 'mo-oficial', horas: 1.5, condicion: 'requiere_certificacion == 1' }
+      ]
+    };
+
+    // Caso 1: 4 circuitos, Térmica 32A, Sin certificación
+    const res = calcularConsumosTareaTipo(
+      tareaSlotTablero,
+      { circuitos: 4, calibre_principal: 32, requiere_certificacion: 0 },
+      testInsumosMap,
+      testManoObraMap,
+      { tipoFactura: 'Factura A' }
+    );
+
+    // Debe resolver: Gabinete 12M (22k), Térmica 32A (12k), Diferencial 40A (35k), 4 Térmicas 16A (36k)
+    expect(res.insumosSnapshot.map(i => i.materialId)).toEqual(['mat-tablero-12', 'mat-pia-32', 'mat-dif-40', 'mat-pia-16']);
+    expect(res.insumosSnapshot.find(i => i.materialId === 'mat-pia-16')?.cantidadTotal).toBe(4);
+    expect(res.costoInsumosTotal).toBe(22000 + 12000 + 35000 + 36000); // 105.000
+
+    // Horas: Oficial = 2.5 + 4*0.75 = 5.5hs ($55.000), Ayudante = 1.0 + 4*0.35 = 2.4hs ($14.400)
+    expect(res.manoObraSnapshot[0].horasTotales).toBe(5.5);
+    expect(res.manoObraSnapshot[1].horasTotales).toBe(2.4);
+    expect(res.manoObraSnapshot.length).toBe(2);
+    expect(res.costoManoObraTotal).toBe(69400);
+
+    // Caso 2: 1 circuito, Térmica 25A, Con certificación
+    const resCert = calcularConsumosTareaTipo(
+      tareaSlotTablero,
+      { circuitos: 1, calibre_principal: 25, requiere_certificacion: 1 },
+      testInsumosMap,
+      testManoObraMap,
+      { tipoFactura: 'Factura A' }
+    );
+
+    // Debe resolver: Gabinete 8M (15k), Térmica 25A (10k), Diferencial 25A (30k), 1 Térmica 16A (9k)
+    expect(resCert.insumosSnapshot.map(i => i.materialId)).toEqual(['mat-tablero-8', 'mat-pia-25', 'mat-dif-25', 'mat-pia-16']);
+    expect(resCert.insumosSnapshot.find(i => i.materialId === 'mat-pia-16')?.cantidadTotal).toBe(1);
+    expect(resCert.costoInsumosTotal).toBe(15000 + 10000 + 30000 + 9000); // 64.000
+    // Oficial tiene 2 renglones: Base (2.5 + 0.75 = 3.25hs) + Certificación (1.5hs)
+    expect(resCert.manoObraSnapshot.length).toBe(3);
   });
 });
 

@@ -30,7 +30,7 @@ import {
   formatARS,
   DEFAULT_CLAUSULA_OBRA_EXISTENTE
 } from '../../core/calculations';
-import { evaluateMathExpression } from '../../core/mathEvaluator';
+import { evaluateMathExpression, evaluateCondition } from '../../core/mathEvaluator';
 import { ModalContainer } from '../ModalContainer';
 import { useToast } from '../../contexts/ToastContext';
 import { MaterialPickerModal } from './MaterialPickerModal';
@@ -538,7 +538,8 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                         className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2 py-1 text-xs text-on-surface focus:outline-none"
                       >
                         <option value="numero">Número</option>
-                        <option value="select">Opciones / Coeficientes</option>
+                        <option value="select">Opciones / Selección</option>
+                        <option value="boolean">Interruptor (Sí / No)</option>
                       </select>
                     </div>
 
@@ -671,8 +672,21 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                 </div>
               ) : (
                 formData.insumos.map((item, idx) => {
-                  const targetId = item.materialId || item.insumoId || '';
-                  const selectedMat = insumosMap.get(targetId);
+                  let resolvedId = item.materialId || item.insumoId || '';
+                  let matchingRuleName = '';
+                  const isDynamic = Boolean(item.reglasDinamicas && item.reglasDinamicas.length > 0);
+
+                  if (isDynamic && item.reglasDinamicas) {
+                    const match = item.reglasDinamicas.find(r => !r.condicion || evaluateCondition(r.condicion, currentScope));
+                    if (match) {
+                      resolvedId = match.materialId;
+                      matchingRuleName = match.descripcion || '';
+                    } else {
+                      resolvedId = '';
+                    }
+                  }
+
+                  const selectedMat = insumosMap.get(resolvedId);
                   const unitPrice = selectedMat?.precioActual || 0;
                   const unit = selectedMat?.unidadVenta || selectedMat?.unidad || 'u';
 
@@ -680,65 +694,113 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   const formulaStr = item.formula || String(item.cantidad);
                   const evalRes = evaluateMathExpression(formulaStr, currentScope);
                   const cantEvaluada = evalRes.isValid && evalRes.value !== null ? evalRes.value : item.cantidad;
-                  const rowSubtotal = unitPrice * cantEvaluada;
+                  const isConditionMet = (!item.condicion || evaluateCondition(item.condicion, currentScope)) && (isDynamic ? Boolean(resolvedId) : true);
+                  const rowSubtotal = unitPrice * (isConditionMet ? cantEvaluada : 0);
 
                   return (
                     <div
                       key={idx}
-                      className="p-3 bg-surface-container-low rounded-2xl border border-outline-variant/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-outline-variant/40 transition"
+                      className={`p-3 rounded-2xl border transition space-y-2 ${
+                        isConditionMet
+                          ? 'bg-surface-container-low border-outline-variant/20 hover:border-outline-variant/40'
+                          : 'bg-surface-container-low/40 border-dashed border-outline-variant/30 opacity-75'
+                      }`}
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-surface-variant text-on-surface-variant font-mono">
-                            #{idx + 1}
-                          </span>
-                          <h5 className="text-xs font-bold text-on-surface truncate">
-                            {selectedMat?.nombre || targetId}
-                          </h5>
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-surface-variant text-on-surface-variant font-mono">
+                              #{idx + 1}
+                            </span>
+                            {isDynamic ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-mono flex items-center gap-1">
+                                <span>⚡ Slot: {item.nombreSlot || 'Dinámico'}</span>
+                              </span>
+                            ) : null}
+                            <h5 className="text-xs font-bold text-on-surface truncate">
+                              {selectedMat?.nombre || (isDynamic ? '(Sin coincidencia para variables)' : resolvedId)}
+                            </h5>
+                          </div>
+                          <div className="text-[11px] text-on-surface-variant font-mono flex items-center gap-2">
+                            <span>Unit: {formatARS(unitPrice)}</span>
+                            <span>•</span>
+                            <span className={`font-bold ${isConditionMet ? 'text-primary' : 'text-on-surface-variant line-through'}`}>
+                              Consumo: {cantEvaluada} {unit} = {formatARS(rowSubtotal)}
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-[11px] text-on-surface-variant font-mono flex items-center gap-2">
-                          <span>Unit: {formatARS(unitPrice)}</span>
-                          <span>•</span>
-                          <span className="font-bold text-primary">
-                            Consumo: {cantEvaluada} {unit} = {formatARS(rowSubtotal)}
-                          </span>
+
+                        {/* Formula Input */}
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
+                          <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30">
+                            <span className="text-[10px] font-bold text-on-surface-variant uppercase">Fórmula:</span>
+                            <input
+                              type="text"
+                              value={item.formula || ''}
+                              onChange={(e) => {
+                                const next = [...formData.insumos];
+                                const newFormula = e.target.value;
+                                const res = evaluateMathExpression(newFormula, currentScope);
+                                next[idx] = {
+                                  ...next[idx],
+                                  formula: newFormula,
+                                  cantidad: res.isValid && res.value !== null ? res.value : next[idx].cantidad
+                                };
+                                setFormData({ ...formData, insumos: next });
+                              }}
+                              className="w-32 sm:w-40 bg-transparent font-mono text-xs font-bold text-primary focus:outline-none"
+                              placeholder="ej: bocas * 12"
+                            />
+                            <span className="text-xs font-mono font-bold text-on-surface bg-surface-container px-2 py-0.5 rounded-md">
+                              = {cantEvaluada} {unit}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeInsumoRow(idx)}
+                            className="p-2 text-on-surface-variant hover:text-error rounded-xl transition shrink-0"
+                            title="Quitar material"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
 
-                      {/* Formula Input */}
-                      <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
-                        <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30">
-                          <span className="text-[10px] font-bold text-on-surface-variant uppercase">Fórmula:</span>
-                          <input
-                            type="text"
-                            value={item.formula || ''}
-                            onChange={(e) => {
-                              const next = [...formData.insumos];
-                              const newFormula = e.target.value;
-                              const res = evaluateMathExpression(newFormula, currentScope);
-                              next[idx] = {
-                                ...next[idx],
-                                formula: newFormula,
-                                cantidad: res.isValid && res.value !== null ? res.value : next[idx].cantidad
-                              };
-                              setFormData({ ...formData, insumos: next });
-                            }}
-                            className="w-36 sm:w-44 bg-transparent font-mono text-xs font-bold text-primary focus:outline-none"
-                            placeholder="ej: bocas * 12 * 1.10"
-                          />
-                          <span className="text-xs font-mono font-bold text-on-surface bg-surface-container px-2 py-0.5 rounded-md">
-                            = {cantEvaluada} {unit}
+                      {/* Regla Condicional de Inclusión Opcional o Info de Slot */}
+                      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-outline-variant/15 text-[11px]">
+                        {isDynamic ? (
+                          <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant">
+                            <span className="font-semibold text-primary">Reglas ({item.reglasDinamicas?.length || 0}):</span>
+                            <span className="font-mono text-[10px] bg-surface-container px-2 py-0.5 rounded-md">
+                              {matchingRuleName ? `Activo: ${matchingRuleName}` : 'Ninguna activa'}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 bg-surface-container-highest/80 px-2.5 py-1 rounded-xl border border-outline-variant/25">
+                            <span className="text-[10px] font-bold text-on-surface-variant uppercase">Condición:</span>
+                            <input
+                              type="text"
+                              value={item.condicion || ''}
+                              onChange={(e) => {
+                                const next = [...formData.insumos];
+                                next[idx] = { ...next[idx], condicion: e.target.value };
+                                setFormData({ ...formData, insumos: next });
+                              }}
+                              className="w-44 sm:w-60 bg-transparent font-mono text-xs text-on-surface focus:outline-none placeholder:text-on-surface-variant/40"
+                              placeholder="Siempre (o ej: calibre <= 25)"
+                            />
+                          </div>
+                        )}
+                        {item.condicion && (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                            isConditionMet
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                              : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                          }`}>
+                            {isConditionMet ? '✓ Incluido' : '⚡ Omitido según variables'}
                           </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => removeInsumoRow(idx)}
-                          className="p-2 text-on-surface-variant hover:text-error rounded-xl transition shrink-0"
-                          title="Quitar material"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -788,94 +850,106 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   const formulaStr = item.formula || String(item.horas);
                   const evalRes = evaluateMathExpression(formulaStr, currentScope);
                   const horasEvaluadas = evalRes.isValid && evalRes.value !== null ? evalRes.value : item.horas;
-                  const rowSubtotal = rate * horasEvaluadas;
+                  const isConditionMet = !item.condicion || evaluateCondition(item.condicion, currentScope);
+                  const rowSubtotal = rate * (isConditionMet ? horasEvaluadas : 0);
 
                   return (
                     <div
                       key={idx}
-                      className="p-3 bg-surface-container-low rounded-2xl border border-outline-variant/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-outline-variant/40 transition"
+                      className={`p-3 rounded-2xl border transition space-y-2 ${
+                        isConditionMet
+                          ? 'bg-surface-container-low border-outline-variant/20 hover:border-outline-variant/40'
+                          : 'bg-surface-container-low/40 border-dashed border-outline-variant/30 opacity-75'
+                      }`}
                     >
-                      <div className="min-w-0 flex-1">
-                        <select
-                          value={item.categoriaId}
-                          onChange={(e) => {
-                            const next = [...formData.manoObra];
-                            next[idx] = { ...next[idx], categoriaId: e.target.value };
-                            setFormData({ ...formData, manoObra: next });
-                          }}
-                          className="bg-surface-container-highest border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs font-bold text-on-surface focus:outline-none max-w-xs"
-                        >
-                          {manoObraList.map((mo) => (
-                            <option key={mo.id} value={mo.id}>
-                              {mo.nombre} ({formatARS(mo.costoHora)}/h)
-                            </option>
-                          ))}
-                        </select>
-                        <div className="text-[11px] text-on-surface-variant font-mono mt-1 flex items-center gap-2">
-                          <span>Tarifa: {formatARS(rate)}/h</span>
-                          <span>•</span>
-                          <span className="font-bold text-primary">
-                            Subtotal: {horasEvaluadas} hs = {formatARS(rowSubtotal)}
-                          </span>
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <select
+                            value={item.categoriaId}
+                            onChange={(e) => {
+                              const next = [...formData.manoObra];
+                              next[idx] = { ...next[idx], categoriaId: e.target.value };
+                              setFormData({ ...formData, manoObra: next });
+                            }}
+                            className="bg-surface-container-highest border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs font-bold text-on-surface focus:outline-none max-w-xs"
+                          >
+                            {manoObraList.map((mo) => (
+                              <option key={mo.id} value={mo.id}>
+                                {mo.nombre} ({formatARS(mo.costoHora)}/h)
+                              </option>
+                            ))}
+                          </select>
+                          <div className="text-[11px] text-on-surface-variant font-mono mt-1 flex items-center gap-2">
+                            <span>Tarifa: {formatARS(rate)}/h</span>
+                            <span>•</span>
+                            <span className={`font-bold ${isConditionMet ? 'text-primary' : 'text-on-surface-variant line-through'}`}>
+                              Subtotal: {horasEvaluadas} hs = {formatARS(rowSubtotal)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Formula Input */}
+                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
+                          <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30">
+                            <span className="text-[10px] font-bold text-on-surface-variant uppercase">Fórmula:</span>
+                            <input
+                              type="text"
+                              value={item.formula || ''}
+                              onChange={(e) => {
+                                const next = [...formData.manoObra];
+                                const newFormula = e.target.value;
+                                const res = evaluateMathExpression(newFormula, currentScope);
+                                next[idx] = {
+                                  ...next[idx],
+                                  formula: newFormula,
+                                  horas: res.isValid && res.value !== null ? res.value : next[idx].horas
+                                };
+                                setFormData({ ...formData, manoObra: next });
+                              }}
+                              className="w-36 sm:w-48 bg-transparent font-mono text-xs font-bold text-primary focus:outline-none"
+                              placeholder="ej: 1.0 + (bocas * 1.5)"
+                            />
+                            <span className="text-xs font-mono font-bold text-on-surface bg-surface-container px-2 py-0.5 rounded-md">
+                              = {horasEvaluadas} hs
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeManoObraRow(idx)}
+                            className="p-2 text-on-surface-variant hover:text-error rounded-xl transition shrink-0"
+                            title="Quitar rol de mano de obra"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
 
-                      {/* Formula Input */}
-                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
-                        <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30">
-                          <span className="text-[10px] font-bold text-on-surface-variant uppercase">Fórmula:</span>
+                      {/* Regla Condicional de Inclusión Opcional */}
+                      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-outline-variant/15 text-[11px]">
+                        <div className="flex items-center gap-1.5 bg-surface-container-highest/80 px-2.5 py-1 rounded-xl border border-outline-variant/25">
+                          <span className="text-[10px] font-bold text-on-surface-variant uppercase">Condición:</span>
                           <input
                             type="text"
-                            value={item.formula || ''}
+                            value={item.condicion || ''}
                             onChange={(e) => {
                               const next = [...formData.manoObra];
-                              const newFormula = e.target.value;
-                              const res = evaluateMathExpression(newFormula, currentScope);
-                              next[idx] = {
-                                ...next[idx],
-                                formula: newFormula,
-                                horas: res.isValid && res.value !== null ? res.value : next[idx].horas
-                              };
+                              next[idx] = { ...next[idx], condicion: e.target.value };
                               setFormData({ ...formData, manoObra: next });
                             }}
-                            className="w-40 sm:w-52 bg-transparent font-mono text-xs font-bold text-primary focus:outline-none"
-                            placeholder="ej: 1.0 + (bocas * 1.5) * k_estado"
+                            className="w-44 sm:w-60 bg-transparent font-mono text-xs text-on-surface focus:outline-none placeholder:text-on-surface-variant/40"
+                            placeholder="Siempre (o ej: requiere_certificacion == 1)"
                           />
-                          <span className="text-xs font-mono font-bold text-on-surface bg-surface-container px-2 py-0.5 rounded-md">
-                            = {horasEvaluadas} hs
-                          </span>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const next = [...formData.manoObra];
-                            const cur = (item.formula || `${item.horas}`).trim();
-                            const newForm = cur.startsWith('1 +') || cur.startsWith('1.0 +') || cur.includes('+ 1')
-                              ? cur
-                              : `1.0 + (${cur})`;
-                            const res = evaluateMathExpression(newForm, currentScope);
-                            next[idx] = {
-                              ...next[idx],
-                              formula: newForm,
-                              horas: res.isValid && res.value !== null ? res.value : next[idx].horas
-                            };
-                            setFormData({ ...formData, manoObra: next });
-                          }}
-                          className="px-2 py-1 text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 rounded-lg border border-primary/20 transition shrink-0"
-                          title="Sumar 1 hora base de Setup/Movilización a la fórmula"
-                        >
-                          +1h Setup
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => removeManoObraRow(idx)}
-                          className="p-2 text-on-surface-variant hover:text-error rounded-xl transition shrink-0"
-                          title="Quitar mano de obra"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {item.condicion && (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                            isConditionMet
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                              : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                          }`}>
+                            {isConditionMet ? '✓ Incluido' : '⚡ Omitido según variables'}
+                          </span>
+                        )}
                       </div>
                     </div>
                   );

@@ -322,12 +322,21 @@ export interface CostoIndirecto {
 }
 
 // ─── 8. Tareas Tipo y Servicios Tercerizados ──────────────────────────────────
+export interface ReglaInsumoDinamico {
+  condicion: string; // Ej: "calibre_principal <= 25", "circuitos <= 2"
+  materialId: string; // ID del material del catálogo que se asigna si la condición es verdadera
+  descripcion?: string; // Etiqueta descriptiva opcional
+}
+
 export interface InsumoEnTarea {
   materialId?: string;
   insumoId?: string; // alias
   productoId?: string;
+  nombreSlot?: string; // Nombre descriptivo del slot dinámico (ej: "Gabinete DIN", "Térmica General")
+  reglasDinamicas?: ReglaInsumoDinamico[]; // Reglas de selección por función / escalonamiento
   cantidad: number;
   formula?: string; // Phase 3: Fórmula matemática calculada opcional
+  condicion?: string; // Condición lógica de inclusión (ej: "calibre_principal <= 25", "requiere_certificacion == 1")
   parametrosEstimacion?: ParametrosEstimacionMaterial;
 }
 
@@ -335,6 +344,7 @@ export interface ManoObraEnTarea {
   categoriaId: string;
   horas: number;
   formula?: string; // Phase 3: Fórmula matemática calculada opcional
+  condicion?: string; // Condición lógica de inclusión (ej: "requiere_certificacion == 1")
 }
 
 // ─── 8. Variables y Fórmulas Paramétricas de Trabajos Tipo ─────────────────────
@@ -347,7 +357,7 @@ export interface OpcionVariableTrabajo {
 export interface VariableTrabajoTipo {
   id: string; // Identificador en fórmulas (ej: "bocas", "sup", "k_estado", "desarmes")
   nombre: string; // Nombre visible (ej: "Cantidad de Bocas", "Superficie en m²")
-  tipo: 'numero' | 'select';
+  tipo: 'numero' | 'select' | 'boolean';
   valorDefault: number;
   unidad?: string; // ej: "bocas", "m²", "ml", "u"
   descripcion?: string; // Texto de ayuda

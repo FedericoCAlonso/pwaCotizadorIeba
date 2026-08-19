@@ -197,6 +197,12 @@ export function usePresupuestoEditorViewModel({
 
   // ─── Actions / Commands ───────────────────────────────────────────────────────
   const handleAddTareaTipoItem = (tarea: TareaTipo, cantidad = 1) => {
+    // Si la tarea tiene variables o parámetros configurables, abrir inmediatamente el asistente paramétrico
+    if (tarea.variables && tarea.variables.length > 0) {
+      handleOpenParametricModalForNewTask(tarea);
+      return;
+    }
+
     const costData = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap, {
       tipoFactura,
       alicuotaIVADefault: config.alicuotaIVAPorDefecto ?? config.porcentajeIVAPorDefecto ?? 21
@@ -211,7 +217,7 @@ export function usePresupuestoEditorViewModel({
       tareaTipoId: tarea.id,
       descripcion: tarea.nombre,
       cantidad,
-      unidad: 'u',
+      unidad: tarea.unidad || 'u',
       costoUnitario: costoUnitarioDirecto,
       costoInsumos: roundMoney(costoInsumos * cantidad),
       costoManoObra: roundMoney(costoMO * cantidad),

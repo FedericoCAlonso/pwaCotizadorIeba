@@ -175,6 +175,49 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
                 {tarea.variables.map((variable) => {
                   const currentValue = variablesValues[variable.id] ?? variable.valorDefault ?? 1;
 
+                  if (variable.tipo === 'boolean') {
+                    const isTrue = currentValue === 1;
+                    return (
+                      <div
+                        key={variable.id}
+                        className="sm:col-span-2 flex items-center justify-between p-3 bg-surface-container-highest rounded-2xl border border-outline-variant/30"
+                      >
+                        <div className="pr-3">
+                          <label className="text-xs font-bold text-on-surface block">
+                            {variable.nombre}
+                          </label>
+                          {variable.descripcion && (
+                            <p className="text-[10px] text-on-surface-variant mt-0.5">{variable.descripcion}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 bg-surface-container p-1 rounded-xl border border-outline-variant/20 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleVariableChange(variable.id, 0)}
+                            className={`px-3.5 py-1 text-xs font-bold rounded-lg transition ${
+                              !isTrue
+                                ? 'bg-surface-variant text-on-surface shadow-2xs'
+                                : 'text-on-surface-variant hover:text-on-surface'
+                            }`}
+                          >
+                            No
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleVariableChange(variable.id, 1)}
+                            className={`px-3.5 py-1 text-xs font-bold rounded-lg transition ${
+                              isTrue
+                                ? 'bg-primary text-on-primary shadow-2xs'
+                                : 'text-on-surface-variant hover:text-on-surface'
+                            }`}
+                          >
+                            Sí
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   if (variable.tipo === 'select' && variable.opciones && variable.opciones.length > 0) {
                     return (
                       <div key={variable.id} className="sm:col-span-2">
@@ -196,10 +239,7 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
                                   : 'bg-surface-container-highest border-outline-variant/20 text-on-surface-variant hover:border-outline-variant/40'
                               }`}
                             >
-                              <div className="truncate">{opc.label}</div>
-                              <span className="text-[10px] font-mono opacity-80 mt-0.5 block">
-                                Factor: {opc.valor.toFixed(2)}x
-                              </span>
+                              <div className="font-semibold text-xs leading-snug">{opc.label}</div>
                             </button>
                           ))}
                         </div>

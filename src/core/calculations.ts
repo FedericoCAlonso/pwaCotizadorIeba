@@ -27,7 +27,7 @@ import {
   NivelAltura,
   ParametrosEstimacionMaterial
 } from './types';
-import { evaluateMathExpression } from './mathEvaluator';
+import { evaluateMathExpression, evaluateCondition } from './mathEvaluator';
 
 // ─── Helper monetario (auditoría #7: CRITICAL) ───────────────────────────────
 /**
@@ -144,64 +144,22 @@ export function calcularCostoTareaTipo(
   insumosSnapshotUnitario: InsumoSnapshot[];
   manoObraSnapshotUnitario: ManoObraSnapshot[];
 } {
-  let costoInsumosUnitario = 0;
-  const insumosSnapshotUnitario: InsumoSnapshot[] = [];
-  const isFacturaC_or_X = options?.tipoFactura === 'Factura C' || options?.tipoFactura === 'Presupuesto X (Sin Factura)';
-
-  for (const item of tarea.insumos) {
-    const targetId = item.materialId || item.insumoId || '';
-    const insumo = insumosMap.get(targetId);
-    const alicuota = insumo?.alicuotaIVA !== undefined ? safeNum(insumo.alicuotaIVA) : (options?.alicuotaIVADefault ?? 21);
-    const precioNeto = roundMoney(safeNum(insumo?.precioNeto ?? insumo?.precioActual));
-    const precioFinal = roundMoney(precioNeto * (1 + alicuota / 100));
-    const cantidad = safeNum(item.cantidad);
-
-    const precioComputable = isFacturaC_or_X ? precioFinal : precioNeto;
-    const subtotal = roundMoney(precioComputable * cantidad);
-    costoInsumosUnitario = roundMoney(costoInsumosUnitario + subtotal);
-
-    insumosSnapshotUnitario.push({
-      materialId: targetId,
-      insumoId: targetId,
-      nombre: insumo ? (insumo.nombre || 'Insumo no encontrado') : 'Insumo no encontrado',
-      unidad: insumo ? (insumo.unidadVenta || insumo.unidad || 'u') : 'u',
-      cantidadTotal: cantidad,
-      precioUnitarioCongelado: precioNeto,
-      alicuotaIVA: alicuota,
-      precioFinalUnitarioCongelado: precioFinal,
-      subtotalInsumo: roundMoney(precioNeto * cantidad),
-      subtotalInsumoFinal: roundMoney(precioFinal * cantidad)
+  const defaultVars: Record<string, number> = {};
+  if (tarea.variables) {
+    tarea.variables.forEach((v) => {
+      defaultVars[v.id] = v.valorDefault ?? 1;
     });
   }
 
-  let costoManoObraUnitario = 0;
-  const manoObraSnapshotUnitario: ManoObraSnapshot[] = [];
-
-  for (const item of tarea.manoObra) {
-    const cat = manoObraMap.get(item.categoriaId);
-    const costoHora = roundMoney(safeNum(cat?.costoHora));
-    const horas = safeNum(item.horas);
-    const subtotal = roundMoney(costoHora * horas);
-    costoManoObraUnitario = roundMoney(costoManoObraUnitario + subtotal);
-
-    manoObraSnapshotUnitario.push({
-      categoriaId: item.categoriaId,
-      nombreCategoria: cat ? cat.nombre : 'Categoría no encontrada',
-      horasTotales: horas,
-      costoHoraCongelado: costoHora,
-      subtotalManoObra: subtotal
-    });
-  }
-
-  const costoFijo = roundMoney(safeNum(tarea.costoFijoOperativo));
+  const consumos = calcularConsumosTareaTipo(tarea, defaultVars, insumosMap, manoObraMap, options);
 
   return {
-    costoInsumosUnitario,
-    costoManoObraUnitario,
-    costoFijoOperativo: costoFijo,
-    costoDirectoUnitario: roundMoney(costoInsumosUnitario + costoManoObraUnitario + costoFijo),
-    insumosSnapshotUnitario,
-    manoObraSnapshotUnitario
+    costoInsumosUnitario: consumos.costoInsumosTotal,
+    costoManoObraUnitario: consumos.costoManoObraTotal,
+    costoFijoOperativo: consumos.costoFijoOperativo,
+    costoDirectoUnitario: consumos.costoDirectoTotal,
+    insumosSnapshotUnitario: consumos.insumosSnapshot,
+    manoObraSnapshotUnitario: consumos.manoObraSnapshot
   };
 }
 
@@ -1311,7 +1269,7 @@ export function calcularConsumosTareaTipo(
     alicuotaIVADefault?: number;
   }
 ): ConsumosCalculadosResultado {
-  const isFacturaA = options?.tipoFactura === 'Factura A';
+  const isFacturaC_or_X = options?.tipoFactura === 'Factura C' || options?.tipoFactura === 'Presupuesto X (Sin Factura)';
   const aliDefault = options?.alicuotaIVADefault ?? 21;
   const costoFijo = roundMoney(safeNum(tarea.costoFijoOperativo));
 
@@ -1320,12 +1278,38 @@ export function calcularConsumosTareaTipo(
   const insumosSnapshot: InsumoSnapshot[] = [];
 
   for (const item of tarea.insumos) {
-    const targetId = item.materialId || item.insumoId || '';
+    // 1. Evaluación de regla condicional de inclusión general (si existe)
+    if (item.condicion && item.condicion.trim()) {
+      const isIncluded = evaluateCondition(item.condicion, variables);
+      if (!isIncluded) {
+        continue; // Omitir este insumo de la cotización
+      }
+    }
+
+    // 2. Resolución del materialId (directo o mediante reglas dinámicas de slot)
+    let targetId = item.materialId || item.insumoId || '';
+
+    if (item.reglasDinamicas && item.reglasDinamicas.length > 0) {
+      const matchingRule = item.reglasDinamicas.find(regla =>
+        !regla.condicion || evaluateCondition(regla.condicion, variables)
+      );
+      if (matchingRule) {
+        targetId = matchingRule.materialId;
+      } else {
+        // Ninguna regla del slot dinámico coincidió con los parámetros actuales
+        continue;
+      }
+    }
+
+    if (!targetId) {
+      continue;
+    }
+
     const mat = insumosMap.get(targetId);
     const ali = mat?.alicuotaIVA ?? aliDefault;
     const precioNeto = roundMoney(safeNum(mat?.precioActual));
     const precioFinal = roundMoney(precioNeto * (1 + ali / 100));
-    const precioUnitarioComputable = isFacturaA ? precioNeto : precioFinal;
+    const precioUnitarioComputable = isFacturaC_or_X ? precioFinal : precioNeto;
 
     let cantEvaluada = item.cantidad ?? 1;
     if (item.formula && item.formula.trim()) {
@@ -1335,12 +1319,18 @@ export function calcularConsumosTareaTipo(
       }
     }
 
+    // Si la cantidad evaluada es 0 o negativa, no genera costo
+    if (cantEvaluada <= 0) {
+      continue;
+    }
+
     const subtotal = roundMoney(precioUnitarioComputable * cantEvaluada);
     costoInsumosTotal = roundMoney(costoInsumosTotal + subtotal);
 
     insumosSnapshot.push({
       materialId: targetId,
-      nombre: mat?.nombre || targetId,
+      insumoId: targetId,
+      nombre: mat ? (mat.nombre || targetId) : 'Insumo no encontrado',
       marca: mat?.atributos?.find(a => a.clave.toLowerCase() === 'marca')?.valor,
       unidad: mat?.unidadVenta || mat?.unidad || 'u',
       cantidadUnitaria: cantEvaluada,
@@ -1360,6 +1350,14 @@ export function calcularConsumosTareaTipo(
   const manoObraSnapshot: ManoObraSnapshot[] = [];
 
   for (const mo of tarea.manoObra) {
+    // Evaluación de regla condicional de inclusión
+    if (mo.condicion && mo.condicion.trim()) {
+      const isIncluded = evaluateCondition(mo.condicion, variables);
+      if (!isIncluded) {
+        continue; // Omitir esta mano de obra
+      }
+    }
+
     const catMO = manoObraMap.get(mo.categoriaId);
     const costoHora = roundMoney(safeNum(catMO?.costoHora));
 
@@ -1369,6 +1367,10 @@ export function calcularConsumosTareaTipo(
       if (evalRes.isValid && evalRes.value !== null) {
         horasEvaluadas = evalRes.value;
       }
+    }
+
+    if (horasEvaluadas <= 0) {
+      continue;
     }
 
     const subtotal = roundMoney(costoHora * horasEvaluadas);
