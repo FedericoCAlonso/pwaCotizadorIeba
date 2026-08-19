@@ -53,6 +53,10 @@ function getRecordTimestamp(item: any): number {
  * Exporta el estado completo actual de IndexedDB como un MasterDatabasePayload.
  */
 export async function getLocalMasterPayload(): Promise<MasterDatabasePayload> {
+  const allContactos = await db.contactos.toArray();
+  const cleanClientes = allContactos.filter(c => !c.roles || c.roles.includes('cliente'));
+  const cleanProveedores = allContactos.filter(c => c.roles?.includes('proveedor'));
+
   return {
     version: 1,
     schemaVersion: 4,
@@ -66,9 +70,9 @@ export async function getLocalMasterPayload(): Promise<MasterDatabasePayload> {
     manoObra: await db.manoObra.toArray(),
     costosIndirectos: await db.costosIndirectos.toArray(),
     tareasTipo: await db.tareasTipo.toArray(),
-    contactos: await db.contactos.toArray(),
-    clientes: await db.clientes.toArray(),
-    proveedores: await db.proveedores.toArray(),
+    contactos: allContactos,
+    clientes: cleanClientes,
+    proveedores: cleanProveedores,
     proyectos: await db.proyectos.toArray(),
     presupuestos: await db.presupuestos.toArray(),
     registrosTrabajo: await db.registrosTrabajo.toArray(),
