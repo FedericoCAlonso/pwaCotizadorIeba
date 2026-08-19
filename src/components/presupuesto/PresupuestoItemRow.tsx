@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Package,
   Trash2,
   ChevronDown,
   ChevronUp,
@@ -8,7 +7,8 @@ import {
   Sliders,
   ShieldAlert,
   Ruler,
-  Calculator
+  FileText,
+  Layers
 } from 'lucide-react';
 import { ItemPresupuesto } from '../../core/types';
 import { formatARS, roundMoney } from '../../core/calculations';
@@ -26,11 +26,15 @@ interface PresupuestoItemRowProps {
   onUpdateItemUnit: (index: number, unit: string) => void;
   onUpdateItemUnitDirectCost: (index: number, cost: number) => void;
   onUpdateItemDescription: (index: number, desc: string) => void;
+  onUpdateItemNotasTecnicas?: (index: number, notas: string) => void;
   onRemoveItem: (index: number) => void;
   onSaveAsTemplate: (item: ItemPresupuesto) => void;
   onOpenParametricModal?: (index: number) => void;
   onOpenMaterialModal?: (index: number) => void;
+  onOpenInSituEditor?: (index: number) => void;
   condicionesTrabajo: Array<{ value: string; label: string }>;
+  titleInputRef?: (el: HTMLInputElement | null) => void;
+  onEnterAtEnd?: () => void;
 }
 
 export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
@@ -44,95 +48,164 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
   onUpdateItemUnit,
   onUpdateItemUnitDirectCost,
   onUpdateItemDescription,
+  onUpdateItemNotasTecnicas,
   onRemoveItem,
   onSaveAsTemplate,
   onOpenParametricModal,
   onOpenMaterialModal,
+  onOpenInSituEditor,
   condicionesTrabajo,
+  titleInputRef,
+  onEnterAtEnd
 }) => {
   const hasSnapshots =
     (item.insumosSnapshot && item.insumosSnapshot.length > 0) ||
     (item.manoObraSnapshot && item.manoObraSnapshot.length > 0);
-  const isCustom = !item.tareaTipoId || !hasSnapshots;
+  const isCustom = !item.tareaTipoId && !hasSnapshots;
+  const isParametric = Boolean(item.valoresVariables || item.parametrosTrabajoTipo);
+  const hasMaterialCalc = Boolean(item.parametrosEstimacionMaterial);
 
   return (
-    <div className="bg-surface-container-highest/40 border border-outline-variant/20 rounded-2xl p-4 space-y-3 hover:border-outline-variant/40 transition">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-0.5">
-            <label className="text-[10px] text-on-surface-variant font-semibold uppercase">
-              {item.esAdHoc
-                ? 'Ítem Ad-Hoc (Sin Catálogo)'
-                : isCustom
-                ? 'Partida Libre — Descripción'
-                : 'Descripción de la Partida'}
-            </label>
-            {item.esAdHoc && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-tertiary-container text-on-tertiary-container select-none">
-                Ad-Hoc
-              </span>
-            )}
-          </div>
-          <input
-            type="text"
-            value={item.descripcion}
-            onChange={(e) => onUpdateItemDescription(index, e.target.value)}
-            className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-1.5 text-sm font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
-
-          {/* Badges de Parámetros Dinámicos del Trabajo Tipo */}
-          {item.valoresVariables && (
-            <div className="flex flex-wrap items-center gap-1.5 mt-2">
-              <button
-                type="button"
-                onClick={() => onOpenParametricModal?.(index)}
-                className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 font-mono flex items-center gap-1.5 transition"
-                title="Click para reajustar los parámetros de este trabajo tipo"
-              >
-                <Sliders className="w-3 h-3" />
-                <span>Parámetros:</span>
-                {Object.entries(item.valoresVariables).map(([key, val]) => (
-                  <span key={key} className="font-semibold opacity-90">
-                    {key}: {typeof val === 'number' ? (Number.isInteger(val) ? val : val.toFixed(2)) : val}
-                  </span>
-                ))}
-              </button>
-
-              {item.clausulaExclusiones && (
-                <span
-                  className="text-[10px] px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1 font-medium"
-                  title={item.clausulaExclusiones}
-                >
-                  <ShieldAlert className="w-3 h-3 text-amber-500" />
-                  <span>Exclusiones Activas</span>
-                </span>
-              )}
-            </div>
-          )}
-          {/* Badges de Cómputo Paramétrico de Materiales */}
-          {item.parametrosEstimacionMaterial && (
-            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-              <button
-                type="button"
-                onClick={() => onOpenMaterialModal?.(index)}
-                className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-mono flex items-center gap-1 transition text-left"
-                title="Click para reajustar cálculo paramétrico de material"
-              >
-                <Ruler className="w-3 h-3 shrink-0" />
-                <span>{item.parametrosEstimacionMaterial.explicacionCalculo}</span>
-              </button>
-            </div>
+    <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-4 space-y-3.5 hover:border-outline-variant/50 transition shadow-2xs">
+      {/* 1. Header de la Partida / Renglón */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-on-surface-variant font-mono px-2 py-0.5 rounded-md bg-surface-container">
+            #{index + 1}
+          </span>
+          {isCustom ? (
+            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-lg bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/20 flex items-center gap-1">
+              <FileText className="w-3 h-3" />
+              <span>Ítem Directo</span>
+            </span>
+          ) : (
+            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-lg bg-primary/15 text-primary border border-primary/20 flex items-center gap-1">
+              <Layers className="w-3 h-3" />
+              <span>Tarea de Catálogo</span>
+            </span>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between md:justify-end gap-2.5">
+        {/* Acciones principales de la fila */}
+        <div className="flex items-center gap-1.5">
+          {onOpenInSituEditor && (
+            <button
+              type="button"
+              onClick={() => onOpenInSituEditor(index)}
+              className="flex items-center gap-1 text-[11px] font-semibold text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 px-2.5 py-1 rounded-xl transition shadow-2xs"
+              title="Desglosar o editar insumos, horas y fórmulas para esta partida puntual"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>{hasSnapshots ? 'Editar Desglose' : 'Desglosar In-Situ'}</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onSaveAsTemplate(item)}
+            className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary-inverse bg-primary/10 hover:bg-primary/20 border border-primary/20 px-2.5 py-1 rounded-xl transition shadow-2xs"
+            title="Guardar este ítem como Tarea Tipo / Plantilla en el Catálogo"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            <span className="hidden sm:inline">Guardar en Catálogo</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onRemoveItem(index)}
+            className="p-1.5 text-on-surface-variant hover:text-error rounded-xl hover:bg-error-container/30 transition-colors"
+            title="Eliminar partida"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Área de Texto: Título y Detalle / Alcance Técnico */}
+      <div className="space-y-2">
+        <div>
+          <label className="text-[10px] text-on-surface-variant font-semibold uppercase tracking-wider block mb-1">
+            Título / Concepto del Trabajo
+          </label>
+          <input
+            ref={titleInputRef}
+            type="text"
+            placeholder="Ej: Provisión y colocación de disyuntor bipolar 40A..."
+            value={item.descripcion}
+            onChange={(e) => onUpdateItemDescription(index, e.target.value)}
+            className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-3.5 py-2 text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors shadow-2xs"
+          />
+        </div>
+
+        <div>
+          <label className="text-[10px] text-on-surface-variant font-semibold uppercase tracking-wider block mb-1">
+            Detalle Técnico / Alcance de la Partida (Multilínea)
+          </label>
+          <textarea
+            rows={2}
+            placeholder="Especificaciones técnicas, marcas, materiales incluidos, desmonte previo, pruebas de funcionamiento..."
+            value={item.notasTecnicas || item.clausulaTecnica || ''}
+            onChange={(e) => onUpdateItemNotasTecnicas?.(index, e.target.value)}
+            className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-3.5 py-2 text-xs text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 resize-y leading-relaxed transition-colors shadow-2xs"
+          />
+        </div>
+
+        {/* Badges de Parámetros Dinámicos (Solo si existen) */}
+        {item.valoresVariables && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <button
+              type="button"
+              onClick={() => onOpenParametricModal?.(index)}
+              className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 font-mono flex items-center gap-1.5 transition"
+              title="Click para reajustar los parámetros de este trabajo tipo"
+            >
+              <Sliders className="w-3 h-3" />
+              <span>Parámetros:</span>
+              {Object.entries(item.valoresVariables).map(([key, val]) => (
+                <span key={key} className="font-semibold opacity-90">
+                  {key}: {typeof val === 'number' ? (Number.isInteger(val) ? val : val.toFixed(2)) : val}
+                </span>
+              ))}
+            </button>
+
+            {item.clausulaExclusiones && (
+              <span
+                className="text-[10px] px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1 font-medium"
+                title={item.clausulaExclusiones}
+              >
+                <ShieldAlert className="w-3 h-3 text-amber-500" />
+                <span>Exclusiones Activas</span>
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Badges de Cómputo Paramétrico de Materiales (Solo si existen) */}
+        {item.parametrosEstimacionMaterial && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <button
+              type="button"
+              onClick={() => onOpenMaterialModal?.(index)}
+              className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-mono flex items-center gap-1 transition text-left"
+              title="Click para reajustar cálculo paramétrico de material"
+            >
+              <Ruler className="w-3 h-3 shrink-0" />
+              <span>{item.parametrosEstimacionMaterial.explicacionCalculo}</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 3. Fila de Cómputos Numéricos y Parámetros */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-outline-variant/15">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Modificador por Condición de Obra */}
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] text-on-surface-variant">Obra:</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-on-surface-variant font-medium">Obra:</span>
             <select
               value={item.condicionTrabajo || 'normal'}
               onChange={(e) => onUpdateItemCondicion(index, e.target.value as any)}
-              className="bg-surface-container-highest border border-outline-variant/30 rounded-xl px-2 py-1 text-xs text-on-surface focus:outline-none"
+              className="bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-2 py-1 text-xs text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/50 shadow-2xs"
             >
               {condicionesTrabajo.map((c) => (
                 <option key={c.value} value={c.value}>
@@ -142,8 +215,8 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
             </select>
           </div>
 
-          {/* Quantity with MathInput, Unit & Parametric Ruler Button */}
-          <div className="flex items-center gap-1">
+          {/* Cantidad & Unidad */}
+          <div className="flex items-center gap-1.5">
             <span className="text-xs text-on-surface-variant font-semibold">Cant:</span>
             <div className="w-28">
               <MathInput
@@ -160,10 +233,12 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
               type="text"
               value={item.unidad}
               onChange={(e) => onUpdateItemUnit(index, e.target.value)}
-              className="w-12 bg-surface-container-highest border border-outline-variant/30 rounded-xl px-1.5 py-1 text-xs text-on-surface text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-14 bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-2 py-1 text-xs text-on-surface text-center font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-2xs"
               title="Unidad de medida (ej: u, boca, m, gl)"
             />
-            {onOpenMaterialModal && (
+
+            {/* Botón de Cómputo Métrico Paramétrico (Solo si la tarea admite cómputo de materiales) */}
+            {hasMaterialCalc && onOpenMaterialModal && (
               <button
                 type="button"
                 onClick={() => onOpenMaterialModal(index)}
@@ -174,10 +249,12 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
               </button>
             )}
           </div>
+        </div>
 
-          {/* Direct Unit Cost */}
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-on-surface-variant">Costo Unit:</span>
+        <div className="flex flex-wrap items-center justify-end gap-2.5">
+          {/* Costo Directo Unitario */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-on-surface-variant font-medium">Costo Unit:</span>
             {isCustom ? (
               <div className="w-28">
                 <MathInput
@@ -187,6 +264,12 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                       : roundMoney((item.costoDirectoTotal || 0) / (item.cantidad || 1))
                   }
                   onChange={(val) => onUpdateItemUnitDirectCost(index, val)}
+                  onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                    if (e.key === 'Enter' && onEnterAtEnd) {
+                      e.preventDefault();
+                      onEnterAtEnd();
+                    }
+                  }}
                   prefix="$"
                   size="sm"
                   min={0}
@@ -200,7 +283,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
             )}
           </div>
 
-          {/* Client APU Sale Price Badge */}
+          {/* Precio Venta Cliente Unitario */}
           <div className="bg-primary/10 border border-primary/20 px-3 py-1 rounded-xl flex items-center gap-1.5 text-primary font-mono">
             <span className="text-[10px] font-bold uppercase tracking-wider">Venta:</span>
             <span className="text-xs font-bold font-mono">
@@ -209,7 +292,19 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
             <span className="text-[10px] opacity-75">/{item.unidad || 'u'}</span>
           </div>
 
-          {/* Expand Breakdown Toggle (if has snapshots) */}
+          {/* Botón de Parámetros de Complejidad (Solo si es paramétrico) */}
+          {isParametric && onOpenParametricModal && (
+            <button
+              type="button"
+              onClick={() => onOpenParametricModal(index)}
+              className="p-1.5 text-primary bg-primary/10 hover:bg-primary/20 rounded-xl transition-colors"
+              title="Configurar parámetros de complejidad de este trabajo"
+            >
+              <Sliders className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Botón Desplegable para ver Desglose (Solo si tiene snapshots de insumos/mano de obra) */}
           {hasSnapshots && (
             <button
               type="button"
@@ -220,44 +315,10 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
               {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
           )}
-
-          {/* Parametric Job Complexity Settings Button */}
-          {onOpenParametricModal && (
-            <button
-              type="button"
-              onClick={() => onOpenParametricModal(index)}
-              className={`p-1.5 rounded-xl transition-colors ${
-                item.parametrosTrabajoTipo
-                  ? 'text-primary bg-primary/10 hover:bg-primary/20'
-                  : 'text-on-surface-variant hover:text-primary hover:bg-surface-variant'
-              }`}
-              title="Configurar parámetros de complejidad (Antigüedad, Altura, Accesibilidad, Desarmado)"
-            >
-              <Sliders className="w-4 h-4" />
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => onSaveAsTemplate(item)}
-            className="p-1.5 text-primary hover:bg-primary/10 rounded-xl transition-colors"
-            title="Guardar este módulo/partida como Trabajo Tipo"
-          >
-            <Sparkles className="w-4 h-4 text-primary" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onRemoveItem(index)}
-            className="p-1.5 text-on-surface-variant hover:text-error rounded-full hover:bg-error-container/30 transition-colors"
-            title="Eliminar ítem"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
         </div>
       </div>
 
-      {/* Collapsible Insumos & Mano de Obra Snapshot Breakdown */}
+      {/* 4. Desglose Colapsable de Insumos & Mano de Obra Snapshot */}
       {isExpanded && hasSnapshots && (
         <div className="bg-surface-container-low/90 p-3.5 rounded-xl border border-outline-variant/30 space-y-3 text-xs">
           {/* Insumos Snapshot */}
@@ -331,7 +392,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
         </div>
       )}
 
-      {/* Breakdown Cost Footer per Item */}
+      {/* 5. Footer de Costos y Venta del Renglón */}
       <div className="bg-surface-container-highest/60 p-3 rounded-xl border border-outline-variant/20 flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="flex flex-wrap items-center gap-3 text-on-surface-variant">
           <span>

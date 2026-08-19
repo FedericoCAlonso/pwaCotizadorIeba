@@ -297,7 +297,12 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                       <tr className="hover:bg-slate-50">
                         <td className="px-4 py-3 text-slate-400 font-mono text-center w-10">{idx + 1}</td>
                         <td className="px-4 py-3 text-slate-900">
-                          <div className="font-semibold">{item.descripcion}</div>
+                          <div className="font-semibold">{item.descripcion || 'Sin descripción'}</div>
+                          {item.notasTecnicas && (
+                            <div className="text-xs text-slate-600 mt-1 whitespace-pre-line leading-relaxed">
+                              {item.notasTecnicas}
+                            </div>
+                          )}
                           {item.valoresVariables && (
                             <div className="flex flex-wrap items-center gap-1 mt-1 text-[10px] text-slate-500 font-mono">
                               <span className="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded font-bold text-slate-700">

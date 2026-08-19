@@ -35,7 +35,7 @@ export const exportPresupuestoToXLSX = async (presupuesto: Presupuesto, cliente?
         : (item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit));
       data.push([
         idx + 1,
-        item.descripcion,
+        item.notasTecnicas ? `${item.descripcion}\n${item.notasTecnicas}` : item.descripcion,
         item.unidad || 'u',
         item.cantidad,
         pUnit,

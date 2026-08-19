@@ -30,6 +30,7 @@ import {
 } from '../core/calculations';
 import { useInsumosMap } from '../hooks/useInsumosMap';
 import { useToast } from '../contexts/ToastContext';
+import { TareaFormData } from '../components/tareasTipo/TareaEditorModal';
 
 export interface UsePresupuestoEditorViewModelProps {
   presupuestoId?: string;
@@ -105,6 +106,11 @@ export function usePresupuestoEditorViewModel({
   // Modal de Cómputo Paramétrico de Materiales (Superficie, Trazado, Error)
   const [showParametricMaterialModal, setShowParametricMaterialModal] = useState(false);
   const [editingItemIndexForMaterialModal, setEditingItemIndexForMaterialModal] = useState<number | null>(null);
+
+  // Modal de Composición In-Situ (TareaEditorModal)
+  const [showInSituEditorModal, setShowInSituEditorModal] = useState(false);
+  const [editingItemIndexForInSituModal, setEditingItemIndexForInSituModal] = useState<number | null>(null);
+  const [editingTareaForInSituModal, setEditingTareaForInSituModal] = useState<TareaTipo | null>(null);
 
   // Inicialización desde Presupuesto Existente o Nuevo
   useEffect(() => {
@@ -430,10 +436,11 @@ export function usePresupuestoEditorViewModel({
     toast.success(`Material "${insumo.nombre}" agregado`);
   };
 
-  const handleAddCustomItem = () => {
+  const handleAddDirectItem = () => {
     const newItem: ItemPresupuesto = {
       id: `item-${crypto.randomUUID()}`,
-      descripcion: 'Nueva Partida Libre',
+      descripcion: '',
+      notasTecnicas: '',
       cantidad: 1,
       unidad: 'gl',
       precioManual: 0,
@@ -450,33 +457,127 @@ export function usePresupuestoEditorViewModel({
     setItems(prev => [...prev, newItem]);
   };
 
-  const handleAddAdHocItem = () => {
-    const newItem: ItemPresupuesto = {
-      id: `item-${crypto.randomUUID()}`,
-      descripcion: 'Material / Insumo Especial No Catalogado',
-      cantidad: 1,
-      unidad: 'u',
-      costoUnitario: 0,
-      costoInsumos: 0,
-      costoManoObra: 0,
-      costoDirectoTotal: 0,
-      costoTotal: 0,
-      precioVentaUnitario: 0,
-      precioVentaTotal: 0,
-      insumosSnapshot: [
-        {
-          insumoId: `ins-adhoc-${crypto.randomUUID()}`,
-          materialId: `ins-adhoc-${crypto.randomUUID()}`,
-          nombre: 'Material Ad-Hoc',
-          unidad: 'u',
-          cantidadTotal: 1,
-          precioUnitarioCongelado: 0,
-          subtotalInsumo: 0
-        }
-      ],
-      manoObraSnapshot: []
+  // Alias for backward compatibility
+  const handleAddCustomItem = handleAddDirectItem;
+
+  const handleUpdateItemNotasTecnicas = (index: number, notas: string) => {
+    setItems(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], notasTecnicas: notas };
+      return next;
+    });
+  };
+
+  const handleOpenInSituEditorForExistingItem = (index: number) => {
+    const item = items[index];
+    if (!item) return;
+
+    // Convert ItemPresupuesto into a TareaTipo format for TareaEditorModal
+    const tempTarea: TareaTipo = {
+      id: item.tareaTipoId || `insitu-${item.id}`,
+      nombre: item.descripcion || '',
+      categoria: 'Partidas In-Situ',
+      unidad: item.unidad || 'gl',
+      notasTecnicas: item.notasTecnicas || item.clausulaTecnica || '',
+      clausulaExclusiones: item.clausulaExclusiones || '',
+      costoFijoOperativo: item.costoFijoOperativo || 0,
+      descripcionCostoFijo: item.descripcionCostoFijo || '',
+      variables: item.valoresVariables && Object.keys(item.valoresVariables).length > 0
+        ? Object.entries(item.valoresVariables).map(([k, v]) => ({
+            id: k,
+            nombre: k,
+            tipo: 'numero',
+            valorDefault: v
+          }))
+        : [
+            {
+              id: 'cantidad',
+              nombre: `Cantidad de ${item.unidad || 'Unidades'}`,
+              tipo: 'numero',
+              valorDefault: item.cantidad || 1
+            }
+          ],
+      insumos: (item.insumosSnapshot || []).map((ins) => ({
+        insumoId: ins.materialId || ins.insumoId,
+        materialId: ins.materialId || ins.insumoId,
+        productoId: ins.productoId,
+        cantidad: ins.cantidadUnitaria !== undefined ? ins.cantidadUnitaria : ins.cantidadTotal,
+        formula: ins.cantidadUnitaria !== undefined ? `cantidad * ${ins.cantidadUnitaria}` : undefined
+      })),
+      manoObra: (item.manoObraSnapshot || []).map((mo) => ({
+        categoriaId: mo.categoriaId,
+        horas: mo.horasUnitarias !== undefined ? mo.horasUnitarias : mo.horasTotales,
+        formula: mo.horasUnitarias !== undefined ? `cantidad * ${mo.horasUnitarias}` : undefined
+      })),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
-    setItems(prev => [...prev, newItem]);
+
+    setEditingItemIndexForInSituModal(index);
+    setEditingTareaForInSituModal(tempTarea);
+    setShowInSituEditorModal(true);
+  };
+
+  const handleSaveInSituItem = async (data: TareaFormData) => {
+    if (editingItemIndexForInSituModal === null) return;
+    const targetIdx = editingItemIndexForInSituModal;
+    const currentItem = items[targetIdx];
+    if (!currentItem) return;
+
+    // Build the default scope from variables
+    const scope: Record<string, number> = {};
+    data.variables.forEach((v) => {
+      scope[v.id] = v.valorDefault ?? 1;
+    });
+
+    const isFacturaA = tipoFactura === 'Factura A';
+    const tempTarea: TareaTipo = {
+      id: currentItem.tareaTipoId || `insitu-${currentItem.id}`,
+      nombre: data.nombre,
+      categoria: data.categoria,
+      unidad: data.unidad,
+      notasTecnicas: data.notasTecnicas,
+      clausulaExclusiones: data.clausulaExclusiones,
+      costoFijoOperativo: data.costoFijoOperativo,
+      descripcionCostoFijo: data.descripcionCostoFijo,
+      variables: data.variables,
+      insumos: data.insumos,
+      manoObra: data.manoObra
+    };
+
+    const evaluacion = calcularConsumosTareaTipo(tempTarea, scope, insumosMap, manoObraMap, {
+      tipoFactura,
+      alicuotaIVADefault: 21
+    });
+    const cant = evaluacion.cantidadPrincipal || currentItem.cantidad || 1;
+
+    setItems((prev) => {
+      const next = [...prev];
+      next[targetIdx] = {
+        ...next[targetIdx],
+        descripcion: data.nombre || next[targetIdx].descripcion,
+        unidad: data.unidad || next[targetIdx].unidad,
+        notasTecnicas: data.notasTecnicas,
+        clausulaExclusiones: data.clausulaExclusiones,
+        costoFijoOperativo: data.costoFijoOperativo,
+        descripcionCostoFijo: data.descripcionCostoFijo,
+        cantidad: cant,
+        valoresVariables: evaluacion.valoresVariables,
+        insumosSnapshot: evaluacion.insumosSnapshot,
+        manoObraSnapshot: evaluacion.manoObraSnapshot,
+        costoInsumos: evaluacion.costoInsumosTotal,
+        costoManoObra: evaluacion.costoManoObraTotal,
+        costoDirectoTotal: evaluacion.costoDirectoTotal,
+        costoUnitario: roundMoney(evaluacion.costoDirectoTotal / cant),
+        costoTotal: evaluacion.costoDirectoTotal
+      };
+      return next;
+    });
+
+    toast.success(`Partida "${data.nombre}" actualizada con su composición.`);
+    setShowInSituEditorModal(false);
+    setEditingItemIndexForInSituModal(null);
+    setEditingTareaForInSituModal(null);
   };
 
   const handleUpdateItem = (index: number, updatedItem: ItemPresupuesto) => {
@@ -617,6 +718,7 @@ export function usePresupuestoEditorViewModel({
     costosIndirectos,
     existingPresupuesto,
     insumosMap,
+    manoObraList,
     manoObraMap,
     totales,
 
@@ -665,6 +767,12 @@ export function usePresupuestoEditorViewModel({
     setShowParametricMaterialModal,
     editingItemIndexForMaterialModal,
     setEditingItemIndexForMaterialModal,
+    showInSituEditorModal,
+    setShowInSituEditorModal,
+    editingItemIndexForInSituModal,
+    setEditingItemIndexForInSituModal,
+    editingTareaForInSituModal,
+    setEditingTareaForInSituModal,
 
     // Actions & Commands
     handleAddTareaTipoItem,
@@ -673,9 +781,12 @@ export function usePresupuestoEditorViewModel({
     handleConfirmParametricJob,
     handleOpenMaterialModalForExistingItem,
     handleApplyMaterialEstimation,
+    handleOpenInSituEditorForExistingItem,
+    handleSaveInSituItem,
     handleAddInsumoItem,
+    handleAddDirectItem,
     handleAddCustomItem,
-    handleAddAdHocItem,
+    handleUpdateItemNotasTecnicas,
     handleUpdateItem,
     handleRemoveItem,
     handleToggleTax,

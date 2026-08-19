@@ -11,6 +11,7 @@ interface SaveAsTareaTipoModalProps {
   onClose: () => void;
   defaultNombre: string;
   defaultCategoria?: string;
+  defaultNotasTecnicas?: string;
   insumos: InsumoEnTarea[];
   manoObra: ManoObraEnTarea[];
   unidad?: string;
@@ -22,6 +23,7 @@ export const SaveAsTareaTipoModal: React.FC<SaveAsTareaTipoModalProps> = ({
   onClose,
   defaultNombre,
   defaultCategoria,
+  defaultNotasTecnicas,
   insumos,
   manoObra,
   unidad = 'u',
@@ -33,16 +35,16 @@ export const SaveAsTareaTipoModal: React.FC<SaveAsTareaTipoModalProps> = ({
 
   const [nombre, setNombre] = useState(defaultNombre);
   const [categoria, setCategoria] = useState(defaultCategoria || categoriasTarea[0] || 'Bocas');
-  const [notasTecnicas, setNotasTecnicas] = useState('');
+  const [notasTecnicas, setNotasTecnicas] = useState(defaultNotasTecnicas || '');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setNombre(defaultNombre);
       setCategoria(defaultCategoria || categoriasTarea[0] || 'Bocas');
-      setNotasTecnicas('');
+      setNotasTecnicas(defaultNotasTecnicas || '');
     }
-  }, [isOpen, defaultNombre, defaultCategoria, categoriasTarea]);
+  }, [isOpen, defaultNombre, defaultCategoria, defaultNotasTecnicas, categoriasTarea]);
 
   if (!isOpen) return null;
 

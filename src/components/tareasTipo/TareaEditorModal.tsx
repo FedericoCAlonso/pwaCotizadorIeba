@@ -57,6 +57,8 @@ interface TareaEditorModalProps {
   manoObraList: CategoriaManoDeObra[];
   manoObraMap: Map<string, CategoriaManoDeObra>;
   onSave: (data: TareaFormData) => Promise<void>;
+  titleOverride?: string;
+  submitButtonText?: string;
 }
 
 export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
@@ -68,6 +70,8 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
   manoObraList,
   manoObraMap,
   onSave,
+  titleOverride,
+  submitButtonText,
 }) => {
   const { toast } = useToast();
   const inputCls = "w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow";
@@ -338,7 +342,12 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
   return (
     <>
-      <ModalContainer isOpen={isOpen} onClose={onClose} title={editingTarea ? 'Editar Trabajo Tipo Paramétrico' : 'Crear Nuevo Trabajo Tipo Paramétrico'} maxWidth="3xl">
+      <ModalContainer
+        isOpen={isOpen}
+        onClose={onClose}
+        title={titleOverride || (editingTarea ? 'Editar Trabajo Tipo Paramétrico' : 'Crear Nuevo Trabajo Tipo Paramétrico')}
+        maxWidth="3xl"
+      >
         <form onSubmit={handleSubmit} className="space-y-6">
 
           {/* 1. Datos Generales */}
@@ -939,7 +948,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
               className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-full text-xs shadow-sm active:scale-95 transition"
             >
               <Save className="w-4 h-4" />
-              <span>Guardar Trabajo Tipo</span>
+              <span>{submitButtonText || 'Guardar Trabajo Tipo'}</span>
             </button>
           </div>
         </form>

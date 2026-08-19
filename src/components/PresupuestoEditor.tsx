@@ -11,6 +11,7 @@ import {
   Lock
 } from 'lucide-react';
 import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
+import { TareaEditorModal } from './tareasTipo/TareaEditorModal';
 import {
   AppConfig,
   ItemPresupuesto,
@@ -51,7 +52,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   onSaved,
   onViewMaterialsInCatalog
 }) => {
-  const { tiposFactura, condicionesTrabajo } = useAppOptions();
+  const { tiposFactura, condicionesTrabajo, categoriasTarea } = useAppOptions();
   const { toast } = useToast();
 
   const {
@@ -61,6 +62,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     costosIndirectos,
     existingPresupuesto,
     insumosMap,
+    manoObraList,
     manoObraMap,
     totales,
     clienteId,
@@ -103,15 +105,21 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     setShowParametricMaterialModal,
     editingItemIndexForMaterialModal,
     setEditingItemIndexForMaterialModal,
+    showInSituEditorModal,
+    setShowInSituEditorModal,
+    editingTareaForInSituModal,
     handleAddTareaTipoItem,
     handleOpenParametricModalForNewTask,
     handleOpenParametricModalForExistingItem,
     handleOpenMaterialModalForExistingItem,
     handleApplyMaterialEstimation,
+    handleOpenInSituEditorForExistingItem,
+    handleSaveInSituItem,
     handleConfirmParametricJob,
     handleAddInsumoItem,
+    handleAddDirectItem,
     handleAddCustomItem,
-    handleAddAdHocItem,
+    handleUpdateItemNotasTecnicas,
     handleUpdateItem,
     handleRemoveItem,
     handleToggleTax,
@@ -133,19 +141,91 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [saveAsTemplateData, setSaveAsTemplateData] = useState<{
     nombre: string;
+    notasTecnicas?: string;
     insumos: any[];
     manoObra: any[];
+    unidad?: string;
   }>({
     nombre: '',
+    notasTecnicas: '',
     insumos: [],
-    manoObra: []
+    manoObra: [],
+    unidad: 'u'
   });
+
+  // Keyboard shortcut & auto-focus management
+  const itemTitleRefs = useRef<Map<string, HTMLInputElement>>(new Map());
+  const prevItemsLength = useRef(items.length);
+
+  useEffect(() => {
+    if (items.length > prevItemsLength.current) {
+      const lastItem = items[items.length - 1];
+      if (lastItem) {
+        setTimeout(() => {
+          const inputEl = itemTitleRefs.current.get(lastItem.id);
+          inputEl?.focus();
+        }, 50);
+      }
+    }
+    prevItemsLength.current = items.length;
+  }, [items]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if any modal is open
+      if (
+        showItemPickerModal ||
+        showSaveAsTemplateModal ||
+        showEmitirModal ||
+        showParametricModal ||
+        showParametricMaterialModal ||
+        showInSituEditorModal
+      ) {
+        return;
+      }
+
+      // Alt + N / Alt + I -> Add Direct Item
+      if (e.altKey && (e.key === 'n' || e.key === 'N' || e.key === 'i' || e.key === 'I')) {
+        e.preventDefault();
+        handleAddDirectItem();
+        return;
+      }
+
+      // Alt + C / Alt + T / Ctrl + K -> Open Catalog Picker
+      if (
+        (e.altKey && (e.key === 'c' || e.key === 'C' || e.key === 't' || e.key === 'T')) ||
+        ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K'))
+      ) {
+        e.preventDefault();
+        setShowItemPickerModal(true);
+        return;
+      }
+
+      // Ctrl + S / Cmd + S -> Quick save budget
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        handleSavePresupuesto('borrador');
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    showItemPickerModal,
+    showSaveAsTemplateModal,
+    showEmitirModal,
+    showParametricModal,
+    showParametricMaterialModal,
+    showInSituEditorModal,
+    handleAddDirectItem,
+    handleSavePresupuesto,
+    setShowItemPickerModal
+  ]);
 
   const handleTipoFacturaChange = (newTipo: TipoFactura) => {
     setTipoFactura(newTipo);
   };
-
-
 
   const handleToggleExpandItem = (itemId: string) => {
     setExpandedItems(prev => ({ ...prev, [itemId]: !prev[itemId] }));
@@ -516,26 +596,21 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                   type="button"
                   onClick={() => setShowItemPickerModal(true)}
                   className="flex items-center gap-1.5 px-3.5 py-1.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-full text-xs font-semibold transition-colors"
+                  title="Seleccionar tarea tipificada del catálogo (Alt + C)"
                 >
                   <Layers className="w-3.5 h-3.5" />
                   <span>Cargar Tarea</span>
+                  <span className="text-[10px] opacity-60 font-mono hidden md:inline">Alt+C</span>
                 </button>
                 <button
                   type="button"
-                  onClick={handleAddAdHocItem}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-500/15 text-purple-700 dark:text-purple-300 hover:bg-purple-500/25 border border-purple-500/30 rounded-full text-xs font-semibold transition-colors"
-                  title="Material / Partida especial única no catalogada"
-                >
-                  <Package className="w-3.5 h-3.5" />
-                  <span>Ítem Ad-Hoc</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddCustomItem}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-surface-variant hover:bg-surface-container-highest text-on-surface rounded-full text-xs font-semibold transition-colors"
+                  onClick={handleAddDirectItem}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-primary hover:bg-primary/90 text-on-primary rounded-full text-xs font-semibold transition-colors shadow-xs"
+                  title="Agregar un renglón o partida directa para esta cotización (Alt + N)"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Ítem Libre</span>
+                  <span>Ítem Directo</span>
+                  <span className="text-[10px] opacity-75 font-mono hidden md:inline">Alt+N</span>
                 </button>
               </div>
             </div>
@@ -592,7 +667,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 <Layers className="w-10 h-10 text-outline mx-auto mb-3" />
                 <p className="text-base font-medium text-on-surface">Aún no agregaste partidas a esta cotización.</p>
                 <p className="text-sm text-on-surface-variant mt-2 max-w-md mx-auto">
-                  Haz clic en "Cargar Tarea" para seleccionar del catálogo e incorporar insumos y mano de obra automáticamente.
+                  Presiona <strong>"Ítem Directo"</strong> (Alt+N) para agregar un concepto libre o <strong>"Cargar Tarea"</strong> (Alt+C) para seleccionar del catálogo.
                 </p>
               </div>
             ) : (
@@ -608,12 +683,21 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                       index={idx}
                       calcItem={calcItem}
                       isExpanded={isExpanded}
+                      titleInputRef={(el) => {
+                        if (el) {
+                          itemTitleRefs.current.set(item.id, el);
+                        } else {
+                          itemTitleRefs.current.delete(item.id);
+                        }
+                      }}
+                      onEnterAtEnd={handleAddDirectItem}
                       onToggleExpand={handleToggleExpandItem}
                       onUpdateItemCondicion={handleUpdateItemCondicion}
                       onUpdateItemQuantity={handleUpdateItemQuantity}
                       onUpdateItemUnit={handleUpdateItemUnit}
                       onUpdateItemUnitDirectCost={handleUpdateItemUnitDirectCost}
                       onUpdateItemDescription={handleUpdateItemDescription}
+                      onUpdateItemNotasTecnicas={handleUpdateItemNotasTecnicas}
                       onRemoveItem={handleRemoveItem}
                       onSaveAsTemplate={(targetItem) => {
                         const itemInsumos = (targetItem.insumosSnapshot || []).map((ins) => ({
@@ -627,6 +711,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                         }));
                         setSaveAsTemplateData({
                           nombre: targetItem.descripcion || 'Nueva Tarea Tipo',
+                          notasTecnicas: targetItem.notasTecnicas || targetItem.clausulaTecnica || '',
+                          unidad: targetItem.unidad || 'u',
                           insumos: itemInsumos,
                           manoObra: itemManoObra
                         });
@@ -634,6 +720,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                       }}
                       onOpenParametricModal={handleOpenParametricModalForExistingItem}
                       onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
+                      onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
                       condicionesTrabajo={condicionesTrabajo}
                     />
                   );
@@ -653,7 +740,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 value={condicionesPagoTexto}
                 onChange={(e) => setCondicionesPagoTexto(e.target.value)}
                 rows={3}
-                className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl p-4 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-2xl p-4 text-xs text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y shadow-2xs"
                 placeholder="Ingresa las condiciones comerciales y plazos de pago acordados con el cliente..."
               />
             </div>
@@ -757,9 +844,27 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         isOpen={showSaveAsTemplateModal}
         onClose={() => setShowSaveAsTemplateModal(false)}
         defaultNombre={saveAsTemplateData.nombre}
+        defaultNotasTecnicas={saveAsTemplateData.notasTecnicas}
+        unidad={saveAsTemplateData.unidad}
         insumos={saveAsTemplateData.insumos}
         manoObra={saveAsTemplateData.manoObra}
       />
+
+      {/* In-Situ Task APU Editor Modal */}
+      {showInSituEditorModal && (
+        <TareaEditorModal
+          isOpen={showInSituEditorModal}
+          onClose={() => setShowInSituEditorModal(false)}
+          editingTarea={editingTareaForInSituModal}
+          categoriasList={categoriasTarea}
+          insumosMap={insumosMap}
+          manoObraList={manoObraList}
+          manoObraMap={manoObraMap}
+          onSave={handleSaveInSituItem}
+          titleOverride="Componer Partida para esta Cotización (In-Situ)"
+          submitButtonText="Aplicar a la Cotización"
+        />
+      )}
     </div>
   );
 };

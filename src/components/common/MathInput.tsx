@@ -19,6 +19,7 @@ export interface MathInputProps {
   ariaLabel?: string;
   id?: string;
   size?: 'sm' | 'md' | 'lg';
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }
 
 export const MathInput: React.FC<MathInputProps> = ({
@@ -38,6 +39,7 @@ export const MathInput: React.FC<MathInputProps> = ({
   ariaLabel,
   id,
   size = 'md',
+  onKeyDown,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [currentText, setCurrentText] = useState<string>(() => {
@@ -113,11 +115,15 @@ export const MathInput: React.FC<MathInputProps> = ({
       e.preventDefault();
       handleCommit();
       inputRef.current?.blur();
+      onKeyDown?.(e);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       setIsFocused(false);
       setCurrentText(value !== undefined ? String(value) : '');
       inputRef.current?.blur();
+      onKeyDown?.(e);
+    } else {
+      onKeyDown?.(e);
     }
   };
 

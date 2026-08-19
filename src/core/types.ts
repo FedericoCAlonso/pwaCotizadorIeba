@@ -502,6 +502,7 @@ export interface ItemPresupuesto {
   descripcionCostoFijo?: string;
   clausulaExclusiones?: string;
   clausulaTecnica?: string;
+  notasTecnicas?: string;
   esAdHoc?: boolean;
 
   // Campos de Análisis de Precios Unitarios (APU) y Prorrateo de GG Absolutos
