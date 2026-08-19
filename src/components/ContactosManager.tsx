@@ -8,12 +8,14 @@ import {
   Search,
   Sparkles,
   X,
-  Tag
+  Tag,
+  Trash2
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
 import { Contacto, Presupuesto, RolContacto } from '../core/types';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
+import { useAuth } from '../contexts/AuthContext';
 import { ContactoCard } from './contactos/ContactoCard';
 import { ContactoFormModal, ContactoFormData } from './contactos/ContactoFormModal';
 
@@ -34,6 +36,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
 }) => {
   const { toast } = useToast();
   const confirm = useConfirm();
+  const { triggerCleanup, syncState } = useAuth();
 
   // Live queries
   const allContactos = useLiveQuery(() => db.contactos.toArray()) || [];
@@ -217,15 +220,43 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           </p>
         </div>
 
-        {/* Action Button: Nuevo Contacto */}
-        <button
-          type="button"
-          onClick={() => handleOpenNewModal(filterRole === 'proveedor' ? 'proveedor' : 'cliente')}
-          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-sm active:scale-95 shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nuevo Contacto</span>
-        </button>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
+          <button
+            type="button"
+            onClick={async () => {
+              const ok = await confirm({
+                title: 'Depurar y Compactar Base de Datos',
+                message: '¿Deseas purgar de forma definitiva todos los contactos, clientes y registros marcados como eliminados?\n\nEsta acción dejará únicamente los registros activos tanto en la nube como en el dispositivo.',
+                confirmText: 'Limpiar y Purgar',
+                isDestructive: true
+              });
+              if (!ok) return;
+
+              try {
+                const res = await triggerCleanup();
+                toast.success(res.message);
+              } catch (e: any) {
+                toast.error(e.message || 'Error al depurar la base de datos');
+              }
+            }}
+            disabled={syncState === 'syncing'}
+            title="Eliminar permanentemente contactos y registros borrados"
+            className="flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 rounded-full border border-rose-200 dark:border-rose-800 transition shadow-xs active:scale-95 disabled:opacity-50"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>{syncState === 'syncing' ? 'Depurando...' : 'Depurar Borrados'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleOpenNewModal(filterRole === 'proveedor' ? 'proveedor' : 'cliente')}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-sm active:scale-95 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nuevo Contacto</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs & Search Bar */}

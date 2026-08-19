@@ -32,6 +32,7 @@ interface AuthContextType {
   resetPassword: (e: string) => Promise<void>;
   logout: () => Promise<void>;
   triggerSync: (provider?: SyncProviderType) => Promise<SyncExecutionResult>;
+  triggerCleanup: () => Promise<SyncExecutionResult>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -142,6 +143,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const triggerCleanup = async (): Promise<SyncExecutionResult> => {
+    setSyncState('syncing');
+    setSyncErrorMessage(null);
+    try {
+      const res = await syncEngine.executeDataCleanup();
+      setSyncState('synced');
+      setLastSyncTime(new Date());
+      setLastResult(res);
+      return res;
+    } catch (err: any) {
+      setSyncState('error');
+      const msg = err.message || 'Error al ejecutar limpieza de datos.';
+      setSyncErrorMessage(msg);
+      throw err;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -159,7 +177,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         signUpWithEmail,
         resetPassword,
         logout,
-        triggerSync
+        triggerSync,
+        triggerCleanup
       }}
     >
       {children}

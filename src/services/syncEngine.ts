@@ -147,6 +147,220 @@ class DecentralizedSyncEngine {
   }
 
   /**
+   * Ejecuta la depuración y compactación permanente de datos:
+   * - Elimina permanentemente registros borrados (deleted: true) o corruptos tanto local como remotamente.
+   * - Sanea el archivo maestro consolidado en Google Drive / Carpeta Local.
+   * - Limpia y sincroniza la base de datos local Dexie.
+   */
+  async executeDataCleanup(): Promise<SyncExecutionResult> {
+    if (this.isSyncing) {
+      throw new Error('Ya hay una operación de sincronización en curso.');
+    }
+
+    const providerType = this.activeProviderType;
+    const provider = this.getProvider(providerType);
+
+    this.isSyncing = true;
+    this.notifyListeners();
+    const timestamp = new Date().toISOString();
+
+    try {
+      // 1. Leer estado remoto
+      let remotePayload: MasterDatabasePayload | null = null;
+      try {
+        remotePayload = await provider.readMasterPayload();
+      } catch (e) {
+        console.warn('[syncEngine] No se pudo leer payload remoto previo, usando local:', e);
+      }
+
+      // 2. Limpieza de Contactos (Clientes / Proveedores)
+      const allContactos = await db.contactos.toArray();
+      const remoteContactos = Array.isArray(remotePayload?.contactos)
+        ? remotePayload.contactos
+        : (Array.isArray(remotePayload?.clientes) ? remotePayload.clientes : []);
+
+      const activeContactsMap = new Map<string, any>();
+
+      // Procesar remotos activos
+      remoteContactos.forEach(rc => {
+        if (!rc || !rc.id || rc.deleted) return;
+        if (!rc.razonSocial && !rc.nombre) return;
+        activeContactsMap.set(String(rc.id), rc);
+      });
+
+      // Procesar locales activos
+      allContactos.forEach(lc => {
+        if (!lc || !lc.id || lc.deleted) return;
+        if (!lc.razonSocial && !lc.nombre) return;
+        activeContactsMap.set(String(lc.id), lc);
+      });
+
+      const cleanContactos = Array.from(activeContactsMap.values());
+      const cleanClientes = cleanContactos.filter(c => !c.roles || c.roles.includes('cliente'));
+      const cleanProveedores = cleanContactos.filter(c => c.roles?.includes('proveedor'));
+
+      // 3. Limpieza de Proyectos CAD de Traza
+      const remoteTrazaProjs: any[] = [];
+      if (Array.isArray(remotePayload?.trazaProyectos)) remoteTrazaProjs.push(...remotePayload.trazaProyectos);
+      if (Array.isArray(remotePayload?.proyectos)) {
+        remotePayload.proyectos.forEach(p => {
+          if (p && Array.isArray((p as any).ambientes)) remoteTrazaProjs.push(p);
+        });
+      }
+      const cleanTrazaProyectos = remoteTrazaProjs.filter(p => p && p.id && !p.deleted);
+
+      // 4. Limpieza de tablas de Cotizador (IndexedDB)
+      const cleanCategoriasMaterial = (await db.categoriasMaterial.toArray()).filter(x => !x.deleted);
+      const cleanMateriales = (await db.materiales.toArray()).filter(x => !x.deleted);
+      const cleanProductos = (await db.productos.toArray()).filter(x => !x.deleted);
+      const cleanOfertas = (await db.ofertas.toArray()).filter(x => !x.deleted);
+      const cleanSolicitudes = (await db.solicitudesCotizacion.toArray()).filter(x => !x.deleted);
+      const cleanInsumos = (await db.insumos.toArray()).filter(x => !x.deleted);
+      const cleanManoObra = (await db.manoObra.toArray()).filter(x => !x.deleted);
+      const cleanCostosIndirectos = (await db.costosIndirectos.toArray()).filter(x => !x.deleted);
+      const cleanTareasTipo = (await db.tareasTipo.toArray()).filter(x => !x.deleted);
+      const cleanProyectos = (await db.proyectos.toArray()).filter(x => !x.deleted && !Array.isArray((x as any).ambientes));
+      const cleanPresupuestos = (await db.presupuestos.toArray()).filter(x => !x.deleted);
+      const cleanRegistrosTrabajo = (await db.registrosTrabajo.toArray()).filter(x => !x.deleted);
+      const cleanConfig = await db.config.toArray();
+
+      // 5. Aplicar limpieza a IndexedDB local dentro de una transacción
+      await db.transaction('rw', [
+        db.contactos,
+        db.clientes,
+        db.proveedores,
+        db.categoriasMaterial,
+        db.materiales,
+        db.productos,
+        db.ofertas,
+        db.solicitudesCotizacion,
+        db.insumos,
+        db.manoObra,
+        db.costosIndirectos,
+        db.tareasTipo,
+        db.proyectos,
+        db.presupuestos,
+        db.registrosTrabajo
+      ], async () => {
+        await db.contactos.clear();
+        await db.contactos.bulkAdd(cleanContactos);
+
+        await db.clientes.clear();
+        await db.clientes.bulkAdd(cleanClientes);
+
+        await db.proveedores.clear();
+        await db.proveedores.bulkAdd(cleanProveedores);
+
+        await db.categoriasMaterial.clear();
+        await db.categoriasMaterial.bulkAdd(cleanCategoriasMaterial);
+
+        await db.materiales.clear();
+        await db.materiales.bulkAdd(cleanMateriales);
+
+        await db.productos.clear();
+        await db.productos.bulkAdd(cleanProductos);
+
+        await db.ofertas.clear();
+        await db.ofertas.bulkAdd(cleanOfertas);
+
+        await db.solicitudesCotizacion.clear();
+        await db.solicitudesCotizacion.bulkAdd(cleanSolicitudes);
+
+        await db.insumos.clear();
+        await db.insumos.bulkAdd(cleanInsumos);
+
+        await db.manoObra.clear();
+        await db.manoObra.bulkAdd(cleanManoObra);
+
+        await db.costosIndirectos.clear();
+        await db.costosIndirectos.bulkAdd(cleanCostosIndirectos);
+
+        await db.tareasTipo.clear();
+        await db.tareasTipo.bulkAdd(cleanTareasTipo);
+
+        await db.proyectos.clear();
+        await db.proyectos.bulkAdd(cleanProyectos);
+
+        await db.presupuestos.clear();
+        await db.presupuestos.bulkAdd(cleanPresupuestos);
+
+        await db.registrosTrabajo.clear();
+        await db.registrosTrabajo.bulkAdd(cleanRegistrosTrabajo);
+      });
+
+      // 6. Construir Master Payload maestro compacto y limpio
+      const cleanPayload: MasterDatabasePayload = {
+        version: 1,
+        schemaVersion: 4,
+        exportedAt: timestamp,
+        categoriasMaterial: cleanCategoriasMaterial,
+        materiales: cleanMateriales,
+        productos: cleanProductos,
+        ofertas: cleanOfertas,
+        solicitudesCotizacion: cleanSolicitudes,
+        insumos: cleanInsumos,
+        manoObra: cleanManoObra,
+        costosIndirectos: cleanCostosIndirectos,
+        tareasTipo: cleanTareasTipo,
+        contactos: cleanContactos,
+        clientes: cleanClientes,
+        proveedores: cleanProveedores,
+        proyectos: cleanProyectos,
+        presupuestos: cleanPresupuestos,
+        registrosTrabajo: cleanRegistrosTrabajo,
+        config: cleanConfig,
+        trazaProyectos: cleanTrazaProyectos
+      };
+
+      // 7. Escribir al proveedor
+      await provider.writeMasterPayload(cleanPayload);
+
+      // 8. Actualizar timestamp de sync
+      localStorage.setItem('ieba_last_sync_time', timestamp);
+
+      const result: SyncExecutionResult = {
+        success: true,
+        provider: providerType,
+        timestamp,
+        stats: {
+          tablesProcessed: 16,
+          localUpdatedCount: cleanContactos.length,
+          localAddedCount: 0,
+          remoteNewerCount: 0,
+          localNewerCount: cleanContactos.length,
+          identicalCount: 0
+        },
+        message: `Depuración y compactación exitosa: Base de datos saneada con ${cleanContactos.length} contactos y ${cleanTrazaProyectos.length} relevamientos activos.`
+      };
+
+      this.lastResult = result;
+      return result;
+    } catch (err: any) {
+      console.error('[syncEngine] Error en limpieza de datos:', err);
+      const result: SyncExecutionResult = {
+        success: false,
+        provider: providerType,
+        timestamp,
+        stats: {
+          tablesProcessed: 0,
+          localUpdatedCount: 0,
+          localAddedCount: 0,
+          remoteNewerCount: 0,
+          localNewerCount: 0,
+          identicalCount: 0
+        },
+        message: err.message || 'Error al ejecutar la limpieza de datos',
+        error: err.message
+      };
+      this.lastResult = result;
+      throw err;
+    } finally {
+      this.isSyncing = false;
+      this.notifyListeners();
+    }
+  }
+
+  /**
    * Exporta directamente el JSON local
    */
   async exportLocalMasterJson(): Promise<MasterDatabasePayload> {

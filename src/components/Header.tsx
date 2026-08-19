@@ -68,7 +68,8 @@ export const Header: React.FC<HeaderProps> = ({
     activeProvider,
     setActiveProvider,
     logout,
-    triggerSync
+    triggerSync,
+    triggerCleanup
   } = useAuth();
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -774,6 +775,37 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
           )}
+
+          {/* Maintenance / Data Purge Section */}
+          <div className="bg-surface-container-low p-3.5 rounded-2xl border border-dashed border-outline-variant/40 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex flex-col gap-0.5 flex-1 min-w-[200px]">
+              <span className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                🧹 Depurar y Compactar Base de Datos
+              </span>
+              <span className="text-[11px] text-on-surface-variant leading-relaxed">
+                Elimina permanentemente de la nube y del dispositivo los contactos, clientes, cotizaciones y relevamientos borrados o residuales.
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={async () => {
+                if (!confirm('¿Deseas purgar de la nube y del dispositivo todos los contactos, cotizaciones y relevamientos borrados o residuales?\n\nEsta acción dejará únicamente los registros activos y saneará la base de datos maestra.')) {
+                  return;
+                }
+                try {
+                  const res = await triggerCleanup();
+                  alert(res.message);
+                } catch (err: any) {
+                  alert(err.message || 'Error al ejecutar la limpieza de datos');
+                }
+              }}
+              disabled={syncState === 'syncing'}
+              className="px-3.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 rounded-xl border border-rose-200 dark:border-rose-800 transition disabled:opacity-50 shrink-0 cursor-pointer"
+            >
+              {syncState === 'syncing' ? 'Depurando...' : 'Limpiar y Purgar'}
+            </button>
+          </div>
 
           {/* Sync Stats Info */}
           <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 space-y-2 text-xs">
