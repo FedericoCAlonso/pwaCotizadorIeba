@@ -145,14 +145,14 @@ export function calcularCostoTareaTipo(
   insumosSnapshotUnitario: InsumoSnapshot[];
   manoObraSnapshotUnitario: ManoObraSnapshot[];
 } {
-  const defaultVars: Record<string, number> = {};
-  if (tarea.variables) {
-    tarea.variables.forEach((v) => {
-      defaultVars[v.id] = v.valorDefault ?? 1;
+  const defaultParams: Record<string, number> = {};
+  if (tarea.parametros) {
+    tarea.parametros.forEach((p) => {
+      defaultParams[p.id] = p.valorDefault ?? 1;
     });
   }
 
-  const consumos = calcularConsumosTareaTipo(tarea, defaultVars, insumosMap, manoObraMap, options);
+  const consumos = calcularConsumosTareaTipo(tarea, defaultParams, insumosMap, manoObraMap, options);
 
   return {
     costoInsumosUnitario: consumos.costoInsumosTotal,
@@ -1246,7 +1246,9 @@ export function calcularEstimacionParametricaMaterial(
 
 export interface ConsumosCalculadosResultado {
   cantidadPrincipal: number;
+  valoresParametros: Record<string, number>;
   valoresVariables: Record<string, number>;
+  scope: Record<string, number>;
   costoFijoOperativo: number;
   insumosSnapshot: InsumoSnapshot[];
   manoObraSnapshot: ManoObraSnapshot[];
@@ -1357,12 +1359,12 @@ export function resolverMaterialPorFiltro(
 }
 
 /**
- * Evalúa las fórmulas de insumos y mano de obra de una TareaTipo en función de las variables ingresadas
- * y suma el costo fijo operativo de movilización / setup si corresponde.
+ * Evalúa los parámetros y variables calculadas de una TareaTipo en cascada,
+ * calculando los consumos de insumos y mano de obra resultantes.
  */
 export function calcularConsumosTareaTipo(
   tarea: TareaTipo,
-  variables: Record<string, number>,
+  parametrosOVariables: Record<string, number>,
   insumosMap: Map<string, Insumo>,
   manoObraMap: Map<string, CategoriaManoDeObra>,
   options?: {
@@ -1374,24 +1376,59 @@ export function calcularConsumosTareaTipo(
   const aliDefault = options?.alicuotaIVADefault ?? 21;
   const costoFijo = roundMoney(safeNum(tarea.costoFijoOperativo));
 
-  // 1. Evaluar Insumos
+  // 1. Construir Scope Inicial con Parámetros
+  const scope: Record<string, number> = {};
+  const valoresParametros: Record<string, number> = {};
+
+  if (tarea.parametros && tarea.parametros.length > 0) {
+    tarea.parametros.forEach((p) => {
+      const val = parametrosOVariables[p.id] !== undefined
+        ? safeNum(parametrosOVariables[p.id])
+        : (p.valorDefault ?? 1);
+      scope[p.id] = val;
+      valoresParametros[p.id] = val;
+    });
+  }
+
+  // Copiar cualquier otra variable que se haya pasado explícitamente
+  Object.entries(parametrosOVariables || {}).forEach(([k, v]) => {
+    if (scope[k] === undefined) {
+      scope[k] = safeNum(v);
+      valoresParametros[k] = safeNum(v);
+    }
+  });
+
+  // 2. Evaluar Variables Calculadas Internas en orden secuencial
+  const valoresVariables: Record<string, number> = {};
+  if (tarea.variables && tarea.variables.length > 0) {
+    for (const v of tarea.variables) {
+      if (v.id && v.formula && v.formula.trim()) {
+        const evalRes = evaluateMathExpression(v.formula, scope);
+        const valCalculado = (evalRes.isValid && evalRes.value !== null) ? evalRes.value : 0;
+        scope[v.id] = valCalculado;
+        valoresVariables[v.id] = valCalculado;
+      }
+    }
+  }
+
+  // 3. Evaluar Insumos usando el scope consolidado (parámetros + variables calculadas)
   let costoInsumosTotal = 0;
   const insumosSnapshot: InsumoSnapshot[] = [];
 
   for (const item of tarea.insumos) {
-    // 1. Evaluación de regla condicional de inclusión general (si existe)
+    // Evaluación de regla condicional de inclusión general (si existe)
     if (item.condicion && item.condicion.trim()) {
-      const isIncluded = evaluateCondition(item.condicion, variables);
+      const isIncluded = evaluateCondition(item.condicion, scope);
       if (!isIncluded) {
         continue; // Omitir este insumo de la cotización
       }
     }
 
-    // 2. Resolución del materialId (por Filtro de Categoría, por Reglas Dinámicas, o Material Directo)
+    // Resolución del materialId (por Filtro de Categoría, por Reglas Dinámicas, o Material Directo)
     let targetId = item.materialId || item.insumoId || '';
 
     if (item.filtroMaterial) {
-      const resolvedMat = resolverMaterialPorFiltro(item.filtroMaterial, variables, insumosMap);
+      const resolvedMat = resolverMaterialPorFiltro(item.filtroMaterial, scope, insumosMap);
       if (resolvedMat) {
         targetId = resolvedMat.id;
       } else {
@@ -1400,7 +1437,7 @@ export function calcularConsumosTareaTipo(
       }
     } else if (item.reglasDinamicas && item.reglasDinamicas.length > 0) {
       const matchingRule = item.reglasDinamicas.find(regla =>
-        !regla.condicion || evaluateCondition(regla.condicion, variables)
+        !regla.condicion || evaluateCondition(regla.condicion, scope)
       );
       if (matchingRule) {
         targetId = matchingRule.materialId;
@@ -1422,7 +1459,7 @@ export function calcularConsumosTareaTipo(
 
     let cantEvaluada = item.cantidad ?? 1;
     if (item.formula && item.formula.trim()) {
-      const evalRes = evaluateMathExpression(item.formula, variables);
+      const evalRes = evaluateMathExpression(item.formula, scope);
       if (evalRes.isValid && evalRes.value !== null) {
         cantEvaluada = evalRes.value;
       }
@@ -1454,14 +1491,14 @@ export function calcularConsumosTareaTipo(
     });
   }
 
-  // 2. Evaluar Mano de Obra
+  // 4. Evaluar Mano de Obra usando el scope consolidado
   let costoManoObraTotal = 0;
   const manoObraSnapshot: ManoObraSnapshot[] = [];
 
   for (const mo of tarea.manoObra) {
     // Evaluación de regla condicional de inclusión
     if (mo.condicion && mo.condicion.trim()) {
-      const isIncluded = evaluateCondition(mo.condicion, variables);
+      const isIncluded = evaluateCondition(mo.condicion, scope);
       if (!isIncluded) {
         continue; // Omitir esta mano de obra
       }
@@ -1472,7 +1509,7 @@ export function calcularConsumosTareaTipo(
 
     let horasEvaluadas = mo.horas ?? 0;
     if (mo.formula && mo.formula.trim()) {
-      const evalRes = evaluateMathExpression(mo.formula, variables);
+      const evalRes = evaluateMathExpression(mo.formula, scope);
       if (evalRes.isValid && evalRes.value !== null) {
         horasEvaluadas = evalRes.value;
       }
@@ -1497,15 +1534,17 @@ export function calcularConsumosTareaTipo(
 
   const costoDirectoTotal = roundMoney(costoInsumosTotal + costoManoObraTotal + costoFijo);
 
-  // Variable representativa principal (ej: primera variable definida o la que tenga valor > 0)
-  const primeraVar = tarea.variables?.[0];
-  const cantidadPrincipal = primeraVar && variables[primeraVar.id] !== undefined
-    ? variables[primeraVar.id]
-    : (variables['cantidad'] || variables['bocas'] || variables['sup'] || 1);
+  // Parámetro representativo principal (primer parámetro o fallback)
+  const primerParam = tarea.parametros?.[0];
+  const cantidadPrincipal = primerParam && scope[primerParam.id] !== undefined
+    ? scope[primerParam.id]
+    : (scope['cantidad'] || scope['bocas'] || scope['circuitos'] || scope['sup'] || 1);
 
   return {
     cantidadPrincipal,
-    valoresVariables: variables,
+    valoresParametros,
+    valoresVariables,
+    scope,
     costoFijoOperativo: costoFijo,
     insumosSnapshot,
     manoObraSnapshot,

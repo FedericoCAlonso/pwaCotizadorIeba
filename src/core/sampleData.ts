@@ -103,7 +103,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
     unidad: 'boca',
     notasTecnicas: 'Retiro de conductores obsoletos y reposición con conductores unipolares IRAM 247-3 (Fase, Neutro y PE 2.5 mm²). Empalmes y conexionado en cajas existentes.',
     clausulaExclusiones: 'La cotización contempla el reemplazo de conductores a través de las canalizaciones existentes en condiciones transitables. En caso de detectarse cañerías obstruidas, colapsadas o cajas ciegas no accesibles que demanden apertura de mampostería o colocación de conductos a la vista, los trabajos de destape o recanalización se cotizarán como adicionales previa conformidad del cliente.',
-    variables: [
+    parametros: [
       {
         id: 'bocas',
         nombre: 'Cantidad de Bocas',
@@ -145,14 +145,44 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
         descripcion: 'Cantidad de artefactos especiales que requieren desmontaje y rearmado complejo'
       }
     ],
+    variables: [
+      {
+        id: 'k_complejidad',
+        nombre: 'Multiplicador de Complejidad MO',
+        formula: 'k_estado * k_altura',
+        unidad: 'x',
+        descripcion: 'Factor combinado de estado de cañería y altura'
+      },
+      {
+        id: 'metros_cable',
+        nombre: 'Metros de Cable por Conductor',
+        formula: 'bocas * 12 * 1.10',
+        unidad: 'm',
+        descripcion: '12m por boca + 10% de desperdicio y puntas de conexión'
+      },
+      {
+        id: 'horas_oficial',
+        nombre: 'Horas Oficial Electricista',
+        formula: '1.0 + (bocas * 1.5) * k_complejidad + (desarmes * 1.5)',
+        unidad: 'hs',
+        descripcion: 'Base de replanteo + 1.5hs por boca corregido por complejidad y desarmes'
+      },
+      {
+        id: 'horas_ayudante',
+        nombre: 'Horas Ayudante',
+        formula: '1.0 + (bocas * 0.8) * k_complejidad',
+        unidad: 'hs',
+        descripcion: 'Horas de asistencia para pasacables y retiro de conductores viejos'
+      }
+    ],
     insumos: [
-      { materialId: 'mat-cable-uni-2_5-marron', cantidad: 12, formula: 'bocas * 12 * 1.10' },
-      { materialId: 'mat-cable-uni-2_5-celeste', cantidad: 12, formula: 'bocas * 12 * 1.10' },
-      { materialId: 'mat-cable-uni-2_5-verde-amarillo', cantidad: 12, formula: 'bocas * 12 * 1.10' }
+      { materialId: 'mat-cable-uni-2_5-marron', cantidad: 12, formula: 'metros_cable' },
+      { materialId: 'mat-cable-uni-2_5-celeste', cantidad: 12, formula: 'metros_cable' },
+      { materialId: 'mat-cable-uni-2_5-verde-amarillo', cantidad: 12, formula: 'metros_cable' }
     ],
     manoObra: [
-      { categoriaId: 'mo-oficial-electricista', horas: 1.5, formula: '1.0 + (bocas * 1.5) * k_estado * k_altura + (desarmes * 1.5)' },
-      { categoriaId: 'mo-ayudante', horas: 0.8, formula: '1.0 + (bocas * 0.8) * k_estado * k_altura' }
+      { categoriaId: 'mo-oficial-electricista', horas: 1.5, formula: 'horas_oficial' },
+      { categoriaId: 'mo-ayudante', horas: 0.8, formula: 'horas_ayudante' }
     ],
     frecuenciaUso: 10,
     createdAt: now,
@@ -165,7 +195,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
     categoria: 'Bocas',
     unidad: 'boca',
     notasTecnicas: 'Canalización embutida, colocación de caja octogonal chica, cableado 1.5 mm² y conexión según norma AEA 90364.',
-    variables: [
+    parametros: [
       {
         id: 'bocas',
         nombre: 'Cantidad de Bocas',
@@ -174,15 +204,36 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
         unidad: 'bocas'
       }
     ],
+    variables: [
+      {
+        id: 'metros_cable',
+        nombre: 'Metros de Cable por Conductor',
+        formula: 'bocas * 8',
+        unidad: 'm',
+        descripcion: '8m por boca nueva'
+      },
+      {
+        id: 'horas_oficial',
+        nombre: 'Horas Oficial Electricista',
+        formula: 'bocas * 1.2',
+        unidad: 'hs'
+      },
+      {
+        id: 'horas_ayudante',
+        nombre: 'Horas Ayudante',
+        formula: 'bocas * 0.8',
+        unidad: 'hs'
+      }
+    ],
     insumos: [
       { materialId: 'mat-caja-oct-chica-pvc', cantidad: 1, formula: 'bocas * 1' },
-      { materialId: 'mat-cable-uni-1.5-marron', cantidad: 8, formula: 'bocas * 8' },
-      { materialId: 'mat-cable-uni-1.5-celeste', cantidad: 8, formula: 'bocas * 8' },
-      { materialId: 'mat-cable-uni-1.5-verde-amarillo', cantidad: 8, formula: 'bocas * 8' }
+      { materialId: 'mat-cable-uni-1.5-marron', cantidad: 8, formula: 'metros_cable' },
+      { materialId: 'mat-cable-uni-1.5-celeste', cantidad: 8, formula: 'metros_cable' },
+      { materialId: 'mat-cable-uni-1.5-verde-amarillo', cantidad: 8, formula: 'metros_cable' }
     ],
     manoObra: [
-      { categoriaId: 'mo-oficial-electricista', horas: 1.2, formula: 'bocas * 1.2' },
-      { categoriaId: 'mo-ayudante', horas: 0.8, formula: 'bocas * 0.8' }
+      { categoriaId: 'mo-oficial-electricista', horas: 1.2, formula: 'horas_oficial' },
+      { categoriaId: 'mo-ayudante', horas: 0.8, formula: 'horas_ayudante' }
     ],
     frecuenciaUso: 5,
     createdAt: now,
@@ -196,7 +247,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
     unidad: 'tablero',
     notasTecnicas: 'Montaje de gabinete DIN embutido, provisión y conexionado de interruptor termomagnético general, interruptor diferencial coordinado según AEA 90364, peines bipolares de distribución y termomagnéticas bipolares de circuitos derivados. Rotulado normalizado y prueba de disparo diferencial.',
     clausulaExclusiones: 'La cotización comprende el armado, peinado y conexionado en el gabinete del tablero. No incluye rotura de mampostería si el nicho no estuviera amurado previamente, ni tendido de líneas seccionales principales o circuitos troncales hacia bocas.',
-    variables: [
+    parametros: [
       {
         id: 'circuitos',
         nombre: 'Cantidad de Circuitos Derivados (IUG/TUG/TUE)',
@@ -227,8 +278,30 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
         descripcion: 'Medición con telurímetro calibrado y emisión de protocolo firmado'
       }
     ],
+    variables: [
+      {
+        id: 'modulos_requeridos',
+        nombre: 'Módulos DIN Totales Requeridos',
+        formula: '4 + circuitos * 2',
+        unidad: 'módulos',
+        descripcion: 'Reserva de 4 módulos (General + Diferencial) + 2 módulos por circuito'
+      },
+      {
+        id: 'horas_montaje',
+        nombre: 'Horas Oficial Armado y Conexionado',
+        formula: '2.5 + circuitos * 0.75',
+        unidad: 'hs',
+        descripcion: '2.5hs base de peinado y cabecera + 45 min por circuito derivado'
+      },
+      {
+        id: 'horas_ayudante',
+        nombre: 'Horas Ayudante',
+        formula: '1.0 + circuitos * 0.35',
+        unidad: 'hs'
+      }
+    ],
     insumos: [
-      // 1. Gabinete DIN según cantidad de módulos
+      // 1. Gabinete DIN según cantidad de módulos calculados
       {
         nombreSlot: 'Gabinete DIN Embutir',
         cantidad: 1,
@@ -238,7 +311,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
           criterios: [
             { atributo: 'tipo_tablero', operador: '==', valor: 'Gabinete DIN' },
             { atributo: 'tipo_instalacion', operador: '==', valor: 'Embutir' },
-            { atributo: 'capacidad_modulos', operador: '>=', valor: '4 + circuitos * 2' }
+            { atributo: 'capacidad_modulos', operador: '>=', valor: '$modulos_requeridos' }
           ],
           estrategiaSeleccion: 'menor_valor_que_cumpla',
           atributoOrden: 'capacidad_modulos'
@@ -281,8 +354,8 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
       }
     ],
     manoObra: [
-      { categoriaId: 'mo-oficial-electricista', horas: 2.5, formula: '2.5 + circuitos * 0.75' },
-      { categoriaId: 'mo-ayudante', horas: 1.0, formula: '1.0 + circuitos * 0.35' },
+      { categoriaId: 'mo-oficial-electricista', horas: 2.5, formula: 'horas_montaje' },
+      { categoriaId: 'mo-ayudante', horas: 1.0, formula: 'horas_ayudante' },
       { categoriaId: 'mo-oficial-electricista', horas: 1.5, condicion: 'requiere_certificacion == 1' }
     ],
     frecuenciaUso: 10,

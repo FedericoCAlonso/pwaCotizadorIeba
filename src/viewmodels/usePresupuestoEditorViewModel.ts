@@ -197,8 +197,8 @@ export function usePresupuestoEditorViewModel({
 
   // ─── Actions / Commands ───────────────────────────────────────────────────────
   const handleAddTareaTipoItem = (tarea: TareaTipo, cantidad = 1) => {
-    // Si la tarea tiene variables o parámetros configurables, abrir inmediatamente el asistente paramétrico
-    if (tarea.variables && tarea.variables.length > 0) {
+    // Si la tarea tiene parámetros o variables configurables, abrir inmediatamente el asistente paramétrico
+    if ((tarea.parametros && tarea.parametros.length > 0) || (tarea.variables && tarea.variables.length > 0)) {
       handleOpenParametricModalForNewTask(tarea);
       return;
     }
@@ -278,13 +278,14 @@ export function usePresupuestoEditorViewModel({
   const handleConfirmParametricJob = (
     tarea: TareaTipo,
     resultado: {
+      parametros: Record<string, number>;
       variables: Record<string, number>;
       calculos: ConsumosCalculadosResultado;
       clausulaExclusiones?: string;
       incluirClausula: boolean;
     }
   ) => {
-    const { variables, calculos, clausulaExclusiones } = resultado;
+    const { parametros, variables, calculos, clausulaExclusiones } = resultado;
     const unit = tarea.unidad || 'u';
     const cant = calculos.cantidadPrincipal || 1;
     const costoDirecto = calculos.costoDirectoTotal;
@@ -309,6 +310,7 @@ export function usePresupuestoEditorViewModel({
           descripcionCostoFijo: tarea.descripcionCostoFijo,
           costoDirectoTotal: costoDirecto,
           costoTotal: costoDirecto,
+          valoresParametros: parametros,
           valoresVariables: variables,
           clausulaExclusiones,
           insumosSnapshot: calculos.insumosSnapshot,
@@ -334,6 +336,7 @@ export function usePresupuestoEditorViewModel({
         costoTotal: costoDirecto,
         precioVentaUnitario: 0,
         precioVentaTotal: 0,
+        valoresParametros: parametros,
         valoresVariables: variables,
         clausulaExclusiones,
         insumosSnapshot: calculos.insumosSnapshot,
@@ -478,6 +481,26 @@ export function usePresupuestoEditorViewModel({
     const item = items[index];
     if (!item) return;
 
+    const matchedTarea = item.tareaTipoId ? tareasTipo.find(t => t.id === item.tareaTipoId) : undefined;
+    const parametros = matchedTarea?.parametros || (
+      item.valoresParametros && Object.keys(item.valoresParametros).length > 0
+        ? Object.entries(item.valoresParametros).map(([k, v]) => ({
+            id: k,
+            nombre: k,
+            tipo: 'numero' as const,
+            valorDefault: v
+          }))
+        : [
+            {
+              id: 'cantidad',
+              nombre: `Cantidad de ${item.unidad || 'Unidades'}`,
+              tipo: 'numero' as const,
+              valorDefault: item.cantidad || 1
+            }
+          ]
+    );
+    const variables = matchedTarea?.variables || [];
+
     // Convert ItemPresupuesto into a TareaTipo format for TareaEditorModal
     const tempTarea: TareaTipo = {
       id: item.tareaTipoId || `insitu-${item.id}`,
@@ -488,21 +511,8 @@ export function usePresupuestoEditorViewModel({
       clausulaExclusiones: item.clausulaExclusiones || '',
       costoFijoOperativo: item.costoFijoOperativo || 0,
       descripcionCostoFijo: item.descripcionCostoFijo || '',
-      variables: item.valoresVariables && Object.keys(item.valoresVariables).length > 0
-        ? Object.entries(item.valoresVariables).map(([k, v]) => ({
-            id: k,
-            nombre: k,
-            tipo: 'numero',
-            valorDefault: v
-          }))
-        : [
-            {
-              id: 'cantidad',
-              nombre: `Cantidad de ${item.unidad || 'Unidades'}`,
-              tipo: 'numero',
-              valorDefault: item.cantidad || 1
-            }
-          ],
+      parametros,
+      variables,
       insumos: (item.insumosSnapshot || []).map((ins) => ({
         insumoId: ins.materialId || ins.insumoId,
         materialId: ins.materialId || ins.insumoId,
@@ -530,13 +540,12 @@ export function usePresupuestoEditorViewModel({
     const currentItem = items[targetIdx];
     if (!currentItem) return;
 
-    // Build the default scope from variables
+    // Build the default scope from parameters and variables
     const scope: Record<string, number> = {};
-    data.variables.forEach((v) => {
-      scope[v.id] = v.valorDefault ?? 1;
+    data.parametros.forEach((p) => {
+      scope[p.id] = p.valorDefault ?? 1;
     });
 
-    const isFacturaA = tipoFactura === 'Factura A';
     const tempTarea: TareaTipo = {
       id: currentItem.tareaTipoId || `insitu-${currentItem.id}`,
       nombre: data.nombre,
@@ -546,6 +555,7 @@ export function usePresupuestoEditorViewModel({
       clausulaExclusiones: data.clausulaExclusiones,
       costoFijoOperativo: data.costoFijoOperativo,
       descripcionCostoFijo: data.descripcionCostoFijo,
+      parametros: data.parametros,
       variables: data.variables,
       insumos: data.insumos,
       manoObra: data.manoObra

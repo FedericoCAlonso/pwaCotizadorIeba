@@ -362,15 +362,18 @@ export interface ManoObraEnTarea {
   condicion?: string; // Condición lógica de inclusión (ej: "requiere_certificacion == 1")
 }
 
-// ─── 8. Variables y Fórmulas Paramétricas de Trabajos Tipo ─────────────────────
+// ─── 8. Parámetros y Variables Paramétricas de Trabajos Tipo ─────────────────
 export interface OpcionVariableTrabajo {
   id: string;
   label: string;
   valor: number;
 }
 
-export interface VariableTrabajoTipo {
-  id: string; // Identificador en fórmulas (ej: "bocas", "sup", "k_estado", "desarmes")
+/**
+ * Parámetro de entrada que el usuario ingresa o selecciona al cotizar la tarea tipo.
+ */
+export interface ParametroTrabajoTipo {
+  id: string; // Identificador en fórmulas (ej: "bocas", "circuitos", "k_estado", "desarmes")
   nombre: string; // Nombre visible (ej: "Cantidad de Bocas", "Superficie en m²")
   tipo: 'numero' | 'select' | 'boolean';
   valorDefault: number;
@@ -378,6 +381,20 @@ export interface VariableTrabajoTipo {
   descripcion?: string; // Texto de ayuda
   opciones?: OpcionVariableTrabajo[]; // Cuando tipo === 'select'
 }
+
+/**
+ * Variable interna calculada mediante fórmula matemática a partir de parámetros y/o variables previas.
+ */
+export interface VariableCalculadaTrabajoTipo {
+  id: string; // Identificador en fórmulas (ej: "modulos_totales", "metros_cable", "k_complejidad")
+  nombre: string; // Nombre visible (ej: "Módulos DIN Totales Requeridos", "Metros de Cable por Conductor")
+  formula: string; // Expresión matemática (ej: "4 + circuitos * 2", "bocas * 12 * 1.10")
+  unidad?: string; // ej: "módulos", "m", "hs"
+  descripcion?: string; // Texto de ayuda o justificación técnica
+}
+
+// Alias de conveniencia
+export type VariableTrabajoTipo = ParametroTrabajoTipo;
 
 export interface TareaTipo {
   id: string;
@@ -387,8 +404,11 @@ export interface TareaTipo {
   notasTecnicas?: string;
   clausulaExclusiones?: string; // Texto de exclusiones y resguardo legal / técnico
 
-  // Motor de Variables del Trabajo Tipo
-  variables?: VariableTrabajoTipo[];
+  // Parámetros de Entrada (Inputs del Usuario)
+  parametros?: ParametroTrabajoTipo[];
+
+  // Variables Internas Calculadas (Fórmulas Matemáticas Intermedias)
+  variables?: VariableCalculadaTrabajoTipo[];
 
   // Costo Fijo de Operación / Setup / Base de Salida (no escala con las unidades)
   costoFijoOperativo?: number;
@@ -522,6 +542,7 @@ export interface ItemPresupuesto {
   condicionTrabajo?: 'normal' | 'dificultosa' | 'favorable';
   parametrosTrabajoTipo?: ParametrosTrabajoTipo;
   parametrosEstimacionMaterial?: ParametrosEstimacionMaterial;
+  valoresParametros?: Record<string, number>;
   valoresVariables?: Record<string, number>;
   costoFijoOperativo?: number;
   descripcionCostoFijo?: string;

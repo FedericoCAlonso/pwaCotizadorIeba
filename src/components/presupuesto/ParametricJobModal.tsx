@@ -27,6 +27,7 @@ interface ParametricJobModalProps {
   isOpen: boolean;
   onClose: () => void;
   tarea: TareaTipo;
+  initialParametros?: Record<string, number>;
   initialVariables?: Record<string, number>;
   initialClausula?: string;
   initialIncluirClausula?: boolean;
@@ -34,6 +35,7 @@ interface ParametricJobModalProps {
   manoObraMap: Map<string, CategoriaManoDeObra>;
   tipoFactura?: TipoFactura;
   onConfirm: (resultado: {
+    parametros: Record<string, number>;
     variables: Record<string, number>;
     calculos: ConsumosCalculadosResultado;
     clausulaExclusiones?: string;
@@ -45,6 +47,7 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
   isOpen,
   onClose,
   tarea,
+  initialParametros,
   initialVariables,
   initialClausula,
   initialIncluirClausula = true,
@@ -55,15 +58,15 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
 }) => {
   useEscapeKey(isOpen, onClose);
 
-  // Variables State
-  const [variablesValues, setVariablesValues] = useState<Record<string, number>>(() => {
+  // Parámetros State (Inputs del usuario)
+  const [parametrosValues, setParametrosValues] = useState<Record<string, number>>(() => {
     const defaults: Record<string, number> = {};
-    if (tarea.variables && tarea.variables.length > 0) {
-      tarea.variables.forEach(v => {
-        defaults[v.id] = initialVariables?.[v.id] ?? v.valorDefault ?? 1;
+    if (tarea.parametros && tarea.parametros.length > 0) {
+      tarea.parametros.forEach(p => {
+        defaults[p.id] = initialParametros?.[p.id] ?? initialVariables?.[p.id] ?? p.valorDefault ?? 1;
       });
     } else {
-      defaults['cantidad'] = initialVariables?.['cantidad'] ?? 1;
+      defaults['cantidad'] = initialParametros?.['cantidad'] ?? initialVariables?.['cantidad'] ?? 1;
     }
     return defaults;
   });
@@ -76,30 +79,31 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
     initialClausula || tarea.clausulaExclusiones || tarea.clausulaTecnicaDefault || DEFAULT_CLAUSULA_OBRA_EXISTENTE
   );
 
-  // Actualizar valores de variable
-  const handleVariableChange = (varId: string, value: number) => {
-    setVariablesValues(prev => ({
+  // Actualizar valores de parámetro
+  const handleParametroChange = (paramId: string, value: number) => {
+    setParametrosValues(prev => ({
       ...prev,
-      [varId]: value
+      [paramId]: value
     }));
   };
 
-  // Live evaluation of material and labor formulas
+  // Live evaluation de parámetros, variables calculadas y consumos
   const calculosResultado: ConsumosCalculadosResultado = useMemo(() => {
     return calcularConsumosTareaTipo(
       tarea,
-      variablesValues,
+      parametrosValues,
       insumosMap,
       manoObraMap,
       { tipoFactura }
     );
-  }, [tarea, variablesValues, insumosMap, manoObraMap, tipoFactura]);
+  }, [tarea, parametrosValues, insumosMap, manoObraMap, tipoFactura]);
 
   if (!isOpen) return null;
 
   const handleApply = () => {
     onConfirm({
-      variables: variablesValues,
+      parametros: parametrosValues,
+      variables: calculosResultado.valoresVariables,
       calculos: calculosResultado,
       clausulaExclusiones: incluirClausula ? clausulaTexto : undefined,
       incluirClausula
@@ -144,7 +148,7 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
         {/* Scrollable Content */}
         <div className="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
 
-          {/* 1. Formulario de Variables del Trabajo Tipo */}
+          {/* 1. Formulario de Parámetros de la Obra */}
           <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 space-y-4">
             <div className="flex items-center justify-between">
               <span className="font-bold text-xs text-on-surface uppercase tracking-wide flex items-center gap-1.5">
@@ -156,7 +160,7 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
               </span>
             </div>
 
-            {(!tarea.variables || tarea.variables.length === 0) ? (
+            {(!tarea.parametros || tarea.parametros.length === 0) ? (
               <div>
                 <label className="text-[11px] text-on-surface-variant block mb-1 font-medium">
                   Cantidad de {tarea.unidad || 'Unidades'}:
@@ -165,35 +169,35 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
                   type="number"
                   min={0.1}
                   step={1}
-                  value={variablesValues['cantidad'] ?? 1}
-                  onChange={(e) => handleVariableChange('cantidad', parseFloat(e.target.value) || 1)}
+                  value={parametrosValues['cantidad'] ?? 1}
+                  onChange={(e) => handleParametroChange('cantidad', parseFloat(e.target.value) || 1)}
                   className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none"
                 />
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {tarea.variables.map((variable) => {
-                  const currentValue = variablesValues[variable.id] ?? variable.valorDefault ?? 1;
+                {tarea.parametros.map((parametro) => {
+                  const currentValue = parametrosValues[parametro.id] ?? parametro.valorDefault ?? 1;
 
-                  if (variable.tipo === 'boolean') {
+                  if (parametro.tipo === 'boolean') {
                     const isTrue = currentValue === 1;
                     return (
                       <div
-                        key={variable.id}
+                        key={parametro.id}
                         className="sm:col-span-2 flex items-center justify-between p-3 bg-surface-container-highest rounded-2xl border border-outline-variant/30"
                       >
                         <div className="pr-3">
                           <label className="text-xs font-bold text-on-surface block">
-                            {variable.nombre}
+                            {parametro.nombre}
                           </label>
-                          {variable.descripcion && (
-                            <p className="text-[10px] text-on-surface-variant mt-0.5">{variable.descripcion}</p>
+                          {parametro.descripcion && (
+                            <p className="text-[10px] text-on-surface-variant mt-0.5">{parametro.descripcion}</p>
                           )}
                         </div>
                         <div className="flex items-center gap-1 bg-surface-container p-1 rounded-xl border border-outline-variant/20 shrink-0">
                           <button
                             type="button"
-                            onClick={() => handleVariableChange(variable.id, 0)}
+                            onClick={() => handleParametroChange(parametro.id, 0)}
                             className={`px-3.5 py-1 text-xs font-bold rounded-lg transition ${
                               !isTrue
                                 ? 'bg-surface-variant text-on-surface shadow-2xs'
@@ -204,7 +208,7 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleVariableChange(variable.id, 1)}
+                            onClick={() => handleParametroChange(parametro.id, 1)}
                             className={`px-3.5 py-1 text-xs font-bold rounded-lg transition ${
                               isTrue
                                 ? 'bg-primary text-on-primary shadow-2xs'
@@ -218,21 +222,21 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
                     );
                   }
 
-                  if (variable.tipo === 'select' && variable.opciones && variable.opciones.length > 0) {
+                  if (parametro.tipo === 'select' && parametro.opciones && parametro.opciones.length > 0) {
                     return (
-                      <div key={variable.id} className="sm:col-span-2">
+                      <div key={parametro.id} className="sm:col-span-2">
                         <label className="text-[11px] font-bold text-on-surface block mb-1">
-                          {variable.nombre}:
+                          {parametro.nombre}:
                         </label>
-                        {variable.descripcion && (
-                          <p className="text-[10px] text-on-surface-variant mb-1.5">{variable.descripcion}</p>
+                        {parametro.descripcion && (
+                          <p className="text-[10px] text-on-surface-variant mb-1.5">{parametro.descripcion}</p>
                         )}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          {variable.opciones.map((opc) => (
+                          {parametro.opciones.map((opc) => (
                             <button
                               key={opc.id}
                               type="button"
-                              onClick={() => handleVariableChange(variable.id, opc.valor)}
+                              onClick={() => handleParametroChange(parametro.id, opc.valor)}
                               className={`p-2.5 rounded-xl border text-left text-xs transition ${
                                 currentValue === opc.valor
                                   ? 'bg-primary/15 border-primary text-primary font-bold shadow-xs'
@@ -248,23 +252,43 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
                   }
 
                   return (
-                    <div key={variable.id}>
+                    <div key={parametro.id}>
                       <label className="text-[11px] font-bold text-on-surface block mb-1">
-                        {variable.nombre} {variable.unidad ? `(${variable.unidad})` : ''}:
+                        {parametro.nombre} {parametro.unidad ? `(${parametro.unidad})` : ''}:
                       </label>
-                      {variable.descripcion && (
-                        <p className="text-[10px] text-on-surface-variant mb-1">{variable.descripcion}</p>
+                      {parametro.descripcion && (
+                        <p className="text-[10px] text-on-surface-variant mb-1">{parametro.descripcion}</p>
                       )}
                       <input
                         type="number"
                         step="any"
                         value={currentValue}
-                        onChange={(e) => handleVariableChange(variable.id, parseFloat(e.target.value) || 0)}
+                        onChange={(e) => handleParametroChange(parametro.id, parseFloat(e.target.value) || 0)}
                         className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
                       />
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Resumen de Variables Calculadas Internas */}
+            {tarea.variables && tarea.variables.length > 0 && (
+              <div className="bg-surface-container-highest/60 p-3 rounded-2xl border border-emerald-500/20 space-y-1.5 mt-3">
+                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide flex items-center gap-1">
+                  <span>⚡ Cálculos Internos Derivados</span>
+                </span>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {tarea.variables.map((v) => {
+                    const val = calculosResultado.valoresVariables[v.id] ?? 0;
+                    return (
+                      <div key={v.id} className="bg-surface-container px-2.5 py-1 rounded-xl border border-outline-variant/20 flex items-center gap-1.5 text-xs">
+                        <span className="text-on-surface-variant font-medium">{v.nombre}:</span>
+                        <strong className="font-mono text-emerald-700 dark:text-emerald-300 font-bold">{val} {v.unidad}</strong>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

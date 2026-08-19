@@ -101,10 +101,10 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                       <span className="text-[11px] font-semibold text-on-tertiary-container bg-tertiary-container px-2.5 py-0.5 rounded-lg uppercase tracking-wider select-none">
                         {tarea.categoria}
                       </span>
-                      {((tarea.variables && tarea.variables.length > 0) || tarea.esParametrico) && (
+                      {((tarea.parametros && tarea.parametros.length > 0) || (tarea.variables && tarea.variables.length > 0) || tarea.esParametrico) && (
                         <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none">
                           <Sliders className="w-3 h-3" />
-                          <span>Paramétrico {tarea.variables ? `(${tarea.variables.length} var)` : ''}</span>
+                          <span>Paramétrico {tarea.parametros ? `(${tarea.parametros.length} param${tarea.variables?.length ? `, ${tarea.variables.length} var` : ''})` : ''}</span>
                         </span>
                       )}
                       {tarea.clausulaExclusiones && (

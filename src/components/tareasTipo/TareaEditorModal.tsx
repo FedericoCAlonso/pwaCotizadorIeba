@@ -14,7 +14,8 @@ import {
   X,
   Calculator,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Variable as VariableIcon
 } from 'lucide-react';
 import {
   TareaTipo,
@@ -22,7 +23,8 @@ import {
   CategoriaManoDeObra,
   InsumoEnTarea,
   ManoObraEnTarea,
-  VariableTrabajoTipo,
+  ParametroTrabajoTipo,
+  VariableCalculadaTrabajoTipo,
   OpcionVariableTrabajo,
   FiltroMaterialEnTarea
 } from '../../core/types';
@@ -46,7 +48,8 @@ export interface TareaFormData {
   clausulaExclusiones?: string;
   costoFijoOperativo?: number;
   descripcionCostoFijo?: string;
-  variables: VariableTrabajoTipo[];
+  parametros: ParametroTrabajoTipo[];
+  variables: VariableCalculadaTrabajoTipo[];
   insumos: InsumoEnTarea[];
   manoObra: ManoObraEnTarea[];
 }
@@ -87,6 +90,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
     clausulaExclusiones: '',
     costoFijoOperativo: 0,
     descripcionCostoFijo: '',
+    parametros: [],
     variables: [],
     insumos: [],
     manoObra: [],
@@ -94,7 +98,6 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
   const [isMaterialPickerOpen, setIsMaterialPickerOpen] = useState(false);
   const [isCategoryFilterModalOpen, setIsCategoryFilterModalOpen] = useState(false);
-  const [editingVarIndex, setEditingVarIndex] = useState<number | null>(null);
 
   const handleAddCategoryFilter = (payload: {
     nombreSlot: string;
@@ -118,9 +121,8 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
   useEffect(() => {
     if (editingTarea) {
-      // Si la tarea tenía variables las cargamos, o inferimos la variable básica si no las tenía
-      const vars: VariableTrabajoTipo[] = editingTarea.variables && editingTarea.variables.length > 0
-        ? editingTarea.variables.map(v => ({ ...v, opciones: v.opciones ? [...v.opciones] : undefined }))
+      const params: ParametroTrabajoTipo[] = editingTarea.parametros && editingTarea.parametros.length > 0
+        ? editingTarea.parametros.map(p => ({ ...p, opciones: p.opciones ? [...p.opciones] : undefined }))
         : [
             {
               id: 'cantidad',
@@ -131,6 +133,10 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
             }
           ];
 
+      const vars: VariableCalculadaTrabajoTipo[] = editingTarea.variables && editingTarea.variables.length > 0
+        ? editingTarea.variables.map(v => ({ ...v }))
+        : [];
+
       setFormData({
         nombre: editingTarea.nombre,
         categoria: editingTarea.categoria || categoriasList[0] || 'Bocas',
@@ -139,14 +145,15 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
         clausulaExclusiones: editingTarea.clausulaExclusiones || editingTarea.clausulaTecnicaDefault || '',
         costoFijoOperativo: editingTarea.costoFijoOperativo || 0,
         descripcionCostoFijo: editingTarea.descripcionCostoFijo || '',
+        parametros: params,
         variables: vars,
         insumos: editingTarea.insumos ? editingTarea.insumos.map((i) => ({
           ...i,
-          formula: i.formula || (vars[0] ? `${vars[0].id} * ${i.cantidad}` : String(i.cantidad))
+          formula: i.formula || (params[0] ? `${params[0].id} * ${i.cantidad}` : String(i.cantidad))
         })) : [],
         manoObra: editingTarea.manoObra ? editingTarea.manoObra.map((m) => ({
           ...m,
-          formula: m.formula || (vars[0] ? `${vars[0].id} * ${m.horas}` : String(m.horas))
+          formula: m.formula || (params[0] ? `${params[0].id} * ${m.horas}` : String(m.horas))
         })) : [],
       });
     } else if (isOpen) {
@@ -158,7 +165,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
         clausulaExclusiones: '',
         costoFijoOperativo: 0,
         descripcionCostoFijo: '',
-        variables: [
+        parametros: [
           {
             id: 'bocas',
             nombre: 'Cantidad de Bocas',
@@ -167,20 +174,27 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
             unidad: 'bocas'
           }
         ],
+        variables: [],
         insumos: [],
         manoObra: [],
       });
     }
   }, [editingTarea, isOpen, categoriasList]);
 
-  // Current scope with default values for live evaluations
+  // Scope consolidado: primero parámetros, luego variables evaluadas en cascada
   const currentScope = useMemo(() => {
     const scope: Record<string, number> = {};
+    formData.parametros.forEach(p => {
+      scope[p.id] = p.valorDefault ?? 1;
+    });
     formData.variables.forEach(v => {
-      scope[v.id] = v.valorDefault ?? 1;
+      if (v.id) {
+        const evalRes = evaluateMathExpression(v.formula || '0', scope);
+        scope[v.id] = (evalRes.isValid && evalRes.value !== null) ? evalRes.value : 0;
+      }
     });
     return scope;
-  }, [formData.variables]);
+  }, [formData.parametros, formData.variables]);
 
   // Helper calculation for live preview
   const liveEvaluation = useMemo(() => {
@@ -189,6 +203,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
       nombre: formData.nombre || 'Vista Previa',
       categoria: formData.categoria,
       unidad: formData.unidad,
+      parametros: formData.parametros,
       variables: formData.variables,
       costoFijoOperativo: formData.costoFijoOperativo,
       descripcionCostoFijo: formData.descripcionCostoFijo,
@@ -205,8 +220,8 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
     setFormData((prev) => {
       const targetId = material.id;
       const existingIdx = prev.insumos.findIndex((i) => (i.materialId || i.insumoId) === targetId);
-      const defaultVarId = prev.variables[0]?.id || 'cantidad';
-      const formulaGenerada = formula || (cantidad > 0 ? `${defaultVarId} * ${cantidad}` : `${defaultVarId} * 1`);
+      const defaultParamId = prev.parametros[0]?.id || 'cantidad';
+      const formulaGenerada = formula || (cantidad > 0 ? `${defaultParamId} * ${cantidad}` : `${defaultParamId} * 1`);
 
       if (existingIdx >= 0) {
         const next = [...prev.insumos];
@@ -237,13 +252,13 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
   const handleAddMultipleMaterialsFromPicker = (materialsWithQty: { material: Insumo; cantidad: number }[]) => {
     setFormData((prev) => {
-      const defaultVarId = prev.variables[0]?.id || 'cantidad';
+      const defaultParamId = prev.parametros[0]?.id || 'cantidad';
       const nextInsumos = [...prev.insumos];
 
       materialsWithQty.forEach(({ material, cantidad }) => {
         const targetId = material.id;
         const existingIdx = nextInsumos.findIndex((i) => (i.materialId || i.insumoId) === targetId);
-        const formulaGenerada = `${defaultVarId} * ${cantidad}`;
+        const formulaGenerada = `${defaultParamId} * ${cantidad}`;
 
         if (existingIdx >= 0) {
           nextInsumos[existingIdx] = {
@@ -283,7 +298,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
       toast.warning('Ya has asignado todas las categorías de mano de obra disponibles.');
       return;
     }
-    const defaultVarId = formData.variables[0]?.id || 'cantidad';
+    const defaultParamId = formData.parametros[0]?.id || 'cantidad';
     setFormData((prev) => ({
       ...prev,
       manoObra: [
@@ -291,7 +306,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
         {
           categoriaId: availableCat.id,
           horas: 1,
-          formula: `${defaultVarId} * 1`
+          formula: `${defaultParamId} * 1`
         }
       ]
     }));
@@ -304,16 +319,16 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
     }));
   };
 
-  // Manejo de Variables
-  const addVariable = (preset?: Partial<VariableTrabajoTipo>) => {
-    const baseId = preset?.id || `var_${formData.variables.length + 1}`;
+  // Manejo de Parámetros de Entrada
+  const addParametro = (preset?: Partial<ParametroTrabajoTipo>) => {
+    const baseId = preset?.id || `param_${formData.parametros.length + 1}`;
     let uniqueId = baseId;
     let counter = 1;
-    while (formData.variables.some(v => v.id === uniqueId)) {
+    while (formData.parametros.some(p => p.id === uniqueId) || formData.variables.some(v => v.id === uniqueId)) {
       uniqueId = `${baseId}_${counter++}`;
     }
 
-    const newVar: VariableTrabajoTipo = {
+    const newParam: ParametroTrabajoTipo = {
       id: uniqueId,
       nombre: preset?.nombre || 'Nuevo Parámetro',
       tipo: preset?.tipo || 'numero',
@@ -325,11 +340,54 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
     setFormData(prev => ({
       ...prev,
+      parametros: [...prev.parametros, newParam]
+    }));
+  };
+
+  const updateParametro = (index: number, updates: Partial<ParametroTrabajoTipo>) => {
+    setFormData(prev => {
+      const next = [...prev.parametros];
+      next[index] = { ...next[index], ...updates };
+      return { ...prev, parametros: next };
+    });
+  };
+
+  const removeParametro = (index: number) => {
+    if (formData.parametros.length <= 1) {
+      toast.warning('El trabajo tipo debe tener al menos un parámetro de entrada.');
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
+      parametros: prev.parametros.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Manejo de Variables Calculadas Internas
+  const addVariable = (preset?: Partial<VariableCalculadaTrabajoTipo>) => {
+    const baseId = preset?.id || `var_${formData.variables.length + 1}`;
+    let uniqueId = baseId;
+    let counter = 1;
+    while (formData.variables.some(v => v.id === uniqueId) || formData.parametros.some(p => p.id === uniqueId)) {
+      uniqueId = `${baseId}_${counter++}`;
+    }
+
+    const defaultParamId = formData.parametros[0]?.id || 'cantidad';
+    const newVar: VariableCalculadaTrabajoTipo = {
+      id: uniqueId,
+      nombre: preset?.nombre || 'Nueva Variable Calculada',
+      formula: preset?.formula || `${defaultParamId} * 1`,
+      unidad: preset?.unidad || '',
+      descripcion: preset?.descripcion || ''
+    };
+
+    setFormData(prev => ({
+      ...prev,
       variables: [...prev.variables, newVar]
     }));
   };
 
-  const updateVariable = (index: number, updates: Partial<VariableTrabajoTipo>) => {
+  const updateVariable = (index: number, updates: Partial<VariableCalculadaTrabajoTipo>) => {
     setFormData(prev => {
       const next = [...prev.variables];
       next[index] = { ...next[index], ...updates };
@@ -338,10 +396,6 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
   };
 
   const removeVariable = (index: number) => {
-    if (formData.variables.length <= 1) {
-      toast.warning('El trabajo tipo debe tener al menos una variable o parámetro.');
-      return;
-    }
     setFormData(prev => ({
       ...prev,
       variables: prev.variables.filter((_, i) => i !== index)
@@ -355,8 +409,8 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
       toast.error('El nombre de la tarea es obligatorio');
       return;
     }
-    if (formData.variables.length === 0) {
-      toast.error('Debes definir al menos una variable para el trabajo tipo.');
+    if (formData.parametros.length === 0) {
+      toast.error('Debes definir al menos un parámetro de entrada para el trabajo tipo.');
       return;
     }
 
@@ -428,44 +482,70 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
             </div>
           </div>
 
-          {/* 2. Parámetros / Variables de Entrada */}
+          {/* 2. Parámetros de Entrada (Inputs del Usuario) */}
           <div className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/25 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
                   <Sliders className="w-4 h-4" />
-                  <span>2. Parámetros & Variables de Entrada del Trabajo</span>
+                  <span>2. Parámetros de Entrada (Inputs del Usuario al Cotizar)</span>
                 </h4>
                 <p className="text-[11px] text-on-surface-variant">
-                  Define las variables que se ingresarán al cotizar. Las usarás por su nombre (<code className="font-mono text-primary font-bold">bocas</code>, <code className="font-mono text-primary font-bold">k_estado</code>, etc.) en las fórmulas de abajo.
+                  Define los datos que se le solicitarán al usuario al cotizar en el presupuesto. Las usarás por su nombre (<code className="font-mono text-primary font-bold">bocas</code>, <code className="font-mono text-primary font-bold">circuitos</code>, etc.) en las fórmulas.
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => addVariable()}
+                  onClick={() => addParametro()}
                   className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs rounded-xl transition flex items-center gap-1"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>+ Agregar Variable</span>
+                  <span>+ Agregar Parámetro</span>
                 </button>
               </div>
             </div>
 
-            {/* Presets Rápidos de Variables */}
+            {/* Presets Rápidos de Parámetros */}
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
               <span className="text-[10px] text-on-surface-variant font-semibold">Presets rápidos:</span>
               <button
                 type="button"
-                onClick={() => addVariable({ id: 'sup_m2', nombre: 'Superficie (m²)', tipo: 'numero', valorDefault: 70, unidad: 'm²' })}
+                onClick={() => addParametro({ id: 'sup_m2', nombre: 'Superficie (m²)', tipo: 'numero', valorDefault: 70, unidad: 'm²' })}
                 className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
               >
                 + Superficie (m²)
               </button>
               <button
                 type="button"
-                onClick={() => addVariable({
+                onClick={() => addParametro({ id: 'circuitos', nombre: 'Cantidad de Circuitos', tipo: 'numero', valorDefault: 4, unidad: 'circuitos' })}
+                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
+              >
+                + Cantidad Circuitos
+              </button>
+              <button
+                type="button"
+                onClick={() => addParametro({
+                  id: 'calibre_principal',
+                  nombre: 'Térmica Cabecera (A)',
+                  tipo: 'select',
+                  valorDefault: 32,
+                  opciones: [
+                    { id: 'opt-25', label: '25 A (Curva C)', valor: 25 },
+                    { id: 'opt-32', label: '32 A (Curva C)', valor: 32 },
+                    { id: 'opt-40', label: '40 A (Curva C)', valor: 40 },
+                    { id: 'opt-50', label: '50 A (Curva C)', valor: 50 },
+                    { id: 'opt-63', label: '63 A (Curva C)', valor: 63 }
+                  ]
+                })}
+                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
+              >
+                + Térmica Cabecera
+              </button>
+              <button
+                type="button"
+                onClick={() => addParametro({
                   id: 'k_estado',
                   nombre: 'Antigüedad / Estado',
                   tipo: 'select',
@@ -482,14 +562,15 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => addVariable({
+                onClick={() => addParametro({
                   id: 'k_altura',
                   nombre: 'Altura de Trabajo',
                   tipo: 'select',
                   valorDefault: 1.0,
                   opciones: [
                     { id: 'opt-h1', label: 'Estándar <2.8m (1.00x)', valor: 1.0 },
-                    { id: 'opt-h2', label: 'Doble Altura (1.25x)', valor: 1.25 }
+                    { id: 'opt-h2', label: 'Doble Altura (1.25x)', valor: 1.25 },
+                    { id: 'opt-h3', label: 'Gran Altura (1.50x)', valor: 1.5 }
                   ]
                 })}
                 className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
@@ -498,16 +579,16 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => addVariable({ id: 'desarmes', nombre: 'Ventiladores/Apliques a Desarmar', tipo: 'numero', valorDefault: 0, unidad: 'artefactos' })}
+                onClick={() => addParametro({ id: 'desarmes', nombre: 'Ventiladores/Apliques a Desarmar', tipo: 'numero', valorDefault: 0, unidad: 'artefactos' })}
                 className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
               >
                 + Desarmes Especiales
               </button>
             </div>
 
-            {/* Listado de Variables */}
+            {/* Listado de Parámetros */}
             <div className="space-y-3">
-              {formData.variables.map((variable, idx) => (
+              {formData.parametros.map((parametro, idx) => (
                 <div
                   key={idx}
                   className="p-3 bg-surface-container-highest/60 border border-outline-variant/25 rounded-2xl space-y-2.5"
@@ -515,15 +596,15 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
                     <div className="sm:col-span-3">
                       <label className="text-[10px] font-bold text-on-surface-variant block uppercase">
-                        Identificador en Fórmula
+                        Identificador
                       </label>
                       <div className="flex items-center gap-1">
                         <code className="text-xs font-mono font-bold text-primary">$</code>
                         <input
                           type="text"
                           required
-                          value={variable.id}
-                          onChange={(e) => updateVariable(idx, { id: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
+                          value={parametro.id}
+                          onChange={(e) => updateParametro(idx, { id: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
                           className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-primary focus:outline-none"
                           placeholder="ej: bocas, sup, k_estado"
                         />
@@ -537,8 +618,8 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                       <input
                         type="text"
                         required
-                        value={variable.nombre}
-                        onChange={(e) => updateVariable(idx, { nombre: e.target.value })}
+                        value={parametro.nombre}
+                        onChange={(e) => updateParametro(idx, { nombre: e.target.value })}
                         className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs text-on-surface focus:outline-none"
                         placeholder="ej: Cantidad de Bocas"
                       />
@@ -549,15 +630,15 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                         Tipo
                       </label>
                       <select
-                        value={variable.tipo}
-                        onChange={(e) => updateVariable(idx, {
+                        value={parametro.tipo}
+                        onChange={(e) => updateParametro(idx, {
                           tipo: e.target.value as any,
-                          opciones: e.target.value === 'select' && (!variable.opciones || variable.opciones.length === 0)
+                          opciones: e.target.value === 'select' && (!parametro.opciones || parametro.opciones.length === 0)
                             ? [
                                 { id: 'opt-1', label: 'Estándar (1.00x)', valor: 1.0 },
                                 { id: 'opt-2', label: 'Complejo (1.25x)', valor: 1.25 }
                               ]
-                            : variable.opciones
+                            : parametro.opciones
                         })}
                         className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2 py-1 text-xs text-on-surface focus:outline-none"
                       >
@@ -574,8 +655,8 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                       <input
                         type="number"
                         step="any"
-                        value={variable.valorDefault}
-                        onChange={(e) => updateVariable(idx, { valorDefault: parseFloat(e.target.value) || 0 })}
+                        value={parametro.valorDefault}
+                        onChange={(e) => updateParametro(idx, { valorDefault: parseFloat(e.target.value) || 0 })}
                         className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-on-surface focus:outline-none"
                       />
                     </div>
@@ -583,9 +664,9 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                     <div className="sm:col-span-1 flex justify-end">
                       <button
                         type="button"
-                        onClick={() => removeVariable(idx)}
+                        onClick={() => removeParametro(idx)}
                         className="p-2 text-on-surface-variant hover:text-error rounded-xl transition"
-                        title="Eliminar variable"
+                        title="Eliminar parámetro"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -593,17 +674,17 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   </div>
 
                   {/* Editor de Opciones si es Selector */}
-                  {variable.tipo === 'select' && (
+                  {parametro.tipo === 'select' && (
                     <div className="p-2.5 bg-surface-container rounded-xl border border-outline-variant/20 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold text-on-surface-variant uppercase">
-                          Opciones y Multiplicadores de "{variable.nombre}":
+                          Opciones y Multiplicadores de "{parametro.nombre}":
                         </span>
                         <button
                           type="button"
                           onClick={() => {
-                            const current = variable.opciones || [];
-                            updateVariable(idx, {
+                            const current = parametro.opciones || [];
+                            updateParametro(idx, {
                               opciones: [
                                 ...current,
                                 { id: `opt-${current.length + 1}`, label: `Opción ${current.length + 1}`, valor: 1.0 }
@@ -617,15 +698,15 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {(variable.opciones || []).map((opc, opcIdx) => (
+                        {(parametro.opciones || []).map((opc, opcIdx) => (
                           <div key={opcIdx} className="flex items-center gap-1 bg-surface-container-highest p-1.5 rounded-lg border border-outline-variant/20">
                             <input
                               type="text"
                               value={opc.label}
                               onChange={(e) => {
-                                const nextOpc = [...(variable.opciones || [])];
+                                const nextOpc = [...(parametro.opciones || [])];
                                 nextOpc[opcIdx] = { ...nextOpc[opcIdx], label: e.target.value };
-                                updateVariable(idx, { opciones: nextOpc });
+                                updateParametro(idx, { opciones: nextOpc });
                               }}
                               className="w-full bg-transparent text-xs text-on-surface focus:outline-none"
                               placeholder="Etiqueta"
@@ -635,9 +716,9 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                               step="0.05"
                               value={opc.valor}
                               onChange={(e) => {
-                                const nextOpc = [...(variable.opciones || [])];
+                                const nextOpc = [...(parametro.opciones || [])];
                                 nextOpc[opcIdx] = { ...nextOpc[opcIdx], valor: parseFloat(e.target.value) || 0 };
-                                updateVariable(idx, { opciones: nextOpc });
+                                updateParametro(idx, { opciones: nextOpc });
                               }}
                               className="w-16 bg-surface-container text-xs font-mono font-bold text-primary text-center rounded px-1 py-0.5 focus:outline-none"
                               title="Multiplicador numérico"
@@ -645,8 +726,8 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                             <button
                               type="button"
                               onClick={() => {
-                                const nextOpc = (variable.opciones || []).filter((_, i) => i !== opcIdx);
-                                updateVariable(idx, { opciones: nextOpc });
+                                const nextOpc = (parametro.opciones || []).filter((_, i) => i !== opcIdx);
+                                updateParametro(idx, { opciones: nextOpc });
                               }}
                               className="text-on-surface-variant hover:text-error p-1"
                             >
@@ -662,16 +743,174 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
             </div>
           </div>
 
-          {/* 3. Despiece de Insumos & Materiales con Fórmulas */}
+          {/* 3. Variables de Cálculo Interno (Fórmulas Matemáticas) */}
+          <div className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/25 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <VariableIcon className="w-4 h-4" />
+                  <span>3. Variables de Cálculo Interno (Fórmulas Matemáticas)</span>
+                </h4>
+                <p className="text-[11px] text-on-surface-variant">
+                  Cálculos intermedios automáticos basados en parámetros y variables anteriores. No se le piden al usuario al cotizar.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => addVariable()}
+                  className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold text-xs rounded-xl transition flex items-center gap-1 border border-emerald-500/25"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Agregar Variable</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Presets Rápidos de Variables Calculadas */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[10px] text-on-surface-variant font-semibold">Presets de cálculo:</span>
+              <button
+                type="button"
+                onClick={() => addVariable({ id: 'modulos_totales', nombre: 'Módulos DIN Totales', formula: '4 + circuitos * 2', unidad: 'módulos', descripcion: 'Reserva de 4 módulos + 2 por cada circuito' })}
+                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
+              >
+                + Módulos Tablero (4 + circuitos * 2)
+              </button>
+              <button
+                type="button"
+                onClick={() => addVariable({ id: 'metros_cable', nombre: 'Metros Cable por Conductor', formula: 'bocas * 12 * 1.10', unidad: 'm', descripcion: '12m por boca + 10% desperdicio' })}
+                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
+              >
+                + Metros Cable (bocas * 12 * 1.10)
+              </button>
+              <button
+                type="button"
+                onClick={() => addVariable({ id: 'metros_canieria', nombre: 'Metros de Cañería', formula: 'bocas * 4.0', unidad: 'm', descripcion: '4m de cañería por boca promedio' })}
+                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
+              >
+                + Metros Cañería (bocas * 4)
+              </button>
+              <button
+                type="button"
+                onClick={() => addVariable({ id: 'k_complejidad', nombre: 'Factor Complejidad MO', formula: 'k_estado * k_altura', unidad: 'x', descripcion: 'Multiplicador combinado de mano de obra' })}
+                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
+              >
+                + Multiplicador Complejidad (k_estado * k_altura)
+              </button>
+            </div>
+
+            {/* Listado de Variables Calculadas */}
+            {formData.variables.length === 0 ? (
+              <div className="p-3 bg-surface-container-highest/30 border border-dashed border-outline-variant/30 rounded-2xl text-center">
+                <p className="text-[11px] text-on-surface-variant">
+                  No hay variables calculadas definidas. Puedes agregar fórmulas matemáticas para evitar repetir cálculos en los materiales o mano de obra.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {formData.variables.map((variable, idx) => {
+                  const evalRes = evaluateMathExpression(variable.formula, currentScope);
+                  const valCalc = evalRes.isValid && evalRes.value !== null ? evalRes.value : 0;
+
+                  return (
+                    <div
+                      key={idx}
+                      className="p-3 bg-surface-container-highest/60 border border-emerald-500/20 rounded-2xl space-y-2"
+                    >
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
+                        <div className="sm:col-span-3">
+                          <label className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 block uppercase">
+                            Identificador
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <code className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300">⚡$</code>
+                            <input
+                              type="text"
+                              required
+                              value={variable.id}
+                              onChange={(e) => updateVariable(idx, { id: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
+                              className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 focus:outline-none"
+                              placeholder="ej: modulos_totales, metros_cable"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="sm:col-span-3">
+                          <label className="text-[10px] font-bold text-on-surface-variant block uppercase">
+                            Nombre Descriptivo
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={variable.nombre}
+                            onChange={(e) => updateVariable(idx, { nombre: e.target.value })}
+                            className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs text-on-surface focus:outline-none"
+                            placeholder="ej: Módulos DIN Requeridos"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-4">
+                          <label className="text-[10px] font-bold text-on-surface-variant block uppercase">
+                            Fórmula Matemática
+                          </label>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              required
+                              value={variable.formula}
+                              onChange={(e) => updateVariable(idx, { formula: e.target.value })}
+                              className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-primary focus:outline-none"
+                              placeholder="ej: 4 + circuitos * 2"
+                            />
+                            <span className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-lg shrink-0" title="Resultado evaluado con defaults">
+                              = {valCalc} {variable.unidad}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="sm:col-span-1">
+                          <label className="text-[10px] font-bold text-on-surface-variant block uppercase">
+                            Unidad
+                          </label>
+                          <input
+                            type="text"
+                            value={variable.unidad || ''}
+                            onChange={(e) => updateVariable(idx, { unidad: e.target.value })}
+                            className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2 py-1 text-xs font-mono text-center text-on-surface focus:outline-none"
+                            placeholder="m, u, hs"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-1 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => removeVariable(idx)}
+                            className="p-2 text-on-surface-variant hover:text-error rounded-xl transition"
+                            title="Eliminar variable calculada"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 4. Despiece de Insumos & Materiales con Fórmulas */}
           <div className="space-y-3 border-t border-outline-variant/30 pt-4">
             <div className="flex justify-between items-center flex-wrap gap-2">
               <div>
                 <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
                   <Package className="w-4 h-4" />
-                  <span>3. Despiece de Insumos & Materiales (con Fórmulas)</span>
+                  <span>4. Despiece de Insumos & Materiales (con Fórmulas)</span>
                 </h4>
                 <p className="text-[11px] text-on-surface-variant">
-                  Agrega materiales directos del catálogo o ranuras dinámicas que seleccionen automáticamente por categoría y calibre.
+                  Agrega materiales directos del catálogo o ranuras dinámicas que seleccionen automáticamente por categoría y parámetros.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -688,13 +927,30 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   type="button"
                   onClick={() => setIsCategoryFilterModalOpen(true)}
                   className="px-3.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs rounded-xl transition flex items-center gap-1.5 border border-primary/25 shadow-2xs"
-                  title="Definir una ranura que elija materiales según categoría y variables de cálculo"
+                  title="Definir una ranura que elija materiales según categoría y parámetros/variables"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>+ Agregar por Categoría</span>
                 </button>
               </div>
             </div>
+
+            {/* Chips de variables disponibles para fórmulas */}
+            {(formData.parametros.length > 0 || formData.variables.length > 0) && (
+              <div className="flex flex-wrap items-center gap-1 px-1 text-[11px] text-on-surface-variant">
+                <span className="font-semibold text-[10px] uppercase">Variables disponibles:</span>
+                {formData.parametros.map((p) => (
+                  <span key={p.id} className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                    ${p.id}
+                  </span>
+                ))}
+                {formData.variables.map((v) => (
+                  <span key={v.id} className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                    ⚡${v.id}
+                  </span>
+                ))}
+              </div>
+            )}
 
             <div className="space-y-2">
               {formData.insumos.length === 0 ? (
@@ -767,7 +1023,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                               </span>
                             ) : null}
                             <h5 className="text-xs font-bold text-on-surface truncate">
-                              {selectedMat?.nombre || (isDynamic || isCategoryFilter ? '(Sin coincidencia para variables)' : resolvedId)}
+                              {selectedMat?.nombre || (isDynamic || isCategoryFilter ? '(Sin coincidencia para parámetros)' : resolvedId)}
                             </h5>
                           </div>
                           <div className="text-[11px] text-on-surface-variant font-mono flex items-center gap-2">
@@ -849,7 +1105,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                                 setFormData({ ...formData, insumos: next });
                               }}
                               className="w-44 sm:w-60 bg-transparent font-mono text-xs text-on-surface focus:outline-none placeholder:text-on-surface-variant/40"
-                              placeholder="Siempre (o ej: calibre <= 25)"
+                              placeholder="Siempre (o ej: calibre_principal <= 25)"
                             />
                           </div>
                         )}
@@ -859,7 +1115,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                               ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                               : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
                           }`}>
-                            {isConditionMet ? '✓ Incluido' : '⚡ Omitido según variables'}
+                            {isConditionMet ? '✓ Incluido' : '⚡ Omitido según parámetros'}
                           </span>
                         )}
                       </div>
@@ -870,16 +1126,16 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
             </div>
           </div>
 
-          {/* 4. Mano de Obra con Fórmulas */}
+          {/* 5. Mano de Obra con Fórmulas */}
           <div className="space-y-3 border-t border-outline-variant/30 pt-4">
             <div className="flex justify-between items-center">
               <div>
                 <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
                   <Clock className="w-4 h-4" />
-                  <span>4. Horas de Mano de Obra (con Fórmulas)</span>
+                  <span>5. Horas de Mano de Obra (con Fórmulas)</span>
                 </h4>
                 <p className="text-[11px] text-on-surface-variant">
-                  Escribe la fórmula de horas (ej: <code className="font-mono text-primary font-bold">(bocas * 1.5) * k_estado * k_altura</code>).
+                  Escribe la fórmula de horas (ej: <code className="font-mono text-primary font-bold">horas_oficial</code> o <code className="font-mono text-primary font-bold">(bocas * 1.5) * k_complejidad</code>).
                 </p>
               </div>
               <button
@@ -968,7 +1224,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                                 setFormData({ ...formData, manoObra: next });
                               }}
                               className="w-36 sm:w-48 bg-transparent font-mono text-xs font-bold text-primary focus:outline-none"
-                              placeholder="ej: 1.0 + (bocas * 1.5)"
+                              placeholder="ej: horas_oficial o 1.0 + bocas * 1.5"
                             />
                             <span className="text-xs font-mono font-bold text-on-surface bg-surface-container px-2 py-0.5 rounded-md">
                               = {horasEvaluadas} hs
@@ -1008,7 +1264,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                               ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                               : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
                           }`}>
-                            {isConditionMet ? '✓ Incluido' : '⚡ Omitido según variables'}
+                            {isConditionMet ? '✓ Incluido' : '⚡ Omitido según parámetros'}
                           </span>
                         )}
                       </div>
@@ -1019,12 +1275,12 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
             </div>
           </div>
 
-          {/* 5. Cláusula Técnica & Exclusiones de Obra */}
+          {/* 6. Cláusula Técnica & Exclusiones de Obra */}
           <div className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/25 space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-on-surface uppercase tracking-wide flex items-center gap-1.5">
                 <ShieldAlert className="w-4 h-4 text-amber-500" />
-                <span>5. Cláusula Técnica & Exclusiones de Obra (Sugerida para Presupuestos)</span>
+                <span>6. Cláusula Técnica & Exclusiones de Obra (Sugerida para Presupuestos)</span>
               </label>
               {!formData.clausulaExclusiones && (
                 <button
@@ -1103,6 +1359,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
       <CategoryFilterMaterialModal
         isOpen={isCategoryFilterModalOpen}
         onClose={() => setIsCategoryFilterModalOpen(false)}
+        parametros={formData.parametros}
         variables={formData.variables}
         currentScope={currentScope}
         insumosMap={insumosMap}

@@ -180,7 +180,7 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      {(tarea.variables && tarea.variables.length > 0) || tarea.esParametrico ? (
+                      {(tarea.parametros && tarea.parametros.length > 0) || (tarea.variables && tarea.variables.length > 0) || tarea.esParametrico ? (
                         <button
                           type="button"
                           onClick={(e) => {

@@ -1082,36 +1082,40 @@ describe('Cómputo Métrico Paramétrico de Materiales (Superficie, Trazado, Err
 });
 
 describe('Motor Universal de Fórmulas y Variables para Trabajos Tipo', () => {
-  it('evalúa dinámicamente insumos y mano de obra a partir de las variables de entrada', () => {
+  it('evalúa dinámicamente insumos y mano de obra a partir de los parámetros y variables calculadas', () => {
     const tareaDinamica: TareaTipo = {
       id: 'tt-dinamica-recableado',
       nombre: 'Recableado Personalizado',
       categoria: 'Bocas',
       unidad: 'boca',
       clausulaExclusiones: 'No incluye apertura de losas.',
-      variables: [
+      parametros: [
         { id: 'bocas', nombre: 'Bocas', tipo: 'numero', valorDefault: 10 },
         { id: 'k_estado', nombre: 'Estado', tipo: 'select', valorDefault: 1.6 },
         { id: 'k_altura', nombre: 'Altura', tipo: 'select', valorDefault: 1.0 },
         { id: 'desarmes', nombre: 'Desarmes', tipo: 'numero', valorDefault: 2 }
       ],
+      variables: [
+        { id: 'metros_cable', nombre: 'Metros de Cable', formula: 'bocas * 12 * 1.10' },
+        { id: 'k_complejidad', nombre: 'Complejidad MO', formula: 'k_estado * k_altura' }
+      ],
       insumos: [
         {
           materialId: 'mat-cable-25-marron',
           cantidad: 12,
-          formula: 'bocas * 12 * 1.10'
+          formula: 'metros_cable'
         }
       ],
       manoObra: [
         {
           categoriaId: 'mo-oficial',
           horas: 1.5,
-          formula: '(bocas * 1.5) * k_estado * k_altura + (desarmes * 1.5)'
+          formula: '(bocas * 1.5) * k_complejidad + (desarmes * 1.5)'
         },
         {
           categoriaId: 'mo-ayudante',
           horas: 0.8,
-          formula: '(bocas * 0.8) * k_estado * k_altura'
+          formula: '(bocas * 0.8) * k_complejidad'
         }
       ]
     };
@@ -1167,6 +1171,11 @@ describe('Motor Universal de Fórmulas y Variables para Trabajos Tipo', () => {
       { tipoFactura: 'Factura A' }
     );
 
+    // Parámetros y variables evaluadas
+    expect(resultado.valoresParametros['bocas']).toBe(10);
+    expect(resultado.valoresVariables['metros_cable']).toBe(132);
+    expect(resultado.valoresVariables['k_complejidad']).toBe(1.6);
+
     // Insumos: 10 * 12 * 1.10 = 132 m de cable a $800 = $105.600
     expect(resultado.insumosSnapshot[0].cantidadTotal).toBe(132);
     expect(resultado.costoInsumosTotal).toBe(105600);
@@ -1191,7 +1200,7 @@ describe('Motor Universal de Fórmulas y Variables para Trabajos Tipo', () => {
       nombre: 'Instalación con Setup Calculado',
       categoria: 'Bocas',
       unidad: 'boca',
-      variables: [
+      parametros: [
         { id: 'bocas', nombre: 'Bocas', tipo: 'numero', valorDefault: 2 },
         { id: 'visitas', nombre: 'Visitas a Obra', tipo: 'numero', valorDefault: 1 }
       ],
@@ -1294,7 +1303,7 @@ describe('Motor Universal de Fórmulas y Variables para Trabajos Tipo', () => {
       nombre: 'Tablero Seccional',
       categoria: 'Tableros',
       unidad: 'tablero',
-      variables: [
+      parametros: [
         { id: 'calibre_principal', nombre: 'Calibre', tipo: 'select', valorDefault: 25 },
         { id: 'requiere_certificacion', nombre: 'Certificado', tipo: 'boolean', valorDefault: 0 }
       ],
@@ -1347,7 +1356,7 @@ describe('Motor Universal de Fórmulas y Variables para Trabajos Tipo', () => {
       nombre: 'Tablero Monofásico',
       categoria: 'Tableros',
       unidad: 'tablero',
-      variables: [
+      parametros: [
         { id: 'circuitos', nombre: 'Circuitos', tipo: 'numero', valorDefault: 4 },
         { id: 'calibre_principal', nombre: 'Térmica Cabecera', tipo: 'select', valorDefault: 32 },
         { id: 'requiere_certificacion', nombre: 'Certificación', tipo: 'boolean', valorDefault: 0 }

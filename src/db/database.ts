@@ -407,17 +407,17 @@ export async function initializeDatabaseSeed(): Promise<void> {
           await db.tareasTipo.put(tt);
         }
       } else {
-        // Eliminar tarea antigua 'tt-tablero-seccional-8m' si existía y asegurar la nueva 'tt-tablero-seccional-monofasico'
+        // Asegurar que las tareas tipo iniciales tengan la estructura actualizada de parametros y variables
+        for (const tt of INITIAL_TAREAS_TIPO) {
+          const existing = await db.tareasTipo.get(tt.id);
+          if (!existing || !existing.parametros || (tt.variables && !existing.variables)) {
+            await db.tareasTipo.put(tt);
+          }
+        }
+        // Eliminar tarea antigua 'tt-tablero-seccional-8m' si existía
         const oldTablero = await db.tareasTipo.get('tt-tablero-seccional-8m');
         if (oldTablero) {
           await db.tareasTipo.delete('tt-tablero-seccional-8m');
-        }
-        const newTablero = INITIAL_TAREAS_TIPO.find(t => t.id === 'tt-tablero-seccional-monofasico');
-        if (newTablero) {
-          const existingNew = await db.tareasTipo.get(newTablero.id);
-          if (!existingNew || !existingNew.insumos?.some(i => i.filtroMaterial)) {
-            await db.tareasTipo.put(newTablero);
-          }
         }
       }
 

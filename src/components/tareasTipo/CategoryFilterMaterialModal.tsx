@@ -17,7 +17,8 @@ import { db } from '../../db/database';
 import {
   Insumo,
   CategoriaMaterial,
-  VariableTrabajoTipo,
+  ParametroTrabajoTipo,
+  VariableCalculadaTrabajoTipo,
   FiltroMaterialEnTarea,
   CriterioAtributoMaterial
 } from '../../core/types';
@@ -28,7 +29,8 @@ import { useToast } from '../../contexts/ToastContext';
 interface CategoryFilterMaterialModalProps {
   isOpen: boolean;
   onClose: () => void;
-  variables: VariableTrabajoTipo[];
+  parametros?: ParametroTrabajoTipo[];
+  variables?: VariableCalculadaTrabajoTipo[];
   currentScope: Record<string, number>;
   insumosMap: Map<string, Insumo>;
   onAddCategoryFilter: (payload: {
@@ -42,7 +44,8 @@ interface CategoryFilterMaterialModalProps {
 export const CategoryFilterMaterialModal: React.FC<CategoryFilterMaterialModalProps> = ({
   isOpen,
   onClose,
-  variables,
+  parametros = [],
+  variables = [],
   currentScope,
   insumosMap,
   onAddCategoryFilter
@@ -93,24 +96,28 @@ export const CategoryFilterMaterialModal: React.FC<CategoryFilterMaterialModalPr
     setNombreSlot(cat.nombre);
 
     if (catId === 'cat-termomagneticas') {
+      const hasCalibre = parametros.some((p) => p.id.includes('calibre')) || variables.some((v) => v.id.includes('calibre'));
       setCriterios([
         { atributo: 'polos', operador: '==', valor: '2' },
-        { atributo: 'In', operador: '==', valor: variables.some((v) => v.id.includes('calibre')) ? '$calibre_principal' : '25' },
+        { atributo: 'In', operador: '==', valor: hasCalibre ? '$calibre_principal' : '25' },
         { atributo: 'curva', operador: '==', valor: 'Curva C' }
       ]);
       setAtributoOrden('In');
       setEstrategia('menor_valor_que_cumpla');
     } else if (catId === 'cat-diferenciales') {
+      const hasCalibre = parametros.some((p) => p.id.includes('calibre')) || variables.some((v) => v.id.includes('calibre'));
       setCriterios([
         { atributo: 'polos', operador: '==', valor: '2' },
-        { atributo: 'In', operador: '>=', valor: variables.some((v) => v.id.includes('calibre')) ? '$calibre_principal' : '25' }
+        { atributo: 'In', operador: '>=', valor: hasCalibre ? '$calibre_principal' : '25' }
       ]);
       setAtributoOrden('In');
       setEstrategia('menor_valor_que_cumpla');
     } else if (catId === 'cat-tableros') {
+      const hasModulosVar = variables.find((v) => v.id.includes('modulos'))?.id;
+      const valModulos = hasModulosVar ? `$${hasModulosVar}` : (parametros.some((p) => p.id.includes('circuitos')) ? '4 + circuitos * 2' : '8');
       setCriterios([
         { atributo: 'tipo_instalacion', operador: '==', valor: 'Embutir' },
-        { atributo: 'capacidad_modulos', operador: '>=', valor: '4 + circuitos * 2' }
+        { atributo: 'capacidad_modulos', operador: '>=', valor: valModulos }
       ]);
       setAtributoOrden('capacidad_modulos');
       setEstrategia('menor_valor_que_cumpla');
@@ -331,18 +338,29 @@ export const CategoryFilterMaterialModal: React.FC<CategoryFilterMaterialModalPr
                       />
                     </div>
 
-                    {/* Variables rápidas sugeridas */}
-                    {variables.length > 0 && (
-                      <div className="flex items-center gap-1 shrink-0">
+                    {/* Parámetros y Variables sugeridos */}
+                    {(parametros.length > 0 || variables.length > 0) && (
+                      <div className="flex flex-wrap items-center gap-1 shrink-0">
+                        {parametros.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => handleUpdateCriterio(idx, { valor: `$${p.id}` })}
+                            className="px-1.5 py-0.5 bg-primary/10 hover:bg-primary/20 text-[10px] font-mono font-bold text-primary rounded-md border border-primary/20 transition"
+                            title={`Parámetro: $${p.id} (${p.nombre})`}
+                          >
+                            ${p.id}
+                          </button>
+                        ))}
                         {variables.map((v) => (
                           <button
                             key={v.id}
                             type="button"
                             onClick={() => handleUpdateCriterio(idx, { valor: `$${v.id}` })}
-                            className="px-1.5 py-0.5 bg-primary/10 hover:bg-primary/20 text-[10px] font-mono font-bold text-primary rounded-md border border-primary/20 transition"
-                            title={`Usar variable $${v.id}`}
+                            className="px-1.5 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300 rounded-md border border-emerald-500/20 transition"
+                            title={`Variable calculada: $${v.id} (${v.nombre})`}
                           >
-                            ${v.id}
+                            ⚡${v.id}
                           </button>
                         ))}
                       </div>
