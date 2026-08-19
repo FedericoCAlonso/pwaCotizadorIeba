@@ -228,40 +228,52 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
       }
     ],
     insumos: [
-      // Slot 1: Gabinete DIN modular según cantidad de circuitos
+      // 1. Gabinete DIN según cantidad de módulos
       {
         nombreSlot: 'Gabinete DIN Embutir',
         cantidad: 1,
-        reglasDinamicas: [
-          { condicion: 'circuitos <= 2', materialId: 'mat-tablero-din-8-emb', descripcion: 'Gabinete DIN 8 Módulos' },
-          { condicion: 'circuitos > 2 && circuitos <= 4', materialId: 'mat-tablero-din-12-emb', descripcion: 'Gabinete DIN 12 Módulos' },
-          { condicion: 'circuitos > 4 && circuitos <= 7', materialId: 'mat-tablero-din-18-emb', descripcion: 'Gabinete DIN 18 Módulos' },
-          { condicion: 'circuitos > 7', materialId: 'mat-tablero-din-24-emb', descripcion: 'Gabinete DIN 24 Módulos' }
-        ]
+        filtroMaterial: {
+          categoriaId: 'cat-tableros',
+          etiqueta: 'Gabinete DIN para Tablero',
+          criterios: [
+            { atributo: 'tipo_tablero', operador: '==', valor: 'Gabinete DIN' },
+            { atributo: 'tipo_instalacion', operador: '==', valor: 'Embutir' },
+            { atributo: 'capacidad_modulos', operador: '>=', valor: '4 + circuitos * 2' }
+          ],
+          estrategiaSeleccion: 'menor_valor_que_cumpla',
+          atributoOrden: 'capacidad_modulos'
+        }
       },
-      // Slot 2: Interruptor Termomagnético General de Cabecera
+      // 2. Interruptor Termomagnético General de Cabecera
       {
         nombreSlot: 'Interruptor Termomagnético General',
         cantidad: 1,
-        reglasDinamicas: [
-          { condicion: 'calibre_principal == 25', materialId: 'mat-pia-2x25', descripcion: 'Térmica 2x25A' },
-          { condicion: 'calibre_principal == 32', materialId: 'mat-pia-2x32', descripcion: 'Térmica 2x32A' },
-          { condicion: 'calibre_principal == 40', materialId: 'mat-pia-2x40', descripcion: 'Térmica 2x40A' },
-          { condicion: 'calibre_principal == 50', materialId: 'mat-pia-2x50', descripcion: 'Térmica 2x50A' },
-          { condicion: 'calibre_principal == 63', materialId: 'mat-pia-2x63', descripcion: 'Térmica 2x63A' }
-        ]
+        filtroMaterial: {
+          categoriaId: 'cat-termomagneticas',
+          etiqueta: 'Térmica de Cabecera 2P',
+          criterios: [
+            { atributo: 'polos', operador: '==', valor: '2' },
+            { atributo: 'In', operador: '==', valor: '$calibre_principal' },
+            { atributo: 'curva', operador: '==', valor: 'Curva C' }
+          ]
+        }
       },
-      // Slot 3: Interruptor Diferencial Coordinado (según AEA 90364: In_ID >= In_TM)
+      // 3. Interruptor Diferencial Coordinado
       {
         nombreSlot: 'Interruptor Diferencial Coordinado',
         cantidad: 1,
-        reglasDinamicas: [
-          { condicion: 'calibre_principal <= 25', materialId: 'mat-dif-2x25-30ma', descripcion: 'Diferencial 2x25A 30mA' },
-          { condicion: 'calibre_principal > 25 && calibre_principal <= 40', materialId: 'mat-dif-2x40-30ma', descripcion: 'Diferencial 2x40A 30mA' },
-          { condicion: 'calibre_principal > 40', materialId: 'mat-dif-2x63-30ma', descripcion: 'Diferencial 2x63A 30mA' }
-        ]
+        filtroMaterial: {
+          categoriaId: 'cat-diferenciales',
+          etiqueta: 'Diferencial Coordinado 2P 30mA',
+          criterios: [
+            { atributo: 'polos', operador: '==', valor: '2' },
+            { atributo: 'In', operador: '>=', valor: '$calibre_principal' }
+          ],
+          estrategiaSeleccion: 'menor_valor_que_cumpla',
+          atributoOrden: 'In'
+        }
       },
-      // Insumo 4: Térmicas Bipolares para Circuitos Derivados (Curva C 16A)
+      // 4. Térmicas Bipolares para Circuitos Derivados (Curva C 16A)
       {
         materialId: 'mat-pia-2x16',
         cantidad: 1,

@@ -322,6 +322,20 @@ export interface CostoIndirecto {
 }
 
 // ─── 8. Tareas Tipo y Servicios Tercerizados ──────────────────────────────────
+export interface CriterioAtributoMaterial {
+  atributo: string; // Clave del atributo (ej: "polos", "In", "curva", "capacidad_modulos", "seccion")
+  operador: '==' | '>=' | '<=' | '>' | '<' | '!=';
+  valor: string | number; // Valor fijo ("2", "Curva C") o variable/expresión ("$calibre_principal", "4 + circuitos * 2")
+}
+
+export interface FiltroMaterialEnTarea {
+  categoriaId: string; // ID de la categoría (ej: "cat-termomagneticas", "cat-diferenciales", "cat-tableros")
+  criterios: CriterioAtributoMaterial[];
+  estrategiaSeleccion?: 'menor_valor_que_cumpla' | 'mayor_valor_que_cumpla' | 'primer_coincidencia';
+  atributoOrden?: string; // Atributo numérico sobre el que ordenar (ej: "In", "capacidad_modulos", "seccion")
+  etiqueta?: string; // Nombre amigable (ej: "Térmica de cabecera", "Diferencial coordinado")
+}
+
 export interface ReglaInsumoDinamico {
   condicion: string; // Ej: "calibre_principal <= 25", "circuitos <= 2"
   materialId: string; // ID del material del catálogo que se asigna si la condición es verdadera
@@ -333,6 +347,7 @@ export interface InsumoEnTarea {
   insumoId?: string; // alias
   productoId?: string;
   nombreSlot?: string; // Nombre descriptivo del slot dinámico (ej: "Gabinete DIN", "Térmica General")
+  filtroMaterial?: FiltroMaterialEnTarea; // Selector dinámico por categoría y atributos técnicos
   reglasDinamicas?: ReglaInsumoDinamico[]; // Reglas de selección por función / escalonamiento
   cantidad: number;
   formula?: string; // Phase 3: Fórmula matemática calculada opcional

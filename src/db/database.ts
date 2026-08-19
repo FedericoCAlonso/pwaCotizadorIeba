@@ -261,6 +261,9 @@ export async function initializeDatabaseSeed(): Promise<void> {
         }
       }
 
+      // Eliminar categoría obsoleta combinada si existía
+      await db.categoriasMaterial.delete('cat-protecciones');
+
       // 2. Mapear y corregir materiales existentes con IDs de categoría antiguos o no coincidentes
       const categoryMapping: Record<string, string> = {
         'cableado': 'cat-cables',
@@ -297,8 +300,16 @@ export async function initializeDatabaseSeed(): Promise<void> {
         let updated = false;
         let newCatId = m.categoriaId;
 
-        // Migración específica de materiales antiguos de canalizaciones o fijaciones
-        if (m.categoriaId === 'cat-canalizaciones') {
+        // Migración específica de materiales antiguos de protecciones, canalizaciones o fijaciones
+        if (m.categoriaId === 'cat-protecciones' || m.id.startsWith('mat-pia-') || m.id.startsWith('mat-dif-')) {
+          if (m.id.startsWith('mat-pia-')) {
+            newCatId = 'cat-termomagneticas';
+            updated = true;
+          } else if (m.id.startsWith('mat-dif-')) {
+            newCatId = 'cat-diferenciales';
+            updated = true;
+          }
+        } else if (m.categoriaId === 'cat-canalizaciones') {
           if (m.id.startsWith('mat-cano-')) newCatId = 'cat-canos';
           else if (m.id.startsWith('mat-bandeja-perf-')) newCatId = 'cat-bandejas';
           else newCatId = 'cat-accesorios-bandejas';
@@ -404,7 +415,7 @@ export async function initializeDatabaseSeed(): Promise<void> {
         const newTablero = INITIAL_TAREAS_TIPO.find(t => t.id === 'tt-tablero-seccional-monofasico');
         if (newTablero) {
           const existingNew = await db.tareasTipo.get(newTablero.id);
-          if (!existingNew || !existingNew.insumos?.some(i => i.reglasDinamicas && i.reglasDinamicas.length > 0)) {
+          if (!existingNew || !existingNew.insumos?.some(i => i.filtroMaterial)) {
             await db.tareasTipo.put(newTablero);
           }
         }

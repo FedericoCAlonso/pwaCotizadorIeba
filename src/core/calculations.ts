@@ -25,7 +25,8 @@ import {
   NivelAntiguedadEstado,
   NivelAccesibilidad,
   NivelAltura,
-  ParametrosEstimacionMaterial
+  ParametrosEstimacionMaterial,
+  FiltroMaterialEnTarea
 } from './types';
 import { evaluateMathExpression, evaluateCondition } from './mathEvaluator';
 
@@ -1256,6 +1257,106 @@ export interface ConsumosCalculadosResultado {
 }
 
 /**
+ * Resuelve dinámicamente un material del catálogo a partir de una consulta/filtro de atributos técnicos y variables.
+ */
+export function resolverMaterialPorFiltro(
+  filtro: FiltroMaterialEnTarea,
+  variables: Record<string, number>,
+  insumosMap: Map<string, Insumo>
+): Insumo | null {
+  if (!filtro || !filtro.categoriaId) return null;
+
+  const candidatos: Insumo[] = [];
+
+  for (const mat of insumosMap.values()) {
+    if (mat.categoriaId !== filtro.categoriaId || mat.activo === false) {
+      continue;
+    }
+
+    let coincide = true;
+
+    for (const crit of filtro.criterios) {
+      if (!crit.atributo) continue;
+      const attr = mat.atributos?.find(a => a.clave.toLowerCase() === crit.atributo.toLowerCase());
+      const attrVal = attr?.valor;
+
+      // Evaluar el valor esperado (puede ser un literal como "2" o una expresión como "$calibre" o "4 + circuitos * 2")
+      let targetVal: string | number = crit.valor;
+      if (typeof targetVal === 'string') {
+        const rawStr = targetVal.trim();
+        if (rawStr.startsWith('$')) {
+          const varKey = rawStr.slice(1).trim();
+          targetVal = variables[varKey] !== undefined ? variables[varKey] : 0;
+        } else {
+          // Evaluar si es una fórmula aritmética
+          const evalRes = evaluateMathExpression(rawStr, variables);
+          if (evalRes.isValid && evalRes.value !== null && evalRes.isFormula) {
+            targetVal = evalRes.value;
+          }
+        }
+      }
+
+      // Comparación numérica o textual
+      const numAttr = typeof attrVal === 'number' ? attrVal : (attrVal !== undefined && attrVal !== null ? parseFloat(String(attrVal).replace(/[^0-9.-]/g, '')) : NaN);
+      const numTarget = typeof targetVal === 'number' ? targetVal : parseFloat(String(targetVal).replace(/[^0-9.-]/g, ''));
+
+      if (!isNaN(numAttr) && !isNaN(numTarget) && (crit.operador === '>=' || crit.operador === '<=' || crit.operador === '>' || crit.operador === '<')) {
+        switch (crit.operador) {
+          case '>=': if (!(numAttr >= numTarget - 1e-6)) coincide = false; break;
+          case '<=': if (!(numAttr <= numTarget + 1e-6)) coincide = false; break;
+          case '>': if (!(numAttr > numTarget + 1e-6)) coincide = false; break;
+          case '<': if (!(numAttr < numTarget - 1e-6)) coincide = false; break;
+        }
+      } else {
+        const strAttr = String(attrVal ?? '').trim().toLowerCase();
+        const strTarget = String(targetVal ?? '').trim().toLowerCase();
+
+        switch (crit.operador) {
+          case '==':
+            if (!isNaN(numAttr) && !isNaN(numTarget)) {
+              if (Math.abs(numAttr - numTarget) >= 1e-6) coincide = false;
+            } else {
+              if (strAttr !== strTarget && !strAttr.includes(strTarget) && !strTarget.includes(strAttr)) coincide = false;
+            }
+            break;
+          case '!=':
+            if (!isNaN(numAttr) && !isNaN(numTarget)) {
+              if (Math.abs(numAttr - numTarget) < 1e-6) coincide = false;
+            } else {
+              if (strAttr === strTarget) coincide = false;
+            }
+            break;
+          default:
+            coincide = false;
+        }
+      }
+
+      if (!coincide) break;
+    }
+
+    if (coincide) {
+      candidatos.push(mat);
+    }
+  }
+
+  if (candidatos.length === 0) return null;
+
+  // Ordenamiento según estrategia o atributo de orden
+  const ordenKey = (filtro.atributoOrden || 'In').toLowerCase();
+  const estrategia = filtro.estrategiaSeleccion || 'menor_valor_que_cumpla';
+
+  if (estrategia === 'menor_valor_que_cumpla' || estrategia === 'mayor_valor_que_cumpla') {
+    candidatos.sort((a, b) => {
+      const valA = parseFloat(String(a.atributos?.find(at => at.clave.toLowerCase() === ordenKey)?.valor || '0').replace(/[^0-9.-]/g, '')) || 0;
+      const valB = parseFloat(String(b.atributos?.find(at => at.clave.toLowerCase() === ordenKey)?.valor || '0').replace(/[^0-9.-]/g, '')) || 0;
+      return estrategia === 'menor_valor_que_cumpla' ? valA - valB : valB - valA;
+    });
+  }
+
+  return candidatos[0] || null;
+}
+
+/**
  * Evalúa las fórmulas de insumos y mano de obra de una TareaTipo en función de las variables ingresadas
  * y suma el costo fijo operativo de movilización / setup si corresponde.
  */
@@ -1286,10 +1387,18 @@ export function calcularConsumosTareaTipo(
       }
     }
 
-    // 2. Resolución del materialId (directo o mediante reglas dinámicas de slot)
+    // 2. Resolución del materialId (por Filtro de Categoría, por Reglas Dinámicas, o Material Directo)
     let targetId = item.materialId || item.insumoId || '';
 
-    if (item.reglasDinamicas && item.reglasDinamicas.length > 0) {
+    if (item.filtroMaterial) {
+      const resolvedMat = resolverMaterialPorFiltro(item.filtroMaterial, variables, insumosMap);
+      if (resolvedMat) {
+        targetId = resolvedMat.id;
+      } else {
+        // No se encontró ningún material en el catálogo que cumpla los criterios
+        continue;
+      }
+    } else if (item.reglasDinamicas && item.reglasDinamicas.length > 0) {
       const matchingRule = item.reglasDinamicas.find(regla =>
         !regla.condicion || evaluateCondition(regla.condicion, variables)
       );

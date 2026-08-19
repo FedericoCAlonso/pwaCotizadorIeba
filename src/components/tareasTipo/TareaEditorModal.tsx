@@ -23,10 +23,12 @@ import {
   InsumoEnTarea,
   ManoObraEnTarea,
   VariableTrabajoTipo,
-  OpcionVariableTrabajo
+  OpcionVariableTrabajo,
+  FiltroMaterialEnTarea
 } from '../../core/types';
 import {
   calcularConsumosTareaTipo,
+  resolverMaterialPorFiltro,
   formatARS,
   DEFAULT_CLAUSULA_OBRA_EXISTENTE
 } from '../../core/calculations';
@@ -34,6 +36,7 @@ import { evaluateMathExpression, evaluateCondition } from '../../core/mathEvalua
 import { ModalContainer } from '../ModalContainer';
 import { useToast } from '../../contexts/ToastContext';
 import { MaterialPickerModal } from './MaterialPickerModal';
+import { CategoryFilterMaterialModal } from './CategoryFilterMaterialModal';
 
 export interface TareaFormData {
   nombre: string;
@@ -90,7 +93,28 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
   });
 
   const [isMaterialPickerOpen, setIsMaterialPickerOpen] = useState(false);
+  const [isCategoryFilterModalOpen, setIsCategoryFilterModalOpen] = useState(false);
   const [editingVarIndex, setEditingVarIndex] = useState<number | null>(null);
+
+  const handleAddCategoryFilter = (payload: {
+    nombreSlot: string;
+    filtroMaterial: FiltroMaterialEnTarea;
+    cantidad: number;
+    formula?: string;
+  }) => {
+    setFormData((prev) => ({
+      ...prev,
+      insumos: [
+        ...prev.insumos,
+        {
+          nombreSlot: payload.nombreSlot,
+          filtroMaterial: payload.filtroMaterial,
+          cantidad: payload.cantidad,
+          formula: payload.formula
+        }
+      ]
+    }));
+  };
 
   useEffect(() => {
     if (editingTarea) {
@@ -640,24 +664,36 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
           {/* 3. Despiece de Insumos & Materiales con Fórmulas */}
           <div className="space-y-3 border-t border-outline-variant/30 pt-4">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-2">
               <div>
                 <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
                   <Package className="w-4 h-4" />
                   <span>3. Despiece de Insumos & Materiales (con Fórmulas)</span>
                 </h4>
                 <p className="text-[11px] text-on-surface-variant">
-                  Escribe la fórmula matemática usando las variables (ej: <code className="font-mono text-primary font-bold">bocas * 12 * 1.10</code>).
+                  Agrega materiales directos del catálogo o ranuras dinámicas que seleccionen automáticamente por categoría y calibre.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsMaterialPickerOpen(true)}
-                className="px-3.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs rounded-xl transition flex items-center gap-1.5 border border-primary/25"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Agregar Material</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMaterialPickerOpen(true)}
+                  className="px-3 py-1.5 bg-surface-container-highest hover:bg-surface-container-highest/80 text-on-surface font-bold text-xs rounded-xl transition flex items-center gap-1.5 border border-outline-variant/30"
+                  title="Seleccionar un material puntual fijo del catálogo"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Material Directo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryFilterModalOpen(true)}
+                  className="px-3.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs rounded-xl transition flex items-center gap-1.5 border border-primary/25 shadow-2xs"
+                  title="Definir una ranura que elija materiales según categoría y variables de cálculo"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>+ Agregar por Categoría</span>
+                </button>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -668,15 +704,24 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                 >
                   <Package className="w-7 h-7 text-outline-variant mx-auto mb-1" />
                   <p className="text-xs font-bold text-on-surface">Sin materiales asignados</p>
-                  <p className="text-[11px] text-primary mt-0.5">+ Toca para agregar materiales del catálogo</p>
+                  <p className="text-[11px] text-primary mt-0.5">+ Toca para agregar materiales directos o por categoría</p>
                 </div>
               ) : (
                 formData.insumos.map((item, idx) => {
                   let resolvedId = item.materialId || item.insumoId || '';
                   let matchingRuleName = '';
                   const isDynamic = Boolean(item.reglasDinamicas && item.reglasDinamicas.length > 0);
+                  const isCategoryFilter = Boolean(item.filtroMaterial);
 
-                  if (isDynamic && item.reglasDinamicas) {
+                  if (isCategoryFilter && item.filtroMaterial) {
+                    const resolved = resolverMaterialPorFiltro(item.filtroMaterial, currentScope, insumosMap);
+                    if (resolved) {
+                      resolvedId = resolved.id;
+                      matchingRuleName = resolved.nombre;
+                    } else {
+                      resolvedId = '';
+                    }
+                  } else if (isDynamic && item.reglasDinamicas) {
                     const match = item.reglasDinamicas.find(r => !r.condicion || evaluateCondition(r.condicion, currentScope));
                     if (match) {
                       resolvedId = match.materialId;
@@ -694,7 +739,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   const formulaStr = item.formula || String(item.cantidad);
                   const evalRes = evaluateMathExpression(formulaStr, currentScope);
                   const cantEvaluada = evalRes.isValid && evalRes.value !== null ? evalRes.value : item.cantidad;
-                  const isConditionMet = (!item.condicion || evaluateCondition(item.condicion, currentScope)) && (isDynamic ? Boolean(resolvedId) : true);
+                  const isConditionMet = (!item.condicion || evaluateCondition(item.condicion, currentScope)) && ((isDynamic || isCategoryFilter) ? Boolean(resolvedId) : true);
                   const rowSubtotal = unitPrice * (isConditionMet ? cantEvaluada : 0);
 
                   return (
@@ -712,13 +757,17 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-surface-variant text-on-surface-variant font-mono">
                               #{idx + 1}
                             </span>
-                            {isDynamic ? (
+                            {isCategoryFilter ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono flex items-center gap-1">
+                                <span>⚡ Por Categoría: {item.nombreSlot || item.filtroMaterial?.etiqueta || 'Dinámico'}</span>
+                              </span>
+                            ) : isDynamic ? (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-mono flex items-center gap-1">
                                 <span>⚡ Slot: {item.nombreSlot || 'Dinámico'}</span>
                               </span>
                             ) : null}
                             <h5 className="text-xs font-bold text-on-surface truncate">
-                              {selectedMat?.nombre || (isDynamic ? '(Sin coincidencia para variables)' : resolvedId)}
+                              {selectedMat?.nombre || (isDynamic || isCategoryFilter ? '(Sin coincidencia para variables)' : resolvedId)}
                             </h5>
                           </div>
                           <div className="text-[11px] text-on-surface-variant font-mono flex items-center gap-2">
@@ -769,7 +818,19 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
                       {/* Regla Condicional de Inclusión Opcional o Info de Slot */}
                       <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-outline-variant/15 text-[11px]">
-                        {isDynamic ? (
+                        {isCategoryFilter ? (
+                          <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant flex-wrap">
+                            <span className="font-semibold text-emerald-700 dark:text-emerald-300">Criterios:</span>
+                            <span className="font-mono text-[10px] bg-surface-container px-2 py-0.5 rounded-md">
+                              {item.filtroMaterial?.criterios?.map(c => `${c.atributo} ${c.operador} ${c.valor}`).join(' • ')}
+                            </span>
+                            {matchingRuleName && (
+                              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md truncate max-w-xs">
+                                ✓ {matchingRuleName}
+                              </span>
+                            )}
+                          </div>
+                        ) : isDynamic ? (
                           <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant">
                             <span className="font-semibold text-primary">Reglas ({item.reglasDinamicas?.length || 0}):</span>
                             <span className="font-mono text-[10px] bg-surface-container px-2 py-0.5 rounded-md">
@@ -1036,6 +1097,16 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
         alreadySelectedIds={formData.insumos.map((i) => i.materialId || i.insumoId || '')}
         onAddMaterial={handleAddMaterialFromPicker}
         onAddMultipleMaterials={handleAddMultipleMaterialsFromPicker}
+      />
+
+      {/* Parametric Category Filter Material Modal */}
+      <CategoryFilterMaterialModal
+        isOpen={isCategoryFilterModalOpen}
+        onClose={() => setIsCategoryFilterModalOpen(false)}
+        variables={formData.variables}
+        currentScope={currentScope}
+        insumosMap={insumosMap}
+        onAddCategoryFilter={handleAddCategoryFilter}
       />
     </>
   );

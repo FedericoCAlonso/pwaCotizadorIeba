@@ -409,7 +409,8 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
       if (directMatch) return directMatch.id;
 
       if (normCat.includes('cable') || normCat.includes('conductor')) return 'cat-cables';
-      if (normCat.includes('termic') || normCat.includes('disyuntor') || normCat.includes('protec')) return 'cat-protecciones';
+      if (normCat.includes('termic') || normCat.includes('pia')) return 'cat-termomagneticas';
+      if (normCat.includes('diferencial') || normCat.includes('disyuntor') || normCat.includes('difer')) return 'cat-diferenciales';
       if (normCat.includes('caño') || normCat.includes('tubo') || normCat.includes('conduit')) return 'cat-canos';
       if (normCat.includes('bandeja')) return 'cat-bandejas';
       if (normCat.includes('canal') || normCat.includes('ducto')) return 'cat-cablecanales';

@@ -20,12 +20,13 @@ import {
   calcularCostoParametricoTareaTipo,
   calcularEstimacionParametricaMaterial,
   calcularConsumosTareaTipo,
+  resolverMaterialPorFiltro,
   DEFAULT_CLAUSULA_OBRA_EXISTENTE
 } from './calculations';
 import { evaluateCondition } from './mathEvaluator';
 import { Insumo, CategoriaManoDeObra, CostoIndirecto, CostoIndirectoItemConfig, TareaTipo, ItemPresupuesto } from './types';
 import { buildSearchTerm } from './searchUtils';
-import { INITIAL_CATEGORIAS_MATERIAL, INITIAL_MATERIALES, INITIAL_MANO_OBRA, INITIAL_COSTOS_INDIRECTOS } from './sampleData';
+import { INITIAL_CATEGORIAS_MATERIAL, INITIAL_MATERIALES, INITIAL_MANO_OBRA, INITIAL_COSTOS_INDIRECTOS, INITIAL_TAREAS_TIPO } from './sampleData';
 
 // ─── Fixtures compartidas (auditoría #14) ────────────────────────────────────
 
@@ -662,10 +663,10 @@ describe('buildSearchTerm & searchUtils', () => {
     const bandejas = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-bandejas' || m.categoriaId === 'cat-accesorios-bandejas');
     expect(bandejas.length).toBeGreaterThanOrEqual(25);
 
-    // Protecciones (PIAs y Diferenciales)
-    const pias = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-protecciones' && m.atributos.some(a => a.valor === 'Termomagnética (PIA)'));
+    // Protecciones (PIAs y Diferenciales en sus categorías separadas)
+    const pias = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-termomagneticas');
     expect(pias.length).toBeGreaterThanOrEqual(20);
-    const difs = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-protecciones' && m.atributos.some(a => a.valor === 'Interruptor Diferencial (Disyuntor)'));
+    const difs = INITIAL_MATERIALES.filter(m => m.categoriaId === 'cat-diferenciales');
     expect(difs.length).toBeGreaterThanOrEqual(8);
 
     // Módulos, Llaves, Bastidores y Tapas
@@ -1429,6 +1430,81 @@ describe('Motor Universal de Fórmulas y Variables para Trabajos Tipo', () => {
     expect(resCert.costoInsumosTotal).toBe(15000 + 10000 + 30000 + 9000); // 64.000
     // Oficial tiene 2 renglones: Base (2.5 + 0.75 = 3.25hs) + Certificación (1.5hs)
     expect(resCert.manoObraSnapshot.length).toBe(3);
+  });
+
+  it('resuelve correctamente materiales por filtro dinámico de categoría y atributos técnicos (filtroMaterial)', () => {
+    const testInsumosMap = new Map<string, Insumo>([
+      ['mat-tablero-din-8-emb', { id: 'mat-tablero-din-8-emb', categoriaId: 'cat-tableros', nombre: 'Gabinete DIN 8M Embutir', unidadVenta: 'u', atributos: [{ clave: 'tipo_tablero', valor: 'Gabinete DIN' }, { clave: 'tipo_instalacion', valor: 'Embutir' }, { clave: 'capacidad_modulos', valor: '8' }], activo: true, precioActual: 15000 }],
+      ['mat-tablero-din-12-emb', { id: 'mat-tablero-din-12-emb', categoriaId: 'cat-tableros', nombre: 'Gabinete DIN 12M Embutir', unidadVenta: 'u', atributos: [{ clave: 'tipo_tablero', valor: 'Gabinete DIN' }, { clave: 'tipo_instalacion', valor: 'Embutir' }, { clave: 'capacidad_modulos', valor: '12' }], activo: true, precioActual: 22000 }],
+      ['mat-tablero-din-18-emb', { id: 'mat-tablero-din-18-emb', categoriaId: 'cat-tableros', nombre: 'Gabinete DIN 18M Embutir', unidadVenta: 'u', atributos: [{ clave: 'tipo_tablero', valor: 'Gabinete DIN' }, { clave: 'tipo_instalacion', valor: 'Embutir' }, { clave: 'capacidad_modulos', valor: '18' }], activo: true, precioActual: 30000 }],
+      ['mat-pia-2x25', { id: 'mat-pia-2x25', categoriaId: 'cat-termomagneticas', nombre: 'PIA 2P 25A', unidadVenta: 'u', atributos: [{ clave: 'polos', valor: '2' }, { clave: 'In', valor: '25' }, { clave: 'curva', valor: 'Curva C' }], activo: true, precioActual: 10000 }],
+      ['mat-pia-2x32', { id: 'mat-pia-2x32', categoriaId: 'cat-termomagneticas', nombre: 'PIA 2P 32A', unidadVenta: 'u', atributos: [{ clave: 'polos', valor: '2' }, { clave: 'In', valor: '32' }, { clave: 'curva', valor: 'Curva C' }], activo: true, precioActual: 12000 }],
+      ['mat-pia-2x40', { id: 'mat-pia-2x40', categoriaId: 'cat-termomagneticas', nombre: 'PIA 2P 40A', unidadVenta: 'u', atributos: [{ clave: 'polos', valor: '2' }, { clave: 'In', valor: '40' }, { clave: 'curva', valor: 'Curva C' }], activo: true, precioActual: 14000 }],
+      ['mat-dif-2x25', { id: 'mat-dif-2x25', categoriaId: 'cat-diferenciales', nombre: 'Diferencial 2P 25A 30mA', unidadVenta: 'u', atributos: [{ clave: 'polos', valor: '2' }, { clave: 'In', valor: '25' }, { clave: 'sensibilidad', valor: '30 mA' }], activo: true, precioActual: 30000 }],
+      ['mat-dif-2x40', { id: 'mat-dif-2x40', categoriaId: 'cat-diferenciales', nombre: 'Diferencial 2P 40A 30mA', unidadVenta: 'u', atributos: [{ clave: 'polos', valor: '2' }, { clave: 'In', valor: '40' }, { clave: 'sensibilidad', valor: '30 mA' }], activo: true, precioActual: 35000 }],
+      ['mat-dif-2x63', { id: 'mat-dif-2x63', categoriaId: 'cat-diferenciales', nombre: 'Diferencial 2P 63A 30mA', unidadVenta: 'u', atributos: [{ clave: 'polos', valor: '2' }, { clave: 'In', valor: '63' }, { clave: 'sensibilidad', valor: '30 mA' }], activo: true, precioActual: 45000 }],
+      ['mat-pia-2x16', { id: 'mat-pia-2x16', categoriaId: 'cat-termomagneticas', nombre: 'PIA 2P 16A', unidadVenta: 'u', atributos: [{ clave: 'polos', valor: '2' }, { clave: 'In', valor: '16' }], activo: true, precioActual: 9000 }]
+    ]);
+
+    const testManoObraMap = new Map<string, CategoriaManoDeObra>([
+      ['mo-oficial-electricista', { id: 'mo-oficial-electricista', nombre: 'Oficial', costoHora: 10000, fechaActualizacion: '' }],
+      ['mo-ayudante', { id: 'mo-ayudante', nombre: 'Ayudante', costoHora: 6000, fechaActualizacion: '' }]
+    ]);
+
+    // Test 1: Búsqueda directa con resolverMaterialPorFiltro
+    const matTérmica = resolverMaterialPorFiltro(
+      {
+        categoriaId: 'cat-termomagneticas',
+        criterios: [
+          { atributo: 'polos', operador: '==', valor: '2' },
+          { atributo: 'In', operador: '==', valor: '$calibre_principal' },
+          { atributo: 'curva', operador: '==', valor: 'Curva C' }
+        ]
+      },
+      { calibre_principal: 32 },
+      testInsumosMap
+    );
+    expect(matTérmica?.id).toBe('mat-pia-2x32');
+
+    // Test 2: Búsqueda con condición >= y selección del menor calibre comercial que cumpla
+    // Si la térmica es 32A, el diferencial coordinado debe ser >= 32A -> selecciona el de 40A
+    const matDif = resolverMaterialPorFiltro(
+      {
+        categoriaId: 'cat-diferenciales',
+        criterios: [
+          { atributo: 'polos', operador: '==', valor: '2' },
+          { atributo: 'In', operador: '>=', valor: '$calibre_principal' }
+        ],
+        estrategiaSeleccion: 'menor_valor_que_cumpla',
+        atributoOrden: 'In'
+      },
+      { calibre_principal: 32 },
+      testInsumosMap
+    );
+    expect(matDif?.id).toBe('mat-dif-2x40');
+
+    // Test 3: Tablero completo con sampleData task
+    const tareaTablero = INITIAL_TAREAS_TIPO.find(t => t.id === 'tt-tablero-seccional-monofasico')!;
+    const res = calcularConsumosTareaTipo(
+      tareaTablero,
+      { circuitos: 4, calibre_principal: 32, requiere_certificacion: 0 },
+      testInsumosMap,
+      testManoObraMap,
+      { tipoFactura: 'Factura A' }
+    );
+
+    // Módulos requeridos = 4 + 4*2 = 12 módulos -> Selecciona Gabinete 12M
+    // Térmica general = 32A -> Selecciona PIA 2x32A
+    // Diferencial coordinado >= 32A -> Selecciona Diferencial 2x40A
+    // Térmicas derivadas = 4 circuitos -> 4 x PIA 2x16A
+    expect(res.insumosSnapshot.map(i => i.materialId)).toEqual([
+      'mat-tablero-din-12-emb',
+      'mat-pia-2x32',
+      'mat-dif-2x40',
+      'mat-pia-2x16'
+    ]);
+    expect(res.insumosSnapshot.find(i => i.materialId === 'mat-pia-2x16')?.cantidadTotal).toBe(4);
+    expect(res.costoInsumosTotal).toBe(22000 + 12000 + 35000 + 36000); // 105.000
   });
 });
 

@@ -495,23 +495,11 @@
       ]
     },
     {
-      "id": "cat-protecciones",
-      "nombre": "Protecciones Termomagnéticas y Diferenciales",
+      "id": "cat-termomagneticas",
+      "nombre": "Interruptores Termomagnéticos",
       "supercategoriaId": "protecciones",
       "supercategoriaNombre": "Protección, Maniobra y Comando",
       "atributosSugeridos": [
-        {
-          "clave": "tipo_proteccion",
-          "etiqueta": "Tipo de Dispositivo",
-          "tipo": "texto",
-          "opciones": [
-            "Termomagnética (PIA)",
-            "Interruptor Diferencial (Disyuntor)",
-            "Descargador Sobretensiones (DPS)",
-            "Protector de Tensión Monofásico/Trifásico",
-            "Guardamotor"
-          ]
-        },
         {
           "clave": "polos",
           "etiqueta": "Cantidad de Polos",
@@ -548,20 +536,68 @@
           "etiqueta": "Curva de Disparo",
           "tipo": "texto",
           "opciones": [
-            "Curva C (General)",
-            "Curva B (Resistivo)",
-            "Curva D (Motores/Inductivo)"
+            "Curva C",
+            "Curva B",
+            "Curva D"
           ]
         },
         {
-          "clave": "Id",
-          "etiqueta": "Sensibilidad Diferencial (IΔn)",
-          "unidad": "mA",
+          "clave": "poder_corte",
+          "etiqueta": "Poder de Corte (Icu)",
+          "tipo": "texto",
+          "opciones": [
+            "3 kA",
+            "4.5 kA",
+            "6 kA",
+            "10 kA"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cat-diferenciales",
+      "nombre": "Interruptores Diferenciales",
+      "supercategoriaId": "protecciones",
+      "supercategoriaNombre": "Protección, Maniobra y Comando",
+      "atributosSugeridos": [
+        {
+          "clave": "polos",
+          "etiqueta": "Cantidad de Polos",
           "tipo": "numero",
           "opciones": [
-            "10",
-            "30",
-            "300"
+            "2",
+            "4"
+          ]
+        },
+        {
+          "clave": "In",
+          "etiqueta": "Corriente Nominal (In)",
+          "unidad": "A",
+          "tipo": "numero",
+          "opciones": [
+            "25",
+            "40",
+            "63",
+            "80",
+            "100"
+          ]
+        },
+        {
+          "clave": "sensibilidad",
+          "etiqueta": "Sensibilidad Diferencial (IΔn)",
+          "tipo": "texto",
+          "opciones": [
+            "30 mA",
+            "300 mA"
+          ]
+        },
+        {
+          "clave": "tipo_diferencial",
+          "etiqueta": "Tipo de Diferencial",
+          "tipo": "texto",
+          "opciones": [
+            "Tipo AC",
+            "Tipo A (Inmunizado)"
           ]
         }
       ]
@@ -3943,7 +3979,7 @@
     },
     {
       "id": "mat-pia-2x10",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 2P 10A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -3969,7 +4005,7 @@
     },
     {
       "id": "mat-pia-2x16",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 2P 16A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -3995,7 +4031,7 @@
     },
     {
       "id": "mat-pia-2x20",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 2P 20A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4021,7 +4057,7 @@
     },
     {
       "id": "mat-pia-2x25",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 2P 25A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4047,7 +4083,7 @@
     },
     {
       "id": "mat-pia-2x32",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 2P 32A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4073,7 +4109,7 @@
     },
     {
       "id": "mat-pia-2x40",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 2P 40A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4099,7 +4135,7 @@
     },
     {
       "id": "mat-pia-2x50",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 2P 50A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4125,7 +4161,7 @@
     },
     {
       "id": "mat-pia-2x63",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 2P 63A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4151,7 +4187,7 @@
     },
     {
       "id": "mat-pia-1x10",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 1P 10A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4177,7 +4213,7 @@
     },
     {
       "id": "mat-pia-1x16",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 1P 16A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4203,7 +4239,7 @@
     },
     {
       "id": "mat-pia-1x20",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 1P 20A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4229,7 +4265,7 @@
     },
     {
       "id": "mat-pia-1x25",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 1P 25A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4255,7 +4291,7 @@
     },
     {
       "id": "mat-pia-1x32",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 1P 32A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4281,7 +4317,7 @@
     },
     {
       "id": "mat-pia-4x16",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 4P 16A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4307,7 +4343,7 @@
     },
     {
       "id": "mat-pia-4x20",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 4P 20A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4333,7 +4369,7 @@
     },
     {
       "id": "mat-pia-4x25",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 4P 25A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4359,7 +4395,7 @@
     },
     {
       "id": "mat-pia-4x32",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 4P 32A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4385,7 +4421,7 @@
     },
     {
       "id": "mat-pia-4x40",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 4P 40A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4411,7 +4447,7 @@
     },
     {
       "id": "mat-pia-4x50",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 4P 50A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4437,7 +4473,7 @@
     },
     {
       "id": "mat-pia-4x63",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 4P 63A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4463,7 +4499,7 @@
     },
     {
       "id": "mat-pia-3x16",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 3P 16A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4489,7 +4525,7 @@
     },
     {
       "id": "mat-pia-3x20",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 3P 20A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4515,7 +4551,7 @@
     },
     {
       "id": "mat-pia-3x25",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 3P 25A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4541,7 +4577,7 @@
     },
     {
       "id": "mat-pia-3x32",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 3P 32A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4567,7 +4603,7 @@
     },
     {
       "id": "mat-pia-3x40",
-      "categoriaId": "cat-protecciones",
+      "categoriaId": "cat-termomagneticas",
       "nombre": "Interruptor Termomagnético (PIA) 3P 40A Curva C",
       "unidadVenta": "u",
       "atributos": [
@@ -4593,8 +4629,8 @@
     },
     {
       "id": "mat-dif-2x25-30ma",
-      "categoriaId": "cat-protecciones",
-      "nombre": "Interruptor Diferencial (Disyuntor) 2P 25A Sensibilidad 30mA",
+      "categoriaId": "cat-diferenciales",
+      "nombre": "Interruptor Diferencial 2P 25A Sensibilidad 30mA",
       "unidadVenta": "u",
       "atributos": [
         {
@@ -4619,8 +4655,8 @@
     },
     {
       "id": "mat-dif-2x40-30ma",
-      "categoriaId": "cat-protecciones",
-      "nombre": "Interruptor Diferencial (Disyuntor) 2P 40A Sensibilidad 30mA",
+      "categoriaId": "cat-diferenciales",
+      "nombre": "Interruptor Diferencial 2P 40A Sensibilidad 30mA",
       "unidadVenta": "u",
       "atributos": [
         {
@@ -4645,8 +4681,8 @@
     },
     {
       "id": "mat-dif-2x63-30ma",
-      "categoriaId": "cat-protecciones",
-      "nombre": "Interruptor Diferencial (Disyuntor) 2P 63A Sensibilidad 30mA",
+      "categoriaId": "cat-diferenciales",
+      "nombre": "Interruptor Diferencial 2P 63A Sensibilidad 30mA",
       "unidadVenta": "u",
       "atributos": [
         {
@@ -4671,8 +4707,8 @@
     },
     {
       "id": "mat-dif-2x40-300ma",
-      "categoriaId": "cat-protecciones",
-      "nombre": "Interruptor Diferencial (Disyuntor) 2P 40A Sensibilidad 300mA",
+      "categoriaId": "cat-diferenciales",
+      "nombre": "Interruptor Diferencial 2P 40A Sensibilidad 300mA",
       "unidadVenta": "u",
       "atributos": [
         {
@@ -4697,8 +4733,8 @@
     },
     {
       "id": "mat-dif-4x40-30ma",
-      "categoriaId": "cat-protecciones",
-      "nombre": "Interruptor Diferencial (Disyuntor) 4P 40A Sensibilidad 30mA",
+      "categoriaId": "cat-diferenciales",
+      "nombre": "Interruptor Diferencial 4P 40A Sensibilidad 30mA",
       "unidadVenta": "u",
       "atributos": [
         {
@@ -4723,8 +4759,8 @@
     },
     {
       "id": "mat-dif-4x63-30ma",
-      "categoriaId": "cat-protecciones",
-      "nombre": "Interruptor Diferencial (Disyuntor) 4P 63A Sensibilidad 30mA",
+      "categoriaId": "cat-diferenciales",
+      "nombre": "Interruptor Diferencial 4P 63A Sensibilidad 30mA",
       "unidadVenta": "u",
       "atributos": [
         {
@@ -4749,8 +4785,8 @@
     },
     {
       "id": "mat-dif-4x40-300ma",
-      "categoriaId": "cat-protecciones",
-      "nombre": "Interruptor Diferencial (Disyuntor) 4P 40A Sensibilidad 300mA",
+      "categoriaId": "cat-diferenciales",
+      "nombre": "Interruptor Diferencial 4P 40A Sensibilidad 300mA",
       "unidadVenta": "u",
       "atributos": [
         {
@@ -4775,8 +4811,8 @@
     },
     {
       "id": "mat-dif-4x63-300ma",
-      "categoriaId": "cat-protecciones",
-      "nombre": "Interruptor Diferencial (Disyuntor) 4P 63A Sensibilidad 300mA",
+      "categoriaId": "cat-diferenciales",
+      "nombre": "Interruptor Diferencial 4P 63A Sensibilidad 300mA",
       "unidadVenta": "u",
       "atributos": [
         {
