@@ -23,7 +23,7 @@ import {
   resolverMaterialPorFiltro,
   DEFAULT_CLAUSULA_OBRA_EXISTENTE
 } from './calculations';
-import { evaluateCondition } from './mathEvaluator';
+import { evaluateCondition, evaluateMathExpression } from './mathEvaluator';
 import { Insumo, CategoriaManoDeObra, CostoIndirecto, CostoIndirectoItemConfig, TareaTipo, ItemPresupuesto } from './types';
 import { buildSearchTerm } from './searchUtils';
 import { INITIAL_CATEGORIAS_MATERIAL, INITIAL_MATERIALES, INITIAL_MANO_OBRA, INITIAL_COSTOS_INDIRECTOS, INITIAL_TAREAS_TIPO } from './sampleData';
@@ -1514,6 +1514,45 @@ describe('Motor Universal de Fórmulas y Variables para Trabajos Tipo', () => {
     ]);
     expect(res.insumosSnapshot.find(i => i.materialId === 'mat-pia-2x16')?.cantidadTotal).toBe(4);
     expect(res.costoInsumosTotal).toBe(22000 + 12000 + 35000 + 36000); // 105.000
+  });
+
+  it('evalúa correctamente funciones matemáticas nativas (ceil, floor, round, int, min, max, etc.)', () => {
+    // Ceil / Techo (redondeo hacia arriba)
+    expect(evaluateMathExpression('ceil(14 / 4)').value).toBe(4);
+    expect(evaluateMathExpression('techo(14 / 4)').value).toBe(4);
+    expect(evaluateMathExpression('ceil(bocas / 4)', { bocas: 14 }).value).toBe(4);
+    expect(evaluateMathExpression('ceil(bocas / 4)', { bocas: 16 }).value).toBe(4);
+    expect(evaluateMathExpression('ceil(bocas / 4)', { bocas: 17 }).value).toBe(5);
+
+    // Floor / Piso (redondeo hacia abajo / división entera)
+    expect(evaluateMathExpression('floor(14 / 4)').value).toBe(3);
+    expect(evaluateMathExpression('piso(14 / 4)').value).toBe(3);
+    expect(evaluateMathExpression('floor(bocas / 4)', { bocas: 14 }).value).toBe(3);
+
+    // Trunc / Int / Entero (truncamiento de decimales)
+    expect(evaluateMathExpression('trunc(14 / 4)').value).toBe(3);
+    expect(evaluateMathExpression('int(14 / 4)').value).toBe(3);
+    expect(evaluateMathExpression('entero(14 / 4)').value).toBe(3);
+
+    // Round / Redondear (al entero más cercano o con N decimales)
+    expect(evaluateMathExpression('round(3.4)').value).toBe(3);
+    expect(evaluateMathExpression('round(3.5)').value).toBe(4);
+    expect(evaluateMathExpression('round(3.5678, 2)').value).toBe(3.57);
+    expect(evaluateMathExpression('redondear(3.5678; 2)').value).toBe(3.57);
+
+    // Min / Max / Abs / Sqrt
+    expect(evaluateMathExpression('min(10, 5, 20)').value).toBe(5);
+    expect(evaluateMathExpression('minimo(10; 5; 20)').value).toBe(5);
+    expect(evaluateMathExpression('max(10, 5, 20)').value).toBe(20);
+    expect(evaluateMathExpression('maximo(10; 5; 20)').value).toBe(20);
+    expect(evaluateMathExpression('abs(-45.5)').value).toBe(45.5);
+    expect(evaluateMathExpression('sqrt(144)').value).toBe(12);
+    expect(evaluateMathExpression('raiz(144)').value).toBe(12);
+
+    // Fórmulas combinadas y anidadas
+    expect(evaluateMathExpression('4 + ceil(circuitos / 2) * 2', { circuitos: 5 }).value).toBe(10); // 4 + 3*2 = 10
+    expect(evaluateMathExpression('max(ceil(bocas / 4), 2)', { bocas: 3 }).value).toBe(2);
+    expect(evaluateMathExpression('max(ceil(bocas / 4), 2)', { bocas: 15 }).value).toBe(4);
   });
 });
 

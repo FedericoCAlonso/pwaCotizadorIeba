@@ -591,28 +591,28 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
               {formData.parametros.map((parametro, idx) => (
                 <div
                   key={idx}
-                  className="p-3 bg-surface-container-highest/60 border border-outline-variant/25 rounded-2xl space-y-2.5"
+                  className="p-3 sm:p-3.5 bg-surface-container-highest/60 border border-outline-variant/25 rounded-2xl space-y-2.5"
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
                     <div className="sm:col-span-3">
-                      <label className="text-[10px] font-bold text-on-surface-variant block uppercase">
+                      <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
                         Identificador
                       </label>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-primary/40">
                         <code className="text-xs font-mono font-bold text-primary">$</code>
                         <input
                           type="text"
                           required
                           value={parametro.id}
                           onChange={(e) => updateParametro(idx, { id: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
-                          className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-primary focus:outline-none"
+                          className="w-full bg-transparent text-xs font-mono font-bold text-primary focus:outline-none"
                           placeholder="ej: bocas, sup, k_estado"
                         />
                       </div>
                     </div>
 
                     <div className="sm:col-span-4">
-                      <label className="text-[10px] font-bold text-on-surface-variant block uppercase">
+                      <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
                         Nombre Visible
                       </label>
                       <input
@@ -620,52 +620,54 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                         required
                         value={parametro.nombre}
                         onChange={(e) => updateParametro(idx, { nombre: e.target.value })}
-                        className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs text-on-surface focus:outline-none"
+                        className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
                         placeholder="ej: Cantidad de Bocas"
                       />
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <label className="text-[10px] font-bold text-on-surface-variant block uppercase">
-                        Tipo
-                      </label>
-                      <select
-                        value={parametro.tipo}
-                        onChange={(e) => updateParametro(idx, {
-                          tipo: e.target.value as any,
-                          opciones: e.target.value === 'select' && (!parametro.opciones || parametro.opciones.length === 0)
-                            ? [
-                                { id: 'opt-1', label: 'Estándar (1.00x)', valor: 1.0 },
-                                { id: 'opt-2', label: 'Complejo (1.25x)', valor: 1.25 }
-                              ]
-                            : parametro.opciones
-                        })}
-                        className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2 py-1 text-xs text-on-surface focus:outline-none"
-                      >
-                        <option value="numero">Número</option>
-                        <option value="select">Opciones / Selección</option>
-                        <option value="boolean">Interruptor (Sí / No)</option>
-                      </select>
-                    </div>
+                    <div className="grid grid-cols-2 sm:col-span-4 gap-2">
+                      <div>
+                        <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
+                          Tipo
+                        </label>
+                        <select
+                          value={parametro.tipo}
+                          onChange={(e) => updateParametro(idx, {
+                            tipo: e.target.value as any,
+                            opciones: e.target.value === 'select' && (!parametro.opciones || parametro.opciones.length === 0)
+                              ? [
+                                  { id: 'opt-1', label: 'Estándar (1.00x)', valor: 1.0 },
+                                  { id: 'opt-2', label: 'Complejo (1.25x)', valor: 1.25 }
+                                ]
+                              : parametro.opciones
+                          })}
+                          className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2 py-1.5 text-xs text-on-surface focus:outline-none"
+                        >
+                          <option value="numero">Número</option>
+                          <option value="select">Opciones</option>
+                          <option value="boolean">Switch (Sí/No)</option>
+                        </select>
+                      </div>
 
-                    <div className="sm:col-span-2">
-                      <label className="text-[10px] font-bold text-on-surface-variant block uppercase">
-                        Valor Default
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={parametro.valorDefault}
-                        onChange={(e) => updateParametro(idx, { valorDefault: parseFloat(e.target.value) || 0 })}
-                        className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-on-surface focus:outline-none"
-                      />
+                      <div>
+                        <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
+                          Default
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={parametro.valorDefault}
+                          onChange={(e) => updateParametro(idx, { valorDefault: parseFloat(e.target.value) || 0 })}
+                          className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-on-surface focus:outline-none"
+                        />
+                      </div>
                     </div>
 
                     <div className="sm:col-span-1 flex justify-end">
                       <button
                         type="button"
                         onClick={() => removeParametro(idx)}
-                        className="p-2 text-on-surface-variant hover:text-error rounded-xl transition"
+                        className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition"
                         title="Eliminar parámetro"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -752,7 +754,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   <span>3. Variables de Cálculo Interno (Fórmulas Matemáticas)</span>
                 </h4>
                 <p className="text-[11px] text-on-surface-variant">
-                  Cálculos intermedios automáticos basados en parámetros y variables anteriores. No se le piden al usuario al cotizar.
+                  Cálculos automáticos con fórmulas y funciones (<code className="font-mono text-emerald-700 dark:text-emerald-300">ceil</code>, <code className="font-mono text-emerald-700 dark:text-emerald-300">floor</code>, <code className="font-mono text-emerald-700 dark:text-emerald-300">round</code>, <code className="font-mono text-emerald-700 dark:text-emerald-300">int</code>, <code className="font-mono text-emerald-700 dark:text-emerald-300">min</code>, <code className="font-mono text-emerald-700 dark:text-emerald-300">max</code>).
                 </p>
               </div>
 
@@ -780,17 +782,24 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
               </button>
               <button
                 type="button"
+                onClick={() => addVariable({ id: 'circuitos_calc', nombre: 'Circuitos Estimados', formula: 'ceil(bocas / 4)', unidad: 'circuitos', descripcion: '1 circuito cada 4 bocas (redondeo hacia arriba)' })}
+                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
+              >
+                + Circuitos Estimados (ceil(bocas / 4))
+              </button>
+              <button
+                type="button"
+                onClick={() => addVariable({ id: 'rollos_cable', nombre: 'Rollos de Cable (100m)', formula: 'ceil(metros_cable / 100)', unidad: 'rollos', descripcion: 'Rollos de 100m enteros requeridos' })}
+                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
+              >
+                + Rollos de 100m (ceil(metros_cable / 100))
+              </button>
+              <button
+                type="button"
                 onClick={() => addVariable({ id: 'metros_cable', nombre: 'Metros Cable por Conductor', formula: 'bocas * 12 * 1.10', unidad: 'm', descripcion: '12m por boca + 10% desperdicio' })}
                 className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
               >
                 + Metros Cable (bocas * 12 * 1.10)
-              </button>
-              <button
-                type="button"
-                onClick={() => addVariable({ id: 'metros_canieria', nombre: 'Metros de Cañería', formula: 'bocas * 4.0', unidad: 'm', descripcion: '4m de cañería por boca promedio' })}
-                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
-              >
-                + Metros Cañería (bocas * 4)
               </button>
               <button
                 type="button"
@@ -817,28 +826,31 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   return (
                     <div
                       key={idx}
-                      className="p-3 bg-surface-container-highest/60 border border-emerald-500/20 rounded-2xl space-y-2"
+                      className="p-3 sm:p-3.5 bg-surface-container-highest/60 border border-emerald-500/25 rounded-2xl space-y-2.5"
                     >
-                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
-                        <div className="sm:col-span-3">
-                          <label className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 block uppercase">
+                      {/* Fila Superior: Identificador, Nombre, Unidad y Botón Eliminar */}
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                        {/* Identificador */}
+                        <div className="w-full sm:w-44 shrink-0">
+                          <label className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 block uppercase mb-0.5">
                             Identificador
                           </label>
-                          <div className="flex items-center gap-1">
-                            <code className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300">⚡$</code>
+                          <div className="flex items-center gap-1 bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-emerald-500/40">
+                            <code className="text-xs font-mono font-black text-emerald-700 dark:text-emerald-300">⚡$</code>
                             <input
                               type="text"
                               required
                               value={variable.id}
                               onChange={(e) => updateVariable(idx, { id: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
-                              className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 focus:outline-none"
-                              placeholder="ej: modulos_totales, metros_cable"
+                              className="w-full bg-transparent text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 focus:outline-none"
+                              placeholder="id_variable"
                             />
                           </div>
                         </div>
 
-                        <div className="sm:col-span-3">
-                          <label className="text-[10px] font-bold text-on-surface-variant block uppercase">
+                        {/* Nombre Descriptivo */}
+                        <div className="flex-1 min-w-[140px]">
+                          <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
                             Nombre Descriptivo
                           </label>
                           <input
@@ -846,52 +858,68 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                             required
                             value={variable.nombre}
                             onChange={(e) => updateVariable(idx, { nombre: e.target.value })}
-                            className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs text-on-surface focus:outline-none"
+                            className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
                             placeholder="ej: Módulos DIN Requeridos"
                           />
                         </div>
 
-                        <div className="sm:col-span-4">
-                          <label className="text-[10px] font-bold text-on-surface-variant block uppercase">
-                            Fórmula Matemática
-                          </label>
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="text"
-                              required
-                              value={variable.formula}
-                              onChange={(e) => updateVariable(idx, { formula: e.target.value })}
-                              className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-primary focus:outline-none"
-                              placeholder="ej: 4 + circuitos * 2"
-                            />
-                            <span className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-lg shrink-0" title="Resultado evaluado con defaults">
-                              = {valCalc} {variable.unidad}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="sm:col-span-1">
-                          <label className="text-[10px] font-bold text-on-surface-variant block uppercase">
+                        {/* Unidad */}
+                        <div className="w-20 shrink-0">
+                          <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5 text-center">
                             Unidad
                           </label>
                           <input
                             type="text"
                             value={variable.unidad || ''}
                             onChange={(e) => updateVariable(idx, { unidad: e.target.value })}
-                            className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2 py-1 text-xs font-mono text-center text-on-surface focus:outline-none"
+                            className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2 py-1.5 text-xs font-mono text-center text-on-surface focus:outline-none"
                             placeholder="m, u, hs"
                           />
                         </div>
 
-                        <div className="sm:col-span-1 flex justify-end">
+                        {/* Botón Eliminar */}
+                        <div className="self-end sm:self-center pt-3 sm:pt-4">
                           <button
                             type="button"
                             onClick={() => removeVariable(idx)}
-                            className="p-2 text-on-surface-variant hover:text-error rounded-xl transition"
+                            className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition"
                             title="Eliminar variable calculada"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
+                        </div>
+                      </div>
+
+                      {/* Fila Inferior: Editor de Fórmula de Ancho Completo */}
+                      <div className="pt-1 border-t border-emerald-500/15">
+                        <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1 flex items-center justify-between">
+                          <span>Fórmula Matemática de Cálculo</span>
+                          <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-300 normal-case hidden sm:inline">
+                            Soporta ceil, floor, round, int, min, max, %, +, -, *, /
+                          </span>
+                        </label>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-surface-container border border-outline-variant/30 rounded-xl p-1.5 focus-within:ring-2 focus-within:ring-primary/50">
+                          <input
+                            type="text"
+                            required
+                            value={variable.formula}
+                            onChange={(e) => updateVariable(idx, { formula: e.target.value })}
+                            className="w-full bg-transparent font-mono text-xs font-bold text-primary focus:outline-none px-2 py-1 placeholder:text-on-surface-variant/40"
+                            placeholder="ej: 4 + ceil(circuitos / 2) * 2"
+                          />
+                          <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0 px-1 border-t sm:border-t-0 border-outline-variant/15 pt-1 sm:pt-0">
+                            <span className="text-[10px] text-on-surface-variant font-medium sm:hidden">Resultado:</span>
+                            <span
+                              className={`text-xs font-mono font-bold px-2.5 py-1 rounded-lg shrink-0 ${
+                                evalRes.isValid
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                  : 'bg-error/15 text-error'
+                              }`}
+                              title={evalRes.isValid ? "Resultado evaluado en tiempo real" : "Fórmula inválida o incompleta"}
+                            >
+                              {evalRes.isValid ? `= ${valCalc} ${variable.unidad || ''}` : '⚠️ Error sintaxis'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1037,8 +1065,8 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
                         {/* Formula Input */}
                         <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
-                          <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30">
-                            <span className="text-[10px] font-bold text-on-surface-variant uppercase">Fórmula:</span>
+                          <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30 flex-1 sm:flex-initial">
+                            <span className="text-[10px] font-bold text-on-surface-variant uppercase shrink-0">Fórmula:</span>
                             <input
                               type="text"
                               value={item.formula || ''}
@@ -1053,10 +1081,10 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                                 };
                                 setFormData({ ...formData, insumos: next });
                               }}
-                              className="w-32 sm:w-40 bg-transparent font-mono text-xs font-bold text-primary focus:outline-none"
+                              className="w-full sm:w-40 bg-transparent font-mono text-xs font-bold text-primary focus:outline-none min-w-[80px]"
                               placeholder="ej: bocas * 12"
                             />
-                            <span className="text-xs font-mono font-bold text-on-surface bg-surface-container px-2 py-0.5 rounded-md">
+                            <span className="text-xs font-mono font-bold text-on-surface bg-surface-container px-2 py-0.5 rounded-md shrink-0">
                               = {cantEvaluada} {unit}
                             </span>
                           </div>
@@ -1064,7 +1092,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                           <button
                             type="button"
                             onClick={() => removeInsumoRow(idx)}
-                            className="p-2 text-on-surface-variant hover:text-error rounded-xl transition shrink-0"
+                            className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition shrink-0"
                             title="Quitar material"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1180,7 +1208,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                       }`}
                     >
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1">
+                        <div className="min-w-0 flex-1 w-full sm:w-auto">
                           <select
                             value={item.categoriaId}
                             onChange={(e) => {
@@ -1188,7 +1216,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                               next[idx] = { ...next[idx], categoriaId: e.target.value };
                               setFormData({ ...formData, manoObra: next });
                             }}
-                            className="bg-surface-container-highest border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs font-bold text-on-surface focus:outline-none max-w-xs"
+                            className="w-full sm:w-auto bg-surface-container-highest border border-outline-variant/30 rounded-xl px-2.5 py-1.5 text-xs font-bold text-on-surface focus:outline-none"
                           >
                             {manoObraList.map((mo) => (
                               <option key={mo.id} value={mo.id}>
@@ -1206,9 +1234,9 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                         </div>
 
                         {/* Formula Input */}
-                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
-                          <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30">
-                            <span className="text-[10px] font-bold text-on-surface-variant uppercase">Fórmula:</span>
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
+                          <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30 flex-1 sm:flex-initial">
+                            <span className="text-[10px] font-bold text-on-surface-variant uppercase shrink-0">Fórmula:</span>
                             <input
                               type="text"
                               value={item.formula || ''}
@@ -1223,10 +1251,10 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                                 };
                                 setFormData({ ...formData, manoObra: next });
                               }}
-                              className="w-36 sm:w-48 bg-transparent font-mono text-xs font-bold text-primary focus:outline-none"
+                              className="w-full sm:w-48 bg-transparent font-mono text-xs font-bold text-primary focus:outline-none min-w-[80px]"
                               placeholder="ej: horas_oficial o 1.0 + bocas * 1.5"
                             />
-                            <span className="text-xs font-mono font-bold text-on-surface bg-surface-container px-2 py-0.5 rounded-md">
+                            <span className="text-xs font-mono font-bold text-on-surface bg-surface-container px-2 py-0.5 rounded-md shrink-0">
                               = {horasEvaluadas} hs
                             </span>
                           </div>
@@ -1234,7 +1262,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                           <button
                             type="button"
                             onClick={() => removeManoObraRow(idx)}
-                            className="p-2 text-on-surface-variant hover:text-error rounded-xl transition shrink-0"
+                            className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition shrink-0"
                             title="Quitar rol de mano de obra"
                           >
                             <Trash2 className="w-4 h-4" />

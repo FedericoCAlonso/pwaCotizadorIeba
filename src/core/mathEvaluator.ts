@@ -23,6 +23,17 @@ export function isFormulaString(raw: string): boolean {
   return /[+\-*/^()]/.test(trimmed) && /\d/.test(trimmed);
 }
 
+export const SUPPORTED_FUNCTIONS = new Set([
+  'ceil', 'techo',
+  'floor', 'piso',
+  'round', 'redondear',
+  'trunc', 'int', 'entero',
+  'abs', 'absoluto',
+  'min', 'minimo',
+  'max', 'maximo',
+  'sqrt', 'raiz'
+]);
+
 /**
  * Normaliza una cadena de texto sustituyendo comas decimales y limpiando caracteres no permitidos.
  */
@@ -33,15 +44,15 @@ export function sanitizeMathString(raw: string): string {
     str = str.substring(1).trim();
   }
   // Reemplaza comas decimales tipo "12,5" o ",5" por punto "12.5"
-  str = str.replace(/(\d+),(\d+)/g, '$1.$2');
+  str = str.replace(/(\d+),(\d+)(?!\s*[,;a-zA-Z\d])/g, '$1.$2');
   str = str.replace(/(^|[+\-*/^(])\s*,(\d+)/g, '$10.$2');
   return str;
 }
 
 /**
- * Tokenizador seguro para expresiones aritméticas.
+ * Tokenizador seguro para expresiones aritméticas y funciones matemáticas.
  */
-type TokenType = 'NUMBER' | 'OP' | 'LPAREN' | 'RPAREN';
+type TokenType = 'NUMBER' | 'OP' | 'LPAREN' | 'RPAREN' | 'COMMA' | 'FUNC';
 interface Token {
   type: TokenType;
   value: string | number;
@@ -73,11 +84,33 @@ function tokenize(input: string): Token[] | null {
       continue;
     }
 
+    // Separador de argumentos (coma o punto y coma)
+    if (ch === ',' || ch === ';') {
+      tokens.push({ type: 'COMMA', value: ',' });
+      i++;
+      continue;
+    }
+
     // Operadores
     if (['+', '-', '*', '/', '^', '%'].includes(ch)) {
       tokens.push({ type: 'OP', value: ch });
       i++;
       continue;
+    }
+
+    // Identificadores de función (ej: ceil, floor, round, min, max, etc.)
+    if (/[a-zA-Z_]/.test(ch)) {
+      let ident = '';
+      while (i < sanitized.length && /[a-zA-Z0-9_]/.test(sanitized[i])) {
+        ident += sanitized[i];
+        i++;
+      }
+      const lower = ident.toLowerCase();
+      if (SUPPORTED_FUNCTIONS.has(lower)) {
+        tokens.push({ type: 'FUNC', value: lower });
+        continue;
+      }
+      return null; // Identificador no reconocido o variable no sustituida
     }
 
     // Números (enteros y decimales)
@@ -106,7 +139,7 @@ function tokenize(input: string): Token[] | null {
 }
 
 /**
- * Parser de descenso recursivo seguro con precedencia de operadores PEMDAS.
+ * Parser de descenso recursivo seguro con precedencia de operadores PEMDAS y funciones.
  */
 class MathParser {
   private tokens: Token[];
@@ -194,7 +227,7 @@ class MathParser {
     return base;
   }
 
-  // Unario (+x, -x) y Primarios (números, paréntesis)
+  // Unario (+x, -x) y Primarios (números, paréntesis, llamadas a funciones)
   private parseUnary(): number | null {
     const next = this.peek();
     if (!next) return null;
@@ -205,6 +238,34 @@ class MathParser {
       const val = this.parseUnary();
       if (val === null) return null;
       return next.value === '-' ? -val : val;
+    }
+
+    // Llamadas a función: ceil(...), floor(...), round(...), min(...), etc.
+    if (next.type === 'FUNC') {
+      const funcToken = this.get()!;
+      const funcName = String(funcToken.value).toLowerCase();
+
+      const openParen = this.get();
+      if (!openParen || openParen.type !== 'LPAREN') return null; // Esperaba '('
+
+      const args: number[] = [];
+      if (this.peek() && this.peek()!.type !== 'RPAREN') {
+        const firstArg = this.parseExpression();
+        if (firstArg === null) return null;
+        args.push(firstArg);
+
+        while (this.peek() && this.peek()!.type === 'COMMA') {
+          this.get(); // Consumir ',' o ';'
+          const nextArg = this.parseExpression();
+          if (nextArg === null) return null;
+          args.push(nextArg);
+        }
+      }
+
+      const closeParen = this.get();
+      if (!closeParen || closeParen.type !== 'RPAREN') return null; // Esperaba ')'
+
+      return this.evaluateFunction(funcName, args);
     }
 
     // Número simple
@@ -225,6 +286,54 @@ class MathParser {
 
     return null;
   }
+
+  private evaluateFunction(funcName: string, args: number[]): number | null {
+    if (args.length === 0) return null;
+
+    switch (funcName) {
+      case 'ceil':
+      case 'techo':
+        return Math.ceil(args[0]);
+
+      case 'floor':
+      case 'piso':
+        return Math.floor(args[0]);
+
+      case 'trunc':
+      case 'int':
+      case 'entero':
+        return Math.trunc(args[0]);
+
+      case 'round':
+      case 'redondear':
+        if (args.length >= 2) {
+          const decimals = Math.max(0, Math.round(args[1]));
+          const factor = Math.pow(10, decimals);
+          return Math.round(args[0] * factor) / factor;
+        }
+        return Math.round(args[0]);
+
+      case 'abs':
+      case 'absoluto':
+        return Math.abs(args[0]);
+
+      case 'sqrt':
+      case 'raiz':
+        if (args[0] < 0) return null; // Raíz negativa
+        return Math.sqrt(args[0]);
+
+      case 'min':
+      case 'minimo':
+        return Math.min(...args);
+
+      case 'max':
+      case 'maximo':
+        return Math.max(...args);
+
+      default:
+        return null;
+    }
+  }
 }
 
 /**
@@ -232,9 +341,10 @@ class MathParser {
  * Retorna el número resultante, o null si la sintaxis es inválida.
  * 
  * @example
- * evaluateMathExpression("15*4 + 10.5") -> { value: 70.5, isValid: true, isFormula: true, cleanFormula: "15*4 + 10.5" }
- * evaluateMathExpression("=(12 + 8) / 2") -> { value: 10, isValid: true, isFormula: true, cleanFormula: "(12 + 8) / 2" }
- * evaluateMathExpression("45") -> { value: 45, isValid: true, isFormula: false }
+ * evaluateMathExpression("ceil(14 / 4)") -> { value: 4, isValid: true, isFormula: true }
+ * evaluateMathExpression("floor(14 / 4)") -> { value: 3, isValid: true, isFormula: true }
+ * evaluateMathExpression("round(14 / 4, 1)") -> { value: 3.5, isValid: true, isFormula: true }
+ * evaluateMathExpression("15*4 + 10.5") -> { value: 70.5, isValid: true, isFormula: true }
  */
 export function evaluateMathExpression(
   input: string | number,
@@ -256,13 +366,14 @@ export function evaluateMathExpression(
   if (scope && Object.keys(scope).length > 0) {
     const sortedKeys = Object.keys(scope).sort((a, b) => b.length - a.length);
     for (const key of sortedKeys) {
+      if (SUPPORTED_FUNCTIONS.has(key.toLowerCase())) continue; // Proteger nombres de funciones
       const val = scope[key] !== undefined && !isNaN(scope[key]) ? scope[key] : 0;
       const regex = new RegExp(`\\b${key}\\b`, 'gi');
       cleanFormula = cleanFormula.replace(regex, String(val));
     }
   }
 
-  const isFormula = isFormulaString(raw) || (scope !== undefined && Object.keys(scope).length > 0);
+  const isFormula = isFormulaString(raw) || (scope !== undefined && Object.keys(scope).length > 0) || /[a-zA-Z_]\w*\s*\(/.test(cleanFormula);
 
   // Si es simplemente un número simple
   if (!isFormula && /^-?\d+(\.\d+)?$/.test(cleanFormula)) {
