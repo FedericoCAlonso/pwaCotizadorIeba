@@ -33,6 +33,7 @@ import { ItemPickerModal } from './presupuesto/ItemPickerModal';
 import { EmisionPresupuestoModal } from './presupuesto/EmisionPresupuestoModal';
 import { ParametricJobModal } from './presupuesto/ParametricJobModal';
 import { ParametricMaterialModal } from './presupuesto/ParametricMaterialModal';
+import { ClienteCombobox } from './presupuesto/ClienteCombobox';
 import { usePresupuestoEditorViewModel } from '../viewmodels/usePresupuestoEditorViewModel';
 
 interface PresupuestoEditorProps {
@@ -506,48 +507,51 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               Datos Generales & Tipo de Comprobante
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-4">
+              {/* Cliente Solicitante */}
               <div>
-                <label className="block text-sm font-medium text-on-surface-variant mb-2">Cliente Solicitante</label>
-                <select
-                  value={clienteId}
-                  onChange={(e) => setClienteId(e.target.value)}
-                  className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
-                >
-                  <option value="">Selecciona un cliente...</option>
-                  {clientes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre} {c.cuitDni ? `(${c.cuitDni})` : ''}
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                  Cliente Solicitante
+                </label>
+                <ClienteCombobox
+                  clientes={clientes}
+                  selectedClienteId={clienteId}
+                  onSelectCliente={(newId) => setClienteId(newId)}
+                />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-on-surface-variant mb-2">Tipo de Factura</label>
-                <select
-                  value={tipoFactura}
-                  onChange={(e) => handleTipoFacturaChange(e.target.value as TipoFactura)}
-                  className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
-                >
-                  {tiposFactura.map((tf) => (
-                    <option key={tf} value={tf}>
-                      {tf}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Tipo de Factura & Validez Oferta */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                    Tipo de Factura
+                  </label>
+                  <select
+                    value={tipoFactura}
+                    onChange={(e) => handleTipoFacturaChange(e.target.value as TipoFactura)}
+                    className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow shadow-2xs"
+                  >
+                    {tiposFactura.map((tf) => (
+                      <option key={tf} value={tf}>
+                        {tf}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-on-surface-variant mb-2">Validez Oferta (Días)</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={validezDias}
-                    onChange={(e) => setValidezDias(parseInt(e.target.value) || 15)}
-                    className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-2.5 text-sm text-on-surface font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
-                  />
-                  <Calendar className="w-5 h-5 text-on-surface-variant absolute right-3 top-2.5" />
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                    Validez Oferta (Días)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={validezDias}
+                      onChange={(e) => setValidezDias(parseInt(e.target.value) || 15)}
+                      className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-sm text-on-surface font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow shadow-2xs"
+                    />
+                    <Calendar className="w-5 h-5 text-on-surface-variant absolute right-3 top-2.5 pointer-events-none" />
+                  </div>
                 </div>
               </div>
             </div>
