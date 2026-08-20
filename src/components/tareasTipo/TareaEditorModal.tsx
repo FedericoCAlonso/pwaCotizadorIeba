@@ -39,6 +39,7 @@ import { ModalContainer } from '../ModalContainer';
 import { useToast } from '../../contexts/ToastContext';
 import { MaterialPickerModal } from './MaterialPickerModal';
 import { CategoryFilterMaterialModal } from './CategoryFilterMaterialModal';
+import { FormulaInput } from '../common/FormulaInput';
 
 export interface TareaFormData {
   nombre: string;
@@ -98,25 +99,38 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
   const [isMaterialPickerOpen, setIsMaterialPickerOpen] = useState(false);
   const [isCategoryFilterModalOpen, setIsCategoryFilterModalOpen] = useState(false);
+  const [editingCategoryFilterIdx, setEditingCategoryFilterIdx] = useState<number | null>(null);
 
-  const handleAddCategoryFilter = (payload: {
+  const handleSaveCategoryFilter = (payload: {
     nombreSlot: string;
     filtroMaterial: FiltroMaterialEnTarea;
     cantidad: number;
     formula?: string;
   }) => {
-    setFormData((prev) => ({
-      ...prev,
-      insumos: [
-        ...prev.insumos,
-        {
+    setFormData((prev) => {
+      const nextInsumos = [...prev.insumos];
+      if (editingCategoryFilterIdx !== null && editingCategoryFilterIdx >= 0 && editingCategoryFilterIdx < nextInsumos.length) {
+        nextInsumos[editingCategoryFilterIdx] = {
+          ...nextInsumos[editingCategoryFilterIdx],
           nombreSlot: payload.nombreSlot,
           filtroMaterial: payload.filtroMaterial,
           cantidad: payload.cantidad,
           formula: payload.formula
-        }
-      ]
-    }));
+        };
+      } else {
+        nextInsumos.push({
+          nombreSlot: payload.nombreSlot,
+          filtroMaterial: payload.filtroMaterial,
+          cantidad: payload.cantidad,
+          formula: payload.formula
+        });
+      }
+      return {
+        ...prev,
+        insumos: nextInsumos
+      };
+    });
+    setEditingCategoryFilterIdx(null);
   };
 
   useEffect(() => {
@@ -507,85 +521,6 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
               </div>
             </div>
 
-            {/* Presets Rápidos de Parámetros */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <span className="text-[10px] text-on-surface-variant font-semibold">Presets rápidos:</span>
-              <button
-                type="button"
-                onClick={() => addParametro({ id: 'sup_m2', nombre: 'Superficie (m²)', tipo: 'numero', valorDefault: 70, unidad: 'm²' })}
-                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
-              >
-                + Superficie (m²)
-              </button>
-              <button
-                type="button"
-                onClick={() => addParametro({ id: 'circuitos', nombre: 'Cantidad de Circuitos', tipo: 'numero', valorDefault: 4, unidad: 'circuitos' })}
-                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
-              >
-                + Cantidad Circuitos
-              </button>
-              <button
-                type="button"
-                onClick={() => addParametro({
-                  id: 'calibre_principal',
-                  nombre: 'Térmica Cabecera (A)',
-                  tipo: 'select',
-                  valorDefault: 32,
-                  opciones: [
-                    { id: 'opt-25', label: '25 A (Curva C)', valor: 25 },
-                    { id: 'opt-32', label: '32 A (Curva C)', valor: 32 },
-                    { id: 'opt-40', label: '40 A (Curva C)', valor: 40 },
-                    { id: 'opt-50', label: '50 A (Curva C)', valor: 50 },
-                    { id: 'opt-63', label: '63 A (Curva C)', valor: 63 }
-                  ]
-                })}
-                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
-              >
-                + Térmica Cabecera
-              </button>
-              <button
-                type="button"
-                onClick={() => addParametro({
-                  id: 'k_estado',
-                  nombre: 'Antigüedad / Estado',
-                  tipo: 'select',
-                  valorDefault: 1.25,
-                  opciones: [
-                    { id: 'opt-1', label: 'Moderna (1.00x)', valor: 1.0 },
-                    { id: 'opt-2', label: 'Intermedia (1.25x)', valor: 1.25 },
-                    { id: 'opt-3', label: 'Antigua (1.60x)', valor: 1.6 }
-                  ]
-                })}
-                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
-              >
-                + Coef. Antigüedad
-              </button>
-              <button
-                type="button"
-                onClick={() => addParametro({
-                  id: 'k_altura',
-                  nombre: 'Altura de Trabajo',
-                  tipo: 'select',
-                  valorDefault: 1.0,
-                  opciones: [
-                    { id: 'opt-h1', label: 'Estándar <2.8m (1.00x)', valor: 1.0 },
-                    { id: 'opt-h2', label: 'Doble Altura (1.25x)', valor: 1.25 },
-                    { id: 'opt-h3', label: 'Gran Altura (1.50x)', valor: 1.5 }
-                  ]
-                })}
-                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
-              >
-                + Coef. Altura
-              </button>
-              <button
-                type="button"
-                onClick={() => addParametro({ id: 'desarmes', nombre: 'Ventiladores/Apliques a Desarmar', tipo: 'numero', valorDefault: 0, unidad: 'artefactos' })}
-                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
-              >
-                + Desarmes Especiales
-              </button>
-            </div>
-
             {/* Listado de Parámetros */}
             <div className="space-y-3">
               {formData.parametros.map((parametro, idx) => (
@@ -770,46 +705,6 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
               </div>
             </div>
 
-            {/* Presets Rápidos de Variables Calculadas */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <span className="text-[10px] text-on-surface-variant font-semibold">Presets de cálculo:</span>
-              <button
-                type="button"
-                onClick={() => addVariable({ id: 'modulos_totales', nombre: 'Módulos DIN Totales', formula: '4 + circuitos * 2', unidad: 'módulos', descripcion: 'Reserva de 4 módulos + 2 por cada circuito' })}
-                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
-              >
-                + Módulos Tablero (4 + circuitos * 2)
-              </button>
-              <button
-                type="button"
-                onClick={() => addVariable({ id: 'circuitos_calc', nombre: 'Circuitos Estimados', formula: 'ceil(bocas / 4)', unidad: 'circuitos', descripcion: '1 circuito cada 4 bocas (redondeo hacia arriba)' })}
-                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
-              >
-                + Circuitos Estimados (ceil(bocas / 4))
-              </button>
-              <button
-                type="button"
-                onClick={() => addVariable({ id: 'rollos_cable', nombre: 'Rollos de Cable (100m)', formula: 'ceil(metros_cable / 100)', unidad: 'rollos', descripcion: 'Rollos de 100m enteros requeridos' })}
-                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
-              >
-                + Rollos de 100m (ceil(metros_cable / 100))
-              </button>
-              <button
-                type="button"
-                onClick={() => addVariable({ id: 'metros_cable', nombre: 'Metros Cable por Conductor', formula: 'bocas * 12 * 1.10', unidad: 'm', descripcion: '12m por boca + 10% desperdicio' })}
-                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
-              >
-                + Metros Cable (bocas * 12 * 1.10)
-              </button>
-              <button
-                type="button"
-                onClick={() => addVariable({ id: 'k_complejidad', nombre: 'Factor Complejidad MO', formula: 'k_estado * k_altura', unidad: 'x', descripcion: 'Multiplicador combinado de mano de obra' })}
-                className="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-[11px] text-on-surface rounded-lg border border-outline-variant/20 transition"
-              >
-                + Multiplicador Complejidad (k_estado * k_altura)
-              </button>
-            </div>
-
             {/* Listado de Variables Calculadas */}
             {formData.variables.length === 0 ? (
               <div className="p-3 bg-surface-container-highest/30 border border-dashed border-outline-variant/30 rounded-2xl text-center">
@@ -893,21 +788,21 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                       {/* Fila Inferior: Editor de Fórmula de Ancho Completo */}
                       <div className="pt-1 border-t border-emerald-500/15">
                         <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1 flex items-center justify-between">
-                          <span>Fórmula Matemática de Cálculo</span>
+                          <span>Fórmula Matemática / Condicional</span>
                           <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-300 normal-case hidden sm:inline">
-                            Soporta ceil, floor, round, int, min, max, %, +, -, *, /
+                            Soporta +, -, *, /, %, ^, cond ? a : b, ==, !=, &lt;, &gt;, &lt;=, &gt;=, si, ceil, round...
                           </span>
                         </label>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-surface-container border border-outline-variant/30 rounded-xl p-1.5 focus-within:ring-2 focus-within:ring-primary/50">
-                          <input
-                            type="text"
-                            required
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-2 bg-surface-container border border-outline-variant/30 rounded-xl p-1.5 focus-within:ring-2 focus-within:ring-primary/50">
+                          <FormulaInput
                             value={variable.formula}
-                            onChange={(e) => updateVariable(idx, { formula: e.target.value })}
-                            className="w-full bg-transparent font-mono text-xs font-bold text-primary focus:outline-none px-2 py-1 placeholder:text-on-surface-variant/40"
+                            onChange={(val) => updateVariable(idx, { formula: val })}
                             placeholder="ej: 4 + ceil(circuitos / 2) * 2"
+                            parametros={formData.parametros}
+                            variables={formData.variables.slice(0, idx)}
+                            required
                           />
-                          <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0 px-1 border-t sm:border-t-0 border-outline-variant/15 pt-1 sm:pt-0">
+                          <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0 px-1 border-t sm:border-t-0 border-outline-variant/15 pt-1 sm:pt-0 sm:mt-1">
                             <span className="text-[10px] text-on-surface-variant font-medium sm:hidden">Resultado:</span>
                             <span
                               className={`text-xs font-mono font-bold px-2.5 py-1 rounded-lg shrink-0 ${
@@ -953,7 +848,10 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsCategoryFilterModalOpen(true)}
+                  onClick={() => {
+                    setEditingCategoryFilterIdx(null);
+                    setIsCategoryFilterModalOpen(true);
+                  }}
                   className="px-3.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs rounded-xl transition flex items-center gap-1.5 border border-primary/25 shadow-2xs"
                   title="Definir una ranura que elija materiales según categoría y parámetros/variables"
                 >
@@ -1065,14 +963,12 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
                         {/* Formula Input */}
                         <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
-                          <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30 flex-1 sm:flex-initial">
+                          <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30 flex-1 sm:flex-initial sm:w-64">
                             <span className="text-[10px] font-bold text-on-surface-variant uppercase shrink-0">Fórmula:</span>
-                            <input
-                              type="text"
+                            <FormulaInput
                               value={item.formula || ''}
-                              onChange={(e) => {
+                              onChange={(newFormula) => {
                                 const next = [...formData.insumos];
-                                const newFormula = e.target.value;
                                 const res = evaluateMathExpression(newFormula, currentScope);
                                 next[idx] = {
                                   ...next[idx],
@@ -1081,8 +977,11 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                                 };
                                 setFormData({ ...formData, insumos: next });
                               }}
-                              className="w-full sm:w-40 bg-transparent font-mono text-xs font-bold text-primary focus:outline-none min-w-[80px]"
+                              parametros={formData.parametros}
+                              variables={formData.variables}
+                              showChips={false}
                               placeholder="ej: bocas * 12"
+                              className="w-full"
                             />
                             <span className="text-xs font-mono font-bold text-on-surface bg-surface-container px-2 py-0.5 rounded-md shrink-0">
                               = {cantEvaluada} {unit}
@@ -1103,16 +1002,30 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                       {/* Regla Condicional de Inclusión Opcional o Info de Slot */}
                       <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-outline-variant/15 text-[11px]">
                         {isCategoryFilter ? (
-                          <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant flex-wrap">
-                            <span className="font-semibold text-emerald-700 dark:text-emerald-300">Criterios:</span>
-                            <span className="font-mono text-[10px] bg-surface-container px-2 py-0.5 rounded-md">
-                              {item.filtroMaterial?.criterios?.map(c => `${c.atributo} ${c.operador} ${c.valor}`).join(' • ')}
-                            </span>
-                            {matchingRuleName && (
-                              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md truncate max-w-xs">
-                                ✓ {matchingRuleName}
+                          <div className="flex items-center justify-between gap-2 w-full flex-wrap">
+                            <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant flex-wrap">
+                              <span className="font-semibold text-emerald-700 dark:text-emerald-300">Criterios:</span>
+                              <span className="font-mono text-[10px] bg-surface-container px-2 py-0.5 rounded-md">
+                                {item.filtroMaterial?.criterios?.map(c => `${c.atributo} ${c.operador} ${c.valor}`).join(' • ')}
                               </span>
-                            )}
+                              {matchingRuleName && (
+                                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md truncate max-w-xs">
+                                  ✓ {matchingRuleName}
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingCategoryFilterIdx(idx);
+                                setIsCategoryFilterModalOpen(true);
+                              }}
+                              className="px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 rounded-xl transition flex items-center gap-1.5 shrink-0 active:scale-95"
+                              title="Editar reglas y criterios del material por categoría"
+                            >
+                              <Sliders className="w-3.5 h-3.5" />
+                              <span>Editar Criterios</span>
+                            </button>
                           </div>
                         ) : isDynamic ? (
                           <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant">
@@ -1122,18 +1035,21 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                             </span>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1.5 bg-surface-container-highest/80 px-2.5 py-1 rounded-xl border border-outline-variant/25">
-                            <span className="text-[10px] font-bold text-on-surface-variant uppercase">Condición:</span>
-                            <input
-                              type="text"
+                          <div className="flex items-center gap-1.5 bg-surface-container-highest/80 px-2.5 py-1 rounded-xl border border-outline-variant/25 w-full sm:w-auto min-w-[280px]">
+                            <span className="text-[10px] font-bold text-on-surface-variant uppercase shrink-0">Condición:</span>
+                            <FormulaInput
                               value={item.condicion || ''}
-                              onChange={(e) => {
+                              onChange={(newCond) => {
                                 const next = [...formData.insumos];
-                                next[idx] = { ...next[idx], condicion: e.target.value };
+                                next[idx] = { ...next[idx], condicion: newCond };
                                 setFormData({ ...formData, insumos: next });
                               }}
-                              className="w-44 sm:w-60 bg-transparent font-mono text-xs text-on-surface focus:outline-none placeholder:text-on-surface-variant/40"
+                              parametros={formData.parametros}
+                              variables={formData.variables}
+                              showChips={false}
+                              isCondition={true}
                               placeholder="Siempre (o ej: calibre_principal <= 25)"
+                              className="w-full"
                             />
                           </div>
                         )}
@@ -1235,14 +1151,12 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
                         {/* Formula Input */}
                         <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
-                          <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30 flex-1 sm:flex-initial">
+                          <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30 flex-1 sm:flex-initial sm:w-72">
                             <span className="text-[10px] font-bold text-on-surface-variant uppercase shrink-0">Fórmula:</span>
-                            <input
-                              type="text"
+                            <FormulaInput
                               value={item.formula || ''}
-                              onChange={(e) => {
+                              onChange={(newFormula) => {
                                 const next = [...formData.manoObra];
-                                const newFormula = e.target.value;
                                 const res = evaluateMathExpression(newFormula, currentScope);
                                 next[idx] = {
                                   ...next[idx],
@@ -1251,8 +1165,11 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                                 };
                                 setFormData({ ...formData, manoObra: next });
                               }}
-                              className="w-full sm:w-48 bg-transparent font-mono text-xs font-bold text-primary focus:outline-none min-w-[80px]"
+                              parametros={formData.parametros}
+                              variables={formData.variables}
+                              showChips={false}
                               placeholder="ej: horas_oficial o 1.0 + bocas * 1.5"
+                              className="w-full"
                             />
                             <span className="text-xs font-mono font-bold text-on-surface bg-surface-container px-2 py-0.5 rounded-md shrink-0">
                               = {horasEvaluadas} hs
@@ -1272,18 +1189,21 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
                       {/* Regla Condicional de Inclusión Opcional */}
                       <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-outline-variant/15 text-[11px]">
-                        <div className="flex items-center gap-1.5 bg-surface-container-highest/80 px-2.5 py-1 rounded-xl border border-outline-variant/25">
-                          <span className="text-[10px] font-bold text-on-surface-variant uppercase">Condición:</span>
-                          <input
-                            type="text"
+                        <div className="flex items-center gap-1.5 bg-surface-container-highest/80 px-2.5 py-1 rounded-xl border border-outline-variant/25 w-full sm:w-auto min-w-[280px]">
+                          <span className="text-[10px] font-bold text-on-surface-variant uppercase shrink-0">Condición:</span>
+                          <FormulaInput
                             value={item.condicion || ''}
-                            onChange={(e) => {
+                            onChange={(newCond) => {
                               const next = [...formData.manoObra];
-                              next[idx] = { ...next[idx], condicion: e.target.value };
+                              next[idx] = { ...next[idx], condicion: newCond };
                               setFormData({ ...formData, manoObra: next });
                             }}
-                            className="w-44 sm:w-60 bg-transparent font-mono text-xs text-on-surface focus:outline-none placeholder:text-on-surface-variant/40"
+                            parametros={formData.parametros}
+                            variables={formData.variables}
+                            showChips={false}
+                            isCondition={true}
                             placeholder="Siempre (o ej: requiere_certificacion == 1)"
+                            className="w-full"
                           />
                         </div>
                         {item.condicion && (
@@ -1386,12 +1306,27 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
       {/* Parametric Category Filter Material Modal */}
       <CategoryFilterMaterialModal
         isOpen={isCategoryFilterModalOpen}
-        onClose={() => setIsCategoryFilterModalOpen(false)}
+        onClose={() => {
+          setIsCategoryFilterModalOpen(false);
+          setEditingCategoryFilterIdx(null);
+        }}
         parametros={formData.parametros}
         variables={formData.variables}
         currentScope={currentScope}
         insumosMap={insumosMap}
-        onAddCategoryFilter={handleAddCategoryFilter}
+        initialData={
+          editingCategoryFilterIdx !== null &&
+          formData.insumos[editingCategoryFilterIdx] &&
+          formData.insumos[editingCategoryFilterIdx].filtroMaterial
+            ? {
+                nombreSlot: formData.insumos[editingCategoryFilterIdx].nombreSlot || '',
+                filtroMaterial: formData.insumos[editingCategoryFilterIdx].filtroMaterial!,
+                cantidad: formData.insumos[editingCategoryFilterIdx].cantidad,
+                formula: formData.insumos[editingCategoryFilterIdx].formula
+              }
+            : null
+        }
+        onSaveCategoryFilter={handleSaveCategoryFilter}
       />
     </>
   );

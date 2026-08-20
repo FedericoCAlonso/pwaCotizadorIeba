@@ -15,7 +15,6 @@ import { PresupuestoDetail } from './components/PresupuestoDetail';
 import { RegistroTrabajoManager } from './components/RegistroTrabajoManager';
 import { LogisticaManager } from './components/LogisticaManager';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
-import { OnboardingBanner } from './components/OnboardingBanner';
 import { HelpCenterModal } from './components/HelpCenterModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -163,14 +162,6 @@ export function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-28 md:py-6">
-        {/* Onboarding Guidance Banner */}
-        <OnboardingBanner
-          onNavigateTab={(tab) => {
-            setActiveTab(tab);
-            setViewMode('list');
-          }}
-        />
-
         {/* Tab panel — role="tabpanel" vincula el contenido activo al tablist via aria-controls */}
         <div
           role="tabpanel"

@@ -1,6 +1,9 @@
 /**
- * mathEvaluator.ts - Parser y evaluador seguro de expresiones aritméticas
- * Diseñado para campos numéricos calculados tipo Excel/CAD (ej: 15*4 + 10.5 o = (12+4)/2).
+ * mathEvaluator.ts - Parser y evaluador seguro de expresiones aritméticas y lógicas
+ * Diseñado para campos numéricos calculados tipo Excel/CAD y fórmulas paramétricas.
+ * Soporta operadores aritméticos (+, -, *, /, ^, %), relacionales (<, <=, >, >=),
+ * de igualdad (==, ===, =, !=, !==, <>), lógicos (&&, ||, !, and, or, not),
+ * operador ternario (? :) y funciones matemáticas / condicionales (ceil, floor, round, min, max, si, if, etc.).
  * NUNCA utiliza eval() ni Function() para garantizar 100% de seguridad.
  */
 
@@ -12,17 +15,6 @@ export interface MathEvalResult {
   error?: string;
 }
 
-/**
- * Verifica si una cadena contiene sintaxis de fórmula o expresión aritmética.
- */
-export function isFormulaString(raw: string): boolean {
-  if (!raw || typeof raw !== 'string') return false;
-  const trimmed = raw.trim();
-  if (trimmed.startsWith('=')) return true;
-  // Contiene operadores aritméticos típicos (+, -, *, /, ^, (, )) junto con números
-  return /[+\-*/^()]/.test(trimmed) && /\d/.test(trimmed);
-}
-
 export const SUPPORTED_FUNCTIONS = new Set([
   'ceil', 'techo',
   'floor', 'piso',
@@ -31,8 +23,31 @@ export const SUPPORTED_FUNCTIONS = new Set([
   'abs', 'absoluto',
   'min', 'minimo',
   'max', 'maximo',
-  'sqrt', 'raiz'
+  'sqrt', 'raiz',
+  'si', 'if'
 ]);
+
+export const RESERVED_KEYWORDS = new Set([
+  ...SUPPORTED_FUNCTIONS,
+  'and', 'or', 'not',
+  'true', 'false'
+]);
+
+/**
+ * Verifica si una cadena contiene sintaxis de fórmula o expresión aritmética/lógica.
+ */
+export function isFormulaString(raw: string): boolean {
+  if (!raw || typeof raw !== 'string') return false;
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('=')) return true;
+  // Contiene operadores típicos (+, -, *, /, ^, %, ?, :, <, >, =, !, &, |) junto con operandos
+  if (/[+\-*/^%?<>!=&|]/.test(trimmed) && (/\d/.test(trimmed) || /true|false/i.test(trimmed))) {
+    return true;
+  }
+  // Llamada a función soportada ej: ceil(10/2) o si(x>1, 2, 3)
+  const funcRegex = new RegExp(`\\b(${Array.from(SUPPORTED_FUNCTIONS).join('|')})\\s*\\(`, 'i');
+  return funcRegex.test(trimmed);
+}
 
 /**
  * Normaliza una cadena de texto sustituyendo comas decimales y limpiando caracteres no permitidos.
@@ -45,14 +60,30 @@ export function sanitizeMathString(raw: string): string {
   }
   // Reemplaza comas decimales tipo "12,5" o ",5" por punto "12.5"
   str = str.replace(/(\d+),(\d+)(?!\s*[,;a-zA-Z\d])/g, '$1.$2');
-  str = str.replace(/(^|[+\-*/^(])\s*,(\d+)/g, '$10.$2');
+  str = str.replace(/(^|[+\-*/^%?<>!=&(,:|])\s*,(\d+)/g, '$10.$2');
   return str;
 }
 
 /**
- * Tokenizador seguro para expresiones aritméticas y funciones matemáticas.
+ * Tokenizador seguro para expresiones aritméticas, lógicas y ternarias.
  */
-type TokenType = 'NUMBER' | 'OP' | 'LPAREN' | 'RPAREN' | 'COMMA' | 'FUNC';
+type TokenType =
+  | 'NUMBER'
+  | 'OP_ADD'         // +, -
+  | 'OP_MUL'         // *, /, %
+  | 'OP_POW'         // ^
+  | 'OP_REL'         // <, <=, >, >=
+  | 'OP_EQ'          // ==, ===, =, !=, !==, <>
+  | 'OP_AND'         // &&, and
+  | 'OP_OR'          // ||, or
+  | 'OP_NOT'         // !, not
+  | 'QUESTION'       // ?
+  | 'COLON'          // :
+  | 'LPAREN'         // (
+  | 'RPAREN'         // )
+  | 'COMMA'          // ,, ;
+  | 'FUNC';          // ceil, max, si, etc.
+
 interface Token {
   type: TokenType;
   value: string | number;
@@ -91,14 +122,113 @@ function tokenize(input: string): Token[] | null {
       continue;
     }
 
-    // Operadores
-    if (['+', '-', '*', '/', '^', '%'].includes(ch)) {
-      tokens.push({ type: 'OP', value: ch });
+    // Operador ternario
+    if (ch === '?') {
+      tokens.push({ type: 'QUESTION', value: '?' });
+      i++;
+      continue;
+    }
+    if (ch === ':') {
+      tokens.push({ type: 'COLON', value: ':' });
       i++;
       continue;
     }
 
-    // Identificadores de función (ej: ceil, floor, round, min, max, etc.)
+    // Operadores lógicos de 2 caracteres (||, &&)
+    if (ch === '|' && sanitized[i + 1] === '|') {
+      tokens.push({ type: 'OP_OR', value: '||' });
+      i += 2;
+      continue;
+    }
+    if (ch === '&' && sanitized[i + 1] === '&') {
+      tokens.push({ type: 'OP_AND', value: '&&' });
+      i += 2;
+      continue;
+    }
+
+    // Operadores de igualdad / desigualdad de 3 caracteres (===, !==)
+    if (sanitized.startsWith('===', i)) {
+      tokens.push({ type: 'OP_EQ', value: '==' });
+      i += 3;
+      continue;
+    }
+    if (sanitized.startsWith('!==', i)) {
+      tokens.push({ type: 'OP_EQ', value: '!=' });
+      i += 3;
+      continue;
+    }
+
+    // Operadores de 2 caracteres (==, !=, <>, <=, >=)
+    if (sanitized.startsWith('==', i)) {
+      tokens.push({ type: 'OP_EQ', value: '==' });
+      i += 2;
+      continue;
+    }
+    if (sanitized.startsWith('!=', i)) {
+      tokens.push({ type: 'OP_EQ', value: '!=' });
+      i += 2;
+      continue;
+    }
+    if (sanitized.startsWith('<>', i)) {
+      tokens.push({ type: 'OP_EQ', value: '!=' });
+      i += 2;
+      continue;
+    }
+    if (sanitized.startsWith('<=', i)) {
+      tokens.push({ type: 'OP_REL', value: '<=' });
+      i += 2;
+      continue;
+    }
+    if (sanitized.startsWith('>=', i)) {
+      tokens.push({ type: 'OP_REL', value: '>=' });
+      i += 2;
+      continue;
+    }
+
+    // Operadores relacionales de 1 carácter (<, >)
+    if (ch === '<') {
+      tokens.push({ type: 'OP_REL', value: '<' });
+      i++;
+      continue;
+    }
+    if (ch === '>') {
+      tokens.push({ type: 'OP_REL', value: '>' });
+      i++;
+      continue;
+    }
+
+    // Igualdad simple de 1 carácter (= estilo Excel / asignación condicional)
+    if (ch === '=') {
+      tokens.push({ type: 'OP_EQ', value: '==' });
+      i++;
+      continue;
+    }
+
+    // Negación lógica (!)
+    if (ch === '!') {
+      tokens.push({ type: 'OP_NOT', value: '!' });
+      i++;
+      continue;
+    }
+
+    // Operadores aritméticos
+    if (ch === '+' || ch === '-') {
+      tokens.push({ type: 'OP_ADD', value: ch });
+      i++;
+      continue;
+    }
+    if (ch === '*' || ch === '/' || ch === '%') {
+      tokens.push({ type: 'OP_MUL', value: ch });
+      i++;
+      continue;
+    }
+    if (ch === '^') {
+      tokens.push({ type: 'OP_POW', value: '^' });
+      i++;
+      continue;
+    }
+
+    // Identificadores (funciones, palabras clave booleanas y lógicas: and, or, not, true, false, etc.)
     if (/[a-zA-Z_]/.test(ch)) {
       let ident = '';
       while (i < sanitized.length && /[a-zA-Z0-9_]/.test(sanitized[i])) {
@@ -106,15 +236,37 @@ function tokenize(input: string): Token[] | null {
         i++;
       }
       const lower = ident.toLowerCase();
+
+      if (lower === 'true') {
+        tokens.push({ type: 'NUMBER', value: 1 });
+        continue;
+      }
+      if (lower === 'false') {
+        tokens.push({ type: 'NUMBER', value: 0 });
+        continue;
+      }
+      if (lower === 'and') {
+        tokens.push({ type: 'OP_AND', value: '&&' });
+        continue;
+      }
+      if (lower === 'or') {
+        tokens.push({ type: 'OP_OR', value: '||' });
+        continue;
+      }
+      if (lower === 'not') {
+        tokens.push({ type: 'OP_NOT', value: '!' });
+        continue;
+      }
       if (SUPPORTED_FUNCTIONS.has(lower)) {
         tokens.push({ type: 'FUNC', value: lower });
         continue;
       }
+
       return null; // Identificador no reconocido o variable no sustituida
     }
 
     // Números (enteros y decimales)
-    if (/\d/.test(ch) || ch === '.') {
+    if (/\d/.test(ch) || (ch === '.' && /\d/.test(sanitized[i + 1] || ''))) {
       let numStr = '';
       let hasDot = false;
       while (i < sanitized.length && (/\d/.test(sanitized[i]) || sanitized[i] === '.')) {
@@ -139,7 +291,17 @@ function tokenize(input: string): Token[] | null {
 }
 
 /**
- * Parser de descenso recursivo seguro con precedencia de operadores PEMDAS y funciones.
+ * Nodos del Árbol de Sintaxis Abstracta (AST).
+ */
+type ASTNode =
+  | { type: 'Literal'; value: number }
+  | { type: 'Unary'; op: string; argument: ASTNode }
+  | { type: 'Binary'; op: string; left: ASTNode; right: ASTNode }
+  | { type: 'Ternary'; condition: ASTNode; consequent: ASTNode; alternate: ASTNode }
+  | { type: 'Call'; name: string; args: ASTNode[] };
+
+/**
+ * Parser de descenso recursivo seguro con precedencia estándar (K&R / C / JavaScript).
  */
 class MathParser {
   private tokens: Token[];
@@ -157,27 +319,55 @@ class MathParser {
     return this.tokens[this.pos++];
   }
 
-  public parse(): number | null {
+  public parse(): ASTNode | null {
     if (this.tokens.length === 0) return null;
-    const result = this.parseExpression();
-    if (result === null || this.pos < this.tokens.length) {
-      return null; // Quedaron tokens no consumidos
+    const ast = this.parseTernary();
+    if (ast === null || this.pos < this.tokens.length) {
+      return null; // Quedaron tokens no consumidos o error de sintaxis
     }
-    return result;
+    return ast;
   }
 
-  // Expresión: Suma y Resta
-  private parseExpression(): number | null {
-    let left = this.parseTerm();
+  // 1. Ternario: cond ? consequent : alternate (asociatividad por derecha)
+  private parseTernary(): ASTNode | null {
+    const cond = this.parseLogicalOr();
+    if (cond === null) return null;
+
+    const next = this.peek();
+    if (next && next.type === 'QUESTION') {
+      this.get(); // Consumir '?'
+      const consequent = this.parseTernary(); // Right-associative
+      if (consequent === null) return null;
+
+      const colon = this.get();
+      if (!colon || colon.type !== 'COLON') return null; // Falta ':'
+
+      const alternate = this.parseTernary(); // Right-associative
+      if (alternate === null) return null;
+
+      return {
+        type: 'Ternary',
+        condition: cond,
+        consequent,
+        alternate
+      };
+    }
+
+    return cond;
+  }
+
+  // 2. Lógico OR: a || b, a or b
+  private parseLogicalOr(): ASTNode | null {
+    let left = this.parseLogicalAnd();
     if (left === null) return null;
 
     while (this.pos < this.tokens.length) {
       const next = this.peek();
-      if (next && next.type === 'OP' && (next.value === '+' || next.value === '-')) {
-        this.get(); // Consumir operador
-        const right = this.parseTerm();
+      if (next && next.type === 'OP_OR') {
+        const op = String(this.get()!.value);
+        const right = this.parseLogicalAnd();
         if (right === null) return null;
-        left = next.value === '+' ? left + right : left - right;
+        left = { type: 'Binary', op, left, right };
       } else {
         break;
       }
@@ -185,26 +375,94 @@ class MathParser {
     return left;
   }
 
-  // Término: Multiplicación, División y Módulo
-  private parseTerm(): number | null {
+  // 3. Lógico AND: a && b, a and b
+  private parseLogicalAnd(): ASTNode | null {
+    let left = this.parseEquality();
+    if (left === null) return null;
+
+    while (this.pos < this.tokens.length) {
+      const next = this.peek();
+      if (next && next.type === 'OP_AND') {
+        const op = String(this.get()!.value);
+        const right = this.parseEquality();
+        if (right === null) return null;
+        left = { type: 'Binary', op, left, right };
+      } else {
+        break;
+      }
+    }
+    return left;
+  }
+
+  // 4. Igualdad / Desigualdad: ==, !=, =, <>, ===, !==
+  private parseEquality(): ASTNode | null {
+    let left = this.parseRelational();
+    if (left === null) return null;
+
+    while (this.pos < this.tokens.length) {
+      const next = this.peek();
+      if (next && next.type === 'OP_EQ') {
+        const op = String(this.get()!.value);
+        const right = this.parseRelational();
+        if (right === null) return null;
+        left = { type: 'Binary', op, left, right };
+      } else {
+        break;
+      }
+    }
+    return left;
+  }
+
+  // 5. Relacionales: <, <=, >, >=
+  private parseRelational(): ASTNode | null {
+    let left = this.parseAdditive();
+    if (left === null) return null;
+
+    while (this.pos < this.tokens.length) {
+      const next = this.peek();
+      if (next && next.type === 'OP_REL') {
+        const op = String(this.get()!.value);
+        const right = this.parseAdditive();
+        if (right === null) return null;
+        left = { type: 'Binary', op, left, right };
+      } else {
+        break;
+      }
+    }
+    return left;
+  }
+
+  // 6. Aditivo: +, -
+  private parseAdditive(): ASTNode | null {
+    let left = this.parseMultiplicative();
+    if (left === null) return null;
+
+    while (this.pos < this.tokens.length) {
+      const next = this.peek();
+      if (next && next.type === 'OP_ADD') {
+        const op = String(this.get()!.value);
+        const right = this.parseMultiplicative();
+        if (right === null) return null;
+        left = { type: 'Binary', op, left, right };
+      } else {
+        break;
+      }
+    }
+    return left;
+  }
+
+  // 7. Multiplicativo: *, /, %
+  private parseMultiplicative(): ASTNode | null {
     let left = this.parseFactor();
     if (left === null) return null;
 
     while (this.pos < this.tokens.length) {
       const next = this.peek();
-      if (next && next.type === 'OP' && (next.value === '*' || next.value === '/' || next.value === '%')) {
-        this.get(); // Consumir operador
+      if (next && next.type === 'OP_MUL') {
+        const op = String(this.get()!.value);
         const right = this.parseFactor();
         if (right === null) return null;
-        if (next.value === '*') {
-          left = left * right;
-        } else if (next.value === '/') {
-          if (right === 0) return null; // Evitar división por cero
-          left = left / right;
-        } else if (next.value === '%') {
-          if (right === 0) return null;
-          left = left % right;
-        }
+        left = { type: 'Binary', op, left, right };
       } else {
         break;
       }
@@ -212,35 +470,43 @@ class MathParser {
     return left;
   }
 
-  // Factor: Exponenciación
-  private parseFactor(): number | null {
+  // 8. Factor / Potencia: ^ (asociatividad por derecha)
+  private parseFactor(): ASTNode | null {
     const base = this.parseUnary();
     if (base === null) return null;
 
     const next = this.peek();
-    if (next && next.type === 'OP' && next.value === '^') {
-      this.get(); // Consumir '^'
-      const exp = this.parseFactor(); // Recursión por derecha para asociatividad
+    if (next && next.type === 'OP_POW') {
+      const op = String(this.get()!.value);
+      const exp = this.parseFactor(); // Recursión por derecha
       if (exp === null) return null;
-      return Math.pow(base, exp);
+      return { type: 'Binary', op, left: base, right: exp };
     }
     return base;
   }
 
-  // Unario (+x, -x) y Primarios (números, paréntesis, llamadas a funciones)
-  private parseUnary(): number | null {
+  // 9. Unarios (+x, -x, !x, not x) y Primarios (números, paréntesis, llamadas a función)
+  private parseUnary(): ASTNode | null {
     const next = this.peek();
     if (!next) return null;
 
-    // Soporte para signo unario: -5 o +10
-    if (next.type === 'OP' && (next.value === '+' || next.value === '-')) {
-      this.get();
-      const val = this.parseUnary();
-      if (val === null) return null;
-      return next.value === '-' ? -val : val;
+    // Unario aritmético (+, -)
+    if (next.type === 'OP_ADD') {
+      const op = String(this.get()!.value);
+      const arg = this.parseUnary();
+      if (arg === null) return null;
+      return { type: 'Unary', op, argument: arg };
     }
 
-    // Llamadas a función: ceil(...), floor(...), round(...), min(...), etc.
+    // Unario lógico (!, not)
+    if (next.type === 'OP_NOT') {
+      const op = String(this.get()!.value);
+      const arg = this.parseUnary();
+      if (arg === null) return null;
+      return { type: 'Unary', op, argument: arg };
+    }
+
+    // Llamadas a función: ceil(...), floor(...), si(...), min(...), etc.
     if (next.type === 'FUNC') {
       const funcToken = this.get()!;
       const funcName = String(funcToken.value).toLowerCase();
@@ -248,107 +514,220 @@ class MathParser {
       const openParen = this.get();
       if (!openParen || openParen.type !== 'LPAREN') return null; // Esperaba '('
 
-      const args: number[] = [];
+      const args: ASTNode[] = [];
       if (this.peek() && this.peek()!.type !== 'RPAREN') {
-        const firstArg = this.parseExpression();
+        const firstArg = this.parseTernary();
         if (firstArg === null) return null;
         args.push(firstArg);
 
         while (this.peek() && this.peek()!.type === 'COMMA') {
           this.get(); // Consumir ',' o ';'
-          const nextArg = this.parseExpression();
+          const nextArg = this.parseTernary();
           if (nextArg === null) return null;
           args.push(nextArg);
         }
       }
 
       const closeParen = this.get();
-      if (!closeParen || closeParen.type !== 'RPAREN') return null; // Esperaba ')'
+      if (!closeParen || closeParen.type !== 'RPAREN') return null; // Falta ')'
 
-      return this.evaluateFunction(funcName, args);
+      return { type: 'Call', name: funcName, args };
     }
 
     // Número simple
     if (next.type === 'NUMBER') {
-      this.get();
-      return typeof next.value === 'number' ? next.value : parseFloat(String(next.value));
+      const token = this.get()!;
+      const numVal = typeof token.value === 'number' ? token.value : parseFloat(String(token.value));
+      return { type: 'Literal', value: numVal };
     }
 
     // Paréntesis agrupados: ( exp )
     if (next.type === 'LPAREN') {
       this.get(); // Consumir '('
-      const val = this.parseExpression();
-      if (val === null) return null;
+      const inner = this.parseTernary();
+      if (inner === null) return null;
       const closing = this.get();
       if (!closing || closing.type !== 'RPAREN') return null; // Falta ')'
-      return val;
+      return inner;
     }
 
     return null;
   }
+}
 
-  private evaluateFunction(funcName: string, args: number[]): number | null {
-    if (args.length === 0) return null;
+/**
+ * Evaluación recursiva del AST con cortocircuito para operadores lógicos y ternarios.
+ */
+function evaluateAST(node: ASTNode): number | null {
+  switch (node.type) {
+    case 'Literal':
+      return node.value;
 
-    switch (funcName) {
-      case 'ceil':
-      case 'techo':
-        return Math.ceil(args[0]);
-
-      case 'floor':
-      case 'piso':
-        return Math.floor(args[0]);
-
-      case 'trunc':
-      case 'int':
-      case 'entero':
-        return Math.trunc(args[0]);
-
-      case 'round':
-      case 'redondear':
-        if (args.length >= 2) {
-          const decimals = Math.max(0, Math.round(args[1]));
-          const factor = Math.pow(10, decimals);
-          return Math.round(args[0] * factor) / factor;
-        }
-        return Math.round(args[0]);
-
-      case 'abs':
-      case 'absoluto':
-        return Math.abs(args[0]);
-
-      case 'sqrt':
-      case 'raiz':
-        if (args[0] < 0) return null; // Raíz negativa
-        return Math.sqrt(args[0]);
-
-      case 'min':
-      case 'minimo':
-        return Math.min(...args);
-
-      case 'max':
-      case 'maximo':
-        return Math.max(...args);
-
-      default:
-        return null;
+    case 'Unary': {
+      const argVal = evaluateAST(node.argument);
+      if (argVal === null || isNaN(argVal)) return null;
+      if (node.op === '-') return -argVal;
+      if (node.op === '+') return +argVal;
+      if (node.op === '!' || node.op === 'not') {
+        return (argVal === 0 || isNaN(argVal)) ? 1 : 0;
+      }
+      return null;
     }
+
+    case 'Binary': {
+      // Operadores lógicos con cortocircuito (Short-circuit)
+      if (node.op === '&&' || node.op === 'and') {
+        const leftVal = evaluateAST(node.left);
+        if (leftVal === null) return null;
+        if (leftVal === 0) return 0; // Short-circuit: falso directo
+        const rightVal = evaluateAST(node.right);
+        if (rightVal === null) return null;
+        return rightVal !== 0 ? 1 : 0;
+      }
+
+      if (node.op === '||' || node.op === 'or') {
+        const leftVal = evaluateAST(node.left);
+        if (leftVal === null) return null;
+        if (leftVal !== 0) return 1; // Short-circuit: verdadero directo
+        const rightVal = evaluateAST(node.right);
+        if (rightVal === null) return null;
+        return rightVal !== 0 ? 1 : 0;
+      }
+
+      // Operadores aritméticos, relacionales y de igualdad
+      const left = evaluateAST(node.left);
+      const right = evaluateAST(node.right);
+      if (left === null || right === null || isNaN(left) || isNaN(right)) return null;
+
+      switch (node.op) {
+        case '+': return left + right;
+        case '-': return left - right;
+        case '*': return left * right;
+        case '/':
+          if (Math.abs(right) < 1e-12) return null; // Evitar división por cero
+          return left / right;
+        case '%':
+          if (Math.abs(right) < 1e-12) return null;
+          return left % right;
+        case '^': return Math.pow(left, right);
+
+        case '<': return left < right ? 1 : 0;
+        case '<=': return left <= right ? 1 : 0;
+        case '>': return left > right ? 1 : 0;
+        case '>=': return left >= right ? 1 : 0;
+
+        case '==':
+        case '===':
+        case '=':
+          return Math.abs(left - right) < 1e-9 ? 1 : 0;
+        case '!=':
+        case '!==':
+        case '<>':
+          return Math.abs(left - right) >= 1e-9 ? 1 : 0;
+
+        default:
+          return null;
+      }
+    }
+
+    case 'Ternary': {
+      const condVal = evaluateAST(node.condition);
+      if (condVal === null || isNaN(condVal)) return null;
+      const isTruthy = condVal !== 0;
+      // Evaluación con cortocircuito de la rama correspondiente
+      return isTruthy ? evaluateAST(node.consequent) : evaluateAST(node.alternate);
+    }
+
+    case 'Call': {
+      const name = node.name.toLowerCase();
+      // Soporte para funciones condicionales tipo Excel: si(cond, si_verdadero, si_falso) / if(...)
+      if (name === 'si' || name === 'if') {
+        if (node.args.length < 2) return null;
+        const condVal = evaluateAST(node.args[0]);
+        if (condVal === null || isNaN(condVal)) return null;
+        const isTruthy = condVal !== 0;
+        if (isTruthy) {
+          return evaluateAST(node.args[1]);
+        } else {
+          return node.args.length >= 3 ? evaluateAST(node.args[2]) : 0;
+        }
+      }
+
+      // Otras funciones matemáticas
+      const evaluatedArgs: number[] = [];
+      for (const argNode of node.args) {
+        const argVal = evaluateAST(argNode);
+        if (argVal === null || isNaN(argVal)) return null;
+        evaluatedArgs.push(argVal);
+      }
+      return evaluateFunction(name, evaluatedArgs);
+    }
+
+    default:
+      return null;
+  }
+}
+
+function evaluateFunction(funcName: string, args: number[]): number | null {
+  if (args.length === 0) return null;
+
+  switch (funcName) {
+    case 'ceil':
+    case 'techo':
+      return Math.ceil(args[0]);
+
+    case 'floor':
+    case 'piso':
+      return Math.floor(args[0]);
+
+    case 'trunc':
+    case 'int':
+    case 'entero':
+      return Math.trunc(args[0]);
+
+    case 'round':
+    case 'redondear':
+      if (args.length >= 2) {
+        const decimals = Math.max(0, Math.round(args[1]));
+        const factor = Math.pow(10, decimals);
+        return Math.round(args[0] * factor) / factor;
+      }
+      return Math.round(args[0]);
+
+    case 'abs':
+    case 'absoluto':
+      return Math.abs(args[0]);
+
+    case 'sqrt':
+    case 'raiz':
+      if (args[0] < 0) return null; // Raíz negativa
+      return Math.sqrt(args[0]);
+
+    case 'min':
+    case 'minimo':
+      return Math.min(...args);
+
+    case 'max':
+    case 'maximo':
+      return Math.max(...args);
+
+    default:
+      return null;
   }
 }
 
 /**
- * Evalúa una cadena de texto matemática de forma segura.
+ * Evalúa una cadena de texto matemática o lógica de forma segura.
  * Retorna el número resultante, o null si la sintaxis es inválida.
  * 
  * @example
- * evaluateMathExpression("ceil(14 / 4)") -> { value: 4, isValid: true, isFormula: true }
- * evaluateMathExpression("floor(14 / 4)") -> { value: 3, isValid: true, isFormula: true }
- * evaluateMathExpression("round(14 / 4, 1)") -> { value: 3.5, isValid: true, isFormula: true }
- * evaluateMathExpression("15*4 + 10.5") -> { value: 70.5, isValid: true, isFormula: true }
+ * evaluateMathExpression("bocas > 10 ? bocas * 1.2 : bocas * 1.0", { bocas: 15 }) -> { value: 18, isValid: true }
+ * evaluateMathExpression("ceil(14 / 4)") -> { value: 4, isValid: true }
+ * evaluateMathExpression("si(bocas > 5, 20, 10)", { bocas: 8 }) -> { value: 20, isValid: true }
  */
 export function evaluateMathExpression(
   input: string | number,
-  scope?: Record<string, number>
+  scope?: Record<string, number | boolean>
 ): MathEvalResult {
   if (typeof input === 'number') {
     if (isNaN(input) || !isFinite(input)) return { value: null, isValid: false, isFormula: false };
@@ -366,10 +745,16 @@ export function evaluateMathExpression(
   if (scope && Object.keys(scope).length > 0) {
     const sortedKeys = Object.keys(scope).sort((a, b) => b.length - a.length);
     for (const key of sortedKeys) {
-      if (SUPPORTED_FUNCTIONS.has(key.toLowerCase())) continue; // Proteger nombres de funciones
-      const val = scope[key] !== undefined && !isNaN(scope[key]) ? scope[key] : 0;
+      if (RESERVED_KEYWORDS.has(key.toLowerCase())) continue; // Proteger palabras reservadas
+      const rawVal = scope[key];
+      let numVal = 0;
+      if (typeof rawVal === 'boolean') {
+        numVal = rawVal ? 1 : 0;
+      } else if (typeof rawVal === 'number' && !isNaN(rawVal)) {
+        numVal = rawVal;
+      }
       const regex = new RegExp(`\\b${key}\\b`, 'gi');
-      cleanFormula = cleanFormula.replace(regex, String(val));
+      cleanFormula = cleanFormula.replace(regex, String(numVal));
     }
   }
 
@@ -392,21 +777,32 @@ export function evaluateMathExpression(
       isValid: false,
       isFormula,
       cleanFormula,
-      error: 'Caracteres no válidos en la expresión',
+      error: 'Caracteres no válidos en la expresión o variable no definida',
     };
   }
 
   try {
     const parser = new MathParser(tokens);
-    const result = parser.parse();
+    const ast = parser.parse();
 
+    if (!ast) {
+      return {
+        value: null,
+        isValid: false,
+        isFormula,
+        cleanFormula,
+        error: 'Expresión matemática o lógica incompleta / sintaxis inválida',
+      };
+    }
+
+    const result = evaluateAST(ast);
     if (result === null || isNaN(result) || !isFinite(result)) {
       return {
         value: null,
         isValid: false,
         isFormula,
         cleanFormula,
-        error: 'Expresión matemática incompleta o inválida',
+        error: 'Error de evaluación o división por cero',
       };
     }
 
@@ -432,8 +828,8 @@ export function evaluateMathExpression(
 
 /**
  * Evalúa una condición lógica o de comparación de forma segura.
- * Soporta operadores de comparación (<=, >=, ==, ===, !=, !==, <, >)
- * y operadores lógicos (&&, ||).
+ * Soporta operadores de comparación (<=, >=, ==, ===, =, !=, !==, <>, <, >),
+ * operadores lógicos (&&, ||, and, or, not, !) y operador ternario.
  *
  * @example
  * evaluateCondition("calibre_principal <= 25", { calibre_principal: 25 }) -> true
@@ -443,74 +839,16 @@ export function evaluateMathExpression(
  */
 export function evaluateCondition(
   condition?: string | null,
-  scope?: Record<string, number>
+  scope?: Record<string, number | boolean>
 ): boolean {
   if (!condition || typeof condition !== 'string') return true;
   const trimmed = condition.trim();
   if (!trimmed) return true;
 
-  // Split by OR ('||') first
-  const orClauses = trimmed.split('||');
-  for (const orClause of orClauses) {
-    // Within each OR, split by AND ('&&')
-    const andClauses = orClause.split('&&');
-    let andResult = true;
-
-    for (const andClause of andClauses) {
-      const clause = andClause.trim();
-      if (!clause) continue;
-
-      let clauseResult = false;
-
-      // Check comparison operators (longer operators first: <=, >=, ==, !=, <, >)
-      const compMatch = clause.match(/^(.*?)(<=|>=|===|==|!==|!=|<|>)(.*)$/);
-      if (compMatch) {
-        const leftExpr = compMatch[1].trim();
-        const op = compMatch[2].trim();
-        const rightExpr = compMatch[3].trim();
-
-        const leftRes = evaluateMathExpression(leftExpr, scope);
-        const rightRes = evaluateMathExpression(rightExpr, scope);
-
-        if (leftRes.isValid && rightRes.isValid && leftRes.value !== null && rightRes.value !== null) {
-          const l = leftRes.value;
-          const r = rightRes.value;
-
-          switch (op) {
-            case '<=': clauseResult = l <= r; break;
-            case '>=': clauseResult = l >= r; break;
-            case '==':
-            case '===': clauseResult = Math.abs(l - r) < 1e-6; break;
-            case '!=':
-            case '!==': clauseResult = Math.abs(l - r) >= 1e-6; break;
-            case '<': clauseResult = l < r; break;
-            case '>': clauseResult = l > r; break;
-            default: clauseResult = false;
-          }
-        }
-      } else {
-        // Truthiness check of single expression (e.g. "requiere_certificacion")
-        const singleRes = evaluateMathExpression(clause, scope);
-        if (singleRes.isValid && singleRes.value !== null) {
-          clauseResult = singleRes.value > 0;
-        } else {
-          // If not a number, maybe it's boolean string
-          if (clause.toLowerCase() === 'true' || clause === '1') clauseResult = true;
-          else if (clause.toLowerCase() === 'false' || clause === '0') clauseResult = false;
-          else clauseResult = false;
-        }
-      }
-
-      if (!clauseResult) {
-        andResult = false;
-        break;
-      }
-    }
-
-    if (andResult) {
-      return true; // At least one OR branch succeeded
-    }
+  const res = evaluateMathExpression(trimmed, scope);
+  if (res.isValid && res.value !== null) {
+    return res.value !== 0;
   }
-
   return false;
 }
+

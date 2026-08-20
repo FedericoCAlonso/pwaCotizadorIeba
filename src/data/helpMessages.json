@@ -124,15 +124,36 @@
         "id": "laboratorio",
         "title": "Laboratorio de Tareas Tipo",
         "iconName": "Layers",
-        "summary": "Creación de ensambles de instalación, costos directos y rendimientos de mano de obra.",
+        "summary": "Diseño de ensambles paramétricos, fórmulas matemáticas y lógicas, costos directos y rendimientos.",
         "sections": [
           {
-            "heading": "Concepto de Ensamble o Tarea Tipo",
-            "content": "Una Tarea Tipo agrupa todos los recursos requeridos para ejecutar una unidad de trabajo eléctrico (ej. 1 Boca de Iluminación o 1 Armado de Tablero):",
+            "heading": "Concepto de Ensamble o Tarea Tipo Paramétrica",
+            "content": "Una Tarea Tipo agrupa todos los recursos requeridos para ejecutar una unidad de trabajo eléctrico (ej. Recableado, Bocas, Armado de Tableros):",
             "bullets": [
-              "Despiece de Insumos: Asigna cantidades exactas de materiales por unidad de medida.",
-              "Mano de Obra: Especifica horas estimadas según categoría (Oficial Especializado, Oficial, Ayudante).",
+              "Parámetros de Entrada: Inputs del usuario al presupuestar (ej: bocas, sup_m2, calibre_principal, k_estado).",
+              "Variables de Cálculo Interno: Fórmulas matemáticas intermedias en cascada para evitar duplicar cálculos.",
+              "Despiece de Insumos & Mano de Obra: Cantidades y horas calculadas dinámicamente con fórmulas y reglas condicionales de inclusión.",
               "Submódulo Simulación What-If: Evalúa el impacto de subas en materiales o paritarias salariales en tiempo real."
+            ]
+          },
+          {
+            "heading": "Motor de Fórmulas Matemáticas y Lógicas (K&R / C / Excel)",
+            "content": "El editor cuenta con un evaluador seguro de descenso recursivo de alto rendimiento que soporta:",
+            "bullets": [
+              "Operador Ternario (? :): Permite bifurcaciones condicionales como `bocas >= 20 ? 1.3 : bocas >= 10 ? 1.15 : 1.0` con evaluación de cortocircuito (Short-Circuit).",
+              "Operadores de Comparación: `>`, `<`, `>=`, `<=`, `==` (o `=` estilo Excel), `!=` (o `<>`).",
+              "Operadores Lógicos: `&&` (o `and`), `||` (o `or`), `!` (o `not`), y constantes `true` (1) / `false` (0).",
+              "Aritmética Booleana: Uso de condiciones en cálculos numéricos directos, ej: `10 + (altura > 3) * 5`.",
+              "Funciones Incorporadas: `si(cond, v1, v2)`, `if(...)`, `ceil(x)`, `floor(x)`, `round(x, dec)`, `int(x)`, `min(...)`, `max(...)`, `abs(x)`, `sqrt(x)`."
+            ]
+          },
+          {
+            "heading": "Editor Inteligente con IntelliSense y Multilínea",
+            "content": "El campo de fórmulas está optimizado para máxima comodidad tanto en escritorio como en dispositivos móviles:",
+            "bullets": [
+              "Sugerencias IntelliSense: Al escribir las primeras letras, se abre un menú flotante con las variables, parámetros y funciones disponibles. Navega con ↑/↓ y selecciona con Enter o Tab.",
+              "Auto-ensanchamiento Multilínea: Si la fórmula es extensa, el campo se expande hacia abajo y realiza salto de línea automático.",
+              "Chips de Inserción Rápida: Barra de botones al pie del editor para insertar variables o funciones con un solo clic o toque táctil."
             ]
           },
           {
