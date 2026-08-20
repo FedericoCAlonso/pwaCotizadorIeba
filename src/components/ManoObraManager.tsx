@@ -22,10 +22,16 @@ export const ManoObraManager: React.FC = () => {
 
   const [editingCI, setEditingCI] = useState<CostoIndirecto | null>(null);
   const [isCreatingCI, setIsCreatingCI] = useState(false);
-  const [ciForm, setCIForm] = useState<{ nombre: string; tipo: TipoCostoIndirecto; valor: number }>({
+  const [ciForm, setCIForm] = useState<{
+    nombre: string;
+    tipo: TipoCostoIndirecto;
+    valor: number;
+    incluirPorDefecto: boolean;
+  }>({
     nombre: '',
     tipo: 'porcentual_sobre_costo',
-    valor: 0
+    valor: 0,
+    incluirPorDefecto: true
   });
 
   useEffect(() => {
@@ -83,6 +89,7 @@ export const ManoObraManager: React.FC = () => {
         nombre: ciForm.nombre,
         tipo: ciForm.tipo,
         valor: ciForm.valor,
+        incluirPorDefecto: ciForm.incluirPorDefecto ?? true,
         createdAt: now,
         updatedAt: now,
         deleted: false
@@ -94,6 +101,7 @@ export const ManoObraManager: React.FC = () => {
         nombre: ciForm.nombre,
         tipo: ciForm.tipo,
         valor: ciForm.valor,
+        incluirPorDefecto: ciForm.incluirPorDefecto ?? true,
         updatedAt: now
       });
       toast.success('Costo indirecto actualizado');
@@ -208,7 +216,7 @@ export const ManoObraManager: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              setCIForm({ nombre: '', tipo: 'porcentual_sobre_costo', valor: 5 });
+              setCIForm({ nombre: '', tipo: 'porcentual_sobre_costo', valor: 5, incluirPorDefecto: true });
               setIsCreatingCI(true);
             }}
             className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-sm"
@@ -222,46 +230,86 @@ export const ManoObraManager: React.FC = () => {
           {costosIndirectosList.map((ci) => (
             <div
               key={ci.id}
-              className="bg-surface-container-low border border-outline-variant/20 rounded-3xl p-5 hover:bg-surface-container/60 transition-all space-y-3 shadow-sm"
+              className="bg-surface-container-low border border-outline-variant/20 rounded-3xl p-5 hover:bg-surface-container/60 transition-all space-y-3 shadow-sm flex flex-col justify-between"
             >
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-semibold text-on-surface text-base">{ci.nombre}</h3>
-                  <span className="inline-block mt-1.5 text-[11px] font-medium px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container">
-                    {ci.tipo === 'porcentual_sobre_costo'
-                      ? 'Porcentual'
-                      : ci.tipo === 'fijo_mensual'
-                      ? 'Fijo Mensual'
-                      : 'Por Visita'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingCI(ci);
-                      setCIForm({ nombre: ci.nombre, tipo: ci.tipo, valor: ci.valor });
-                    }}
-                    className="p-2 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-variant transition-colors"
-                    aria-label={`Editar ${ci.nombre}`}
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteCI(ci.id)}
-                    className="p-2 text-on-surface-variant hover:text-error rounded-full hover:bg-error-container/30 transition-colors"
-                    aria-label={`Eliminar ${ci.nombre}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+              <div className="space-y-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-semibold text-on-surface text-base">{ci.nombre}</h3>
+                    <span className="inline-block mt-1.5 text-[11px] font-medium px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container">
+                      {ci.tipo === 'porcentual_sobre_costo'
+                        ? 'Porcentual'
+                        : ci.tipo === 'fijo_mensual'
+                        ? 'Fijo Mensual'
+                        : 'Por Visita'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingCI(ci);
+                        setCIForm({
+                          nombre: ci.nombre,
+                          tipo: ci.tipo,
+                          valor: ci.valor,
+                          incluirPorDefecto: ci.incluirPorDefecto ?? true
+                        });
+                      }}
+                      className="p-2 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-variant transition-colors"
+                      aria-label={`Editar ${ci.nombre}`}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCI(ci.id)}
+                      className="p-2 text-on-surface-variant hover:text-error rounded-full hover:bg-error-container/30 transition-colors"
+                      aria-label={`Eliminar ${ci.nombre}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div className="pt-3 border-t border-outline-variant/20 flex justify-between items-baseline">
-                <span className="text-xs text-on-surface-variant">Valor:</span>
-                <span className="font-mono text-lg font-bold text-primary">
-                  {ci.tipo === 'porcentual_sobre_costo' ? `${ci.valor}%` : formatARS(ci.valor)}
-                </span>
+
+              <div className="pt-3 border-t border-outline-variant/20 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="text-[10px] text-on-surface-variant font-semibold uppercase tracking-wider block">Valor:</span>
+                  <span className="font-mono text-lg font-bold text-primary">
+                    {ci.tipo === 'porcentual_sobre_costo' ? `${ci.valor}%` : formatARS(ci.valor)}
+                  </span>
+                </div>
+
+                {/* Switch rápido de Inclusión por Defecto */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const nuevoEstado = !(ci.incluirPorDefecto ?? true);
+                    await db.costosIndirectos.update(ci.id, {
+                      incluirPorDefecto: nuevoEstado,
+                      updatedAt: new Date().toISOString()
+                    });
+                    toast.success(
+                      nuevoEstado
+                        ? `"${ci.nombre}" se incluirá por defecto en nuevas cotizaciones`
+                        : `"${ci.nombre}" no se incluirá por defecto`
+                    );
+                  }}
+                  className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-2xs ${
+                    (ci.incluirPorDefecto ?? true)
+                      ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                      : 'bg-surface-container-highest hover:bg-surface-variant text-on-surface-variant border-outline-variant/30 opacity-70'
+                  }`}
+                  title="Hacer clic para activar o desactivar la inclusión automática en nuevos presupuestos"
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      (ci.incluirPorDefecto ?? true) ? 'bg-emerald-500' : 'bg-outline-variant'
+                    }`}
+                  />
+                  <span>{(ci.incluirPorDefecto ?? true) ? 'Por Defecto: Sí' : 'Por Defecto: No'}</span>
+                </button>
               </div>
             </div>
           ))}
@@ -385,6 +433,26 @@ export const ManoObraManager: React.FC = () => {
               )}
             </div>
           </div>
+
+          <div className="bg-surface-container-highest/60 p-3.5 rounded-2xl border border-outline-variant/20">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ciForm.incluirPorDefecto}
+                onChange={(e) => setCIForm({ ...ciForm, incluirPorDefecto: e.target.checked })}
+                className="mt-0.5 w-4 h-4 text-primary rounded border-outline focus:ring-primary"
+              />
+              <div className="text-xs">
+                <span className="font-semibold text-on-surface block">
+                  Incluir por defecto en nuevas cotizaciones
+                </span>
+                <span className="text-on-surface-variant text-[11px] block mt-0.5">
+                  Si está marcado, este gasto general se aplicará automáticamente activado al crear un nuevo presupuesto.
+                </span>
+              </div>
+            </label>
+          </div>
+
           <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
             <button
               type="button"

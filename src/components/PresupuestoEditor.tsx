@@ -412,11 +412,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   const handleResetIndirectCosts = () => {
     setCostosIndirectosConfig(
       costosIndirectos.map((ci) => ({
+        costoIndirectoId: ci.id,
         id: ci.id,
         nombre: ci.nombre,
         tipo: ci.tipo,
         valor: ci.valor,
-        aplica: true
+        activo: ci.incluirPorDefecto !== undefined ? ci.incluirPorDefecto : true,
+        aplica: ci.incluirPorDefecto !== undefined ? ci.incluirPorDefecto : true
       }))
     );
     toast.success('Gastos Generales restablecidos del catálogo');

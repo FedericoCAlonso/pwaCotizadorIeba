@@ -138,15 +138,17 @@ export function usePresupuestoEditorViewModel({
       setNumero(`${config.prefijoPresupuesto || 'IEBA'}-${year}-${seq.toString().padStart(4, '0')}`);
       setCostosIndirectosConfig(
         costosIndirectos.map(ci => ({
+          costoIndirectoId: ci.id,
           id: ci.id,
           nombre: ci.nombre,
           tipo: ci.tipo,
           valor: ci.valor,
-          aplica: true
+          activo: ci.incluirPorDefecto !== undefined ? ci.incluirPorDefecto : true,
+          aplica: ci.incluirPorDefecto !== undefined ? ci.incluirPorDefecto : true
         }))
       );
     }
-  }, [existingPresupuesto, config]);
+  }, [existingPresupuesto, config, costosIndirectos.length]);
 
   // ─── Real-Time Layered Calculations (Model Layer) ─────────────────────────────
   const totales = useMemo(() => {

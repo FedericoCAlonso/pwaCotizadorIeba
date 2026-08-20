@@ -316,6 +316,7 @@ export interface CostoIndirecto {
   nombre: string;
   tipo: TipoCostoIndirecto;
   valor: number;
+  incluirPorDefecto?: boolean;
   createdAt?: string;
   updatedAt?: string;
   deleted?: boolean;
