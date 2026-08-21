@@ -1088,23 +1088,43 @@ export function auditarRentabilidadTareaTipo(
   const insumosIncompletos: string[] = [];
 
   // Check 1: Insumos descontinuados o incompletos
-  for (const item of tarea.insumos) {
-    const targetId = item.materialId || item.insumoId || '';
-    const mat = insumosMap.get(targetId);
-    if (!mat) {
-      alertas.push(`Material no encontrado en catálogo (ID: ${targetId})`);
-      insumosInactivos.push(targetId);
-    } else {
-      if (mat.activo === false) {
-        alertas.push(`Material discontinuado/obsoleto: "${mat.nombre}"`);
-        insumosInactivos.push(mat.nombre);
+  const resolvedInsumos = costoData.insumosSnapshotUnitario;
+
+  if (resolvedInsumos && resolvedInsumos.length > 0) {
+    for (const item of resolvedInsumos) {
+      const matId = item.materialId || '';
+      const mat = insumosMap.get(matId);
+      if (!mat) {
+        alertas.push(`Material no encontrado en catálogo (ID: ${matId})`);
+        insumosInactivos.push(matId);
+      } else {
+        if (mat.activo === false) {
+          alertas.push(`Material discontinuado/obsoleto: "${mat.nombre}"`);
+          insumosInactivos.push(mat.nombre);
+        }
+        if (mat.fichaIncompleta) {
+          alertas.push(`Ficha técnica incompleta: "${mat.nombre}"`);
+          insumosIncompletos.push(mat.nombre);
+        }
+        if (!mat.precioActual || mat.precioActual <= 0) {
+          alertas.push(`Material sin precio de oferta vigente: "${mat.nombre}"`);
+          insumosIncompletos.push(mat.nombre);
+        }
       }
-      if (mat.fichaIncompleta) {
-        alertas.push(`Ficha técnica incompleta: "${mat.nombre}"`);
-        insumosIncompletos.push(mat.nombre);
-      }
-      if (!mat.precioActual || mat.precioActual <= 0) {
-        alertas.push(`Material sin precio de oferta vigente: "${mat.nombre}"`);
+    }
+  } else if (tarea.insumos && tarea.insumos.length > 0) {
+    // Si no hubo ningún insumo resuelto y la tarea tenía insumos definidos, verificar slots
+    for (const item of tarea.insumos) {
+      if (item.materialId || item.insumoId) {
+        const targetId = item.materialId || item.insumoId || '';
+        const mat = insumosMap.get(targetId);
+        if (!mat) {
+          alertas.push(`Material no encontrado en catálogo (ID: ${targetId})`);
+          insumosInactivos.push(targetId);
+        }
+      } else if (item.filtroMaterial || item.reglasDinamicas) {
+        alertas.push(`No se encontró material en catálogo que cumpla los criterios para el slot: "${item.nombreSlot || 'Material dinámico'}"`);
+        insumosInactivos.push(item.nombreSlot || 'Slot sin material');
       }
     }
   }

@@ -417,10 +417,7 @@ export async function initializeDatabaseSeed(): Promise<void> {
       }
 
       for (const tt of INITIAL_TAREAS_TIPO) {
-        const existing = await db.tareasTipo.get(tt.id);
-        if (!existing || !existing.parametros || (tt.variables && !existing.variables)) {
-          await db.tareasTipo.put(tt);
-        }
+        await db.tareasTipo.put(tt);
       }
 
       // 12. Inicializar configuración por defecto si la base está vacía

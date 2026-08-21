@@ -240,7 +240,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
           etiqueta: 'Cable Unipolar 2.5 mm² Tierra',
           criterios: [
             { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
-            { atributo: 'seccion', operador: '>=', valor: '2.5' },
+            { atributo: 'seccion', operador: '==', valor: '2.5' },
             { atributo: 'color', operador: '==', valor: 'Verde/Amarillo (Tierra)' }
           ],
           estrategiaSeleccion: 'mayor_valor_que_cumpla',
@@ -355,7 +355,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
           etiqueta: 'Cable Unipolar 4.0 mm² Tierra',
           criterios: [
             { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
-            { atributo: 'seccion', operador: '>=', valor: '4' },
+            { atributo: 'seccion', operador: '==', valor: '4' },
             { atributo: 'color', operador: '==', valor: 'Verde/Amarillo (Tierra)' }
           ],
           estrategiaSeleccion: 'mayor_valor_que_cumpla',
@@ -406,7 +406,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
           etiqueta: 'Cable Unipolar Especial Tierra',
           criterios: [
             { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
-            { atributo: 'seccion', operador: '>=', valor: '$seccion_esp' },
+            { atributo: 'seccion', operador: '==', valor: '$seccion_esp' },
             { atributo: 'color', operador: '==', valor: 'Verde/Amarillo (Tierra)' }
           ],
           estrategiaSeleccion: 'mayor_valor_que_cumpla',
