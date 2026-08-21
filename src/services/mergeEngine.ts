@@ -54,8 +54,50 @@ function getRecordTimestamp(item: any): number {
  */
 export async function getLocalMasterPayload(): Promise<MasterDatabasePayload> {
   const allContactos = await db.contactos.toArray();
-  const cleanClientes = allContactos.filter(c => !c.roles || c.roles.includes('cliente'));
-  const cleanProveedores = allContactos.filter(c => c.roles?.includes('proveedor'));
+  const allClientes = await db.clientes.toArray();
+  const allProveedores = await db.proveedores.toArray();
+
+  // Consolidar todos los contactos de la base local
+  const unifiedContactsMap = new Map<string, any>();
+  allClientes.forEach((c) => {
+    unifiedContactsMap.set(String(c.id), {
+      ...c,
+      razonSocial: c.razonSocial || c.nombre || 'Cliente',
+      nombre: c.nombre || c.razonSocial || 'Cliente',
+      roles: c.roles && c.roles.length > 0 ? c.roles : ['cliente']
+    });
+  });
+  allProveedores.forEach((p) => {
+    if (unifiedContactsMap.has(String(p.id))) {
+      const existing = unifiedContactsMap.get(String(p.id));
+      if (!existing.roles?.includes('proveedor')) {
+        existing.roles = [...(existing.roles || []), 'proveedor'];
+      }
+      existing.tipoProveedor = p.tipoProveedor || existing.tipoProveedor;
+    } else {
+      unifiedContactsMap.set(String(p.id), {
+        ...p,
+        razonSocial: p.razonSocial || p.nombre || 'Proveedor',
+        nombre: p.nombre || p.razonSocial || 'Proveedor',
+        roles: p.roles && p.roles.length > 0 ? p.roles : ['proveedor'],
+        tipoProveedor: p.tipoProveedor || 'material'
+      });
+    }
+  });
+  allContactos.forEach((c) => {
+    if (unifiedContactsMap.has(String(c.id))) {
+      const existing = unifiedContactsMap.get(String(c.id));
+      if (getRecordTimestamp(c) >= getRecordTimestamp(existing)) {
+        unifiedContactsMap.set(String(c.id), c);
+      }
+    } else {
+      unifiedContactsMap.set(String(c.id), c);
+    }
+  });
+
+  const consolidatedContactos = Array.from(unifiedContactsMap.values());
+  const cleanClientes = consolidatedContactos.filter((c) => !c.roles || c.roles.includes('cliente'));
+  const cleanProveedores = consolidatedContactos.filter((c) => c.roles?.includes('proveedor'));
 
   return {
     version: 1,
@@ -70,7 +112,7 @@ export async function getLocalMasterPayload(): Promise<MasterDatabasePayload> {
     manoObra: await db.manoObra.toArray(),
     costosIndirectos: await db.costosIndirectos.toArray(),
     tareasTipo: await db.tareasTipo.toArray(),
-    contactos: allContactos,
+    contactos: consolidatedContactos,
     clientes: cleanClientes,
     proveedores: cleanProveedores,
     proyectos: await db.proyectos.toArray(),
@@ -104,6 +146,60 @@ export async function mergeLastWriteWins(
       stats
     };
   }
+
+  // Normalizar contactos en remotePayload para soportar esquemas previos o heterogéneos
+  const remoteUnifiedMap = new Map<string, any>();
+  if (Array.isArray(remotePayload.clientes)) {
+    remotePayload.clientes.forEach((c) => {
+      if (c && c.id) {
+        remoteUnifiedMap.set(String(c.id), {
+          ...c,
+          razonSocial: c.razonSocial || c.nombre || 'Cliente',
+          nombre: c.nombre || c.razonSocial || 'Cliente',
+          roles: c.roles && c.roles.length > 0 ? c.roles : ['cliente']
+        });
+      }
+    });
+  }
+  if (Array.isArray(remotePayload.proveedores)) {
+    remotePayload.proveedores.forEach((p) => {
+      if (p && p.id) {
+        if (remoteUnifiedMap.has(String(p.id))) {
+          const existing = remoteUnifiedMap.get(String(p.id));
+          if (!existing.roles?.includes('proveedor')) {
+            existing.roles = [...(existing.roles || []), 'proveedor'];
+          }
+          existing.tipoProveedor = p.tipoProveedor || existing.tipoProveedor;
+        } else {
+          remoteUnifiedMap.set(String(p.id), {
+            ...p,
+            razonSocial: p.razonSocial || p.nombre || 'Proveedor',
+            nombre: p.nombre || p.razonSocial || 'Proveedor',
+            roles: p.roles && p.roles.length > 0 ? p.roles : ['proveedor'],
+            tipoProveedor: p.tipoProveedor || 'material'
+          });
+        }
+      }
+    });
+  }
+  if (Array.isArray(remotePayload.contactos)) {
+    remotePayload.contactos.forEach((c) => {
+      if (c && c.id) {
+        if (remoteUnifiedMap.has(String(c.id))) {
+          const existing = remoteUnifiedMap.get(String(c.id));
+          if (getRecordTimestamp(c) >= getRecordTimestamp(existing)) {
+            remoteUnifiedMap.set(String(c.id), c);
+          }
+        } else {
+          remoteUnifiedMap.set(String(c.id), c);
+        }
+      }
+    });
+  }
+  const normalizedRemoteContactos = Array.from(remoteUnifiedMap.values());
+  remotePayload.contactos = normalizedRemoteContactos;
+  remotePayload.clientes = normalizedRemoteContactos.filter((c) => !c.roles || c.roles.includes('cliente'));
+  remotePayload.proveedores = normalizedRemoteContactos.filter((c) => c.roles?.includes('proveedor'));
 
   const mergedPayload: Partial<MasterDatabasePayload> = {
     version: 1,
@@ -181,6 +277,16 @@ export async function mergeLastWriteWins(
         if (table) {
           await table.bulkPut(itemsToUpdateLocally);
           stats.localUpdatedCount += itemsToUpdateLocally.length;
+        }
+
+        // Sincronizar automáticamente en las tablas unificadas / legacy correspondientes
+        if (tableName === 'contactos') {
+          const clientesToSync = itemsToUpdateLocally.filter((c) => !c.roles || c.roles.includes('cliente'));
+          const proveedoresToSync = itemsToUpdateLocally.filter((c) => c.roles?.includes('proveedor'));
+          if (clientesToSync.length > 0) await db.clientes.bulkPut(clientesToSync);
+          if (proveedoresToSync.length > 0) await db.proveedores.bulkPut(proveedoresToSync);
+        } else if (tableName === 'clientes' || tableName === 'proveedores') {
+          await db.contactos.bulkPut(itemsToUpdateLocally);
         }
       }
 

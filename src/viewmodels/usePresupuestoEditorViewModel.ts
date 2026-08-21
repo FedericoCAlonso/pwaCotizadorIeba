@@ -53,9 +53,10 @@ export function usePresupuestoEditorViewModel({
   const rawContactos = useLiveQuery(() => db.contactos.toArray()) || [];
   const rawClientes = useLiveQuery(() => db.clientes.toArray()) || [];
   const clientes = useMemo(() => {
-    const fromContactos = rawContactos.filter(c => !c.deleted && (c.roles?.includes('cliente') || !c.roles?.length));
-    if (fromContactos.length > 0) return fromContactos;
-    return rawClientes.filter(c => !c.deleted);
+    const map = new Map<string, any>();
+    rawClientes.filter(c => !c.deleted).forEach(c => map.set(String(c.id), c));
+    rawContactos.filter(c => !c.deleted && (c.roles?.includes('cliente') || !c.roles?.length)).forEach(c => map.set(String(c.id), c));
+    return Array.from(map.values());
   }, [rawContactos, rawClientes]);
 
   const tareasTipo = (useLiveQuery(() => db.tareasTipo.toArray()) || []).filter(t => !t.deleted);

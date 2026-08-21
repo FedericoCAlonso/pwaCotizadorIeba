@@ -86,11 +86,12 @@ export const ProveedoresManager: React.FC = () => {
     const now = new Date().toISOString();
 
     if (isCreating) {
-      await db.proveedores.add({
-        id: `prov-${crypto.randomUUID()}`,
+      const newId = `prov-${crypto.randomUUID()}`;
+      const record = {
+        id: newId,
         razonSocial,
         nombre: razonSocial,
-        roles: ['proveedor'],
+        roles: ['proveedor'] as ('cliente' | 'proveedor')[],
         cuit: formData.cuit,
         cuitDni: formData.cuit,
         tipoProveedor: formData.tipoProveedor || 'material',
@@ -99,18 +100,23 @@ export const ProveedoresManager: React.FC = () => {
         createdAt: now,
         updatedAt: now,
         deleted: false
-      });
+      };
+      await db.proveedores.put(record);
+      await db.contactos.put(record);
       setIsCreating(false);
     } else if (editingProveedor) {
-      await db.proveedores.update(editingProveedor.id, {
+      const updateData = {
         razonSocial,
         nombre: razonSocial,
         cuit: formData.cuit,
+        cuitDni: formData.cuit,
         tipoProveedor: formData.tipoProveedor || 'material',
         contactos: contactosClean,
         notas: formData.notas,
         updatedAt: now
-      });
+      };
+      await db.proveedores.update(editingProveedor.id, updateData);
+      await db.contactos.update(editingProveedor.id, updateData);
       setEditingProveedor(null);
     }
   };

@@ -5,7 +5,8 @@ import {
   Truck,
   Plus,
   X,
-  Tag
+  Tag,
+  Smartphone
 } from 'lucide-react';
 import {
   Contacto,
@@ -205,6 +206,39 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
       ...prev,
       contactos: prev.contactos.filter((_, idx) => idx !== index)
     }));
+  };
+
+  const hasContactPicker = typeof navigator !== 'undefined' && 'contacts' in navigator && 'select' in (navigator as any).contacts;
+
+  const handleImportFromPhoneContacts = async () => {
+    if (!hasContactPicker) {
+      alert('La selección de contactos desde la agenda no está soportada en este navegador/dispositivo. Puedes ingresar los datos manualmente.');
+      return;
+    }
+    try {
+      const contacts = await (navigator as any).contacts.select(['name', 'tel', 'email', 'address'], { multiple: false });
+      if (contacts && contacts.length > 0) {
+        const c = contacts[0];
+        const name = (c.name && c.name[0]) || '';
+        const phone = (c.tel && c.tel[0]) || '';
+        const email = (c.email && c.email[0]) || '';
+        let address = '';
+        if (c.address && c.address[0]) {
+          const addr = c.address[0];
+          address = typeof addr === 'string' ? addr : (addr.addressLine || addr.city || '');
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          razonSocial: name || prev.razonSocial,
+          telefono: phone || prev.telefono,
+          email: email || prev.email,
+          direccion: address || prev.direccion
+        }));
+      }
+    } catch (err) {
+      console.log('Selección de contacto cancelada o no permitida:', err);
+    }
   };
 
   if (!isOpen) return null;
@@ -451,6 +485,23 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
               </div>
 
               {/* Identification — M3 Text Fields */}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs font-bold text-on-surface uppercase tracking-wider">
+                  Datos Principales
+                </span>
+                {hasContactPicker && (
+                  <button
+                    type="button"
+                    onClick={handleImportFromPhoneContacts}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-secondary-container text-on-secondary-container hover:bg-secondary-container/80 rounded-full text-xs font-semibold transition active:scale-95 shadow-2xs"
+                    title="Importar datos desde los contactos del teléfono/dispositivo"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>Importar de Agenda</span>
+                  </button>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-on-surface-variant mb-1">

@@ -93,11 +93,12 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
     e.preventDefault();
     const now = new Date().toISOString();
     if (isCreating) {
-      await db.clientes.add({
-        id: `cli-${crypto.randomUUID()}`,
+      const newId = `cli-${crypto.randomUUID()}`;
+      const record = {
+        id: newId,
         razonSocial: formData.nombre || 'Nuevo Cliente',
         nombre: formData.nombre || 'Nuevo Cliente',
-        roles: ['cliente'],
+        roles: ['cliente'] as ('cliente' | 'proveedor')[],
         cuitDni: formData.cuitDni,
         condicionIVA: formData.condicionIVA || 'Consumidor Final',
         telefono: formData.telefono,
@@ -107,10 +108,13 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
         createdAt: now,
         updatedAt: now,
         deleted: false
-      });
+      };
+      await db.clientes.put(record);
+      await db.contactos.put(record);
       setIsCreating(false);
     } else if (editingCliente) {
-      await db.clientes.update(editingCliente.id, {
+      const updateData = {
+        razonSocial: formData.nombre || 'Cliente',
         nombre: formData.nombre,
         cuitDni: formData.cuitDni,
         condicionIVA: formData.condicionIVA,
@@ -119,7 +123,9 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
         direccion: formData.direccion,
         notas: formData.notas,
         updatedAt: now
-      });
+      };
+      await db.clientes.update(editingCliente.id, updateData);
+      await db.contactos.update(editingCliente.id, updateData);
       setEditingCliente(null);
     }
   };

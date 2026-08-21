@@ -220,11 +220,24 @@ export async function softDelete(
   const table = db[tableName] as Table<any, string>;
   if (!table) return;
   const now = new Date().toISOString();
-  await table.update(id, {
+  const updateData = {
     deleted: true,
     updatedAt: now,
     _updatedAt: Date.now()
-  });
+  };
+  await table.update(id, updateData);
+
+  // Sincronizar soft-delete entre contactos, clientes y proveedores
+  if (tableName === 'clientes' || tableName === 'proveedores') {
+    try {
+      await db.contactos.update(id, updateData);
+    } catch {}
+  } else if (tableName === 'contactos') {
+    try {
+      await db.clientes.update(id, updateData);
+      await db.proveedores.update(id, updateData);
+    } catch {}
+  }
 }
 
 /**
@@ -384,6 +397,52 @@ export async function initializeDatabaseSeed(): Promise<void> {
       if (await db.contactos.count() === 0) {
         for (const ct of INITIAL_CONTACTOS) {
           await db.contactos.put(ct);
+        }
+      }
+
+      // Reconciliar clientes o proveedores legacy hacia la tabla unificada contactos
+      const existingClientes = await db.clientes.toArray();
+      for (const cl of existingClientes) {
+        const ct = await db.contactos.get(cl.id);
+        if (!ct) {
+          await db.contactos.put({
+            id: cl.id,
+            razonSocial: cl.razonSocial || cl.nombre || 'Cliente',
+            nombre: cl.nombre || cl.razonSocial || 'Cliente',
+            roles: cl.roles && cl.roles.length > 0 ? cl.roles : ['cliente'],
+            cuitDni: cl.cuitDni,
+            condicionIVA: cl.condicionIVA || 'Consumidor Final',
+            direccion: cl.direccion,
+            telefono: cl.telefono,
+            email: cl.email,
+            notas: cl.notas,
+            createdAt: cl.createdAt || new Date().toISOString(),
+            updatedAt: cl.updatedAt || new Date().toISOString(),
+            deleted: cl.deleted || false
+          });
+        }
+      }
+      const existingProveedores = await db.proveedores.toArray();
+      for (const pv of existingProveedores) {
+        const ct = await db.contactos.get(pv.id);
+        if (!ct) {
+          await db.contactos.put({
+            id: pv.id,
+            razonSocial: pv.razonSocial || pv.nombre || 'Proveedor',
+            nombre: pv.nombre || pv.razonSocial || 'Proveedor',
+            roles: pv.roles && pv.roles.length > 0 ? pv.roles : ['proveedor'],
+            tipoProveedor: pv.tipoProveedor || 'material',
+            cuitDni: pv.cuit || pv.cuitDni,
+            cuit: pv.cuit || pv.cuitDni,
+            contactos: pv.contactos,
+            direccion: pv.direccion,
+            telefono: pv.telefono,
+            email: pv.email,
+            notas: pv.notas,
+            createdAt: pv.createdAt || new Date().toISOString(),
+            updatedAt: pv.updatedAt || new Date().toISOString(),
+            deleted: pv.deleted || false
+          });
         }
       }
 

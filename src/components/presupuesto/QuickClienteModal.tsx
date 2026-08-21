@@ -75,7 +75,8 @@ export const QuickClienteModal: React.FC<QuickClienteModalProps> = ({
         deleted: false
       };
 
-      await db.clientes.add(newContacto);
+      await db.contactos.put(newContacto);
+      await db.clientes.put(newContacto);
       toast.success(`Cliente "${nombre.trim()}" creado correctamente`);
       onClienteCreated(newId);
       onClose();

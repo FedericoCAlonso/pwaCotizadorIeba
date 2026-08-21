@@ -175,9 +175,13 @@ class DecentralizedSyncEngine {
 
       // 2. Limpieza de Contactos (Clientes / Proveedores)
       const allContactos = await db.contactos.toArray();
-      const remoteContactos = Array.isArray(remotePayload?.contactos)
-        ? remotePayload.contactos
-        : (Array.isArray(remotePayload?.clientes) ? remotePayload.clientes : []);
+      const allClientes = await db.clientes.toArray();
+      const allProveedores = await db.proveedores.toArray();
+
+      const remoteContactos: any[] = [];
+      if (Array.isArray(remotePayload?.contactos)) remoteContactos.push(...remotePayload.contactos);
+      if (Array.isArray(remotePayload?.clientes)) remoteContactos.push(...remotePayload.clientes);
+      if (Array.isArray(remotePayload?.proveedores)) remoteContactos.push(...remotePayload.proveedores);
 
       const activeContactsMap = new Map<string, any>();
 
@@ -188,7 +192,39 @@ class DecentralizedSyncEngine {
         activeContactsMap.set(String(rc.id), rc);
       });
 
-      // Procesar locales activos
+      // Procesar clientes y proveedores locales activos
+      allClientes.forEach(lc => {
+        if (!lc || !lc.id || lc.deleted) return;
+        if (!lc.razonSocial && !lc.nombre) return;
+        activeContactsMap.set(String(lc.id), {
+          ...lc,
+          razonSocial: lc.razonSocial || lc.nombre || 'Cliente',
+          nombre: lc.nombre || lc.razonSocial || 'Cliente',
+          roles: lc.roles && lc.roles.length > 0 ? lc.roles : ['cliente']
+        });
+      });
+
+      allProveedores.forEach(lp => {
+        if (!lp || !lp.id || lp.deleted) return;
+        if (!lp.razonSocial && !lp.nombre) return;
+        if (activeContactsMap.has(String(lp.id))) {
+          const existing = activeContactsMap.get(String(lp.id));
+          if (!existing.roles?.includes('proveedor')) {
+            existing.roles = [...(existing.roles || []), 'proveedor'];
+          }
+          existing.tipoProveedor = lp.tipoProveedor || existing.tipoProveedor;
+        } else {
+          activeContactsMap.set(String(lp.id), {
+            ...lp,
+            razonSocial: lp.razonSocial || lp.nombre || 'Proveedor',
+            nombre: lp.nombre || lp.razonSocial || 'Proveedor',
+            roles: lp.roles && lp.roles.length > 0 ? lp.roles : ['proveedor'],
+            tipoProveedor: lp.tipoProveedor || 'material'
+          });
+        }
+      });
+
+      // Procesar contactos locales activos
       allContactos.forEach(lc => {
         if (!lc || !lc.id || lc.deleted) return;
         if (!lc.razonSocial && !lc.nombre) return;
