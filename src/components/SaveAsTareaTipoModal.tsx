@@ -94,23 +94,27 @@ export const SaveAsTareaTipoModal: React.FC<SaveAsTareaTipoModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden text-on-surface">
-        <div className="px-6 py-4 border-b border-outline-variant/30 flex items-center justify-between bg-surface-container-low">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-surface-container border-t sm:border border-outline-variant/30 rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden text-on-surface pb-safe">
+        {/* Mobile drag bar */}
+        <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto mt-2.5 mb-1 shrink-0 sm:hidden" />
+
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-outline-variant/30 flex items-center justify-between bg-surface-container-low">
           <div className="flex items-center gap-2 text-primary font-semibold text-sm">
             <Sparkles className="w-4 h-4 text-primary" />
-            <span>Guardar como Trabajo Tipo / Plantilla</span>
+            <span>Guardar como Trabajo Tipo</span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors"
+            className="p-2 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center"
+            aria-label="Cerrar modal"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="p-5 space-y-4 text-xs">
+        <form onSubmit={handleSave} className="p-4 sm:p-5 space-y-4 text-xs">
           <div>
             <label className="block font-semibold text-on-surface mb-1">Nombre de la Plantilla / Trabajo Tipo *</label>
             <input
@@ -161,18 +165,18 @@ export const SaveAsTareaTipoModal: React.FC<SaveAsTareaTipoModalProps> = ({
             />
           </div>
 
-          <div className="pt-3 border-t border-outline-variant/20 flex justify-end gap-2">
+          <div className="pt-3 border-t border-outline-variant/20 flex flex-col-reverse sm:flex-row justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-full text-on-surface-variant hover:bg-surface-variant font-medium"
+              className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-full text-on-surface-variant hover:bg-surface-variant font-medium text-center min-h-[40px]"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center gap-1.5 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full shadow-sm transition-all"
+              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 sm:py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full shadow-sm transition-all min-h-[40px]"
             >
               <Save className="w-3.5 h-3.5" />
               <span>{isSaving ? 'Guardando...' : 'Guardar Trabajo Tipo'}</span>

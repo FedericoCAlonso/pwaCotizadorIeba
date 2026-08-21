@@ -340,12 +340,12 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
               </div>
               <div className="space-y-1 divide-y divide-outline-variant/10">
                 {item.insumosSnapshot.map((ins, iIdx) => (
-                  <div key={iIdx} className="pt-1 flex items-center justify-between text-on-surface-variant text-[11px]">
-                    <div className="flex items-center gap-1.5 truncate flex-1">
+                  <div key={iIdx} className="pt-1 flex flex-wrap sm:flex-nowrap items-center justify-between gap-1 text-on-surface-variant text-[11px]">
+                    <div className="flex items-center gap-1.5 truncate flex-1 min-w-[120px]">
                       <span className="truncate">{ins.nombre}</span>
                       <OnlinePriceButton tipo="material" customNombre={ins.nombre} size="xs" variant="icon" />
                     </div>
-                    <div className="flex items-center gap-3 font-mono shrink-0 ml-2">
+                    <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 font-mono shrink-0 w-full sm:w-auto text-[10px] sm:text-[11px]">
                       <span>
                         {ins.cantidadTotal} {ins.unidad} × {formatARS(ins.precioUnitarioCongelado)}
                       </span>
@@ -366,9 +366,9 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
               </div>
               <div className="space-y-1 divide-y divide-outline-variant/10">
                 {item.manoObraSnapshot.map((mo, mIdx) => (
-                  <div key={mIdx} className="pt-1 flex items-center justify-between text-on-surface-variant text-[11px]">
-                    <span className="truncate flex-1">{mo.nombreCategoria}</span>
-                    <div className="flex items-center gap-3 font-mono shrink-0 ml-2">
+                  <div key={mIdx} className="pt-1 flex flex-wrap sm:flex-nowrap items-center justify-between gap-1 text-on-surface-variant text-[11px]">
+                    <span className="truncate flex-1 min-w-[120px]">{mo.nombreCategoria}</span>
+                    <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 font-mono shrink-0 w-full sm:w-auto text-[10px] sm:text-[11px]">
                       <span>
                         {mo.horasTotales} hs × {formatARS(mo.costoHoraCongelado)}/h
                       </span>

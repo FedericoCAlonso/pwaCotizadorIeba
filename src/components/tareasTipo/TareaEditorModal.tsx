@@ -988,8 +988,8 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                         </div>
 
                         {/* Formula Input */}
-                        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
-                          <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30 flex-1 sm:flex-initial sm:w-64">
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end min-w-0">
+                          <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30 flex-1 sm:flex-initial sm:w-64 min-w-0">
                             <span className="text-[10px] font-bold text-on-surface-variant uppercase shrink-0">Fórmula:</span>
                             <FormulaInput
                               value={item.formula || ''}
@@ -1029,9 +1029,9 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                       <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-outline-variant/15 text-[11px]">
                         {isCategoryFilter ? (
                           <div className="flex items-center justify-between gap-2 w-full flex-wrap">
-                            <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant flex-wrap">
+                            <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant flex-wrap min-w-0">
                               <span className="font-semibold text-emerald-700 dark:text-emerald-300">Criterios:</span>
-                              <span className="font-mono text-[10px] bg-surface-container px-2 py-0.5 rounded-md">
+                              <span className="font-mono text-[10px] bg-surface-container px-2 py-0.5 rounded-md break-all">
                                 {item.filtroMaterial?.criterios?.map(c => `${c.atributo} ${c.operador} ${c.valor}`).join(' • ')}
                               </span>
                               {matchingRuleName && (
@@ -1061,7 +1061,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                             </span>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1.5 bg-surface-container-highest/80 px-2.5 py-1 rounded-xl border border-outline-variant/25 w-full sm:w-auto min-w-[280px]">
+                          <div className="flex items-center gap-1.5 bg-surface-container-highest/80 px-2.5 py-1 rounded-xl border border-outline-variant/25 w-full sm:w-auto min-w-0 sm:min-w-[240px]">
                             <span className="text-[10px] font-bold text-on-surface-variant uppercase shrink-0">Condición:</span>
                             <FormulaInput
                               value={item.condicion || ''}
@@ -1153,8 +1153,8 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                     >
                       {/* Header de la Tarjeta: Selector de Rol + Chip de Tarifa + Botón Eliminar */}
                       <div className="flex flex-wrap items-center justify-between gap-2.5">
-                        <div className="flex items-center gap-2 flex-1 min-w-[260px]">
-                          <div className="flex-1">
+                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 flex-1 min-w-0">
+                          <div className="flex-1 min-w-[180px]">
                             <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
                               Rol de Mano de Obra
                             </label>
@@ -1174,7 +1174,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                               ))}
                             </select>
                           </div>
-                          <div className="shrink-0 pt-4">
+                          <div className="shrink-0 pt-0 sm:pt-4">
                             <span className="inline-flex items-center px-2.5 py-1.5 rounded-xl bg-surface-container-highest border border-outline-variant/30 text-[11px] font-mono text-on-surface-variant">
                               Tarifa: <strong className="ml-1 text-on-surface">{formatARS(rate)}/h</strong>
                             </span>
@@ -1184,7 +1184,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                         <button
                           type="button"
                           onClick={() => removeManoObraRow(idx)}
-                          className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition self-end sm:self-center shrink-0"
+                          className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition self-end sm:self-center shrink-0 min-h-[38px] min-w-[38px] flex items-center justify-center"
                           title="Quitar rol de mano de obra"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1226,9 +1226,9 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
                       {/* Footer: Live Evaluation & Regla Condicional Opcional */}
                       <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-outline-variant/20">
-                        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 flex-1 min-w-0">
                           {item.condicion !== undefined && item.condicion !== null ? (
-                            <div className="flex items-center gap-1.5 bg-surface-container-highest/80 px-2.5 py-1 rounded-xl border border-outline-variant/25 flex-1 max-w-md">
+                            <div className="flex items-center gap-1.5 bg-surface-container-highest/80 px-2.5 py-1 rounded-xl border border-outline-variant/25 flex-1 max-w-md min-w-0">
                               <span className="text-[10px] font-bold text-on-surface-variant uppercase shrink-0">Condición:</span>
                               <FormulaInput
                                 value={item.condicion || ''}
@@ -1251,7 +1251,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                                   next[idx] = { ...next[idx], condicion: undefined };
                                   setFormData({ ...formData, manoObra: next });
                                 }}
-                                className="text-on-surface-variant hover:text-error p-1 rounded-lg transition"
+                                className="text-on-surface-variant hover:text-error p-1 rounded-lg transition shrink-0"
                                 title="Quitar condición"
                               >
                                 <X className="w-3.5 h-3.5" />
@@ -1283,7 +1283,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                         </div>
 
                         {/* Indicador de Horas y Subtotal en Vivo */}
-                        <div className="flex items-center gap-2 bg-surface-container-high px-3 py-1.5 rounded-xl border border-outline-variant/30">
+                        <div className="flex items-center gap-2 bg-surface-container-high px-3 py-1.5 rounded-xl border border-outline-variant/30 shrink-0">
                           <span className="text-xs font-mono text-on-surface-variant">
                             Horas: <strong className="text-on-surface">{horasEvaluadas} hs</strong>
                           </span>
@@ -1355,18 +1355,18 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
           </div>
 
           {/* Form Actions */}
-          <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
+          <div className="pt-3 border-t border-outline-variant/30 flex flex-col-reverse sm:flex-row justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-full text-xs font-semibold text-on-surface-variant hover:bg-surface-variant"
+              className="w-full sm:w-auto px-5 py-2.5 sm:py-2 rounded-full text-xs font-semibold text-on-surface-variant hover:bg-surface-variant text-center min-h-[40px] flex items-center justify-center"
             >
               Cancelar
             </button>
 
             <button
               type="submit"
-              className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-full text-xs shadow-sm active:scale-95 transition"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 sm:py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-full text-xs shadow-sm active:scale-95 transition min-h-[40px]"
             >
               <Save className="w-4 h-4" />
               <span>{submitButtonText || 'Guardar Trabajo Tipo'}</span>

@@ -115,25 +115,28 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] text-on-surface animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+      <div className="bg-surface-container border-t sm:border border-outline-variant/30 rounded-t-3xl sm:rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] text-on-surface animate-in fade-in zoom-in-95 duration-200 pb-safe">
+
+        {/* Mobile drag bar */}
+        <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto mt-2.5 mb-1 shrink-0 sm:hidden" />
 
         {/* Header */}
-        <div className="px-6 py-4 border-b border-outline-variant/20 bg-surface-container-low flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-primary/10 text-primary rounded-2xl">
-              <Sliders className="w-5 h-5" />
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-outline-variant/20 bg-surface-container-low flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="p-2 sm:p-2.5 bg-primary/10 text-primary rounded-2xl shrink-0">
+              <Sliders className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-on-primary-container bg-primary-container px-2 py-0.5 rounded-full uppercase">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="text-[10px] font-bold text-on-primary-container bg-primary-container px-2 py-0.5 rounded-full uppercase truncate">
                   {tarea.categoria || 'Trabajo Tipo'}
                 </span>
-                <span className="text-xs text-on-surface-variant font-mono">
+                <span className="text-xs text-on-surface-variant font-mono shrink-0">
                   /{tarea.unidad || 'u'}
                 </span>
               </div>
-              <h3 className="font-bold text-on-surface text-base leading-tight mt-0.5">
+              <h3 className="font-bold text-on-surface text-sm sm:text-base leading-tight mt-0.5 truncate">
                 {tarea.nombre}
               </h3>
             </div>
@@ -142,14 +145,15 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-on-surface-variant hover:text-on-surface p-1.5 rounded-full hover:bg-surface-variant transition"
+            className="text-on-surface-variant hover:text-on-surface p-2 rounded-full hover:bg-surface-variant transition shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center"
+            aria-label="Cerrar modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 flex-1 text-xs">
 
           {/* 1. Formulario de Parámetros de la Obra */}
           <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 space-y-4">
@@ -384,28 +388,28 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-outline-variant/20 bg-surface-container-low flex items-center justify-between gap-4">
-          <div>
-            <span className="text-[10px] text-on-surface-variant uppercase block font-semibold">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-outline-variant/20 bg-surface-container-low flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center justify-between sm:block">
+            <span className="text-[10px] text-on-surface-variant uppercase font-semibold sm:block">
               Costo Directo Total:
             </span>
-            <span className="text-lg font-black font-mono text-primary">
+            <span className="text-base sm:text-lg font-black font-mono text-primary">
               {formatARS(calculosResultado.costoDirectoTotal)}
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition"
+              className="flex-1 sm:flex-initial px-4 py-2.5 sm:py-2 text-xs font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition text-center min-h-[42px] flex items-center justify-center"
             >
               Cancelar
             </button>
             <button
               type="button"
               onClick={handleApply}
-              className="px-5 py-2 text-xs font-bold text-on-primary bg-primary hover:bg-primary/90 rounded-xl shadow-sm transition flex items-center gap-1.5 active:scale-95"
+              className="flex-1 sm:flex-initial px-4 sm:px-5 py-2.5 sm:py-2 text-xs font-bold text-on-primary bg-primary hover:bg-primary/90 rounded-xl shadow-sm transition flex items-center justify-center gap-1.5 active:scale-95 min-h-[42px]"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>Insertar en Presupuesto</span>

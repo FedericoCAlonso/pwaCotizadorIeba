@@ -87,32 +87,36 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div
-        className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] text-on-surface"
+        className="bg-surface-container border-t sm:border border-outline-variant/30 rounded-t-3xl sm:rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[85vh] text-on-surface pb-safe"
         onKeyDown={handleKeyDown}
       >
-        <div className="px-6 py-4 border-b border-outline-variant/30 flex items-center justify-between">
-          <h3 className="font-semibold text-on-surface text-base flex items-center gap-2">
-            <Layers className="w-5 h-5 text-primary" />
-            <span>Seleccionar Tarea Tipo del Catálogo</span>
+        {/* Mobile drag bar */}
+        <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto mt-2.5 mb-1 shrink-0 sm:hidden" />
+
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-outline-variant/30 flex items-center justify-between gap-2 shrink-0">
+          <h3 className="font-semibold text-on-surface text-sm sm:text-base flex items-center gap-2 min-w-0">
+            <Layers className="w-5 h-5 text-primary shrink-0" />
+            <span className="truncate">Seleccionar Tarea Tipo del Catálogo</span>
           </h3>
           <button
             onClick={onClose}
-            className="text-on-surface-variant hover:text-on-surface p-1 rounded-full hover:bg-surface-variant transition-colors"
+            className="text-on-surface-variant hover:text-on-surface p-2 rounded-full hover:bg-surface-variant transition-colors shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center"
+            aria-label="Cerrar modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Search */}
-        <div className="p-4 border-b border-outline-variant/20 bg-surface-container-low">
+        <div className="p-3 sm:p-4 border-b border-outline-variant/20 bg-surface-container-low shrink-0">
           <div className="relative">
             <Search className="w-4 h-4 text-on-surface-variant absolute left-3 top-2.5" />
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Buscar tarea por nombre o categoría... (usa ↑ ↓ y Enter)"
+              placeholder="Buscar tarea por nombre o categoría..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl pl-9 pr-4 py-2 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -120,7 +124,7 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
           </div>
         </div>
 
-        <div className="p-6 overflow-y-auto space-y-3 flex-1">
+        <div className="p-3 sm:p-6 overflow-y-auto space-y-3 flex-1">
           {filteredTareas.length === 0 ? (
             <p className="text-center text-on-surface-variant text-sm py-8">
               {searchTerm
@@ -219,7 +223,7 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
         </div>
 
         {/* Keyboard Helper Footer */}
-        <div className="px-6 py-2.5 bg-surface-container-low border-t border-outline-variant/20 flex items-center justify-between text-[11px] text-on-surface-variant">
+        <div className="px-4 sm:px-6 py-2.5 bg-surface-container-low border-t border-outline-variant/20 hidden sm:flex items-center justify-between text-[11px] text-on-surface-variant shrink-0">
           <div className="flex items-center gap-3">
             <span><kbd className="px-1.5 py-0.5 bg-surface-container-highest rounded border border-outline-variant/30 font-mono text-[10px]">↑</kbd> <kbd className="px-1.5 py-0.5 bg-surface-container-highest rounded border border-outline-variant/30 font-mono text-[10px]">↓</kbd> Navegar</span>
             <span><kbd className="px-1.5 py-0.5 bg-surface-container-highest rounded border border-outline-variant/30 font-mono text-[10px]">Enter</kbd> Seleccionar</span>

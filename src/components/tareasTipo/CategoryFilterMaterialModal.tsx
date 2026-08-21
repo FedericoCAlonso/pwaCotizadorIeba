@@ -274,21 +274,24 @@ export const CategoryFilterMaterialModal: React.FC<CategoryFilterMaterialModalPr
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
     >
-      <div className="bg-surface border border-outline-variant/30 rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+      <div className="bg-surface border-t sm:border border-outline-variant/30 rounded-t-3xl sm:rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[90vh] overflow-hidden pb-safe">
+        {/* Mobile drag bar */}
+        <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto mt-2.5 mb-1 shrink-0 sm:hidden" />
+
         {/* Header (M3 Tonal Top App Bar) */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-outline-variant/20 bg-surface-container-low shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-primary/10 rounded-2xl text-primary border border-primary/20 shrink-0">
-              {initialData ? <Sliders className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+        <div className="flex items-center justify-between p-3.5 sm:p-5 border-b border-outline-variant/20 bg-surface-container-low shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="p-2 sm:p-2.5 bg-primary/10 rounded-2xl text-primary border border-primary/20 shrink-0">
+              {initialData ? <Sliders className="w-4 h-4 sm:w-5 sm:h-5" /> : <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />}
             </div>
-            <div>
-              <h3 className="text-sm sm:text-base font-bold text-on-surface">
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold text-on-surface truncate">
                 {initialData ? 'Editar Material por Categoría' : 'Agregar Material por Categoría'}
               </h3>
-              <p className="text-[11px] sm:text-xs text-on-surface-variant">
-                Selecciona la familia técnica y define qué propiedades debe cumplir según las variables de obra
+              <p className="text-[11px] sm:text-xs text-on-surface-variant truncate">
+                Selecciona la familia técnica y define propiedades según variables
               </p>
             </div>
           </div>

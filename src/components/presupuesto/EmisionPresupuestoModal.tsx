@@ -28,22 +28,27 @@ export const EmisionPresupuestoModal: React.FC<EmisionPresupuestoModalProps> = (
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface-container border border-outline-variant/30 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-on-surface">
-        <div className="px-6 py-4 border-b border-outline-variant/30 flex items-center justify-between bg-surface-container-high">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle className="w-5 h-5 text-primary" />
-            <h3 className="font-bold text-on-surface text-base">Opciones de Emisión del Presupuesto</h3>
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="bg-surface-container border-t sm:border border-outline-variant/30 rounded-t-3xl sm:rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] text-on-surface pb-safe">
+        
+        {/* Mobile drag bar */}
+        <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto mt-2.5 mb-1 shrink-0 sm:hidden" />
+
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-outline-variant/30 flex items-center justify-between gap-2 bg-surface-container-high shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <CheckCircle className="w-5 h-5 text-primary shrink-0" />
+            <h3 className="font-bold text-on-surface text-sm sm:text-base truncate">Opciones de Emisión del Presupuesto</h3>
           </div>
           <button
             onClick={onClose}
-            className="text-on-surface-variant hover:text-on-surface p-1.5 rounded-full hover:bg-surface-variant transition-colors"
+            className="text-on-surface-variant hover:text-on-surface p-2 rounded-full hover:bg-surface-variant transition-colors shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center"
+            aria-label="Cerrar modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto space-y-5 flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 flex-1">
           <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
               Presentación para el Cliente (Documento / PDF)
@@ -116,18 +121,18 @@ export const EmisionPresupuestoModal: React.FC<EmisionPresupuestoModalProps> = (
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-outline-variant/30 flex justify-end gap-3 bg-surface-container-high">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-outline-variant/30 flex items-center justify-end gap-2.5 bg-surface-container-high shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-semibold text-on-surface-variant hover:bg-surface-variant rounded-full transition-colors"
+            className="flex-1 sm:flex-initial px-4 py-2 text-xs sm:text-sm font-semibold text-on-surface-variant hover:bg-surface-variant rounded-full transition-colors min-h-[40px]"
           >
             Cancelar
           </button>
           <button
             type="button"
             onClick={() => onConfirmEmitir(opcionesEmision)}
-            className="px-6 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold text-sm rounded-full transition-colors flex items-center gap-2 shadow-sm"
+            className="flex-1 sm:flex-initial px-5 sm:px-6 py-2 bg-primary hover:bg-primary/90 text-on-primary font-semibold text-xs sm:text-sm rounded-full transition-colors flex items-center justify-center gap-2 shadow-sm min-h-[40px]"
           >
             <Lock className="w-4 h-4" />
             <span>Confirmar & Emitir</span>
