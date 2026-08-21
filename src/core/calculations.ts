@@ -691,7 +691,9 @@ export function calcularTotalesPresupuesto(params: {
 
   const rawConfig = (costosIndirectosConfig && costosIndirectosConfig.length > 0)
     ? costosIndirectosConfig
-    : costosIndirectosCatalog.map(c => ({ id: c.id, nombre: c.nombre, tipo: c.tipo, valor: c.valor, aplica: true }));
+    : costosIndirectosCatalog
+        .filter(c => c.incluirPorDefecto !== false)
+        .map(c => ({ id: c.id, nombre: c.nombre, tipo: c.tipo, valor: c.valor, aplica: true }));
 
   for (const c of rawConfig) {
     if (c.aplica) {

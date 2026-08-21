@@ -253,6 +253,47 @@ describe('calcularTotalesPresupuesto', () => {
     expect(result.totalMonedaExtranjera).toBeCloseTo(237.84, 2);
   });
 
+  it('no incluye costos indirectos del catálogo que tengan incluirPorDefecto: false', () => {
+    const item = makeItem({
+      insumosSnapshot: [],
+      manoObraSnapshot: [],
+      costoInsumos: 100000,
+      costoManoObra: 0,
+      costoServiciosTercerizados: 0,
+      costoDirectoTotal: 100000,
+      cantidad: 1
+    });
+
+    const indirectos: CostoIndirecto[] = [
+      {
+        id: 'ind-def',
+        nombre: 'Herramientas y Amortización',
+        tipo: 'porcentual_sobre_costo',
+        valor: 5,
+        incluirPorDefecto: true
+      },
+      {
+        id: 'ind-no-def',
+        nombre: 'Viáticos Especiales',
+        tipo: 'porcentual_sobre_costo',
+        valor: 10,
+        incluirPorDefecto: false
+      }
+    ];
+
+    const result = calcularTotalesPresupuesto({
+      items: [item],
+      costosIndirectosCatalog: indirectos,
+      beneficioPorcentaje: 0,
+      impuestosDetalle: []
+    });
+
+    // Solo debe aplicar el 5% de ind-def (5000), no el 10% de ind-no-def
+    expect(result.gastosGeneralesTotal).toBe(5000);
+    expect(result.costosIndirectosAplicados).toHaveLength(1);
+    expect(result.costosIndirectosAplicados[0].costoIndirectoId).toBe('ind-def');
+  });
+
   it('maneja lista de ítems vacía (edge case: presupuesto vacío)', () => {
     const result = calcularTotalesPresupuesto({
       items: [],

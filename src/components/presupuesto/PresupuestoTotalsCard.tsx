@@ -1,6 +1,7 @@
-import React from 'react';
-import { Calculator, RotateCcw, X, CheckCircle } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Calculator, RotateCcw, X, CheckCircle, ChevronDown, Plus } from 'lucide-react';
 import {
+  CostoIndirecto,
   CostoIndirectoItemConfig,
   TipoFactura
 } from '../../core/types';
@@ -10,11 +11,13 @@ interface PresupuestoTotalsCardProps {
   totales: TotalesPresupuestoResultado;
   tipoFactura: TipoFactura;
   costosIndirectosConfig: CostoIndirectoItemConfig[];
+  costosIndirectosCatalog?: CostoIndirecto[];
   onToggleIndirectCost: (idx: number) => void;
   onUpdateIndirectCostName: (idx: number, name: string) => void;
   onUpdateIndirectCostValor: (idx: number, val: number) => void;
   onRemoveIndirectCost: (idx: number) => void;
   onAddCustomIndirectCost: () => void;
+  onAddCatalogIndirectCost?: (ci: CostoIndirecto) => void;
   onResetIndirectCosts: () => void;
   margenPorcentaje: number;
   onMargenPorcentajeChange: (val: number) => void;
@@ -31,11 +34,13 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
   totales,
   tipoFactura,
   costosIndirectosConfig,
+  costosIndirectosCatalog = [],
   onToggleIndirectCost,
   onUpdateIndirectCostName,
   onUpdateIndirectCostValor,
   onRemoveIndirectCost,
   onAddCustomIndirectCost,
+  onAddCatalogIndirectCost,
   onResetIndirectCosts,
   margenPorcentaje,
   onMargenPorcentajeChange,
@@ -47,6 +52,25 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
   nombreDolar,
   onEmitirClick,
 }) => {
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setShowAddMenu(false);
+      }
+    };
+    if (showAddMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showAddMenu]);
+
+  const unaddedCatalogItems = costosIndirectosCatalog.filter(
+    (c) => !costosIndirectosConfig.some((cfg) => cfg.id === c.id || (cfg as any).costoIndirectoId === c.id)
+  );
+
   return (
     <div className="bg-surface-container-low rounded-3xl p-6 space-y-5 border border-outline-variant/10 shadow-sm sticky top-6">
       <div className="flex items-center justify-between">
@@ -96,17 +120,72 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
-            <button
-              type="button"
-              onClick={onAddCustomIndirectCost}
-              className="text-[11px] text-primary hover:underline font-semibold"
-            >
-              + Agregar GG
-            </button>
+            
+            <div className="relative" ref={addMenuRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (unaddedCatalogItems.length > 0) {
+                    setShowAddMenu((prev) => !prev);
+                  } else {
+                    onAddCustomIndirectCost();
+                  }
+                }}
+                className="text-[11px] text-primary hover:underline font-semibold flex items-center gap-1"
+              >
+                <span>+ Agregar GG</span>
+                {unaddedCatalogItems.length > 0 && <ChevronDown className="w-3 h-3" />}
+              </button>
+
+              {showAddMenu && unaddedCatalogItems.length > 0 && (
+                <div className="absolute right-0 top-full mt-1.5 w-64 bg-surface-container-high border border-outline-variant/30 rounded-2xl shadow-xl z-50 p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-md">
+                  <div className="px-2.5 py-1 text-[10px] font-bold text-on-surface-variant uppercase tracking-wider border-b border-outline-variant/20">
+                    Disponibles en Catálogo:
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {unaddedCatalogItems.map((catItem) => (
+                      <button
+                        key={catItem.id}
+                        type="button"
+                        onClick={() => {
+                          onAddCatalogIndirectCost?.(catItem);
+                          setShowAddMenu(false);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-surface-variant text-xs flex items-center justify-between transition-colors text-on-surface group"
+                      >
+                        <span className="truncate font-medium group-hover:text-primary">{catItem.nombre}</span>
+                        <span className="font-mono text-[11px] text-on-surface-variant shrink-0 ml-2 font-bold">
+                          {catItem.tipo === 'porcentual_sobre_costo' ? `${catItem.valor}%` : formatARS(catItem.valor)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-outline-variant/20 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onAddCustomIndirectCost();
+                        setShowAddMenu(false);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-primary/10 text-primary text-xs font-bold transition-colors flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Crear Personalizado...</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="space-y-2">
+        {costosIndirectosConfig.length === 0 ? (
+          <div className="p-3 rounded-xl bg-surface-container/50 border border-dashed border-outline-variant/30 text-center space-y-1">
+            <p className="text-[11px] text-on-surface-variant">Sin gastos generales aplicados a esta cotización.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
           {costosIndirectosConfig.map((ci, idx) => {
             const applied = totales.costosIndirectosAplicados.find((c) => c.costoIndirectoId === ci.id);
             const montoCalculado = applied
@@ -173,7 +252,8 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
               </div>
             );
           })}
-        </div>
+          </div>
+        )}
 
         <div className="flex justify-between text-xs font-bold text-primary pt-1 border-t border-outline-variant/20">
           <span>Total Gastos Generales (GG):</span>

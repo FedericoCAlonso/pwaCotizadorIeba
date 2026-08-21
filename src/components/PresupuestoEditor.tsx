@@ -16,7 +16,8 @@ import {
   AppConfig,
   ItemPresupuesto,
   TipoFactura,
-  MaterialFilterContext
+  MaterialFilterContext,
+  CostoIndirecto
 } from '../core/types';
 import {
   formatARS,
@@ -409,19 +410,36 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     ]);
   };
 
-  const handleResetIndirectCosts = () => {
-    setCostosIndirectosConfig(
-      costosIndirectos.map((ci) => ({
+  const handleAddCatalogIndirectCost = (ci: CostoIndirecto) => {
+    setCostosIndirectosConfig((prev) => [
+      ...prev,
+      {
         costoIndirectoId: ci.id,
         id: ci.id,
         nombre: ci.nombre,
         tipo: ci.tipo,
         valor: ci.valor,
-        activo: ci.incluirPorDefecto !== undefined ? ci.incluirPorDefecto : true,
-        aplica: ci.incluirPorDefecto !== undefined ? ci.incluirPorDefecto : true
-      }))
+        aplica: true
+      }
+    ]);
+    toast.success(`Gasto General "${ci.nombre}" agregado`);
+  };
+
+  const handleResetIndirectCosts = () => {
+    setCostosIndirectosConfig(
+      costosIndirectos
+        .filter((ci) => ci.incluirPorDefecto !== false)
+        .map((ci) => ({
+          costoIndirectoId: ci.id,
+          id: ci.id,
+          nombre: ci.nombre,
+          tipo: ci.tipo,
+          valor: ci.valor,
+          activo: true,
+          aplica: true
+        }))
     );
-    toast.success('Gastos Generales restablecidos del catálogo');
+    toast.success('Gastos Generales por defecto restablecidos');
   };
 
 
@@ -759,11 +777,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             totales={totales}
             tipoFactura={tipoFactura}
             costosIndirectosConfig={costosIndirectosConfig}
+            costosIndirectosCatalog={costosIndirectos}
             onToggleIndirectCost={handleToggleIndirectCost}
             onUpdateIndirectCostName={handleUpdateIndirectCostName}
             onUpdateIndirectCostValor={handleUpdateIndirectCostValor}
             onRemoveIndirectCost={handleRemoveIndirectCost}
             onAddCustomIndirectCost={handleAddCustomIndirectCost}
+            onAddCatalogIndirectCost={handleAddCatalogIndirectCost}
             onResetIndirectCosts={handleResetIndirectCosts}
             margenPorcentaje={margenPorcentaje}
             onMargenPorcentajeChange={setMargenPorcentaje}

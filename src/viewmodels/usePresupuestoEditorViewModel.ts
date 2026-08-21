@@ -137,15 +137,17 @@ export function usePresupuestoEditorViewModel({
       const seq = config.siguienteNumeroCorrelativo || 1001;
       setNumero(`${config.prefijoPresupuesto || 'IEBA'}-${year}-${seq.toString().padStart(4, '0')}`);
       setCostosIndirectosConfig(
-        costosIndirectos.map(ci => ({
-          costoIndirectoId: ci.id,
-          id: ci.id,
-          nombre: ci.nombre,
-          tipo: ci.tipo,
-          valor: ci.valor,
-          activo: ci.incluirPorDefecto !== undefined ? ci.incluirPorDefecto : true,
-          aplica: ci.incluirPorDefecto !== undefined ? ci.incluirPorDefecto : true
-        }))
+        costosIndirectos
+          .filter(ci => ci.incluirPorDefecto !== false)
+          .map(ci => ({
+            costoIndirectoId: ci.id,
+            id: ci.id,
+            nombre: ci.nombre,
+            tipo: ci.tipo,
+            valor: ci.valor,
+            activo: true,
+            aplica: true
+          }))
       );
     }
   }, [existingPresupuesto, config, costosIndirectos.length]);
