@@ -80,6 +80,11 @@ export const TareasTipoManager: React.FC<TareasTipoManagerProps> = ({
       categoria: formData.categoria.trim(),
       unidad: formData.unidad.trim() || 'u',
       notasTecnicas: formData.notasTecnicas?.trim() || '',
+      clausulaExclusiones: formData.clausulaExclusiones?.trim() || '',
+      costoFijoOperativo: formData.costoFijoOperativo || 0,
+      descripcionCostoFijo: formData.descripcionCostoFijo?.trim() || '',
+      parametros: formData.parametros,
+      variables: formData.variables,
       insumos: formData.insumos,
       manoObra: formData.manoObra
     });

@@ -97,268 +97,330 @@ export const INITIAL_COSTOS_INDIRECTOS: CostoIndirecto[] = (bdDefaultData.costos
 
 export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
   {
-    id: 'tt-recableado-integral',
-    nombre: 'Recableado Integral de Circuito / Bocas Existentes',
+    id: 'tt-cableado-vivienda-10kw',
+    nombre: 'Cableado o recableado Vivienda hasta 10kW',
     categoria: 'Bocas',
-    unidad: 'boca',
-    notasTecnicas: 'Retiro de conductores obsoletos y reposición con conductores unipolares IRAM 247-3 (Fase, Neutro y PE 2.5 mm²). Empalmes y conexionado en cajas existentes.',
-    clausulaExclusiones: 'La cotización contempla el reemplazo de conductores a través de las canalizaciones existentes en condiciones transitables. En caso de detectarse cañerías obstruidas, colapsadas o cajas ciegas no accesibles que demanden apertura de mampostería o colocación de conductos a la vista, los trabajos de destape o recanalización se cotizarán como adicionales previa conformidad del cliente.',
+    unidad: 'u',
+    notasTecnicas: 'Tendido y enhebrado de conductores unipolares IRAM 247-3 para circuitos de iluminación, tomas de uso general, tomas de uso especial y circuitos especiales con puesta a tierra integral según normativa AEA 90364.',
+    clausulaExclusiones: 'La cotización contempla el enhebrado de conductores a través de canalizaciones existentes en condiciones transitables. En caso de cañerías obstruidas o inaccesibles, los trabajos de destape o recanalización se cotizarán como adicionales previa conformidad del cliente.',
+    costoFijoOperativo: 0,
+    descripcionCostoFijo: '',
     parametros: [
+      { id: 'tug', nombre: 'Cantidad de bocas TUG', tipo: 'numero', valorDefault: 10, unidad: 'bocas', descripcion: 'Tomas de Uso General (2.5 mm²)' },
+      { id: 'iug', nombre: 'Cantidad de bocas IUG', tipo: 'numero', valorDefault: 5, unidad: 'bocas', descripcion: 'Iluminación de Uso General (1.5 mm²)' },
+      { id: 'tue', nombre: 'Cantidad de bocas TUE', tipo: 'numero', valorDefault: 2, unidad: 'bocas', descripcion: 'Tomas de Uso Especial (4.0 mm²)' },
+      { id: 'circuitos_tue', nombre: 'Cantidad de circuitos TUE', tipo: 'numero', valorDefault: 1, unidad: 'circuitos', descripcion: 'Circuitos exclusivos TUE (4.0 mm²)' },
+      { id: 'esp', nombre: 'Cantidad de bocas especiales', tipo: 'numero', valorDefault: 0, unidad: 'bocas', descripcion: 'Otras bocas / circuitos especiales' },
+      { id: 'circuitos_esp', nombre: 'Cantidad de circuitos especiales', tipo: 'numero', valorDefault: 0, unidad: 'circuitos', descripcion: 'Circuitos dedicados para cargas especiales' },
       {
-        id: 'bocas',
-        nombre: 'Cantidad de Bocas',
-        tipo: 'numero',
-        valorDefault: 10,
-        unidad: 'bocas',
-        descripcion: 'Número total de bocas y centros a recablear'
-      },
-      {
-        id: 'k_estado',
-        nombre: 'Estado y Antigüedad de Cañerías',
+        id: 'seccion_esp',
+        nombre: 'Sección cables de circuitos especiales',
         tipo: 'select',
-        valorDefault: 1.25,
-        descripcion: 'Estado de transitabilidad de los conductos existentes',
-        opciones: [
-          { id: 'opt-moderna', label: 'Moderna / Buen Estado (1.00x)', valor: 1.0 },
-          { id: 'opt-intermedia', label: 'Intermedia / Regular (1.25x)', valor: 1.25 },
-          { id: 'opt-antigua', label: 'Antigua / Rígida / Deteriorada (1.60x)', valor: 1.6 }
-        ]
-      },
-      {
-        id: 'k_altura',
-        nombre: 'Altura de Trabajo',
-        tipo: 'select',
-        valorDefault: 1.0,
-        descripcion: 'Altura de cielorrasos o cajas',
-        opciones: [
-          { id: 'opt-alt-std', label: 'Estándar < 2.80 m (1.00x)', valor: 1.0 },
-          { id: 'opt-alt-doble', label: 'Doble Altura 2.80m - 4.50m (1.25x)', valor: 1.25 },
-          { id: 'opt-alt-gran', label: 'Gran Altura > 4.50m (1.50x)', valor: 1.5 }
-        ]
-      },
-      {
-        id: 'desarmes',
-        nombre: 'Ventiladores / Apliques a Desarmar',
-        tipo: 'numero',
-        valorDefault: 0,
-        unidad: 'artefactos',
-        descripcion: 'Cantidad de artefactos especiales que requieren desmontaje y rearmado complejo'
-      }
-    ],
-    variables: [
-      {
-        id: 'k_complejidad',
-        nombre: 'Multiplicador de Complejidad MO',
-        formula: 'k_estado * k_altura',
-        unidad: 'x',
-        descripcion: 'Factor combinado de estado de cañería y altura'
-      },
-      {
-        id: 'metros_cable',
-        nombre: 'Metros de Cable por Conductor',
-        formula: 'bocas * 12 * 1.10',
-        unidad: 'm',
-        descripcion: '12m por boca + 10% de desperdicio y puntas de conexión'
-      },
-      {
-        id: 'horas_oficial',
-        nombre: 'Horas Oficial Electricista',
-        formula: '1.0 + (bocas * 1.5) * k_complejidad + (desarmes * 1.5)',
-        unidad: 'hs',
-        descripcion: 'Base de replanteo + 1.5hs por boca corregido por complejidad y desarmes'
-      },
-      {
-        id: 'horas_ayudante',
-        nombre: 'Horas Ayudante',
-        formula: '1.0 + (bocas * 0.8) * k_complejidad',
-        unidad: 'hs',
-        descripcion: 'Horas de asistencia para pasacables y retiro de conductores viejos'
-      }
-    ],
-    insumos: [
-      { materialId: 'mat-cable-uni-2_5-marron', cantidad: 12, formula: 'metros_cable' },
-      { materialId: 'mat-cable-uni-2_5-celeste', cantidad: 12, formula: 'metros_cable' },
-      { materialId: 'mat-cable-uni-2_5-verde-amarillo', cantidad: 12, formula: 'metros_cable' }
-    ],
-    manoObra: [
-      { categoriaId: 'mo-oficial-electricista', horas: 1.5, formula: 'horas_oficial' },
-      { categoriaId: 'mo-ayudante', horas: 0.8, formula: 'horas_ayudante' }
-    ],
-    frecuenciaUso: 10,
-    createdAt: now,
-    updatedAt: now,
-    deleted: false
-  },
-  {
-    id: 'tt-boca-iug-nueva',
-    nombre: 'Boca de Iluminación de Uso General (IUG) - Obra Nueva',
-    categoria: 'Bocas',
-    unidad: 'boca',
-    notasTecnicas: 'Canalización embutida, colocación de caja octogonal chica, cableado 1.5 mm² y conexión según norma AEA 90364.',
-    parametros: [
-      {
-        id: 'bocas',
-        nombre: 'Cantidad de Bocas',
-        tipo: 'numero',
-        valorDefault: 1,
-        unidad: 'bocas'
-      }
-    ],
-    variables: [
-      {
-        id: 'metros_cable',
-        nombre: 'Metros de Cable por Conductor',
-        formula: 'bocas * 8',
-        unidad: 'm',
-        descripcion: '8m por boca nueva'
-      },
-      {
-        id: 'horas_oficial',
-        nombre: 'Horas Oficial Electricista',
-        formula: 'bocas * 1.2',
-        unidad: 'hs'
-      },
-      {
-        id: 'horas_ayudante',
-        nombre: 'Horas Ayudante',
-        formula: 'bocas * 0.8',
-        unidad: 'hs'
-      }
-    ],
-    insumos: [
-      { materialId: 'mat-caja-oct-chica-pvc', cantidad: 1, formula: 'bocas * 1' },
-      { materialId: 'mat-cable-uni-1.5-marron', cantidad: 8, formula: 'metros_cable' },
-      { materialId: 'mat-cable-uni-1.5-celeste', cantidad: 8, formula: 'metros_cable' },
-      { materialId: 'mat-cable-uni-1.5-verde-amarillo', cantidad: 8, formula: 'metros_cable' }
-    ],
-    manoObra: [
-      { categoriaId: 'mo-oficial-electricista', horas: 1.2, formula: 'horas_oficial' },
-      { categoriaId: 'mo-ayudante', horas: 0.8, formula: 'horas_ayudante' }
-    ],
-    frecuenciaUso: 5,
-    createdAt: now,
-    updatedAt: now,
-    deleted: false
-  },
-  {
-    id: 'tt-tablero-seccional-monofasico',
-    nombre: 'Armado y conexión de tablero seccional monofásico en vivienda',
-    categoria: 'Tableros',
-    unidad: 'tablero',
-    notasTecnicas: 'Montaje de gabinete DIN embutido, provisión y conexionado de interruptor termomagnético general, interruptor diferencial coordinado según AEA 90364, peines bipolares de distribución y termomagnéticas bipolares de circuitos derivados. Rotulado normalizado y prueba de disparo diferencial.',
-    clausulaExclusiones: 'La cotización comprende el armado, peinado y conexionado en el gabinete del tablero. No incluye rotura de mampostería si el nicho no estuviera amurado previamente, ni tendido de líneas seccionales principales o circuitos troncales hacia bocas.',
-    parametros: [
-      {
-        id: 'circuitos',
-        nombre: 'Cantidad de Circuitos Derivados (IUG/TUG/TUE)',
-        tipo: 'numero',
         valorDefault: 4,
-        unidad: 'circuitos',
-        descripcion: 'Número de circuitos monofásicos a proteger (ej: 1 ilum + 2 tomas + 1 aire)'
-      },
-      {
-        id: 'calibre_principal',
-        nombre: 'Térmica General de Cabecera',
-        tipo: 'select',
-        valorDefault: 32,
-        descripcion: 'Selecciona la corriente nominal del interruptor termomagnético principal',
+        unidad: 'mm²',
+        descripcion: 'Sección nominal para circuitos especiales',
         opciones: [
-          { id: '25', label: '25 A (Curva C)', valor: 25 },
-          { id: '32', label: '32 A (Curva C)', valor: 32 },
-          { id: '40', label: '40 A (Curva C)', valor: 40 },
-          { id: '50', label: '50 A (Curva C)', valor: 50 },
-          { id: '63', label: '63 A (Curva C)', valor: 63 }
+          { id: 'opt-1-5', label: '1.5 mm²', valor: 1.5 },
+          { id: 'opt-2-5', label: '2.5 mm²', valor: 2.5 },
+          { id: 'opt-4-0', label: '4.0 mm²', valor: 4.0 },
+          { id: 'opt-6-0', label: '6.0 mm²', valor: 6.0 }
         ]
       },
-      {
-        id: 'requiere_certificacion',
-        nombre: '¿Incluye Medición de PAT y Protocolo SRT 900/15?',
-        tipo: 'boolean',
-        valorDefault: 0,
-        descripcion: 'Medición con telurímetro calibrado y emisión de protocolo firmado'
-      }
+      { id: 'superficie', nombre: 'Superficie cubierta', tipo: 'numero', valorDefault: 50, unidad: 'm²', descripcion: 'Superficie de la vivienda en metros cuadrados' }
     ],
     variables: [
       {
-        id: 'modulos_requeridos',
-        nombre: 'Módulos DIN Totales Requeridos',
-        formula: '4 + circuitos * 2',
-        unidad: 'módulos',
-        descripcion: 'Reserva de 4 módulos (General + Diferencial) + 2 módulos por circuito'
+        id: 'cable_2_5',
+        nombre: 'Longitud línea TUG (2.5 mm²)',
+        formula: 'ceil(ceil(tug / 12) * sqrt(superficie) / 1.4 + tug * 3.5)',
+        unidad: 'm',
+        descripcion: 'Troncal + derivación por boca para 2.5 mm²'
       },
       {
-        id: 'horas_montaje',
-        nombre: 'Horas Oficial Armado y Conexionado',
-        formula: '2.5 + circuitos * 0.75',
+        id: 'cable_1_5',
+        nombre: 'Longitud línea IUG (1.5 mm²)',
+        formula: 'ceil(ceil(iug / 8) * sqrt(superficie) / 1.4 + iug * 3.2)',
+        unidad: 'm',
+        descripcion: 'Troncal + derivación por boca para 1.5 mm²'
+      },
+      {
+        id: 'cable_1_5_ret',
+        nombre: 'Longitud retornos IUG (1.5 mm²)',
+        formula: 'iug * 3',
+        unidad: 'm',
+        descripcion: 'Retornos de iluminación'
+      },
+      {
+        id: 'cable_4_0',
+        nombre: 'Longitud línea TUE (4.0 mm²)',
+        formula: 'ceil(circuitos_tue * sqrt(superficie) / 1.2 + tue * 4.0)',
+        unidad: 'm',
+        descripcion: 'Línea de Tomas de Uso Especial 4.0 mm²'
+      },
+      {
+        id: 'cable_esp',
+        nombre: 'Longitud circuitos especiales / otros',
+        formula: 'ceil(circuitos_esp * sqrt(superficie) / 1.2 + esp * 4.0)',
+        unidad: 'm',
+        descripcion: 'Líneas dedicadas para cargas especiales'
+      },
+      {
+        id: 'bocas_totales',
+        nombre: 'Total de bocas de la instalación',
+        formula: 'iug + tug + tue + esp',
+        unidad: 'bocas',
+        descripcion: 'Suma de bocas a cablear'
+      },
+      {
+        id: 'horas_base_oficial',
+        nombre: 'Horas netas Oficial Electricista',
+        formula: 'bocas_totales * 0.35 + 2.0',
         unidad: 'hs',
-        descripcion: '2.5hs base de peinado y cabecera + 45 min por circuito derivado'
+        descripcion: 'Base de replanteo y conexionado + tiempo por boca'
+      },
+      {
+        id: 'horas_base_ayudante',
+        nombre: 'Horas netas Ayudante',
+        formula: 'bocas_totales * 0.25 + 2.0',
+        unidad: 'hs',
+        descripcion: 'Base de asistencia + tiempo por boca'
+      },
+      {
+        id: 'horas_oficial',
+        nombre: 'Horas Oficial (con descanso 20m cada 2hs)',
+        formula: 'round(horas_base_oficial + floor(horas_base_oficial / 2) * 0.333, 2)',
+        unidad: 'hs',
+        descripcion: 'Horas con descanso reglamentario de 20 min por cada bloque de 2 hs'
       },
       {
         id: 'horas_ayudante',
-        nombre: 'Horas Ayudante',
-        formula: '1.0 + circuitos * 0.35',
-        unidad: 'hs'
+        nombre: 'Horas Ayudante (con descanso 20m cada 2hs)',
+        formula: 'round(horas_base_ayudante + floor(horas_base_ayudante / 2) * 0.333, 2)',
+        unidad: 'hs',
+        descripcion: 'Horas con descanso reglamentario de 20 min por cada bloque de 2 hs'
       }
     ],
     insumos: [
-      // 1. Gabinete DIN según cantidad de módulos calculados
       {
-        nombreSlot: 'Gabinete DIN Embutir',
-        cantidad: 1,
+        nombreSlot: 'Cable 2.5 mm² Celeste (Neutro)',
         filtroMaterial: {
-          categoriaId: 'cat-tableros',
-          etiqueta: 'Gabinete DIN para Tablero',
+          categoriaId: 'cat-cables',
+          etiqueta: 'Cable Unipolar 2.5 mm² Celeste',
           criterios: [
-            { atributo: 'tipo_tablero', operador: '==', valor: 'Gabinete DIN' },
-            { atributo: 'tipo_instalacion', operador: '==', valor: 'Embutir' },
-            { atributo: 'capacidad_modulos', operador: '>=', valor: '$modulos_requeridos' }
+            { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
+            { atributo: 'seccion', operador: '==', valor: '2.5' },
+            { atributo: 'color', operador: '==', valor: 'Celeste (Neutro)' }
           ],
-          estrategiaSeleccion: 'menor_valor_que_cumpla',
-          atributoOrden: 'capacidad_modulos'
-        }
+          estrategiaSeleccion: 'mayor_valor_que_cumpla',
+          atributoOrden: 'seccion'
+        },
+        cantidad: 41,
+        formula: 'cable_2_5'
       },
-      // 2. Interruptor Termomagnético General de Cabecera
       {
-        nombreSlot: 'Interruptor Termomagnético General',
-        cantidad: 1,
+        nombreSlot: 'Cable 2.5 mm² Marrón (Fase)',
         filtroMaterial: {
-          categoriaId: 'cat-termomagneticas',
-          etiqueta: 'Térmica de Cabecera 2P',
+          categoriaId: 'cat-cables',
+          etiqueta: 'Cable Unipolar 2.5 mm² Marrón',
           criterios: [
-            { atributo: 'polos', operador: '==', valor: '2' },
-            { atributo: 'In', operador: '==', valor: '$calibre_principal' },
-            { atributo: 'curva', operador: '==', valor: 'Curva C' }
-          ]
-        }
-      },
-      // 3. Interruptor Diferencial Coordinado
-      {
-        nombreSlot: 'Interruptor Diferencial Coordinado',
-        cantidad: 1,
-        filtroMaterial: {
-          categoriaId: 'cat-diferenciales',
-          etiqueta: 'Diferencial Coordinado 2P 30mA',
-          criterios: [
-            { atributo: 'polos', operador: '==', valor: '2' },
-            { atributo: 'In', operador: '>=', valor: '$calibre_principal' }
+            { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
+            { atributo: 'seccion', operador: '==', valor: '2.5' },
+            { atributo: 'color', operador: '==', valor: 'Marrón (Fase)' }
           ],
-          estrategiaSeleccion: 'menor_valor_que_cumpla',
-          atributoOrden: 'In'
-        }
+          estrategiaSeleccion: 'mayor_valor_que_cumpla',
+          atributoOrden: 'seccion'
+        },
+        cantidad: 41,
+        formula: 'cable_2_5'
       },
-      // 4. Térmicas Bipolares para Circuitos Derivados (Curva C 16A)
       {
-        materialId: 'mat-pia-2x16',
-        cantidad: 1,
-        formula: 'circuitos'
+        nombreSlot: 'Cable 2.5 mm² Verde/Amarillo (Tierra)',
+        filtroMaterial: {
+          categoriaId: 'cat-cables',
+          etiqueta: 'Cable Unipolar 2.5 mm² Tierra',
+          criterios: [
+            { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
+            { atributo: 'seccion', operador: '>=', valor: '2.5' },
+            { atributo: 'color', operador: '==', valor: 'Verde/Amarillo (Tierra)' }
+          ],
+          estrategiaSeleccion: 'mayor_valor_que_cumpla',
+          atributoOrden: 'seccion'
+        },
+        cantidad: 41,
+        formula: 'cable_2_5'
+      },
+      {
+        nombreSlot: 'Cable 1.5 mm² Blanco (Retorno)',
+        filtroMaterial: {
+          categoriaId: 'cat-cables',
+          etiqueta: 'Cable Unipolar 1.5 mm² Blanco',
+          criterios: [
+            { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
+            { atributo: 'seccion', operador: '==', valor: '1.5' },
+            { atributo: 'color', operador: '==', valor: 'Blanco (Retorno)' }
+          ],
+          estrategiaSeleccion: 'mayor_valor_que_cumpla',
+          atributoOrden: 'seccion'
+        },
+        cantidad: 15,
+        formula: 'cable_1_5_ret'
+      },
+      {
+        nombreSlot: 'Cable 1.5 mm² Marrón (Fase)',
+        filtroMaterial: {
+          categoriaId: 'cat-cables',
+          etiqueta: 'Cable Unipolar 1.5 mm² Marrón',
+          criterios: [
+            { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
+            { atributo: 'seccion', operador: '==', valor: '1.5' },
+            { atributo: 'color', operador: '==', valor: 'Marrón (Fase)' }
+          ],
+          estrategiaSeleccion: 'mayor_valor_que_cumpla',
+          atributoOrden: 'seccion'
+        },
+        cantidad: 37,
+        formula: 'cable_1_5 + cable_1_5_ret'
+      },
+      {
+        nombreSlot: 'Cable 1.5 mm² Verde/Amarillo (Tierra)',
+        filtroMaterial: {
+          categoriaId: 'cat-cables',
+          etiqueta: 'Cable Unipolar 1.5 mm² Tierra',
+          criterios: [
+            { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
+            { atributo: 'seccion', operador: '==', valor: '1.5' },
+            { atributo: 'color', operador: '==', valor: 'Verde/Amarillo (Tierra)' }
+          ],
+          estrategiaSeleccion: 'mayor_valor_que_cumpla',
+          atributoOrden: 'seccion'
+        },
+        cantidad: 37,
+        formula: 'cable_1_5 + cable_1_5_ret'
+      },
+      {
+        nombreSlot: 'Cable 1.5 mm² Celeste (Neutro)',
+        filtroMaterial: {
+          categoriaId: 'cat-cables',
+          etiqueta: 'Cable Unipolar 1.5 mm² Celeste',
+          criterios: [
+            { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
+            { atributo: 'seccion', operador: '==', valor: '1.5' },
+            { atributo: 'color', operador: '==', valor: 'Celeste (Neutro)' }
+          ],
+          estrategiaSeleccion: 'mayor_valor_que_cumpla',
+          atributoOrden: 'seccion'
+        },
+        cantidad: 22,
+        formula: 'cable_1_5'
+      },
+      {
+        nombreSlot: 'Cable 4.0 mm² Celeste (Neutro TUE)',
+        condicion: 'tue > 0',
+        filtroMaterial: {
+          categoriaId: 'cat-cables',
+          etiqueta: 'Cable Unipolar 4.0 mm² Celeste',
+          criterios: [
+            { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
+            { atributo: 'seccion', operador: '==', valor: '4' },
+            { atributo: 'color', operador: '==', valor: 'Celeste (Neutro)' }
+          ],
+          estrategiaSeleccion: 'mayor_valor_que_cumpla',
+          atributoOrden: 'seccion'
+        },
+        cantidad: 0,
+        formula: 'cable_4_0'
+      },
+      {
+        nombreSlot: 'Cable 4.0 mm² Marrón (Fase TUE)',
+        condicion: 'tue > 0',
+        filtroMaterial: {
+          categoriaId: 'cat-cables',
+          etiqueta: 'Cable Unipolar 4.0 mm² Marrón',
+          criterios: [
+            { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
+            { atributo: 'seccion', operador: '==', valor: '4' },
+            { atributo: 'color', operador: '==', valor: 'Marrón (Fase)' }
+          ],
+          estrategiaSeleccion: 'mayor_valor_que_cumpla',
+          atributoOrden: 'seccion'
+        },
+        cantidad: 0,
+        formula: 'cable_4_0'
+      },
+      {
+        nombreSlot: 'Cable 4.0 mm² Verde/Amarillo (Tierra TUE)',
+        condicion: 'tue > 0',
+        filtroMaterial: {
+          categoriaId: 'cat-cables',
+          etiqueta: 'Cable Unipolar 4.0 mm² Tierra',
+          criterios: [
+            { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
+            { atributo: 'seccion', operador: '>=', valor: '4' },
+            { atributo: 'color', operador: '==', valor: 'Verde/Amarillo (Tierra)' }
+          ],
+          estrategiaSeleccion: 'mayor_valor_que_cumpla',
+          atributoOrden: 'seccion'
+        },
+        cantidad: 0,
+        formula: 'cable_4_0'
+      },
+      {
+        nombreSlot: 'Cable Especial Celeste (Neutro)',
+        condicion: 'esp > 0',
+        filtroMaterial: {
+          categoriaId: 'cat-cables',
+          etiqueta: 'Cable Unipolar Especial Celeste',
+          criterios: [
+            { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
+            { atributo: 'seccion', operador: '==', valor: '$seccion_esp' },
+            { atributo: 'color', operador: '==', valor: 'Celeste (Neutro)' }
+          ],
+          estrategiaSeleccion: 'mayor_valor_que_cumpla',
+          atributoOrden: 'seccion'
+        },
+        cantidad: 0,
+        formula: 'cable_esp'
+      },
+      {
+        nombreSlot: 'Cable Especial Marrón (Fase)',
+        condicion: 'esp > 0',
+        filtroMaterial: {
+          categoriaId: 'cat-cables',
+          etiqueta: 'Cable Unipolar Especial Marrón',
+          criterios: [
+            { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
+            { atributo: 'seccion', operador: '==', valor: '$seccion_esp' },
+            { atributo: 'color', operador: '==', valor: 'Marrón (Fase)' }
+          ],
+          estrategiaSeleccion: 'mayor_valor_que_cumpla',
+          atributoOrden: 'seccion'
+        },
+        cantidad: 0,
+        formula: 'cable_esp'
+      },
+      {
+        nombreSlot: 'Cable Especial Verde/Amarillo (Tierra)',
+        condicion: 'esp > 0',
+        filtroMaterial: {
+          categoriaId: 'cat-cables',
+          etiqueta: 'Cable Unipolar Especial Tierra',
+          criterios: [
+            { atributo: 'tipo_cable', operador: '==', valor: 'Unipolar IRAM 247-3' },
+            { atributo: 'seccion', operador: '>=', valor: '$seccion_esp' },
+            { atributo: 'color', operador: '==', valor: 'Verde/Amarillo (Tierra)' }
+          ],
+          estrategiaSeleccion: 'mayor_valor_que_cumpla',
+          atributoOrden: 'seccion'
+        },
+        cantidad: 0,
+        formula: 'cable_esp'
       }
     ],
     manoObra: [
-      { categoriaId: 'mo-oficial-electricista', horas: 2.5, formula: 'horas_montaje' },
-      { categoriaId: 'mo-ayudante', horas: 1.0, formula: 'horas_ayudante' },
-      { categoriaId: 'mo-oficial-electricista', horas: 1.5, condicion: 'requiere_certificacion == 1' }
+      { categoriaId: 'mo-ayudante', horas: 6.5, formula: 'horas_ayudante' },
+      { categoriaId: 'mo-oficial-electricista', horas: 8.5, formula: 'horas_oficial' }
     ],
-    frecuenciaUso: 10,
+    frecuenciaUso: 0,
     createdAt: now,
     updatedAt: now,
     deleted: false

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Layers,
   X,
@@ -59,25 +59,28 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
   useEscapeKey(isOpen, onClose);
 
   // Parámetros State (Inputs del usuario)
-  const [parametrosValues, setParametrosValues] = useState<Record<string, number>>(() => {
-    const defaults: Record<string, number> = {};
-    if (tarea.parametros && tarea.parametros.length > 0) {
-      tarea.parametros.forEach(p => {
-        defaults[p.id] = initialParametros?.[p.id] ?? initialVariables?.[p.id] ?? p.valorDefault ?? 1;
-      });
-    } else {
-      defaults['cantidad'] = initialParametros?.['cantidad'] ?? initialVariables?.['cantidad'] ?? 1;
-    }
-    return defaults;
-  });
+  const [parametrosValues, setParametrosValues] = useState<Record<string, number>>({});
 
   // Cláusula de Exclusiones
-  const [incluirClausula, setIncluirClausula] = useState<boolean>(
-    initialIncluirClausula ?? true
-  );
-  const [clausulaTexto, setClausulaTexto] = useState<string>(
-    initialClausula || tarea.clausulaExclusiones || tarea.clausulaTecnicaDefault || DEFAULT_CLAUSULA_OBRA_EXISTENTE
-  );
+  const [incluirClausula, setIncluirClausula] = useState<boolean>(initialIncluirClausula ?? true);
+  const [clausulaTexto, setClausulaTexto] = useState<string>('');
+
+  // Sincronizar estado cuando se abre el modal para una partida o cambian los parámetros iniciales
+  useEffect(() => {
+    if (isOpen) {
+      const defaults: Record<string, number> = {};
+      if (tarea.parametros && tarea.parametros.length > 0) {
+        tarea.parametros.forEach(p => {
+          defaults[p.id] = initialParametros?.[p.id] ?? initialVariables?.[p.id] ?? p.valorDefault ?? 1;
+        });
+      } else {
+        defaults['cantidad'] = initialParametros?.['cantidad'] ?? initialVariables?.['cantidad'] ?? 1;
+      }
+      setParametrosValues(defaults);
+      setIncluirClausula(initialIncluirClausula ?? true);
+      setClausulaTexto(initialClausula || tarea.clausulaExclusiones || tarea.clausulaTecnicaDefault || DEFAULT_CLAUSULA_OBRA_EXISTENTE);
+    }
+  }, [isOpen, tarea, initialParametros, initialVariables, initialClausula, initialIncluirClausula]);
 
   // Actualizar valores de parámetro
   const handleParametroChange = (paramId: string, value: number) => {

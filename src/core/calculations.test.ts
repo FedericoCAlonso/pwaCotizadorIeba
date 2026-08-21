@@ -1492,11 +1492,71 @@ describe('Motor Universal de Fórmulas y Variables para Trabajos Tipo', () => {
     );
     expect(matDif?.id).toBe('mat-dif-2x40');
 
-    // Test 3: Tablero completo con sampleData task
-    const tareaTablero = INITIAL_TAREAS_TIPO.find(t => t.id === 'tt-tablero-seccional-monofasico')!;
+    // Test 3: Tablero completo con slots dinámicos
+    const tareaTablero: TareaTipo = {
+      id: 'test-tablero-seccional',
+      nombre: 'Armado de Tablero Test',
+      categoria: 'Tableros',
+      unidad: 'tablero',
+      parametros: [
+        { id: 'circuitos', nombre: 'Circuitos', tipo: 'numero', valorDefault: 4 },
+        { id: 'calibre_principal', nombre: 'Térmica General', tipo: 'numero', valorDefault: 32 }
+      ],
+      variables: [
+        { id: 'modulos_requeridos', nombre: 'Módulos', formula: '4 + circuitos * 2' }
+      ],
+      insumos: [
+        {
+          nombreSlot: 'Gabinete DIN Embutir',
+          cantidad: 1,
+          filtroMaterial: {
+            categoriaId: 'cat-tableros',
+            criterios: [
+              { atributo: 'tipo_tablero', operador: '==', valor: 'Gabinete DIN' },
+              { atributo: 'tipo_instalacion', operador: '==', valor: 'Embutir' },
+              { atributo: 'capacidad_modulos', operador: '>=', valor: '$modulos_requeridos' }
+            ],
+            estrategiaSeleccion: 'menor_valor_que_cumpla',
+            atributoOrden: 'capacidad_modulos'
+          }
+        },
+        {
+          nombreSlot: 'Interruptor Termomagnético General',
+          cantidad: 1,
+          filtroMaterial: {
+            categoriaId: 'cat-termomagneticas',
+            criterios: [
+              { atributo: 'polos', operador: '==', valor: '2' },
+              { atributo: 'In', operador: '==', valor: '$calibre_principal' }
+            ]
+          }
+        },
+        {
+          nombreSlot: 'Interruptor Diferencial Coordinado',
+          cantidad: 1,
+          filtroMaterial: {
+            categoriaId: 'cat-diferenciales',
+            criterios: [
+              { atributo: 'polos', operador: '==', valor: '2' },
+              { atributo: 'In', operador: '>=', valor: '$calibre_principal' }
+            ],
+            estrategiaSeleccion: 'menor_valor_que_cumpla',
+            atributoOrden: 'In'
+          }
+        },
+        {
+          materialId: 'mat-pia-2x16',
+          cantidad: 1,
+          formula: 'circuitos'
+        }
+      ],
+      manoObra: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
     const res = calcularConsumosTareaTipo(
       tareaTablero,
-      { circuitos: 4, calibre_principal: 32, requiere_certificacion: 0 },
+      { circuitos: 4, calibre_principal: 32 },
       testInsumosMap,
       testManoObraMap,
       { tipoFactura: 'Factura A' }

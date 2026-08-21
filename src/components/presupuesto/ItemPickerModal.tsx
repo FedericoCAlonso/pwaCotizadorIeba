@@ -163,9 +163,9 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
                       {tarea.nombre}
                     </h4>
                     <div className="text-xs text-on-surface-variant mt-1 flex items-center gap-3">
-                      <span>Insumos: {tarea.insumos.length}</span>
+                      <span>Insumos: {cost.insumosSnapshotUnitario.length}</span>
                       <span>•</span>
-                      <span>MO: {tarea.manoObra.length} hs</span>
+                      <span>MO: {cost.manoObraSnapshotUnitario.reduce((acc, m) => acc + m.horasTotales, 0)} hs</span>
                     </div>
                   </div>
 

@@ -303,12 +303,12 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                               {item.notasTecnicas}
                             </div>
                           )}
-                          {item.valoresVariables && (
+                          {(item.valoresParametros || item.valoresVariables) && (
                             <div className="flex flex-wrap items-center gap-1 mt-1 text-[10px] text-slate-500 font-mono">
                               <span className="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded font-bold text-slate-700">
                                 🎛️ Parámetros
                               </span>
-                              {Object.entries(item.valoresVariables).map(([k, v]) => (
+                              {Object.entries(item.valoresParametros || item.valoresVariables || {}).map(([k, v]) => (
                                 <span key={k} className="bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">
                                   {k}: {typeof v === 'number' ? (Number.isInteger(v) ? v : v.toFixed(2)) : v}
                                 </span>

@@ -401,23 +401,25 @@ export async function initializeDatabaseSeed(): Promise<void> {
         }
       }
 
-      // 11. Asegurar tareas tipo iniciales y migrar tareas tipo enriquecidas
-      if (await db.tareasTipo.count() === 0 && INITIAL_TAREAS_TIPO.length > 0) {
-        for (const tt of INITIAL_TAREAS_TIPO) {
+      // 11. Asegurar tareas tipo iniciales y limpiar tareas tipo obsoletas
+      const oldSeedIds = [
+        'tt-recableado-integral',
+        'tt-boca-iug-nueva',
+        'tt-tablero-seccional',
+        'tt-tablero-seccional-monofasico',
+        'tt-tablero-seccional-8m'
+      ];
+      for (const oldId of oldSeedIds) {
+        const oldTask = await db.tareasTipo.get(oldId);
+        if (oldTask) {
+          await db.tareasTipo.delete(oldId);
+        }
+      }
+
+      for (const tt of INITIAL_TAREAS_TIPO) {
+        const existing = await db.tareasTipo.get(tt.id);
+        if (!existing || !existing.parametros || (tt.variables && !existing.variables)) {
           await db.tareasTipo.put(tt);
-        }
-      } else {
-        // Asegurar que las tareas tipo iniciales tengan la estructura actualizada de parametros y variables
-        for (const tt of INITIAL_TAREAS_TIPO) {
-          const existing = await db.tareasTipo.get(tt.id);
-          if (!existing || !existing.parametros || (tt.variables && !existing.variables)) {
-            await db.tareasTipo.put(tt);
-          }
-        }
-        // Eliminar tarea antigua 'tt-tablero-seccional-8m' si existía
-        const oldTablero = await db.tareasTipo.get('tt-tablero-seccional-8m');
-        if (oldTablero) {
-          await db.tareasTipo.delete('tt-tablero-seccional-8m');
         }
       }
 

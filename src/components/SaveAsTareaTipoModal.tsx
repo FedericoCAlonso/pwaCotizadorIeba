@@ -64,6 +64,16 @@ export const SaveAsTareaTipoModal: React.FC<SaveAsTareaTipoModalProps> = ({
         insumos,
         manoObra,
         unidad: unidad || 'u',
+        parametros: [
+          {
+            id: 'cantidad',
+            nombre: `Cantidad de ${unidad || 'Unidades'}`,
+            tipo: 'numero',
+            valorDefault: 1,
+            unidad: unidad || 'u'
+          }
+        ],
+        variables: [],
         notasTecnicas: notasTecnicas.trim() || undefined,
         frecuenciaUso: 1,
         ultimoUsoFecha: now,

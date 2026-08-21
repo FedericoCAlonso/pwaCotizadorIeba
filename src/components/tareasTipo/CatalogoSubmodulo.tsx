@@ -221,7 +221,7 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                 <div className="mt-3 pt-2 border-t border-outline-variant/15 flex justify-between text-xs">
                   <span className="text-on-surface-variant">Mano de Obra:</span>
                   <span className="font-mono font-semibold text-on-surface">
-                    {tarea.manoObra.reduce((acc, m) => acc + m.horas, 0)} hs
+                    {costData.manoObraSnapshotUnitario.reduce((acc, m) => acc + m.horasTotales, 0)} hs
                   </span>
                 </div>
               </div>

@@ -37,6 +37,7 @@ import { QuickCreateMaterialModal } from './insumos/QuickCreateMaterialModal';
 import { ProductoEditorModal } from './insumos/ProductoEditorModal';
 import { OfertaEditorModal } from './insumos/OfertaEditorModal';
 import { MassPriceAdjustModal } from './insumos/MassPriceAdjustModal';
+import { BlockPriceModal } from './insumos/BlockPriceModal';
 import { useInsumosManagerViewModel } from '../viewmodels/useInsumosManagerViewModel';
 
 interface InsumosManagerProps {
@@ -112,6 +113,8 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
     setFormDataQuickMat,
     showMassUpdateModal,
     setShowMassUpdateModal,
+    showBlockPriceModal,
+    setShowBlockPriceModal,
     showImportCatalogModal,
     setShowImportCatalogModal,
     tipoAjusteIndice,
@@ -127,6 +130,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
     handleToggleSelectMaterial,
     handleToggleSelectAll,
     handleApplyMassUpdate,
+    handleApplyBlockPrice,
     handleExportCatalog
   } = useInsumosManagerViewModel({
     filterContext,
@@ -778,6 +782,16 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
 
                 <button
                   type="button"
+                  onClick={() => setShowBlockPriceModal(true)}
+                  className="px-3.5 py-2 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-outline-variant/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  title="Fijar Precio Común en Bloque a materiales filtrados o seleccionados"
+                >
+                  <Tag className="w-3.5 h-3.5 text-primary" />
+                  <span className="hidden sm:inline">Precio en Bloque</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setShowMassUpdateModal(true)}
                   className="px-3.5 py-2 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-outline-variant/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
                   title="Aumento Masivo de Precios"
@@ -932,10 +946,19 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setShowMassUpdateModal(true)}
-                    className="px-3 py-1 bg-primary text-on-primary text-xs font-semibold rounded-lg shadow-xs"
+                    onClick={() => setShowBlockPriceModal(true)}
+                    className="px-3 py-1 bg-primary hover:bg-primary/90 text-on-primary text-xs font-semibold rounded-lg shadow-xs flex items-center gap-1.5 transition active:scale-95"
                   >
-                    Ajustar Seleccionados
+                    <Tag className="w-3.5 h-3.5" />
+                    <span>Fijar Precio Común</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowMassUpdateModal(true)}
+                    className="px-3 py-1 bg-surface-container-highest hover:bg-surface-variant text-on-surface text-xs font-semibold rounded-lg border border-outline-variant/30 flex items-center gap-1.5 transition"
+                  >
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Ajuste %</span>
                   </button>
                   <button
                     type="button"
@@ -1525,6 +1548,20 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
         massPercentage={massPercentage}
         setMassPercentage={setMassPercentage}
         onApply={handleApplyMassUpdate}
+      />
+
+      <BlockPriceModal
+        isOpen={showBlockPriceModal}
+        onClose={() => setShowBlockPriceModal(false)}
+        targetMaterials={
+          selectedMaterialIds.size > 0
+            ? materiales.filter(m => selectedMaterialIds.has(m.id))
+            : (filterContext
+                ? filteredMateriales
+                : (selectedCategory === 'todas' && !searchTerm ? materiales : filteredMateriales))
+        }
+        proveedores={proveedores}
+        onApply={handleApplyBlockPrice}
       />
 
       <ImportCatalogModal

@@ -88,29 +88,27 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
 
         {/* Acciones principales de la fila */}
         <div className="flex items-center gap-1.5">
-          {isParametric && onOpenParametricModal && (
+          {isParametric && onOpenParametricModal ? (
             <button
               type="button"
               onClick={() => onOpenParametricModal(index)}
               className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 px-2.5 py-1 rounded-xl transition shadow-2xs"
-              title="Configurar variables de cálculo y opciones paramétricas de este trabajo"
+              title="Configurar parámetros y variables de este trabajo tipo"
             >
               <Sliders className="w-3.5 h-3.5" />
               <span>Parámetros</span>
             </button>
-          )}
-
-          {onOpenInSituEditor && (
+          ) : onOpenInSituEditor ? (
             <button
               type="button"
               onClick={() => onOpenInSituEditor(index)}
               className="flex items-center gap-1 text-[11px] font-semibold text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 px-2.5 py-1 rounded-xl transition shadow-2xs"
-              title="Desglosar o editar insumos, horas y fórmulas para esta partida puntual"
+              title="Desglosar o componer insumos y horas para esta partida"
             >
               <Sliders className="w-3.5 h-3.5" />
               <span>{hasSnapshots ? 'Editar Desglose' : 'Desglosar In-Situ'}</span>
             </button>
-          )}
+          ) : null}
 
           <button
             type="button"
@@ -163,7 +161,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
         </div>
 
         {/* Badges de Parámetros Dinámicos (Solo si existen) */}
-        {item.valoresVariables && (
+        {(item.valoresParametros || item.valoresVariables) && (
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
             <button
               type="button"
@@ -173,7 +171,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
             >
               <Sliders className="w-3 h-3" />
               <span>Parámetros:</span>
-              {Object.entries(item.valoresVariables).map(([key, val]) => (
+              {Object.entries(item.valoresParametros || item.valoresVariables || {}).map(([key, val]) => (
                 <span key={key} className="font-semibold opacity-90">
                   {key}: {typeof val === 'number' ? (Number.isInteger(val) ? val : val.toFixed(2)) : val}
                 </span>

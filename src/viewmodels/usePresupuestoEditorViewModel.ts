@@ -289,60 +289,95 @@ export function usePresupuestoEditorViewModel({
   ) => {
     const { parametros, variables, calculos, clausulaExclusiones } = resultado;
     const unit = tarea.unidad || 'u';
-    const cant = calculos.cantidadPrincipal || 1;
-    const costoDirecto = calculos.costoDirectoTotal;
-    const costoUnit = roundMoney(costoDirecto / (cant > 0 ? cant : 1));
+    const costoUnitarioDirecto = calculos.costoDirectoTotal;
 
     if (editingItemIndexForParametricModal !== null) {
-      // Modificando ítem existente
+      // Modificando ítem existente: preservar la cantidad de unidades definidas en el presupuesto
       const index = editingItemIndexForParametricModal;
       setItems(prev => {
         const next = [...prev];
         const item = next[index];
         if (!item) return prev;
 
+        const cant = item.cantidad || 1;
+
         next[index] = {
           ...item,
           cantidad: cant,
           unidad: unit,
-          costoUnitario: costoUnit,
-          costoInsumos: calculos.costoInsumosTotal,
-          costoManoObra: calculos.costoManoObraTotal,
-          costoFijoOperativo: calculos.costoFijoOperativo,
+          costoUnitario: costoUnitarioDirecto,
+          costoInsumos: roundMoney(calculos.costoInsumosTotal * cant),
+          costoManoObra: roundMoney(calculos.costoManoObraTotal * cant),
+          costoFijoOperativo: roundMoney((calculos.costoFijoOperativo || 0) * cant),
           descripcionCostoFijo: tarea.descripcionCostoFijo,
-          costoDirectoTotal: costoDirecto,
-          costoTotal: costoDirecto,
+          costoDirectoTotal: roundMoney(costoUnitarioDirecto * cant),
+          costoTotal: roundMoney(costoUnitarioDirecto * cant),
           valoresParametros: parametros,
           valoresVariables: variables,
           clausulaExclusiones,
-          insumosSnapshot: calculos.insumosSnapshot,
-          manoObraSnapshot: calculos.manoObraSnapshot
+          insumosSnapshot: calculos.insumosSnapshot.map(i => {
+            const uCant = i.cantidadUnitaria !== undefined ? i.cantidadUnitaria : i.cantidadTotal;
+            return {
+              ...i,
+              cantidadUnitaria: uCant,
+              cantidadTotal: roundMoney(uCant * cant),
+              subtotalInsumo: roundMoney(i.precioUnitarioCongelado * uCant * cant),
+              subtotalInsumoFinal: roundMoney((i.precioFinalUnitarioCongelado || i.precioUnitarioCongelado) * uCant * cant)
+            };
+          }),
+          manoObraSnapshot: calculos.manoObraSnapshot.map(m => {
+            const uHs = m.horasUnitarias !== undefined ? m.horasUnitarias : m.horasTotales;
+            return {
+              ...m,
+              horasUnitarias: uHs,
+              horasTotales: roundMoney(uHs * cant),
+              subtotalManoObra: roundMoney(m.costoHoraCongelado * uHs * cant)
+            };
+          })
         };
         return next;
       });
       toast.success(`Parámetros de "${tarea.nombre}" actualizados`);
     } else {
-      // Agregando nuevo ítem
+      // Agregando nuevo ítem: 1 unidad base de ensamble
+      const cant = 1;
       const newItem: ItemPresupuesto = {
         id: `item-${crypto.randomUUID()}`,
         tareaTipoId: tarea.id,
         descripcion: tarea.nombre,
         cantidad: cant,
         unidad: unit,
-        costoUnitario: costoUnit,
-        costoInsumos: calculos.costoInsumosTotal,
-        costoManoObra: calculos.costoManoObraTotal,
-        costoFijoOperativo: calculos.costoFijoOperativo,
+        costoUnitario: costoUnitarioDirecto,
+        costoInsumos: roundMoney(calculos.costoInsumosTotal * cant),
+        costoManoObra: roundMoney(calculos.costoManoObraTotal * cant),
+        costoFijoOperativo: roundMoney((calculos.costoFijoOperativo || 0) * cant),
         descripcionCostoFijo: tarea.descripcionCostoFijo,
-        costoDirectoTotal: costoDirecto,
-        costoTotal: costoDirecto,
+        costoDirectoTotal: roundMoney(costoUnitarioDirecto * cant),
+        costoTotal: roundMoney(costoUnitarioDirecto * cant),
         precioVentaUnitario: 0,
         precioVentaTotal: 0,
         valoresParametros: parametros,
         valoresVariables: variables,
         clausulaExclusiones,
-        insumosSnapshot: calculos.insumosSnapshot,
-        manoObraSnapshot: calculos.manoObraSnapshot
+        insumosSnapshot: calculos.insumosSnapshot.map(i => {
+          const uCant = i.cantidadUnitaria !== undefined ? i.cantidadUnitaria : i.cantidadTotal;
+          return {
+            ...i,
+            cantidadUnitaria: uCant,
+            cantidadTotal: roundMoney(uCant * cant),
+            subtotalInsumo: roundMoney(i.precioUnitarioCongelado * uCant * cant),
+            subtotalInsumoFinal: roundMoney((i.precioFinalUnitarioCongelado || i.precioUnitarioCongelado) * uCant * cant)
+          };
+        }),
+        manoObraSnapshot: calculos.manoObraSnapshot.map(m => {
+          const uHs = m.horasUnitarias !== undefined ? m.horasUnitarias : m.horasTotales;
+          return {
+            ...m,
+            horasUnitarias: uHs,
+            horasTotales: roundMoney(uHs * cant),
+            subtotalManoObra: roundMoney(m.costoHoraCongelado * uHs * cant)
+          };
+        })
       };
       setItems(prev => [...prev, newItem]);
       toast.success(`Trabajo tipo "${tarea.nombre}" configurado y añadido`);

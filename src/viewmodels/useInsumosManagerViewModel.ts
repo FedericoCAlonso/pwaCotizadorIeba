@@ -126,6 +126,7 @@ export function useInsumosManagerViewModel({
   });
 
   const [showMassUpdateModal, setShowMassUpdateModal] = useState(false);
+  const [showBlockPriceModal, setShowBlockPriceModal] = useState(false);
   const [showImportCatalogModal, setShowImportCatalogModal] = useState(false);
   const [tipoAjusteIndice, setTipoAjusteIndice] = useState<'porcentaje' | 'dolar_blue' | 'ipc' | 'canasta'>('porcentaje');
   const [massPercentage, setMassPercentage] = useState<number>(10);
@@ -292,6 +293,60 @@ export function useInsumosManagerViewModel({
     setShowMassUpdateModal(false);
   };
 
+  const handleApplyBlockPrice = async (data: {
+    precioNetoUnitario: number;
+    precioFinalUnitario: number;
+    alicuotaIVA: number;
+    proveedorId?: string;
+    proveedorNombre?: string;
+    presentacionCompra?: string;
+    cantidadPorPresentacion?: number;
+    precioPresentacion?: number;
+  }) => {
+    const now = new Date().toISOString();
+    const targetMats = selectedMaterialIds.size > 0
+      ? materiales.filter(m => selectedMaterialIds.has(m.id))
+      : (filterContext
+          ? filteredMateriales
+          : (selectedCategory === 'todas' && !searchTerm ? materiales : filteredMateriales));
+
+    if (targetMats.length === 0) {
+      toast.warning('No hay materiales seleccionados o en el filtro actual.');
+      return;
+    }
+
+    const newOfertas: Oferta[] = [];
+
+    for (const mat of targetMats) {
+      const prods = productos.filter(p => p.materialId === mat.id);
+      const prefProd = prods.find(p => p.esPreferido) || prods[0];
+
+      newOfertas.push({
+        id: `oferta-${crypto.randomUUID()}`,
+        materialId: mat.id,
+        productoId: prefProd?.id,
+        proveedorId: data.proveedorId,
+        proveedorNombre: data.proveedorNombre,
+        precio: data.precioNetoUnitario,
+        precioNeto: data.precioNetoUnitario,
+        alicuotaIVA: data.alicuotaIVA,
+        precioFinal: data.precioFinalUnitario,
+        presentacionCompra: data.presentacionCompra,
+        cantidadPorPresentacion: data.cantidadPorPresentacion,
+        precioPresentacion: data.precioPresentacion,
+        fecha: now,
+        fuente: 'manual'
+      });
+    }
+
+    if (newOfertas.length > 0) {
+      await db.ofertas.bulkAdd(newOfertas);
+      toast.success(`Precio común asignado con éxito a ${newOfertas.length} materiales`);
+    }
+
+    setShowBlockPriceModal(false);
+  };
+
   const handleExportCatalog = async (matsToExport: Material[]) => {
     try {
       const ExcelJSModule = (ExcelJS as any).default || ExcelJS;
@@ -410,6 +465,8 @@ export function useInsumosManagerViewModel({
     setFormDataQuickMat,
     showMassUpdateModal,
     setShowMassUpdateModal,
+    showBlockPriceModal,
+    setShowBlockPriceModal,
     showImportCatalogModal,
     setShowImportCatalogModal,
     tipoAjusteIndice,
@@ -427,6 +484,7 @@ export function useInsumosManagerViewModel({
     handleToggleSelectMaterial,
     handleToggleSelectAll,
     handleApplyMassUpdate,
+    handleApplyBlockPrice,
     handleExportCatalog,
     onClearFilter,
     onReturnToSource
