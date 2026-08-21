@@ -689,6 +689,16 @@ export function usePresupuestoEditorViewModel({
             }
           });
         }
+      } else if (it.materialId) {
+        idsSet.add(it.materialId);
+        const current = matQtyMap[it.materialId]?.cantidad || 0;
+        matQtyMap[it.materialId] = {
+          cantidad: roundMoney(current + (it.cantidad || 1)),
+          unidad: it.unidad || 'u'
+        };
+        if (it.descripcion && it.descripcion.trim()) {
+          namesSet.add(it.descripcion.trim());
+        }
       }
     });
 

@@ -67,22 +67,27 @@ export function matchesMaterialContext(
   ctx: MaterialFilterContext,
   productos: Producto[]
 ): boolean {
-  // 1. Coincidencia por ID directo o alternativo (con variantes bidireccionales)
-  const rawTargetIds = (ctx.materialIds || []).map(id => id.toLowerCase().trim());
+  const rawTargetIds = (ctx.materialIds || []).map(id => id.toLowerCase().trim()).filter(Boolean);
   const enrichedTargetIds = new Set(rawTargetIds.flatMap(id => expandIdVariants(id)));
 
-  const matVariants = expandIdVariants(mat.id);
-  for (const variant of matVariants) {
-    if (enrichedTargetIds.has(variant)) return true;
+  // 1. Coincidencia por ID directo o alternativo (con variantes bidireccionales)
+  if (enrichedTargetIds.size > 0) {
+    const matVariants = expandIdVariants(mat.id);
+    for (const variant of matVariants) {
+      if (enrichedTargetIds.has(variant)) return true;
+    }
+
+    // 2. Coincidencia por Producto comercial asociado
+    const hasProdMatch = productos.some(
+      p => p.materialId === mat.id && (enrichedTargetIds.has(p.id.toLowerCase()) || enrichedTargetIds.has(p.id))
+    );
+    if (hasProdMatch) return true;
+
+    // Si la cotización/tarea contiene IDs explícitos, excluimos cualquier material ajeno a los IDs
+    return false;
   }
 
-  // 2. Coincidencia por Producto asociado
-  const hasProdMatch = productos.some(
-    p => p.materialId === mat.id && (enrichedTargetIds.has(p.id.toLowerCase()) || enrichedTargetIds.has(p.id))
-  );
-  if (hasProdMatch) return true;
-
-  // 3. Coincidencia flexible por Palabras Clave y Nombres
+  // 3. Coincidencia flexible por Palabras Clave y Nombres (SOLO cuando no existen IDs definidos)
   const targetNames = (ctx.materialNames || [])
     .map(n => normalizeStr(n))
     .filter(n => n.length >= 2);

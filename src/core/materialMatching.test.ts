@@ -177,6 +177,17 @@ describe('matchesMaterialContext', () => {
     expect(matchesMaterialContext(cano, ctx, [])).toBe(true);
     expect(matchesMaterialContext(llave, ctx, [])).toBe(true);
   });
+
+  test('no incluye materiales ajenos con nombres parecidos si hay IDs explícitos', () => {
+    const cable10mm = makeMaterial('mat-cable-uni-10', 'Cable Unipolar 10 mm² Negro IRAM 247-3');
+    const ctx: MaterialFilterContext = {
+      title: 'Cotización Test',
+      materialIds: ['mat-cable-uni-1.5'],
+      materialNames: ['Cable Unipolar 1.5 mm² Marrón IRAM 247-3'],
+    };
+    expect(matchesMaterialContext(cables, ctx, [])).toBe(true);
+    expect(matchesMaterialContext(cable10mm, ctx, [])).toBe(false);
+  });
 });
 
 // ─── getObraQuantity ────────────────────────────────────────────────────────────

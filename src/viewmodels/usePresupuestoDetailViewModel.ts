@@ -10,6 +10,7 @@ import {
 } from '../core/types';
 import {
   calcularTotalesPresupuesto,
+  calcularCostoTareaTipo,
   generarImpuestosPorDefecto,
   roundMoney
 } from '../core/calculations';
@@ -90,29 +91,32 @@ export function usePresupuestoDetailViewModel({
       } else if (it.tareaTipoId) {
         const tObj = rawTareasTipo.find(t => t.id === it.tareaTipoId);
         if (tObj) {
-          const costData = calcularTotalesPresupuesto; // import check
-          // Resolver insumos de la tarea tipo
-          const resolved = (tObj.insumos || []).map(i => {
-            const mId = i.materialId || i.insumoId;
-            const mat = insumosMap.get(mId || '');
-            return {
-              id: mId,
-              nombre: mat?.nombre,
-              unidad: mat?.unidadVenta || 'u',
-              cantidad: (i.cantidad || 1) * (it.cantidad || 1)
-            };
-          });
-          resolved.forEach(ins => {
-            if (ins.id) {
-              idsSet.add(ins.id);
-              const current = matQtyMap[ins.id]?.cantidad || 0;
-              matQtyMap[ins.id] = {
-                cantidad: roundMoney(current + ins.cantidad),
-                unidad: ins.unidad
+          const costData = calcularCostoTareaTipo(tObj, insumosMap, manoObraMap);
+          costData.insumosSnapshotUnitario.forEach(ins => {
+            const id = ins.materialId || ins.insumoId;
+            if (id) {
+              idsSet.add(id);
+              const current = matQtyMap[id]?.cantidad || 0;
+              const totalQ = roundMoney((ins.cantidadTotal || 1) * (it.cantidad || 1));
+              matQtyMap[id] = {
+                cantidad: roundMoney(current + totalQ),
+                unidad: ins.unidad || 'u'
               };
             }
-            if (ins.nombre) namesSet.add(ins.nombre.trim());
+            if (ins.nombre && ins.nombre.trim() && ins.nombre !== 'Insumo no encontrado') {
+              namesSet.add(ins.nombre.trim());
+            }
           });
+        }
+      } else if (it.materialId) {
+        idsSet.add(it.materialId);
+        const current = matQtyMap[it.materialId]?.cantidad || 0;
+        matQtyMap[it.materialId] = {
+          cantidad: roundMoney(current + (it.cantidad || 1)),
+          unidad: it.unidad || 'u'
+        };
+        if (it.descripcion && it.descripcion.trim()) {
+          namesSet.add(it.descripcion.trim());
         }
       }
     });
