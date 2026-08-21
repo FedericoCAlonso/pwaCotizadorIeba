@@ -6,6 +6,7 @@ import {
   CategoriaManoDeObra,
   MaterialFilterContext
 } from '../core/types';
+import { calcularCostoTareaTipo } from '../core/calculations';
 import { useInsumosMap } from '../hooks/useInsumosMap';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -125,18 +126,25 @@ export function useTareasTipoViewModel({
 
   const handleOpenMaterialsInCatalog = (tarea: TareaTipo) => {
     if (!onViewMaterialsInCatalog || !tarea.insumos.length) return;
-    const ids = tarea.insumos.map(i => i.materialId || i.insumoId).filter(Boolean) as string[];
+    const costData = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap);
+    const ids: string[] = [];
     const quantities: Record<string, { cantidad: number; unidad: string }> = {};
     const names: string[] = [];
 
-    tarea.insumos.forEach(i => {
-      const id = i.materialId || i.insumoId;
-      const mat = insumosMap.get(id || '');
+    costData.insumosSnapshotUnitario.forEach(ins => {
+      const id = ins.materialId || ins.insumoId;
       if (id) {
-        quantities[id] = { cantidad: i.cantidad, unidad: mat?.unidadVenta || mat?.unidad || 'u' };
-      }
-      if (mat?.nombre) {
-        names.push(mat.nombre.trim());
+        ids.push(id);
+        const mat = insumosMap.get(id);
+        quantities[id] = {
+          cantidad: ins.cantidadTotal,
+          unidad: ins.unidad || mat?.unidadVenta || mat?.unidad || 'u'
+        };
+        if (ins.nombre && ins.nombre.trim() && ins.nombre !== 'Insumo no encontrado') {
+          names.push(ins.nombre.trim());
+        } else if (mat?.nombre) {
+          names.push(mat.nombre.trim());
+        }
       }
     });
 

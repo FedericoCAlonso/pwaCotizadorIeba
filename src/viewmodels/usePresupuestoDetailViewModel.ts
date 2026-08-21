@@ -40,6 +40,13 @@ export function usePresupuestoDetailViewModel({
 
   const rawContactos = useLiveQuery(() => db.contactos.toArray()) || [];
   const rawClientes = useLiveQuery(() => db.clientes.toArray()) || [];
+  const rawTareasTipo = useLiveQuery(() => db.tareasTipo.toArray()) || [];
+  const rawMateriales = useLiveQuery(() => db.materiales.toArray()) || [];
+  const rawManoObra = useLiveQuery(() => db.manoObra.toArray()) || [];
+
+  const insumosMap = useMemo(() => new Map(rawMateriales.map(m => [m.id, m])), [rawMateriales]);
+  const manoObraMap = useMemo(() => new Map(rawManoObra.map(m => [m.id, m])), [rawManoObra]);
+
   const cliente = useMemo(() => {
     if (!presupuesto?.clienteId) return null;
     const fromContactos = rawContactos.find(c => c.id === presupuesto.clienteId && !c.deleted);
@@ -64,20 +71,50 @@ export function usePresupuestoDetailViewModel({
     const namesSet = new Set<string>();
 
     presupuesto.items.forEach((it) => {
-      (it.insumosSnapshot || []).forEach((ins: any) => {
-        const id = ins.materialId || ins.insumoId || ins.id;
-        if (id) {
-          idsSet.add(id);
-          const current = matQtyMap[id]?.cantidad || 0;
-          matQtyMap[id] = {
-            cantidad: roundMoney(current + (ins.cantidadTotal || 0)),
-            unidad: ins.unidadVenta || ins.unidad || 'u'
-          };
+      if (it.insumosSnapshot && it.insumosSnapshot.length > 0) {
+        it.insumosSnapshot.forEach((ins: any) => {
+          const id = ins.materialId || ins.insumoId || ins.id;
+          if (id) {
+            idsSet.add(id);
+            const current = matQtyMap[id]?.cantidad || 0;
+            matQtyMap[id] = {
+              cantidad: roundMoney(current + (ins.cantidadTotal || 0)),
+              unidad: ins.unidadVenta || ins.unidad || 'u'
+            };
+          }
+          const n = ins.nombre || ins.nombreMaterial;
+          if (n && n.trim() && n !== 'Insumo no encontrado') {
+            namesSet.add(n.trim());
+          }
+        });
+      } else if (it.tareaTipoId) {
+        const tObj = rawTareasTipo.find(t => t.id === it.tareaTipoId);
+        if (tObj) {
+          const costData = calcularTotalesPresupuesto; // import check
+          // Resolver insumos de la tarea tipo
+          const resolved = (tObj.insumos || []).map(i => {
+            const mId = i.materialId || i.insumoId;
+            const mat = insumosMap.get(mId || '');
+            return {
+              id: mId,
+              nombre: mat?.nombre,
+              unidad: mat?.unidadVenta || 'u',
+              cantidad: (i.cantidad || 1) * (it.cantidad || 1)
+            };
+          });
+          resolved.forEach(ins => {
+            if (ins.id) {
+              idsSet.add(ins.id);
+              const current = matQtyMap[ins.id]?.cantidad || 0;
+              matQtyMap[ins.id] = {
+                cantidad: roundMoney(current + ins.cantidad),
+                unidad: ins.unidad
+              };
+            }
+            if (ins.nombre) namesSet.add(ins.nombre.trim());
+          });
         }
-        if (ins.nombre && ins.nombre.trim() && ins.nombre !== 'Insumo no encontrado') {
-          namesSet.add(ins.nombre.trim());
-        }
-      });
+      }
     });
 
     if (idsSet.size === 0 && namesSet.size === 0) {

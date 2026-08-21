@@ -142,19 +142,27 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                       <button
                         type="button"
                         onClick={() => {
-                          const ids = tarea.insumos.map(i => i.materialId || i.insumoId).filter(Boolean) as string[];
+                          const ids: string[] = [];
                           const quantities: Record<string, { cantidad: number; unidad: string }> = {};
                           const names: string[] = [];
-                          tarea.insumos.forEach(i => {
-                            const id = i.materialId || i.insumoId;
-                            const mat = insumosMap.get(id || '');
+
+                          costData.insumosSnapshotUnitario.forEach(ins => {
+                            const id = ins.materialId || ins.insumoId;
                             if (id) {
-                              quantities[id] = { cantidad: i.cantidad, unidad: mat?.unidadVenta || mat?.unidad || 'u' };
-                            }
-                            if (mat?.nombre) {
-                              names.push(mat.nombre.trim());
+                              ids.push(id);
+                              const mat = insumosMap.get(id);
+                              quantities[id] = {
+                                cantidad: ins.cantidadTotal,
+                                unidad: ins.unidad || mat?.unidadVenta || mat?.unidad || 'u'
+                              };
+                              if (ins.nombre && ins.nombre.trim() && ins.nombre !== 'Insumo no encontrado') {
+                                names.push(ins.nombre.trim());
+                              } else if (mat?.nombre) {
+                                names.push(mat.nombre.trim());
+                              }
                             }
                           });
+
                           onViewMaterialsInCatalog({
                             title: `Trabajo Tipo: ${tarea.nombre}`,
                             materialIds: ids,

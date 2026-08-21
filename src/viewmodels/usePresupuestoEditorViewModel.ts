@@ -653,20 +653,43 @@ export function usePresupuestoEditorViewModel({
     const namesSet = new Set<string>();
 
     items.forEach((it) => {
-      (it.insumosSnapshot || []).forEach((ins: any) => {
-        const id = ins.materialId || ins.insumoId || ins.id;
-        if (id) {
-          idsSet.add(id);
-          const current = matQtyMap[id]?.cantidad || 0;
-          matQtyMap[id] = {
-            cantidad: roundMoney(current + (ins.cantidadTotal || 0)),
-            unidad: ins.unidadVenta || ins.unidad || 'u'
-          };
+      if (it.insumosSnapshot && it.insumosSnapshot.length > 0) {
+        it.insumosSnapshot.forEach((ins: any) => {
+          const id = ins.materialId || ins.insumoId || ins.id;
+          if (id) {
+            idsSet.add(id);
+            const current = matQtyMap[id]?.cantidad || 0;
+            matQtyMap[id] = {
+              cantidad: roundMoney(current + (ins.cantidadTotal || 0)),
+              unidad: ins.unidadVenta || ins.unidad || 'u'
+            };
+          }
+          const n = ins.nombre || ins.nombreMaterial;
+          if (n && n.trim() && n !== 'Insumo no encontrado') {
+            namesSet.add(n.trim());
+          }
+        });
+      } else if (it.tareaTipoId) {
+        const tObj = tareasTipo.find(t => t.id === it.tareaTipoId);
+        if (tObj) {
+          const costData = calcularCostoTareaTipo(tObj, insumosMap, manoObraMap);
+          costData.insumosSnapshotUnitario.forEach(ins => {
+            const id = ins.materialId || ins.insumoId;
+            if (id) {
+              idsSet.add(id);
+              const current = matQtyMap[id]?.cantidad || 0;
+              const totalQ = roundMoney((ins.cantidadTotal || 1) * (it.cantidad || 1));
+              matQtyMap[id] = {
+                cantidad: roundMoney(current + totalQ),
+                unidad: ins.unidad || 'u'
+              };
+            }
+            if (ins.nombre && ins.nombre.trim() && ins.nombre !== 'Insumo no encontrado') {
+              namesSet.add(ins.nombre.trim());
+            }
+          });
         }
-        if (ins.nombre && ins.nombre.trim() && ins.nombre !== 'Insumo no encontrado') {
-          namesSet.add(ins.nombre.trim());
-        }
-      });
+      }
     });
 
     if (idsSet.size === 0 && namesSet.size === 0) {
