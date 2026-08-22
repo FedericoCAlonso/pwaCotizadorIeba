@@ -26,7 +26,10 @@ import {
   NivelAccesibilidad,
   NivelAltura,
   ParametrosEstimacionMaterial,
-  FiltroMaterialEnTarea
+  FiltroMaterialEnTarea,
+  EstrategiaCuadrilla,
+  OpcionCuadrillaSimulada,
+  PlanificacionCuadrilla
 } from './types';
 import { evaluateMathExpression, evaluateCondition } from './mathEvaluator';
 
@@ -584,6 +587,8 @@ export interface TotalesPresupuestoResultado {
   // Desgloses y compatibilidad retroactiva
   subtotalInsumos: number;
   subtotalManoObra: number;
+  subtotalManoObraTeorica?: number; // Base antes de sinergia
+  ahorroSinergiaManoObra?: number; // Descuento por sinergia de obra
   subtotalServiciosTercerizados: number;
   subtotalCostosDirectos: number; // Alias de C
   subtotalCostosIndirectos: number; // Alias de GG
@@ -615,6 +620,7 @@ export function calcularTotalesPresupuesto(params: {
   impuestosDetalle: ImpuestoItem[];
   tipoFactura?: TipoFactura;
   cotizacionMonedaExtranjera?: number;
+  factorSinergiaManoObra?: number;
 }): TotalesPresupuestoResultado {
   const {
     items = [],
@@ -624,14 +630,19 @@ export function calcularTotalesPresupuesto(params: {
     beneficioPorcentaje: beneficioInput,
     impuestosDetalle = [],
     tipoFactura,
-    cotizacionMonedaExtranjera
+    cotizacionMonedaExtranjera,
+    factorSinergiaManoObra
   } = params;
 
   const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
+  const sinergiaFactor = factorSinergiaManoObra !== undefined && factorSinergiaManoObra > 0 && factorSinergiaManoObra <= 1.0
+    ? safeNum(factorSinergiaManoObra)
+    : 1.0;
 
   // 1. Costo (C) por ítem y global
   let subtotalInsumos = 0;
   let subtotalManoObra = 0;
+  let subtotalManoObraTeorica = 0;
   let subtotalServiciosTercerizados = 0;
   let costoGlobal = 0;
   const itemCosts: number[] = [];
@@ -655,7 +666,8 @@ export function calcularTotalesPresupuesto(params: {
       }
     }
 
-    const cManoObra = safeNum(item.costoManoObra);
+    const cManoObraTeorica = safeNum(item.costoManoObra);
+    const cManoObra = roundMoney(cManoObraTeorica * sinergiaFactor);
 
     let cServicios = 0;
     if (item.serviciosTercerizados && item.serviciosTercerizados.length > 0) {
@@ -667,6 +679,7 @@ export function calcularTotalesPresupuesto(params: {
     }
 
     subtotalInsumos = roundMoney(subtotalInsumos + cInsumos);
+    subtotalManoObraTeorica = roundMoney(subtotalManoObraTeorica + cManoObraTeorica);
     subtotalManoObra = roundMoney(subtotalManoObra + cManoObra);
     subtotalServiciosTercerizados = roundMoney(subtotalServiciosTercerizados + cServicios);
 
@@ -901,9 +914,11 @@ export function calcularTotalesPresupuesto(params: {
     coeficienteK,
     itemsCalculados,
 
-    // Compatibilidad
+    // Compatibilidad y Sinergia
     subtotalInsumos,
     subtotalManoObra,
+    subtotalManoObraTeorica,
+    ahorroSinergiaManoObra: roundMoney(subtotalManoObraTeorica - subtotalManoObra),
     subtotalServiciosTercerizados,
     subtotalCostosDirectos: costoGlobal,
     subtotalCostosIndirectos: gastosGeneralesTotal,
@@ -1574,6 +1589,224 @@ export function calcularConsumosTareaTipo(
     costoManoObraTotal,
     costoDirectoTotal,
     clausulaExclusiones: tarea.clausulaExclusiones || tarea.clausulaTecnicaDefault
+  };
+}
+
+// ─── 14. Motor de Optimización de Sinergia de Obra & Cuadrilla ───────────────
+
+export interface ParametrosOptimizacionCuadrilla {
+  items: ItemPresupuesto[];
+  costosIndirectosCatalog?: CostoIndirecto[];
+  costosIndirectosConfig?: CostoIndirectoItemConfig[];
+  categoriasManoObra?: CategoriaManoDeObra[];
+  costoDiarioMovilidadManual?: number;
+  estrategiaSeleccionada?: EstrategiaCuadrilla;
+  aplicarOptimizacion?: boolean;
+}
+
+export interface ResultadoOptimizacionCuadrilla {
+  horasTeoricasTotal: number;
+  horasSetupTotal: number;
+  horasNetasTotal: number;
+  costoDiarioMovilidad: number;
+  tarifaHoraPonderada: number;
+  opciones: {
+    minima: OpcionCuadrillaSimulada;
+    optima: OpcionCuadrillaSimulada;
+    rapida: OpcionCuadrillaSimulada;
+  };
+  estrategiaSeleccionada: EstrategiaCuadrilla;
+  opcionActiva: OpcionCuadrillaSimulada;
+  planificacion: PlanificacionCuadrilla;
+}
+
+/**
+ * Simula y optimiza la relación entre tamaño de cuadrilla, duración de obra,
+ * sinergia de tareas simultáneas y riesgo de tiempos muertos (parates).
+ */
+export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuadrilla): ResultadoOptimizacionCuadrilla {
+  const {
+    items = [],
+    costosIndirectosCatalog = [],
+    costosIndirectosConfig,
+    categoriasManoObra = [],
+    costoDiarioMovilidadManual,
+    estrategiaSeleccionada = 'optima',
+    aplicarOptimizacion = true
+  } = params;
+
+  // 1. Extraer horas y costos de mano de obra
+  let horasTeoricasTotal = 0;
+  let costoManoObraBase = 0;
+  let horasSetupEstimadas = 0;
+
+  for (const item of items) {
+    if (item.manoObraSnapshot && item.manoObraSnapshot.length > 0) {
+      for (const mo of item.manoObraSnapshot) {
+        const hs = safeNum(mo.horasTotales);
+        horasTeoricasTotal = roundMoney(horasTeoricasTotal + hs);
+        costoManoObraBase = roundMoney(costoManoObraBase + safeNum(mo.subtotalManoObra));
+      }
+    } else if (item.costoManoObra) {
+      costoManoObraBase = roundMoney(costoManoObraBase + safeNum(item.costoManoObra));
+      // Estimar horas asumiendo tarifa media si no hay snapshots
+      const tarifaRef = 12000;
+      horasTeoricasTotal = roundMoney(horasTeoricasTotal + (safeNum(item.costoManoObra) / tarifaRef));
+    }
+
+    // Estimar setup por ítem (1.0h por defecto si no está especificado)
+    horasSetupEstimadas = roundMoney(horasSetupEstimadas + 1.0);
+  }
+
+  // Fallbacks si no hay horas
+  if (horasTeoricasTotal <= 0) {
+    horasTeoricasTotal = 8;
+  }
+  if (costoManoObraBase <= 0) {
+    costoManoObraBase = roundMoney(horasTeoricasTotal * 12000);
+  }
+
+  const tarifaHoraPonderada = roundMoney(costoManoObraBase / horasTeoricasTotal);
+  const horasSetupTotal = Math.min(horasTeoricasTotal * 0.35, horasSetupEstimadas);
+  const horasNetasTotal = roundMoney(Math.max(0, horasTeoricasTotal - horasSetupTotal));
+
+  // 2. Extraer costo diario de movilidad / logística
+  let costoDiarioMovilidad = safeNum(costoDiarioMovilidadManual);
+  if (costoDiarioMovilidad <= 0) {
+    const configs = (costosIndirectosConfig && costosIndirectosConfig.length > 0)
+      ? costosIndirectosConfig
+      : costosIndirectosCatalog.map(c => ({ id: c.id, nombre: c.nombre, tipo: c.tipo, valor: c.valor, aplica: true }));
+
+    const indirectoMovilidad = configs.find(c =>
+      c.aplica && (c.tipo === 'por_visita' || c.nombre.toLowerCase().includes('movilidad') || c.nombre.toLowerCase().includes('flete') || c.nombre.toLowerCase().includes('viatico'))
+    );
+
+    costoDiarioMovilidad = indirectoMovilidad ? safeNum(indirectoMovilidad.valor) : 15000;
+  }
+
+  // 3. Simular las 3 Estrategias de Cuadrilla:
+  // A) Mínima: 1 Operario Oficial
+  const factorSinergiaMinima = 1.0;
+  const horasMinima = horasTeoricasTotal;
+  const jornadasMinima = Math.max(0.5, roundMoney(horasMinima / 8));
+  const costoMODMinima = roundMoney(horasMinima * tarifaHoraPonderada);
+  const costoLogMinima = roundMoney(Math.ceil(jornadasMinima) * costoDiarioMovilidad);
+  const costoTotalMinima = roundMoney(costoMODMinima + costoLogMinima);
+
+  const opcionMinima: OpcionCuadrillaSimulada = {
+    estrategia: 'minima',
+    titulo: 'Cuadrilla Mínima (1 Operario)',
+    subtitulo: '1 Oficial Electricista solo',
+    operariosOficiales: 1,
+    operariosAyudantes: 0,
+    operariosTotales: 1,
+    factorSinergia: factorSinergiaMinima,
+    horasTotales: horasMinima,
+    jornadasDias: jornadasMinima,
+    costoManoObraARS: costoMODMinima,
+    costoLogisticaARS: costoLogMinima,
+    costoTotalEjecucionARS: costoTotalMinima,
+    ahorroRespectoBaseARS: 0,
+    nivelRiesgo: 'muy_bajo',
+    descripcionRiesgo: '1h de parate = 1h de salario. Muchos días de obra y mayor costo logístico de viajes.',
+    recomendado: false
+  };
+
+  // B) Óptima: 2 Operarios (1 Oficial + 1 Ayudante)
+  const isMultiItem = items.length > 1;
+  const factorSinergiaOptima = isMultiItem ? 0.85 : 0.90;
+  const horasOptima = roundMoney(horasTeoricasTotal * factorSinergiaOptima);
+  const jornadasOptima = Math.max(0.5, roundMoney(horasOptima / 16));
+  const costoMODOptima = roundMoney(horasOptima * tarifaHoraPonderada);
+  const costoLogOptima = roundMoney(Math.ceil(jornadasOptima) * costoDiarioMovilidad);
+  const costoTotalOptima = roundMoney(costoMODOptima + costoLogOptima);
+  const ahorroOptima = roundMoney(costoTotalMinima - costoTotalOptima);
+
+  const opcionOptima: OpcionCuadrillaSimulada = {
+    estrategia: 'optima',
+    titulo: 'Cuadrilla Óptima (2 Operarios)',
+    subtitulo: '1 Oficial + 1 Ayudante (16h/jornada)',
+    operariosOficiales: 1,
+    operariosAyudantes: 1,
+    operariosTotales: 2,
+    factorSinergia: factorSinergiaOptima,
+    horasTotales: horasOptima,
+    jornadasDias: jornadasOptima,
+    costoManoObraARS: costoMODOptima,
+    costoLogisticaARS: costoLogOptima,
+    costoTotalEjecucionARS: costoTotalOptima,
+    ahorroRespectoBaseARS: Math.max(0, ahorroOptima),
+    nivelRiesgo: 'bajo',
+    descripcionRiesgo: 'Punto óptimo de costo y rendimiento. Sinergia en cableado simultáneo y armado de tableros.',
+    recomendado: true
+  };
+
+  // C) Rápida: 4 Operarios (2 Oficiales + 2 Ayudantes)
+  const factorSinergiaRapida = 0.95; // Leve penalización por congestión en espacios cerrados
+  const horasRapida = roundMoney(horasTeoricasTotal * factorSinergiaRapida);
+  const jornadasRapida = Math.max(0.5, roundMoney(horasRapida / 32));
+  const costoMODRapida = roundMoney(horasRapida * tarifaHoraPonderada);
+  const costoLogRapida = roundMoney(Math.ceil(jornadasRapida) * (costoDiarioMovilidad * 1.5));
+  const costoTotalRapida = roundMoney(costoMODRapida + costoLogRapida);
+  const ahorroRapida = roundMoney(costoTotalMinima - costoTotalRapida);
+
+  const opcionRapida: OpcionCuadrillaSimulada = {
+    estrategia: 'rapida',
+    titulo: 'Cuadrilla Rápida (4 Operarios)',
+    subtitulo: '2 Oficiales + 2 Ayudantes (32h/jornada)',
+    operariosOficiales: 2,
+    operariosAyudantes: 2,
+    operariosTotales: 4,
+    factorSinergia: factorSinergiaRapida,
+    horasTotales: horasRapida,
+    jornadasDias: jornadasRapida,
+    costoManoObraARS: costoMODRapida,
+    costoLogisticaARS: costoLogRapida,
+    costoTotalEjecucionARS: costoTotalRapida,
+    ahorroRespectoBaseARS: ahorroRapida,
+    nivelRiesgo: 'alto',
+    descripcionRiesgo: 'Mínimo tiempo de obra. Mayor riesgo: un parate de 1h cuesta 4 horas-hombre de salario muerto.',
+    recomendado: false
+  };
+
+  const opciones = {
+    minima: opcionMinima,
+    optima: opcionOptima,
+    rapida: opcionRapida
+  };
+
+  const opcionActiva = (opciones as any)[estrategiaSeleccionada] || opcionOptima;
+
+  const planificacion: PlanificacionCuadrilla = {
+    estrategia: estrategiaSeleccionada,
+    horasTeoricasTotal,
+    horasSetupTotal,
+    horasNetasTotal,
+    factorSinergiaAplicado: opcionActiva.factorSinergia,
+    horasFinalesOptimizadas: opcionActiva.horasTotales,
+    operariosOficiales: opcionActiva.operariosOficiales,
+    operariosAyudantes: opcionActiva.operariosAyudantes,
+    operariosTotales: opcionActiva.operariosTotales,
+    jornadasEstimadas: opcionActiva.jornadasDias,
+    costoManoObraEstimado: opcionActiva.costoManoObraARS,
+    costoLogisticaEstimado: opcionActiva.costoLogisticaARS,
+    costoTotalEjecucion: opcionActiva.costoTotalEjecucionARS,
+    ahorroEstimadoARS: opcionActiva.ahorroRespectoBaseARS,
+    nivelRiesgoParate: opcionActiva.nivelRiesgo,
+    explicacionOptimizacion: opcionActiva.descripcionRiesgo,
+    aplicarOptimizacionAlPresupuesto: aplicarOptimizacion
+  };
+
+  return {
+    horasTeoricasTotal,
+    horasSetupTotal,
+    horasNetasTotal,
+    costoDiarioMovilidad,
+    tarifaHoraPonderada,
+    opciones,
+    estrategiaSeleccionada,
+    opcionActiva,
+    planificacion
   };
 }
 

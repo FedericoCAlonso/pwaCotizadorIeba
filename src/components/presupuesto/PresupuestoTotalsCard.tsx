@@ -92,6 +92,11 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
           </div>
           <div>
             Mano Obra: <strong className="text-on-surface block">{formatARS(totales.subtotalManoObra)}</strong>
+            {totales.ahorroSinergiaManoObra !== undefined && totales.ahorroSinergiaManoObra > 0 && (
+              <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold block">
+                ⚡ -{formatARS(totales.ahorroSinergiaManoObra)} sinergia
+              </span>
+            )}
           </div>
           <div>
             Servicios:{' '}

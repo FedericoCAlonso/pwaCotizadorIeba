@@ -15,10 +15,13 @@ import {
   ImpuestoItem,
   ParametrosTrabajoTipo,
   ParametrosEstimacionMaterial,
-  MaterialFilterContext
+  MaterialFilterContext,
+  EstrategiaCuadrilla,
+  PlanificacionCuadrilla
 } from '../core/types';
 import {
   calcularTotalesPresupuesto,
+  calcularOptimizacionCuadrilla,
   calcularCostoTareaTipo,
   calcularCostoParametricoTareaTipo,
   calcularConsumosTareaTipo,
@@ -112,6 +115,9 @@ export function usePresupuestoEditorViewModel({
   const [showInSituEditorModal, setShowInSituEditorModal] = useState(false);
   const [editingItemIndexForInSituModal, setEditingItemIndexForInSituModal] = useState<number | null>(null);
   const [editingTareaForInSituModal, setEditingTareaForInSituModal] = useState<TareaTipo | null>(null);
+  
+  const [estrategiaCuadrilla, setEstrategiaCuadrilla] = useState<EstrategiaCuadrilla>('optima');
+  const [aplicarOptimizacionCuadrilla, setAplicarOptimizacionCuadrilla] = useState<boolean>(true);
 
   // Inicialización desde Presupuesto Existente o Nuevo
   useEffect(() => {
@@ -133,6 +139,10 @@ export function usePresupuestoEditorViewModel({
       if (existingPresupuesto.opcionesEmision) {
         setOpcionesEmision(existingPresupuesto.opcionesEmision);
       }
+      if (existingPresupuesto.planificacionCuadrilla) {
+        setEstrategiaCuadrilla(existingPresupuesto.planificacionCuadrilla.estrategia);
+        setAplicarOptimizacionCuadrilla(existingPresupuesto.planificacionCuadrilla.aplicarOptimizacionAlPresupuesto ?? true);
+      }
     } else {
       const year = new Date().getFullYear();
       const seq = config.siguienteNumeroCorrelativo || 1001;
@@ -153,6 +163,18 @@ export function usePresupuestoEditorViewModel({
     }
   }, [existingPresupuesto, config, costosIndirectos.length]);
 
+  // ─── Planificación de Cuadrilla & Sinergia de Obra ───────────────────────────
+  const resultadoCuadrilla = useMemo(() => {
+    return calcularOptimizacionCuadrilla({
+      items,
+      costosIndirectosCatalog: costosIndirectos,
+      costosIndirectosConfig,
+      categoriasManoObra: manoObraList,
+      estrategiaSeleccionada: estrategiaCuadrilla,
+      aplicarOptimizacion: aplicarOptimizacionCuadrilla
+    });
+  }, [items, costosIndirectos, costosIndirectosConfig, manoObraList, estrategiaCuadrilla, aplicarOptimizacionCuadrilla]);
+
   // ─── Real-Time Layered Calculations (Model Layer) ─────────────────────────────
   const totales = useMemo(() => {
     return calcularTotalesPresupuesto({
@@ -162,9 +184,10 @@ export function usePresupuestoEditorViewModel({
       beneficioPorcentaje: margenPorcentaje,
       tipoFactura,
       impuestosDetalle,
-      cotizacionMonedaExtranjera: cotizacionDolar
+      cotizacionMonedaExtranjera: cotizacionDolar,
+      factorSinergiaManoObra: aplicarOptimizacionCuadrilla ? resultadoCuadrilla.planificacion.factorSinergiaAplicado : 1.0
     });
-  }, [items, costosIndirectosConfig, costosIndirectos, margenPorcentaje, tipoFactura, impuestosDetalle, cotizacionDolar, config]);
+  }, [items, costosIndirectosConfig, costosIndirectos, margenPorcentaje, tipoFactura, impuestosDetalle, cotizacionDolar, config, aplicarOptimizacionCuadrilla, resultadoCuadrilla]);
 
   const handleToggleTax = (index: number) => {
     setImpuestosDetalle(prev => {
@@ -757,6 +780,10 @@ export function usePresupuestoEditorViewModel({
       costosIndirectosConfig,
       costosIndirectosAplicados: totales.costosIndirectosAplicados,
 
+      // Planificación de Sinergia de Obra & Cuadrilla
+      planificacionCuadrilla: resultadoCuadrilla.planificacion,
+      factorSinergiaManoObra: aplicarOptimizacionCuadrilla ? resultadoCuadrilla.planificacion.factorSinergiaAplicado : 1.0,
+
       // Calculation Engine
       costoGlobal: totales.costoGlobal,
       gastosGeneralesTotal: totales.gastosGeneralesTotal,
@@ -838,6 +865,13 @@ export function usePresupuestoEditorViewModel({
     setCondicionesPagoTexto,
     opcionesEmision,
     setOpcionesEmision,
+
+    // Planificación de Cuadrilla y Sinergia
+    estrategiaCuadrilla,
+    setEstrategiaCuadrilla,
+    aplicarOptimizacionCuadrilla,
+    setAplicarOptimizacionCuadrilla,
+    resultadoCuadrilla,
 
     // Modal States
     showItemPickerModal,

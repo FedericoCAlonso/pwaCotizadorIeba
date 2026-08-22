@@ -359,6 +359,8 @@ export interface InsumoEnTarea {
 export interface ManoObraEnTarea {
   categoriaId: string;
   horas: number;
+  horasSetup?: number; // Horas fijas de alistamiento/preparación (setup de herramientas y replanteo)
+  horasRendimiento?: number; // Horas netas unitarias de ejecución
   formula?: string; // Phase 3: Fórmula matemática calculada opcional
   condicion?: string; // Condición lógica de inclusión (ej: "requiere_certificacion == 1")
 }
@@ -397,6 +399,11 @@ export interface VariableCalculadaTrabajoTipo {
 // Alias de conveniencia
 export type VariableTrabajoTipo = ParametroTrabajoTipo;
 
+export interface CuadrillaRecomendada {
+  oficiales: number;
+  ayudantes: number;
+}
+
 export interface TareaTipo {
   id: string;
   nombre: string;
@@ -414,6 +421,8 @@ export interface TareaTipo {
   // Costo Fijo de Operación / Setup / Base de Salida (no escala con las unidades)
   costoFijoOperativo?: number;
   descripcionCostoFijo?: string;
+  horasSetupTotal?: number; // Horas de preparación global de herramientas y replanteo
+  cuadrillaRecomendada?: CuadrillaRecomendada;
 
   insumos: InsumoEnTarea[];
   manoObra: ManoObraEnTarea[];
@@ -620,6 +629,47 @@ export interface Proyecto {
   deleted?: boolean;
 }
 
+export type EstrategiaCuadrilla = 'minima' | 'optima' | 'rapida' | 'personalizada';
+
+export interface OpcionCuadrillaSimulada {
+  estrategia: EstrategiaCuadrilla;
+  titulo: string;
+  subtitulo: string;
+  operariosOficiales: number;
+  operariosAyudantes: number;
+  operariosTotales: number;
+  factorSinergia: number; // e.g. 1.0, 0.85, 0.95
+  horasTotales: number;   // Horas finales tras sinergia
+  jornadasDias: number;   // Días de obra (base 8h/jornada)
+  costoManoObraARS: number;
+  costoLogisticaARS: number; // Movilidad / viáticos diarios
+  costoTotalEjecucionARS: number; // MOD + Logística
+  ahorroRespectoBaseARS: number;
+  nivelRiesgo: 'muy_bajo' | 'bajo' | 'medio' | 'alto';
+  descripcionRiesgo: string;
+  recomendado: boolean;
+}
+
+export interface PlanificacionCuadrilla {
+  estrategia: EstrategiaCuadrilla;
+  horasTeoricasTotal: number;
+  horasSetupTotal: number;
+  horasNetasTotal: number;
+  factorSinergiaAplicado: number;
+  horasFinalesOptimizadas: number;
+  operariosOficiales: number;
+  operariosAyudantes: number;
+  operariosTotales: number;
+  jornadasEstimadas: number;
+  costoManoObraEstimado: number;
+  costoLogisticaEstimado: number;
+  costoTotalEjecucion: number;
+  ahorroEstimadoARS: number;
+  nivelRiesgoParate: 'muy_bajo' | 'bajo' | 'medio' | 'alto';
+  explicacionOptimizacion: string;
+  aplicarOptimizacionAlPresupuesto: boolean;
+}
+
 export interface CostoIndirectoItemConfig {
   id: string;
   nombre: string;
@@ -641,6 +691,10 @@ export interface Presupuesto {
   items: ItemPresupuesto[];
   costosIndirectosConfig?: CostoIndirectoItemConfig[];
   costosIndirectosAplicados: CostoIndirectoSnapshot[];
+
+  // ─── Planificación de Sinergia de Obra & Cuadrilla ───
+  planificacionCuadrilla?: PlanificacionCuadrilla;
+  factorSinergiaManoObra?: number;
 
   // ─── Nuevo Motor de Cálculo: C → GG → B → S → Impuestos → Precio Final & K ───
   costoGlobal?: number; // C = Σ(Insumos + Mano de Obra + Servicios)

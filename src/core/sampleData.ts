@@ -417,9 +417,130 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
       }
     ],
     manoObra: [
-      { categoriaId: 'mo-ayudante', horas: 6.5, formula: 'horas_ayudante' },
-      { categoriaId: 'mo-oficial-electricista', horas: 8.5, formula: 'horas_oficial' }
+      { categoriaId: 'mo-ayudante', horas: 6.5, horasSetup: 1.0, horasRendimiento: 5.5, formula: 'horas_ayudante' },
+      { categoriaId: 'mo-oficial-electricista', horas: 8.5, horasSetup: 1.0, horasRendimiento: 7.5, formula: 'horas_oficial' }
     ],
+    horasSetupTotal: 2.0,
+    cuadrillaRecomendada: { oficiales: 1, ayudantes: 1 },
+    frecuenciaUso: 0,
+    createdAt: now,
+    updatedAt: now,
+    deleted: false
+  },
+  {
+    id: 'tt-tablero-seccional-din',
+    nombre: 'Armado y Montaje de Tablero Seccional DIN',
+    categoria: 'Tableros',
+    unidad: 'u',
+    notasTecnicas: 'Montaje de gabinete DIN estanco o embutir, peines de distribución aislados, interruptor diferencial bipolar/tetrapolar y llaves termomagnéticas calibradas según sección de conductores. Rotulación de circuitos y pruebas de disparo con instrumental.',
+    clausulaExclusiones: 'La cotización no incluye acometida principal desde el medidor ni provisión de envolventes especiales de chapa pesada a menos que se especifique.',
+    costoFijoOperativo: 0,
+    descripcionCostoFijo: '',
+    parametros: [
+      { id: 'polos', nombre: 'Cantidad de módulos DIN (polos)', tipo: 'numero', valorDefault: 12, unidad: 'módulos', descripcion: 'Cantidad total de polos a alojar' },
+      { id: 'disyuntores', nombre: 'Interruptores Diferenciales (ID)', tipo: 'numero', valorDefault: 1, unidad: 'unidades', descripcion: 'Disyuntores diferenciales bipolares o tetrapolares' },
+      { id: 'termicas', nombre: 'Interruptores Termomagnéticos (PIA)', tipo: 'numero', valorDefault: 4, unidad: 'unidades', descripcion: 'Térmicas bipolares para circuitos' }
+    ],
+    variables: [
+      {
+        id: 'horas_oficial_tablero',
+        nombre: 'Horas Oficial Tablero',
+        formula: 'round(1.5 + termicas * 0.45 + disyuntores * 0.6, 2)',
+        unidad: 'hs',
+        descripcion: 'Montaje de gabinete + cableado y peinado por dispositivo'
+      }
+    ],
+    insumos: [],
+    manoObra: [
+      { categoriaId: 'mo-oficial-electricista', horas: 3.9, horasSetup: 1.0, horasRendimiento: 2.9, formula: 'horas_oficial_tablero' }
+    ],
+    horasSetupTotal: 1.5,
+    cuadrillaRecomendada: { oficiales: 1, ayudantes: 0 },
+    frecuenciaUso: 0,
+    createdAt: now,
+    updatedAt: now,
+    deleted: false
+  },
+  {
+    id: 'tt-puesta-a-tierra-integral',
+    nombre: 'Instalación de Sistema de Puesta a Tierra AEA',
+    categoria: 'Medición',
+    unidad: 'u',
+    notasTecnicas: 'Hincado de jabalina de acero-cobre normalizada IRAM 2309 (1.5m x 5/8"), colocación de caja de inspección de PVC reforzada con tapa, morceto bronce-bronce, tendido de conductor de protección 1x10mm² hasta bornera principal de tierra (BPT) y medición de resistencia con telurómetro.',
+    clausulaExclusiones: 'La cotización contempla terreno blando o estándar. En caso de suelo rocoso, contrapisos de hormigón armado de alto espesor o relleno con escombros, los trabajos de rotura y perforación especial se cotizarán por separado.',
+    costoFijoOperativo: 0,
+    descripcionCostoFijo: '',
+    parametros: [
+      { id: 'metros_cable', nombre: 'Metros de cable hasta Tablero', tipo: 'numero', valorDefault: 8, unidad: 'm', descripcion: 'Distancia desde jabalina hasta BPT' },
+      { id: 'longitud_jabalina', nombre: 'Longitud de Jabalina', tipo: 'select', valorDefault: 1.5, unidad: 'm', descripcion: 'Largo de la jabalina', opciones: [
+        { id: 'opt-1-5', label: '1.5 metros (Estándar)', valor: 1.5 },
+        { id: 'opt-2-0', label: '2.0 metros (Reforzada)', valor: 2.0 },
+        { id: 'opt-3-0', label: '3.0 metros (Industrial)', valor: 3.0 }
+      ]}
+    ],
+    variables: [
+      {
+        id: 'horas_pat_oficial',
+        nombre: 'Horas Oficial PAT',
+        formula: 'round(1.0 + longitud_jabalina * 0.8 + metros_cable * 0.1, 2)',
+        unidad: 'hs',
+        descripcion: 'Conexionado, montaje caja BPT y medición'
+      },
+      {
+        id: 'horas_pat_ayudante',
+        nombre: 'Horas Ayudante PAT',
+        formula: 'round(1.0 + longitud_jabalina * 1.0 + metros_cable * 0.15, 2)',
+        unidad: 'hs',
+        descripcion: 'Excavación, hincado y zanjeo'
+      }
+    ],
+    insumos: [],
+    manoObra: [
+      { categoriaId: 'mo-oficial-electricista', horas: 3.0, horasSetup: 0.8, horasRendimiento: 2.2, formula: 'horas_pat_oficial' },
+      { categoriaId: 'mo-ayudante', horas: 3.7, horasSetup: 0.8, horasRendimiento: 2.9, formula: 'horas_pat_ayudante' }
+    ],
+    horasSetupTotal: 1.0,
+    cuadrillaRecomendada: { oficiales: 1, ayudantes: 1 },
+    frecuenciaUso: 0,
+    createdAt: now,
+    updatedAt: now,
+    deleted: false
+  },
+  {
+    id: 'tt-boca-nueva-completa',
+    nombre: 'Boca Nueva de Iluminación o Tomacorriente',
+    categoria: 'Bocas',
+    unidad: 'bocas',
+    notasTecnicas: 'Canalización embutida con caño corrugado ignífugo o tubería PVC, colocación de caja rectangular u octogonal, tendido de conductores IRAM 247-3 y armado de bastidor con módulos de llave o toma.',
+    clausulaExclusiones: 'No incluye pintura ni revoque fino de terminación en albañilería.',
+    costoFijoOperativo: 0,
+    descripcionCostoFijo: '',
+    parametros: [
+      { id: 'bocas', nombre: 'Cantidad de Bocas Nuevas', tipo: 'numero', valorDefault: 4, unidad: 'bocas', descripcion: 'Cantidad total de bocas completas a ejecutar' }
+    ],
+    variables: [
+      {
+        id: 'horas_oficial_boca',
+        nombre: 'Horas Oficial Boca',
+        formula: 'round(1.0 + bocas * 0.85, 2)',
+        unidad: 'hs',
+        descripcion: 'Replanteo + cableado y conexión'
+      },
+      {
+        id: 'horas_ayudante_boca',
+        nombre: 'Horas Ayudante Boca',
+        formula: 'round(1.0 + bocas * 0.75, 2)',
+        unidad: 'hs',
+        descripcion: 'Acanalado y amurado de cajas'
+      }
+    ],
+    insumos: [],
+    manoObra: [
+      { categoriaId: 'mo-oficial-electricista', horas: 4.4, horasSetup: 0.8, horasRendimiento: 3.6, formula: 'horas_oficial_boca' },
+      { categoriaId: 'mo-ayudante', horas: 4.0, horasSetup: 0.8, horasRendimiento: 3.2, formula: 'horas_ayudante_boca' }
+    ],
+    horasSetupTotal: 1.0,
+    cuadrillaRecomendada: { oficiales: 1, ayudantes: 1 },
     frecuenciaUso: 0,
     createdAt: now,
     updatedAt: now,

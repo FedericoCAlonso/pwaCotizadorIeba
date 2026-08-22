@@ -26,7 +26,8 @@ import {
   ParametroTrabajoTipo,
   VariableCalculadaTrabajoTipo,
   OpcionVariableTrabajo,
-  FiltroMaterialEnTarea
+  FiltroMaterialEnTarea,
+  CuadrillaRecomendada
 } from '../../core/types';
 import {
   calcularConsumosTareaTipo,
@@ -49,6 +50,8 @@ export interface TareaFormData {
   clausulaExclusiones?: string;
   costoFijoOperativo?: number;
   descripcionCostoFijo?: string;
+  horasSetupTotal?: number;
+  cuadrillaRecomendada?: CuadrillaRecomendada;
   parametros: ParametroTrabajoTipo[];
   variables: VariableCalculadaTrabajoTipo[];
   insumos: InsumoEnTarea[];
@@ -159,6 +162,8 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
         clausulaExclusiones: editingTarea.clausulaExclusiones || editingTarea.clausulaTecnicaDefault || '',
         costoFijoOperativo: editingTarea.costoFijoOperativo || 0,
         descripcionCostoFijo: editingTarea.descripcionCostoFijo || '',
+        horasSetupTotal: editingTarea.horasSetupTotal ?? 1.0,
+        cuadrillaRecomendada: editingTarea.cuadrillaRecomendada || { oficiales: 1, ayudantes: 1 },
         parametros: params,
         variables: vars,
         insumos: editingTarea.insumos ? editingTarea.insumos.map((i) => ({
@@ -179,6 +184,8 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
         clausulaExclusiones: '',
         costoFijoOperativo: 0,
         descripcionCostoFijo: '',
+        horasSetupTotal: 1.0,
+        cuadrillaRecomendada: { oficiales: 1, ayudantes: 1 },
         parametros: [
           {
             id: 'bocas',
@@ -1116,6 +1123,62 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                 <Plus className="w-3.5 h-3.5" />
                 <span>+ Agregar Rol MO</span>
               </button>
+            </div>
+
+            {/* Configuración de Setup y Cuadrilla para Planificador de Sinergia */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-surface-container-low p-3.5 rounded-2xl border border-outline-variant/20">
+              <div>
+                <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
+                  Horas Alistamiento / Setup
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={formData.horasSetupTotal ?? 1.0}
+                  onChange={(e) => setFormData({ ...formData, horasSetupTotal: parseFloat(e.target.value) || 0 })}
+                  className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-on-surface focus:ring-2 focus:ring-primary/50"
+                  placeholder="ej: 1.0"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
+                  Cuadrilla: Oficiales
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={formData.cuadrillaRecomendada?.oficiales ?? 1}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    cuadrillaRecomendada: {
+                      oficiales: parseInt(e.target.value) || 0,
+                      ayudantes: formData.cuadrillaRecomendada?.ayudantes ?? 1
+                    }
+                  })}
+                  className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-on-surface focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
+                  Cuadrilla: Ayudantes
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={formData.cuadrillaRecomendada?.ayudantes ?? 1}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    cuadrillaRecomendada: {
+                      oficiales: formData.cuadrillaRecomendada?.oficiales ?? 1,
+                      ayudantes: parseInt(e.target.value) || 0
+                    }
+                  })}
+                  className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-on-surface focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
             </div>
 
             <div className="space-y-3">

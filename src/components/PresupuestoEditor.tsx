@@ -30,6 +30,7 @@ import { useAppOptions } from '../hooks/useAppOptions';
 import { useToast } from '../contexts/ToastContext';
 import { PresupuestoItemRow } from './presupuesto/PresupuestoItemRow';
 import { PresupuestoTotalsCard } from './presupuesto/PresupuestoTotalsCard';
+import { PlanificadorCuadrillaCard } from './presupuesto/PlanificadorCuadrillaCard';
 import { ItemPickerModal } from './presupuesto/ItemPickerModal';
 import { EmisionPresupuestoModal } from './presupuesto/EmisionPresupuestoModal';
 import { ParametricJobModal } from './presupuesto/ParametricJobModal';
@@ -129,7 +130,11 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     handleRemoveTax,
     handleAddCustomTax,
     handleOpenMaterialsInCatalog,
-    handleSavePresupuesto
+    handleSavePresupuesto,
+    estrategiaCuadrilla,
+    setEstrategiaCuadrilla,
+    aplicarOptimizacionCuadrilla,
+    setAplicarOptimizacionCuadrilla
   } = usePresupuestoEditorViewModel({
     presupuestoId,
     initialClienteId,
@@ -752,6 +757,20 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               </div>
             )}
           </div>
+
+          {/* Planificador de Cuadrilla & Sinergia de Obra */}
+          {items.length > 0 && (
+            <PlanificadorCuadrillaCard
+              items={items}
+              costosIndirectosCatalog={costosIndirectos}
+              costosIndirectosConfig={costosIndirectosConfig}
+              categoriasManoObra={manoObraList}
+              estrategiaSeleccionada={estrategiaCuadrilla}
+              aplicarOptimizacion={aplicarOptimizacionCuadrilla}
+              onSelectEstrategia={setEstrategiaCuadrilla}
+              onToggleAplicarOptimizacion={setAplicarOptimizacionCuadrilla}
+            />
+          )}
 
           {/* Payment Conditions */}
           <div className="bg-surface-container-low border border-outline-variant/10 rounded-3xl p-6 space-y-3 shadow-sm">

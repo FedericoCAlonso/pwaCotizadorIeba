@@ -13,7 +13,8 @@ import {
   Edit2,
   MoreVertical,
   Printer,
-  Check
+  Check,
+  HardHat
 } from 'lucide-react';
 import { AppConfig, Presupuesto, EstadoPresupuesto, InsumoEnTarea, ManoObraEnTarea, MaterialFilterContext } from '../core/types';
 import { formatARS } from '../core/calculations';
@@ -510,6 +511,24 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
               );
             })()}
           </div>
+
+          {/* Operational Crew Planning Banner */}
+          {presupuesto.planificacionCuadrilla && (
+            <div className="bg-primary/5 p-4 rounded-2xl border border-primary/20 text-left space-y-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                  <HardHat className="w-4 h-4 text-primary" />
+                  Estrategia de Ejecución: {presupuesto.planificacionCuadrilla.operariosTotales} {presupuesto.planificacionCuadrilla.operariosTotales === 1 ? 'Operario' : 'Operarios'} ({presupuesto.planificacionCuadrilla.jornadasEstimadas} Días)
+                </span>
+                <span className="text-[11px] font-mono font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">
+                  Sinergia: {Math.round(presupuesto.planificacionCuadrilla.factorSinergiaAplicado * 100)}%
+                </span>
+              </div>
+              <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                {presupuesto.planificacionCuadrilla.explicacionOptimizacion}
+              </p>
+            </div>
+          )}
 
           {/* Grand Total Box */}
           <div className="bg-slate-100 p-5 sm:p-6 rounded-2xl border border-slate-300 space-y-3 text-right">

@@ -21,6 +21,7 @@ import {
   calcularEstimacionParametricaMaterial,
   calcularConsumosTareaTipo,
   resolverMaterialPorFiltro,
+  calcularOptimizacionCuadrilla,
   DEFAULT_CLAUSULA_OBRA_EXISTENTE
 } from './calculations';
 import { evaluateCondition, evaluateMathExpression } from './mathEvaluator';
@@ -1657,6 +1658,113 @@ describe('Motor Universal de Fórmulas y Variables para Trabajos Tipo', () => {
   });
 });
 
+describe('14. Motor de Optimización de Sinergia de Obra & Cuadrilla', () => {
+  const mockItems: ItemPresupuesto[] = [
+    {
+      id: 'it-1',
+      descripcion: 'Cableado Vivienda',
+      cantidad: 1,
+      unidad: 'u',
+      costoInsumos: 50000,
+      costoManoObra: 120000,
+      costoDirectoTotal: 170000,
+      costoTotal: 170000,
+      precioVentaUnitario: 170000,
+      precioVentaTotal: 170000,
+      insumosSnapshot: [],
+      manoObraSnapshot: [
+        {
+          categoriaId: 'mo-oficial-electricista',
+          nombreCategoria: 'Oficial Electricista',
+          horasUnitarias: 6,
+          horasTotales: 6,
+          costoHoraCongelado: 12000,
+          subtotalManoObra: 72000
+        },
+        {
+          categoriaId: 'mo-ayudante',
+          nombreCategoria: 'Ayudante',
+          horasUnitarias: 6,
+          horasTotales: 6,
+          costoHoraCongelado: 8000,
+          subtotalManoObra: 48000
+        }
+      ]
+    },
+    {
+      id: 'it-2',
+      descripcion: 'Montaje de Tablero',
+      cantidad: 1,
+      unidad: 'u',
+      costoInsumos: 40000,
+      costoManoObra: 60000,
+      costoDirectoTotal: 100000,
+      costoTotal: 100000,
+      precioVentaUnitario: 100000,
+      precioVentaTotal: 100000,
+      insumosSnapshot: [],
+      manoObraSnapshot: [
+        {
+          categoriaId: 'mo-oficial-electricista',
+          nombreCategoria: 'Oficial Electricista',
+          horasUnitarias: 5,
+          horasTotales: 5,
+          costoHoraCongelado: 12000,
+          subtotalManoObra: 60000
+        }
+      ]
+    }
+  ];
 
+  it('calcula las 3 alternativas de cuadrilla con sinergia y costos logísticos', () => {
+    const res = calcularOptimizacionCuadrilla({
+      items: mockItems,
+      costoDiarioMovilidadManual: 20000,
+      estrategiaSeleccionada: 'optima'
+    });
 
+    // Total horas teóricas = 6 + 6 + 5 = 17 hs
+    expect(res.horasTeoricasTotal).toBe(17);
+    expect(res.costoDiarioMovilidad).toBe(20000);
 
+    // 1. Mínima (1 Operario, sinergia 100%)
+    expect(res.opciones.minima.factorSinergia).toBe(1.0);
+    expect(res.opciones.minima.operariosTotales).toBe(1);
+    expect(res.opciones.minima.horasTotales).toBe(17);
+    expect(res.opciones.minima.jornadasDias).toBeGreaterThanOrEqual(2);
+    expect(res.opciones.minima.nivelRiesgo).toBe('muy_bajo');
+
+    // 2. Óptima (2 Operarios: 1 Ofic + 1 Ayud, sinergia 85%)
+    expect(res.opciones.optima.factorSinergia).toBe(0.85);
+    expect(res.opciones.optima.operariosTotales).toBe(2);
+    expect(res.opciones.optima.horasTotales).toBeCloseTo(17 * 0.85, 1);
+    expect(res.opciones.optima.recomendado).toBe(true);
+    expect(res.opciones.optima.nivelRiesgo).toBe('bajo');
+
+    // 3. Rápida (4 Operarios, sinergia 95%)
+    expect(res.opciones.rapida.factorSinergia).toBe(0.95);
+    expect(res.opciones.rapida.operariosTotales).toBe(4);
+    expect(res.opciones.rapida.nivelRiesgo).toBe('alto');
+  });
+
+  it('integra factorSinergiaManoObra en calcularTotalesPresupuesto reduciendo el costo de MOD', () => {
+    const sinSinergia = calcularTotalesPresupuesto({
+      items: mockItems,
+      margenPorcentaje: 30,
+      impuestosDetalle: [],
+      factorSinergiaManoObra: 1.0
+    });
+
+    const conSinergia = calcularTotalesPresupuesto({
+      items: mockItems,
+      margenPorcentaje: 30,
+      impuestosDetalle: [],
+      factorSinergiaManoObra: 0.85
+    });
+
+    // MOD con sinergia debe ser exactamente 85% de la teórica
+    expect(conSinergia.subtotalManoObra).toBe(roundMoney(sinSinergia.subtotalManoObra * 0.85));
+    expect(conSinergia.ahorroSinergiaManoObra).toBeGreaterThan(0);
+    expect(conSinergia.totalARS).toBeLessThan(sinSinergia.totalARS);
+  });
+});
