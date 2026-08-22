@@ -162,29 +162,33 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
 
         {/* Badges de Parámetros Dinámicos (Solo si existen) */}
         {(item.valoresParametros || item.valoresVariables) && (
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          <div className="flex flex-wrap items-center gap-1.5 pt-1 max-w-full">
             <button
               type="button"
               onClick={() => onOpenParametricModal?.(index)}
-              className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 font-mono flex items-center gap-1.5 transition"
+              className="text-[10px] font-bold p-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 font-mono flex flex-wrap items-center gap-1.5 transition text-left max-w-full"
               title="Click para reajustar los parámetros de este trabajo tipo"
             >
-              <Sliders className="w-3 h-3" />
-              <span>Parámetros:</span>
-              {Object.entries(item.valoresParametros || item.valoresVariables || {}).map(([key, val]) => (
-                <span key={key} className="font-semibold opacity-90">
-                  {key}: {typeof val === 'number' ? (Number.isInteger(val) ? val : val.toFixed(2)) : val}
-                </span>
-              ))}
+              <span className="flex items-center gap-1 font-bold shrink-0">
+                <Sliders className="w-3 h-3 text-primary shrink-0" />
+                <span>Parámetros:</span>
+              </span>
+              <span className="flex flex-wrap items-center gap-1 max-w-full">
+                {Object.entries(item.valoresParametros || item.valoresVariables || {}).map(([key, val]) => (
+                  <span key={key} className="bg-primary/15 px-1.5 py-0.5 rounded text-[10px] font-semibold break-words">
+                    {key}: {typeof val === 'number' ? (Number.isInteger(val) ? val : val.toFixed(2)) : val}
+                  </span>
+                ))}
+              </span>
             </button>
 
             {item.clausulaExclusiones && (
               <span
-                className="text-[10px] px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1 font-medium"
+                className="text-[10px] px-2 py-1 rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1 font-medium max-w-full truncate"
                 title={item.clausulaExclusiones}
               >
-                <ShieldAlert className="w-3 h-3 text-amber-500" />
-                <span>Exclusiones Activas</span>
+                <ShieldAlert className="w-3 h-3 text-amber-500 shrink-0" />
+                <span className="truncate">Exclusiones Activas</span>
               </span>
             )}
           </div>
@@ -192,23 +196,23 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
 
         {/* Badges de Cómputo Paramétrico de Materiales (Solo si existen) */}
         {item.parametrosEstimacionMaterial && (
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          <div className="flex flex-wrap items-center gap-1.5 pt-1 max-w-full">
             <button
               type="button"
               onClick={() => onOpenMaterialModal?.(index)}
-              className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-mono flex items-center gap-1 transition text-left"
+              className="max-w-full text-[10px] font-bold px-2.5 py-1 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-mono flex items-start gap-1.5 transition text-left"
               title="Click para reajustar cálculo paramétrico de material"
             >
-              <Ruler className="w-3 h-3 shrink-0" />
-              <span>{item.parametrosEstimacionMaterial.explicacionCalculo}</span>
+              <Ruler className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span className="break-words leading-relaxed">{item.parametrosEstimacionMaterial.explicacionCalculo}</span>
             </button>
           </div>
         )}
       </div>
 
       {/* 3. Fila de Cómputos Numéricos y Parámetros */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-outline-variant/15">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-outline-variant/15">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* Modificador por Condición de Obra */}
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] text-on-surface-variant font-medium">Obra:</span>
@@ -228,7 +232,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
           {/* Cantidad & Unidad */}
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-on-surface-variant font-semibold">Cant:</span>
-            <div className="w-28">
+            <div className="w-24 sm:w-28">
               <MathInput
                 value={item.cantidad}
                 formula={item.formulaCantidad}
@@ -243,7 +247,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
               type="text"
               value={item.unidad}
               onChange={(e) => onUpdateItemUnit(index, e.target.value)}
-              className="w-14 bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-2 py-1 text-xs text-on-surface text-center font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-2xs"
+              className="w-12 sm:w-14 bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-2 py-1 text-xs text-on-surface text-center font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-2xs"
               title="Unidad de medida (ej: u, boca, m, gl)"
             />
 
@@ -261,12 +265,12 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2.5">
+        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
           {/* Costo Directo Unitario */}
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-on-surface-variant font-medium">Costo Unit:</span>
             {isCustom ? (
-              <div className="w-28">
+              <div className="w-24 sm:w-28">
                 <MathInput
                   value={
                     item.costoUnitario !== undefined
@@ -287,14 +291,14 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                 />
               </div>
             ) : (
-              <span className="font-mono text-xs font-bold text-on-surface bg-surface-container px-2.5 py-1 rounded-xl border border-outline-variant/20">
+              <span className="font-mono text-xs font-bold text-on-surface bg-surface-container px-2 py-1 rounded-xl border border-outline-variant/20">
                 {formatARS(calcItem.costoUnitario ?? (item.costoDirectoTotal / (item.cantidad || 1)))}
               </span>
             )}
           </div>
 
           {/* Precio Venta Cliente Unitario */}
-          <div className="bg-primary/10 border border-primary/20 px-3 py-1 rounded-xl flex items-center gap-1.5 text-primary font-mono">
+          <div className="bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-primary font-mono">
             <span className="text-[10px] font-bold uppercase tracking-wider">Venta:</span>
             <span className="text-xs font-bold font-mono">
               {formatARS(calcItem.precioVentaClienteUnitario ?? item.precioVentaUnitario)}
@@ -302,29 +306,31 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
             <span className="text-[10px] opacity-75">/{item.unidad || 'u'}</span>
           </div>
 
-          {/* Botón de Parámetros de Complejidad (Solo si es paramétrico) */}
-          {isParametric && onOpenParametricModal && (
-            <button
-              type="button"
-              onClick={() => onOpenParametricModal(index)}
-              className="p-1.5 text-primary bg-primary/10 hover:bg-primary/20 rounded-xl transition-colors"
-              title="Configurar parámetros de complejidad de este trabajo"
-            >
-              <Sliders className="w-4 h-4" />
-            </button>
-          )}
+          <div className="flex items-center gap-1">
+            {/* Botón de Parámetros de Complejidad (Solo si es paramétrico) */}
+            {isParametric && onOpenParametricModal && (
+              <button
+                type="button"
+                onClick={() => onOpenParametricModal(index)}
+                className="p-1.5 text-primary bg-primary/10 hover:bg-primary/20 rounded-xl transition-colors shrink-0"
+                title="Configurar parámetros de complejidad de este trabajo"
+              >
+                <Sliders className="w-4 h-4" />
+              </button>
+            )}
 
-          {/* Botón Desplegable para ver Desglose (Solo si tiene snapshots de insumos/mano de obra) */}
-          {hasSnapshots && (
-            <button
-              type="button"
-              onClick={() => onToggleExpand(item.id)}
-              className="p-1.5 text-on-surface-variant hover:text-primary rounded-xl hover:bg-surface-variant transition-colors"
-              title={isExpanded ? 'Ocultar desglose de insumos y mano de obra' : 'Ver desglose de insumos y mano de obra'}
-            >
-              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-          )}
+            {/* Botón Desplegable para ver Desglose (Solo si tiene snapshots de insumos/mano de obra) */}
+            {hasSnapshots && (
+              <button
+                type="button"
+                onClick={() => onToggleExpand(item.id)}
+                className="p-1.5 text-on-surface-variant hover:text-primary rounded-xl hover:bg-surface-variant transition-colors shrink-0"
+                title={isExpanded ? 'Ocultar desglose de insumos y mano de obra' : 'Ver desglose de insumos y mano de obra'}
+              >
+                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
