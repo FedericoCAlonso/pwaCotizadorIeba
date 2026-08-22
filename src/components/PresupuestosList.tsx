@@ -219,48 +219,47 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                       )}
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-1 flex-wrap">
+                                <div className="flex items-center gap-1.5 pt-2 border-t border-outline-variant/10">
                     <button
                       type="button"
                       onClick={() => onSelect(p.id)}
-                      className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-xl text-xs sm:text-sm font-semibold transition-colors"
+                      className="flex-1 min-h-[42px] flex items-center justify-center gap-2 px-3 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-xl text-xs sm:text-sm font-bold transition-colors shadow-2xs"
                     >
                       <Eye className="w-4 h-4" />
-                      <span>Detalles</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => exportPresupuestoToXLSX(p, cliente, config)}
-                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:text-emerald-500 hover:bg-emerald-500/10 rounded-xl transition-colors shrink-0"
-                      title="Exportar a Excel (XLSX) con APU y Lista de Materiales"
-                    >
-                      <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                      <span>Ver Detalle</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => exportPresupuestoToPDF(p, cliente, config)}
-                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0"
-                      title="Descargar cotización formal en PDF"
+                      className="min-w-[42px] min-h-[42px] flex items-center justify-center text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0 border border-primary/20"
+                      title="Descargar cotización en PDF"
                     >
-                      <Download className="w-4 h-4 text-primary" />
+                      <Download className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => exportPresupuestoToXLSX(p, cliente, config)}
+                      className="min-w-[42px] min-h-[42px] flex items-center justify-center text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-colors shrink-0 border border-emerald-500/20"
+                      title="Exportar a Excel (XLSX)"
+                    >
+                      <FileSpreadsheet className="w-4 h-4" />
                     </button>
 
                     <button
                       type="button"
                       onClick={() => sharePresupuesto(p, cliente)}
-                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0"
-                      title="Compartir presupuesto (WhatsApp / Web Share)"
+                      className="min-w-[42px] min-h-[42px] flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0 border border-outline-variant/20"
+                      title="Compartir por WhatsApp"
                     >
-                      <Share2 className="w-4 h-4 text-primary" />
+                      <Share2 className="w-4 h-4" />
                     </button>
 
                     <button
                       type="button"
                       onClick={() => onEdit(p.id)}
-                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0"
+                      className="min-w-[42px] min-h-[42px] flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors shrink-0 border border-outline-variant/20"
                       title="Editar presupuesto"
                     >
                       <Edit2 className="w-4 h-4" />
@@ -268,18 +267,9 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => handleDuplicate(p)}
-                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors shrink-0"
-                      title="Duplicar como plantilla"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      type="button"
                       onClick={() => handleDelete(p.id)}
-                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error-container/30 rounded-xl transition-colors shrink-0"
-                      title="Eliminar"
+                      className="min-w-[42px] min-h-[42px] flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-xl transition-colors shrink-0 border border-outline-variant/20"
+                      title="Eliminar presupuesto"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
