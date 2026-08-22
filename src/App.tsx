@@ -19,6 +19,8 @@ import { HelpCenterModal } from './components/HelpCenterModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useTheme } from './hooks/useTheme';
+import { useToast } from './contexts/ToastContext';
+import { usePwaBackNavigation } from './hooks/usePwaBackNavigation';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('presupuestos');
@@ -34,10 +36,22 @@ export function App() {
   const config: AppConfig | undefined = configs && configs.length > 0 ? configs[0] : undefined;
 
   const { themeMode, setThemeMode } = useTheme(config?.themeMode);
+  const { toast } = useToast();
 
   useEffect(() => {
     initializeDatabaseSeed();
   }, []);
+
+  // Centralized Mobile PWA Back Button & Gesture Navigation
+  usePwaBackNavigation({
+    activeTab,
+    setActiveTab,
+    viewMode,
+    setViewMode,
+    materialFilterContext,
+    onClearMaterialFilter: () => setMaterialFilterContext(null),
+    toast
+  });
 
   const handleNewPresupuesto = () => {
     setSelectedPresupuestoId(undefined);
