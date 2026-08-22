@@ -10,14 +10,16 @@ import {
   Trash2,
   User,
   FileSpreadsheet,
+  Download,
   Share2,
   X,
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
-import { Presupuesto, Cliente } from '../core/types';
+import { Presupuesto, Cliente, AppConfig } from '../core/types';
 import { formatARS, formatUSD } from '../core/calculations';
 import { EstadoBadge } from './EstadoBadge';
 import { exportPresupuestoToXLSX, sharePresupuesto } from '../core/exportUtils';
+import { exportPresupuestoToPDF } from '../core/pdfExportUtils';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 
@@ -37,6 +39,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
   const presupuestos = (useLiveQuery(() => db.presupuestos.reverse().toArray()) || []).filter((p) => !p.deleted);
   const rawContactos = useLiveQuery(() => db.contactos.toArray()) || [];
   const rawClientes = useLiveQuery(() => db.clientes.toArray()) || [];
+  const config = useLiveQuery(() => db.config.toCollection().first());
   const clientesMap = useMemo(() => {
     const map = new Map<string, any>();
     rawClientes.filter((c) => !c.deleted).forEach((c) => map.set(c.id, c));
@@ -229,11 +232,20 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => exportPresupuestoToXLSX(p, cliente)}
+                      onClick={() => exportPresupuestoToXLSX(p, cliente, config)}
                       className="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:text-emerald-500 hover:bg-emerald-500/10 rounded-xl transition-colors shrink-0"
-                      title="Exportar a Excel (XLSX)"
+                      title="Exportar a Excel (XLSX) con APU y Lista de Materiales"
                     >
                       <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => exportPresupuestoToPDF(p, cliente, config)}
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0"
+                      title="Descargar cotización formal en PDF"
+                    >
+                      <Download className="w-4 h-4 text-primary" />
                     </button>
 
                     <button

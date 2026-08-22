@@ -197,7 +197,11 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
             return (
               <div
                 key={ci.id || idx}
-                className="bg-surface-container p-2.5 rounded-xl border border-outline-variant/20 space-y-1.5"
+                className={`p-2.5 rounded-xl border transition-all space-y-1.5 ${
+                  ci.aplica
+                    ? 'bg-surface-container border-outline-variant/30 shadow-xs'
+                    : 'bg-surface-container/40 border-dashed border-outline-variant/20 opacity-60'
+                }`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <label className="flex items-center gap-2 cursor-pointer font-medium text-xs text-on-surface truncate flex-1">

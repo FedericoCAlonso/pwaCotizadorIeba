@@ -7,13 +7,19 @@ import {
   Sparkles,
   Package,
   RefreshCw,
-  ShieldAlert
+  ShieldAlert,
+  FileSpreadsheet,
+  Download,
+  Share2,
+  FileCode
 } from 'lucide-react';
 import { AppConfig, Presupuesto, EstadoPresupuesto, InsumoEnTarea, ManoObraEnTarea, MaterialFilterContext } from '../core/types';
 import { formatARS, formatUSD } from '../core/calculations';
 import { ESTADOS_PRESUPUESTO } from '../core/sampleData';
 import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
 import { usePresupuestoDetailViewModel } from '../viewmodels/usePresupuestoDetailViewModel';
+import { exportPresupuestoToXLSX, sharePresupuesto } from '../core/exportUtils';
+import { exportPresupuestoToPDF, exportPresupuestoToLaTeX } from '../core/pdfExportUtils';
 
 interface PresupuestoDetailProps {
   presupuestoId: string;
@@ -183,26 +189,63 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
           </button>
 
           <button
-            onClick={() => onDuplicate(presupuesto)}
-            className="flex items-center gap-2 px-4 py-2 text-on-surface hover:bg-surface-variant rounded-full text-sm font-medium transition-colors"
+            onClick={() => exportPresupuestoToXLSX(presupuesto, cliente, config)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-full text-xs font-semibold transition-colors border border-emerald-500/30"
+            title="Exportar a Excel (XLSX) con resumen comercial, APU y BOM de materiales"
           >
-            <Copy className="w-4 h-4" />
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Excel</span>
+          </button>
+
+          <button
+            onClick={() => exportPresupuestoToPDF(presupuesto, cliente, config)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-primary bg-primary/10 hover:bg-primary/20 rounded-full text-xs font-semibold transition-colors border border-primary/30"
+            title="Descargar cotización formal en PDF vectorial"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>PDF</span>
+          </button>
+
+          <button
+            onClick={() => exportPresupuestoToLaTeX(presupuesto, cliente, config)}
+            className="flex items-center gap-1.5 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-full text-xs font-medium transition-colors border border-outline-variant/30"
+            title="Descargar código fuente LaTeX (.tex) para compilar externamente"
+          >
+            <FileCode className="w-3.5 h-3.5" />
+            <span>LaTeX</span>
+          </button>
+
+          <button
+            onClick={() => sharePresupuesto(presupuesto, cliente)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-primary hover:bg-primary/10 rounded-full text-xs font-medium transition-colors"
+            title="Compartir por WhatsApp o Web Share"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span>Compartir</span>
+          </button>
+
+          <button
+            onClick={() => onDuplicate(presupuesto)}
+            className="flex items-center gap-1.5 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-full text-xs font-medium transition-colors"
+          >
+            <Copy className="w-3.5 h-3.5" />
             <span>Duplicar</span>
           </button>
 
           <button
             onClick={onEdit}
-            className="flex items-center gap-2 px-4 py-2 text-on-surface hover:bg-surface-variant rounded-full text-sm font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-on-surface hover:bg-surface-variant rounded-full text-xs font-medium transition-colors"
           >
             <span>Editar</span>
           </button>
 
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-sm transition-all shadow-sm hover:shadow-md"
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-xs sm:text-sm transition-all shadow-sm hover:shadow-md"
+            title="Imprimir documento con diálogo de impresión del navegador"
           >
             <Printer className="w-4 h-4" />
-            <span>Imprimir / PDF</span>
+            <span>Imprimir</span>
           </button>
         </div>
       </div>
@@ -435,10 +478,20 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                   <span>Costo Directo Total (C):</span>
                   <span className="font-mono">{formatARS(presupuesto.costoGlobal || presupuesto.subtotalCostosDirectos)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>2. Gastos Generales (GG):</span>
-                  <span className="font-mono">{formatARS(presupuesto.gastosGeneralesTotal || presupuesto.subtotalCostosIndirectos)}</span>
-                </div>
+                {((presupuesto.gastosGeneralesTotal || presupuesto.subtotalCostosIndirectos || 0) > 0) && (
+                  <>
+                    <div className="flex justify-between">
+                      <span>2. Gastos Generales (GG):</span>
+                      <span className="font-mono">{formatARS(presupuesto.gastosGeneralesTotal || presupuesto.subtotalCostosIndirectos)}</span>
+                    </div>
+                    {presupuesto.costosIndirectosAplicados && presupuesto.costosIndirectosAplicados.filter(c => c.montoCalculado > 0).map((ci, cIdx) => (
+                      <div key={cIdx} className="flex justify-between text-[11px] text-slate-500 pl-2">
+                        <span>• {ci.nombre}:</span>
+                        <span className="font-mono">{formatARS(ci.montoCalculado)}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
                 <div className="flex justify-between">
                   <span>3. Beneficio ({presupuesto.beneficioPorcentaje ?? presupuesto.margenPorcentaje}% s/C+GG):</span>
                   <span className="font-mono">{formatARS(presupuesto.beneficioMonto || presupuesto.montoGanancia)}</span>
