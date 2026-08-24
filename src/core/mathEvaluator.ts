@@ -50,25 +50,16 @@ export function isFormulaString(raw: string): boolean {
 }
 
 /**
- * Normaliza sintaxis condicional y ternaria:
- * 1. Convierte 'cond : verdadero : falso' a 'cond ? verdadero : falso'
- * 2. Agrupa automáticamente ternarios que siguen a operadores aritméticos (+, -, *, /, ^)
- *    ej: '1 + 3 > 2 ? 4 : 5' -> '1 + (3 > 2 ? 4 : 5)'
+ * Normaliza sintaxis de operador ternario estándar (? :):
+ * Agrupa automáticamente ternarios que siguen a operadores aritméticos (+, -, *, /, ^)
+ * ej: '1 + 3 > 2 ? 4 : 5' -> '1 + (3 > 2 ? 4 : 5)'
  */
 export function normalizeTernarySyntax(raw: string): string {
-  if (!raw || typeof raw !== 'string') return '';
+  if (!raw || typeof raw !== 'string' || !raw.includes('?')) return raw || '';
   let str = raw;
 
-  // Paso 1: Convertir ': ... :' a '? ... :' para expresiones con operadores relacionales o de igualdad
-  // ej: '3 > 2 : 4 : 5' -> '3 > 2 ? 4 : 5'
-  // ej: '1 + 3 > 2 : 4 : 5' -> '1 + 3 > 2 ? 4 : 5'
-  str = str.replace(
-    /((?:[<>=!]=?|[<>])\s*[^:?()]+?)\s*:\s*([^:?]+?)\s*:\s*([^,);+]+)/g,
-    '$1 ? $2 : $3'
-  );
-
-  // Paso 2: Si un ternario no está entre paréntesis y viene después de un operador aritmético (+, -, *, /, ^),
-  // agruparlo para que la adición/multiplicación opere sobre el resultado de la condición.
+  // Si un ternario no está entre paréntesis y viene después de un operador aritmético (+, -, *, /, ^),
+  // agruparlo para que la adición/multiplicación opere sobre el resultado del condicional.
   // ej: '1 + 3 > 2 ? 4 : 5' -> '1 + (3 > 2 ? 4 : 5)'
   // Regex detecta: ([+\-*/^]\s*)([a-zA-Z0-9_.]+\s*(?:[<>!=]=?|[<>])\s*[^?()]+\s*\?[^:?]+?\s*:\s*[^,);+]+)
   str = str.replace(
