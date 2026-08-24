@@ -25,7 +25,7 @@ import {
   DEFAULT_CLAUSULA_OBRA_EXISTENTE
 } from './calculations';
 import { evaluateCondition, evaluateMathExpression } from './mathEvaluator';
-import { Insumo, CategoriaManoDeObra, CostoIndirecto, CostoIndirectoItemConfig, TareaTipo, ItemPresupuesto } from './types';
+import { Insumo, CategoriaManoDeObra, CostoIndirecto, CostoIndirectoItemConfig, TareaTipo, ItemPresupuesto, GastoPresupuestoConfig, CapituloPresupuesto } from './types';
 import { buildSearchTerm } from './searchUtils';
 import { INITIAL_CATEGORIAS_MATERIAL, INITIAL_MATERIALES, INITIAL_MANO_OBRA, INITIAL_COSTOS_INDIRECTOS, INITIAL_TAREAS_TIPO } from './sampleData';
 
@@ -1768,3 +1768,222 @@ describe('14. Motor de Optimización de Sinergia de Obra & Cuadrilla', () => {
     expect(conSinergia.totalARS).toBeLessThan(sinSinergia.totalARS);
   });
 });
+
+// ─── 15. Estructura de Gastos Directos (MO, Materiales, Servicios) vs Indirectos & Capítulos ──────
+
+describe('15. Estructura de Gastos Directos vs Indirectos, Fórmulas Paramétricas y Capítulos', () => {
+  it('aplica Cargas Sociales como gasto directo sobre Mano de Obra e impacta en el Subtotal MO', () => {
+    const item = makeItem({
+      insumosSnapshot: [],
+      manoObraSnapshot: [],
+      costoInsumos: 100000,
+      costoManoObra: 50000,
+      costoDirectoTotal: 150000,
+      cantidad: 1
+    });
+
+    const gastos: GastoPresupuestoConfig[] = [
+      {
+        id: 'g-cs-mo',
+        nombre: 'Cargas Sociales y ART (40% s/MO)',
+        destino: 'mano_obra',
+        modalidad: 'porcentual',
+        valor: 40,
+        aplica: true
+      }
+    ];
+
+    const result = calcularTotalesPresupuesto({
+      items: [item],
+      gastosConfig: gastos,
+      margenPorcentaje: 0,
+      impuestosDetalle: []
+    });
+
+    // Base MO = 50.000 -> Gastos MO (40%) = 20.000 -> Subtotal MO = 70.000
+    expect(result.subtotalManoObraBase).toBe(50000);
+    expect(result.gastosManoObraTotal).toBe(20000);
+    expect(result.subtotalManoObra).toBe(70000);
+    expect(result.subtotalManoObraTotal).toBe(70000);
+
+    // Materiales queda sin modificar (100.000)
+    expect(result.subtotalInsumos).toBe(100000);
+    expect(result.gastosMaterialesTotal).toBe(0);
+
+    // Costo Directo Total (C) = 100.000 + 70.000 = 170.000
+    expect(result.costoGlobal).toBe(170000);
+  });
+
+  it('aplica Garantía / Merma como gasto directo sobre Materiales', () => {
+    const item = makeItem({
+      insumosSnapshot: [],
+      manoObraSnapshot: [],
+      costoInsumos: 80000,
+      costoManoObra: 20000,
+      costoDirectoTotal: 100000,
+      cantidad: 1
+    });
+
+    const gastos: GastoPresupuestoConfig[] = [
+      {
+        id: 'g-garantia-mat',
+        nombre: 'Garantía y Roturas (10% s/Materiales)',
+        destino: 'materiales',
+        modalidad: 'porcentual',
+        valor: 10,
+        aplica: true
+      }
+    ];
+
+    const result = calcularTotalesPresupuesto({
+      items: [item],
+      gastosConfig: gastos,
+      margenPorcentaje: 0,
+      impuestosDetalle: []
+    });
+
+    // Base Insumos = 80.000 -> Gastos Mat (10%) = 8.000 -> Subtotal Insumos = 88.000
+    expect(result.subtotalInsumosBase).toBe(80000);
+    expect(result.gastosMaterialesTotal).toBe(8000);
+    expect(result.subtotalInsumos).toBe(88000);
+
+    // Costo Directo Total (C) = 88.000 + 20.000 = 108.000
+    expect(result.costoGlobal).toBe(108000);
+  });
+
+  it('calcula Gastos Directos en Servicios Tercerizados', () => {
+    const item: ItemPresupuesto = {
+      ...makeItem({
+        insumosSnapshot: [],
+        manoObraSnapshot: [],
+        costoInsumos: 0,
+        costoManoObra: 0,
+        costoDirectoTotal: 50000,
+        cantidad: 1
+      }),
+      tipoItem: 'servicio_tercerizado',
+      costoServiciosTercerizados: 50000,
+      serviciosTercerizados: [
+        { id: 's-1', descripcion: 'Alquiler de Plataforma Elevadora', costo: 50000 }
+      ]
+    };
+
+    const gastos: GastoPresupuestoConfig[] = [
+      {
+        id: 'g-combustible-serv',
+        nombre: 'Combustible y Flete Elevador',
+        destino: 'servicios',
+        modalidad: 'monto_fijo',
+        valor: 15000,
+        aplica: true
+      }
+    ];
+
+    const result = calcularTotalesPresupuesto({
+      items: [item],
+      gastosConfig: gastos,
+      margenPorcentaje: 0,
+      impuestosDetalle: []
+    });
+
+    expect(result.subtotalServiciosBase).toBe(50000);
+    expect(result.gastosServiciosTotal).toBe(15000);
+    expect(result.subtotalServiciosTotal).toBe(65000);
+    expect(result.costoGlobal).toBe(65000);
+  });
+
+  it('evalúa fórmulas matemáticas paramétricas para gastos (ej: merma + flete fijo)', () => {
+    const item = makeItem({
+      insumosSnapshot: [],
+      manoObraSnapshot: [],
+      costoInsumos: 100000,
+      costoManoObra: 40000,
+      costoDirectoTotal: 140000,
+      cantidad: 1
+    });
+
+    const gastos: GastoPresupuestoConfig[] = [
+      {
+        id: 'g-param',
+        nombre: 'Merma 5% + Flete $3.000',
+        destino: 'materiales',
+        modalidad: 'parametrico',
+        formula: 'materiales * 0.05 + 3000',
+        valor: 0,
+        aplica: true
+      }
+    ];
+
+    const result = calcularTotalesPresupuesto({
+      items: [item],
+      gastosConfig: gastos,
+      margenPorcentaje: 0,
+      impuestosDetalle: []
+    });
+
+    // Fórmula: 100.000 * 0.05 + 3.000 = 5.000 + 3.000 = 8.000
+    expect(result.gastosMaterialesTotal).toBe(8000);
+    expect(result.subtotalInsumos).toBe(108000);
+    expect(result.costoGlobal).toBe(148000);
+  });
+
+  it('organiza y calcula subtotales discriminados por Capítulos de Obra', () => {
+    const itemCap1 = {
+      ...makeItem({
+        id: 'it-1',
+        insumosSnapshot: [],
+        manoObraSnapshot: [],
+        costoInsumos: 30000,
+        costoManoObra: 20000,
+        costoDirectoTotal: 50000,
+        cantidad: 1
+      }),
+      capituloId: 'cap-planta-baja'
+    };
+
+    const itemCap2 = {
+      ...makeItem({
+        id: 'it-2',
+        insumosSnapshot: [],
+        manoObraSnapshot: [],
+        costoInsumos: 40000,
+        costoManoObra: 30000,
+        costoDirectoTotal: 70000,
+        cantidad: 1
+      }),
+      capituloId: 'cap-planta-alta'
+    };
+
+    const capitulos: CapituloPresupuesto[] = [
+      { id: 'cap-planta-baja', nombre: 'Planta Baja', orden: 1 },
+      { id: 'cap-planta-alta', nombre: 'Planta Alta', orden: 2 }
+    ];
+
+    const result = calcularTotalesPresupuesto({
+      items: [itemCap1, itemCap2],
+      capitulos,
+      margenPorcentaje: 20, // K = 1.20
+      impuestosDetalle: []
+    });
+
+    // Costo Global = 50.000 + 70.000 = 120.000
+    expect(result.costoGlobal).toBe(120000);
+    expect(result.subtotalSinImpuestos).toBe(144000); // 120.000 * 1.20
+
+    // Subtotales de cada Capítulo
+    const cap1 = result.capitulosTotales['cap-planta-baja'];
+    const cap2 = result.capitulosTotales['cap-planta-alta'];
+
+    expect(cap1).toBeDefined();
+    expect(cap1.costoDirectoTotal).toBe(50000);
+    expect(cap1.precioVentaTotal).toBe(60000); // 50.000 * 1.20
+
+    expect(cap2).toBeDefined();
+    expect(cap2.costoDirectoTotal).toBe(70000);
+    expect(cap2.precioVentaTotal).toBe(84000); // 70.000 * 1.20
+
+    // Suma de Capítulos = Total Presupuesto
+    expect(roundMoney(cap1.precioVentaTotal + cap2.precioVentaTotal)).toBe(result.precioFinalGlobal);
+  });
+});
+

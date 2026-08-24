@@ -1,24 +1,31 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Calculator, RotateCcw, X, CheckCircle, ChevronDown, Plus } from 'lucide-react';
+import React from 'react';
 import {
-  CostoIndirecto,
-  CostoIndirectoItemConfig,
-  TipoFactura
+  Calculator,
+  RotateCcw,
+  X,
+  CheckCircle,
+  Plus,
+  Edit2,
+  HardHat,
+  Package,
+  Truck,
+  Globe
+} from 'lucide-react';
+import {
+  GastoPresupuestoConfig,
+  TipoFactura,
+  DestinoGasto
 } from '../../core/types';
 import { formatARS, formatUSD, TotalesPresupuestoResultado } from '../../core/calculations';
 
 interface PresupuestoTotalsCardProps {
   totales: TotalesPresupuestoResultado;
   tipoFactura: TipoFactura;
-  costosIndirectosConfig: CostoIndirectoItemConfig[];
-  costosIndirectosCatalog?: CostoIndirecto[];
-  onToggleIndirectCost: (idx: number) => void;
-  onUpdateIndirectCostName: (idx: number, name: string) => void;
-  onUpdateIndirectCostValor: (idx: number, val: number) => void;
-  onRemoveIndirectCost: (idx: number) => void;
-  onAddCustomIndirectCost: () => void;
-  onAddCatalogIndirectCost?: (ci: CostoIndirecto) => void;
-  onResetIndirectCosts: () => void;
+  gastosConfig: GastoPresupuestoConfig[];
+  onOpenGastoModal: (gastoToEdit?: GastoPresupuestoConfig) => void;
+  onToggleGasto: (idx: number) => void;
+  onRemoveGasto: (id: string) => void;
+  onResetGastos?: () => void;
   margenPorcentaje: number;
   onMargenPorcentajeChange: (val: number) => void;
   onToggleTax: (idx: number) => void;
@@ -33,15 +40,11 @@ interface PresupuestoTotalsCardProps {
 export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
   totales,
   tipoFactura,
-  costosIndirectosConfig,
-  costosIndirectosCatalog = [],
-  onToggleIndirectCost,
-  onUpdateIndirectCostName,
-  onUpdateIndirectCostValor,
-  onRemoveIndirectCost,
-  onAddCustomIndirectCost,
-  onAddCatalogIndirectCost,
-  onResetIndirectCosts,
+  gastosConfig = [],
+  onOpenGastoModal,
+  onToggleGasto,
+  onRemoveGasto,
+  onResetGastos,
   margenPorcentaje,
   onMargenPorcentajeChange,
   onToggleTax,
@@ -50,29 +53,39 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
   onAddCustomTax,
   mostrarDolar,
   nombreDolar,
-  onEmitirClick,
+  onEmitirClick
 }) => {
-  const [showAddMenu, setShowAddMenu] = useState(false);
-  const addMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
-        setShowAddMenu(false);
-      }
-    };
-    if (showAddMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
+  const getDestinoBadge = (destino: DestinoGasto) => {
+    switch (destino) {
+      case 'mano_obra':
+        return (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">
+            <HardHat className="w-3 h-3" /> MO
+          </span>
+        );
+      case 'materiales':
+        return (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
+            <Package className="w-3 h-3" /> Materiales
+          </span>
+        );
+      case 'servicios':
+        return (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full">
+            <Truck className="w-3 h-3" /> Servicios
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-slate-500/10 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full">
+            <Globe className="w-3 h-3" /> Indirecto
+          </span>
+        );
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showAddMenu]);
-
-  const unaddedCatalogItems = costosIndirectosCatalog.filter(
-    (c) => !costosIndirectosConfig.some((cfg) => cfg.id === c.id || (cfg as any).costoIndirectoId === c.id)
-  );
+  };
 
   return (
-    <div className="bg-surface-container-low rounded-3xl p-6 space-y-5 border border-outline-variant/10 shadow-sm sticky top-6">
+    <div className="bg-surface-container-low rounded-3xl p-5 sm:p-6 space-y-4 sm:space-y-5 border border-outline-variant/10 shadow-sm sticky top-6">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-primary uppercase tracking-wide flex items-center gap-2">
           <Calculator className="w-4 h-4 text-primary" />
@@ -80,192 +93,184 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
         </h3>
       </div>
 
-      {/* 1. COSTO DIRECTO (C) */}
-      <div className="bg-surface-container-high/60 p-4 rounded-2xl border border-outline-variant/20 space-y-2">
+      {/* 1. COSTO DIRECTO TOTAL (C) */}
+      <div className="bg-surface-container-high/60 p-4 rounded-2xl border border-outline-variant/20 space-y-3">
         <div className="flex justify-between items-center text-xs font-bold text-on-surface">
           <span className="uppercase tracking-wider">1. Costo Directo Total (C):</span>
           <span className="font-mono text-sm font-bold text-on-surface">{formatARS(totales.costoGlobal)}</span>
         </div>
-        <div className="grid grid-cols-3 gap-1 text-[10px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/10">
-          <div>
-            Insumos: <strong className="text-on-surface block">{formatARS(totales.subtotalInsumos)}</strong>
-          </div>
-          <div>
-            Mano Obra: <strong className="text-on-surface block">{formatARS(totales.subtotalManoObra)}</strong>
-            {totales.ahorroSinergiaManoObra !== undefined && totales.ahorroSinergiaManoObra > 0 && (
-              <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold block">
-                ⚡ -{formatARS(totales.ahorroSinergiaManoObra)} sinergia
+
+        {/* 3 Pilares Directos (Materiales, Mano de Obra, Servicios) */}
+        <div className="space-y-2 pt-1 border-t border-outline-variant/10 text-xs">
+          {/* Materiales */}
+          <div className="bg-surface-container p-2.5 rounded-xl border border-outline-variant/15 flex flex-col gap-1">
+            <div className="flex justify-between items-center">
+              <span className="font-medium flex items-center gap-1.5 text-on-surface">
+                <Package className="w-3.5 h-3.5 text-blue-500" />
+                Materiales / Insumos:
               </span>
-            )}
+              <span className="font-mono font-bold text-on-surface">{formatARS(totales.subtotalInsumosTotal)}</span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-on-surface-variant font-mono">
+              <span>Base: {formatARS(totales.subtotalInsumosBase)}</span>
+              {totales.gastosMaterialesTotal > 0 && (
+                <span className="text-blue-600 dark:text-blue-400 font-semibold">
+                  +{formatARS(totales.gastosMaterialesTotal)} gastos directos
+                </span>
+              )}
+            </div>
           </div>
-          <div>
-            Servicios:{' '}
-            <strong className="text-on-surface block">{formatARS(totales.subtotalServiciosTercerizados)}</strong>
+
+          {/* Mano de Obra */}
+          <div className="bg-surface-container p-2.5 rounded-xl border border-outline-variant/15 flex flex-col gap-1">
+            <div className="flex justify-between items-center">
+              <span className="font-medium flex items-center gap-1.5 text-on-surface">
+                <HardHat className="w-3.5 h-3.5 text-amber-500" />
+                Mano de Obra (MOD):
+              </span>
+              <span className="font-mono font-bold text-on-surface">{formatARS(totales.subtotalManoObraTotal)}</span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-on-surface-variant font-mono">
+              <span>Base: {formatARS(totales.subtotalManoObraBase)}</span>
+              {totales.ahorroSinergiaManoObra > 0 && (
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                  ⚡ -{formatARS(totales.ahorroSinergiaManoObra)} sinergia
+                </span>
+              )}
+              {totales.gastosManoObraTotal > 0 && (
+                <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                  +{formatARS(totales.gastosManoObraTotal)} cargas/gastos MO
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* 2. GASTOS GENERALES (GG) */}
-      <div className="bg-surface-container-high/60 p-4 rounded-2xl border border-outline-variant/20 space-y-3">
-        <div className="flex justify-between items-center">
-          <div>
-            <label className="text-xs font-bold text-on-surface uppercase tracking-wider block">
-              2. Gastos Generales (GG)
-            </label>
-            <span className="text-[10px] text-on-surface-variant">
-              {costosIndirectosConfig.filter((c) => c.aplica).length} activos (GG% se aplica sobre C)
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onResetIndirectCosts}
-              className="p-1 text-on-surface-variant hover:text-primary transition-colors"
-              title="Restablecer desde catálogo global"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-            
-            <div className="relative" ref={addMenuRef}>
-              <button
-                type="button"
-                onClick={() => {
-                  if (unaddedCatalogItems.length > 0) {
-                    setShowAddMenu((prev) => !prev);
-                  } else {
-                    onAddCustomIndirectCost();
-                  }
-                }}
-                className="text-[11px] text-primary hover:underline font-semibold flex items-center gap-1"
-              >
-                <span>+ Agregar GG</span>
-                {unaddedCatalogItems.length > 0 && <ChevronDown className="w-3 h-3" />}
-              </button>
-
-              {showAddMenu && unaddedCatalogItems.length > 0 && (
-                <div className="absolute right-0 top-full mt-1.5 w-64 bg-surface-container-high border border-outline-variant/30 rounded-2xl shadow-xl z-50 p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-md">
-                  <div className="px-2.5 py-1 text-[10px] font-bold text-on-surface-variant uppercase tracking-wider border-b border-outline-variant/20">
-                    Disponibles en Catálogo:
-                  </div>
-                  <div className="max-h-48 overflow-y-auto space-y-0.5">
-                    {unaddedCatalogItems.map((catItem) => (
-                      <button
-                        key={catItem.id}
-                        type="button"
-                        onClick={() => {
-                          onAddCatalogIndirectCost?.(catItem);
-                          setShowAddMenu(false);
-                        }}
-                        className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-surface-variant text-xs flex items-center justify-between transition-colors text-on-surface group"
-                      >
-                        <span className="truncate font-medium group-hover:text-primary">{catItem.nombre}</span>
-                        <span className="font-mono text-[11px] text-on-surface-variant shrink-0 ml-2 font-bold">
-                          {catItem.tipo === 'porcentual_sobre_costo' ? `${catItem.valor}%` : formatARS(catItem.valor)}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="border-t border-outline-variant/20 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onAddCustomIndirectCost();
-                        setShowAddMenu(false);
-                      }}
-                      className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-primary/10 text-primary text-xs font-bold transition-colors flex items-center gap-1.5"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>+ Crear Personalizado...</span>
-                    </button>
-                  </div>
-                </div>
+          {/* Servicios Tercerizados */}
+          <div className="bg-surface-container p-2.5 rounded-xl border border-outline-variant/15 flex flex-col gap-1">
+            <div className="flex justify-between items-center">
+              <span className="font-medium flex items-center gap-1.5 text-on-surface">
+                <Truck className="w-3.5 h-3.5 text-purple-500" />
+                Servicios Tercerizados:
+              </span>
+              <span className="font-mono font-bold text-on-surface">{formatARS(totales.subtotalServiciosTotal)}</span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-on-surface-variant font-mono">
+              <span>Base: {formatARS(totales.subtotalServiciosBase)}</span>
+              {totales.gastosServiciosTotal > 0 && (
+                <span className="text-purple-600 dark:text-purple-400 font-semibold">
+                  +{formatARS(totales.gastosServiciosTotal)} gastos directos
+                </span>
               )}
             </div>
           </div>
         </div>
+      </div>
 
-        {costosIndirectosConfig.length === 0 ? (
+      {/* 2. GASTOS Y COSTOS INDIRECTOS (GG) */}
+      <div className="bg-surface-container-high/60 p-4 rounded-2xl border border-outline-variant/20 space-y-3">
+        <div className="flex justify-between items-center">
+          <div>
+            <label className="text-xs font-bold text-on-surface uppercase tracking-wider block">
+              2. Gastos & Modificadores
+            </label>
+            <span className="text-[10px] text-on-surface-variant">
+              Directos (s/Rubro) o Indirectos (s/Costo Total C)
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {onResetGastos && (
+              <button
+                type="button"
+                onClick={onResetGastos}
+                className="p-1 text-on-surface-variant hover:text-primary transition-colors"
+                title="Restablecer gastos"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onOpenGastoModal()}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Nuevo Gasto</span>
+            </button>
+          </div>
+        </div>
+
+        {gastosConfig.length === 0 ? (
           <div className="p-3 rounded-xl bg-surface-container/50 border border-dashed border-outline-variant/30 text-center space-y-1">
-            <p className="text-[11px] text-on-surface-variant">Sin gastos generales aplicados a esta cotización.</p>
+            <p className="text-[11px] text-on-surface-variant">
+              Sin gastos aplicados. Presiona <strong className="text-primary font-bold">"+ Nuevo Gasto"</strong> para sumar cargas sociales a MO, garantía a materiales o contingencias.
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
-          {costosIndirectosConfig.map((ci, idx) => {
-            const applied = totales.costosIndirectosAplicados.find((c) => c.costoIndirectoId === ci.id);
-            const montoCalculado = applied
-              ? applied.montoCalculado
-              : ci.tipo === 'porcentual_sobre_costo'
-              ? Math.round(totales.costoGlobal * (ci.valor / 100))
-              : Math.round(ci.valor);
+            {gastosConfig.map((g, idx) => {
+              const desg = totales.gastosDesglosados.find((d) => d.id === g.id);
+              const monto = desg ? desg.montoCalculado : 0;
 
-            return (
-              <div
-                key={ci.id || idx}
-                className={`p-2.5 rounded-xl border transition-all space-y-1.5 ${
-                  ci.aplica
-                    ? 'bg-surface-container border-outline-variant/30 shadow-xs'
-                    : 'bg-surface-container/40 border-dashed border-outline-variant/20 opacity-60'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <label className="flex items-center gap-2 cursor-pointer font-medium text-xs text-on-surface truncate flex-1">
-                    <input
-                      type="checkbox"
-                      checked={ci.aplica}
-                      onChange={() => onToggleIndirectCost(idx)}
-                      className="w-4 h-4 text-primary rounded border-outline-variant"
-                    />
-                    <input
-                      type="text"
-                      value={ci.nombre}
-                      onChange={(e) => onUpdateIndirectCostName(idx, e.target.value)}
-                      className="bg-transparent border-none p-0 text-xs font-medium text-on-surface focus:ring-0 truncate w-full"
-                    />
-                  </label>
+              return (
+                <div
+                  key={g.id || idx}
+                  className={`p-2.5 rounded-xl border transition-all space-y-1.5 ${
+                    g.aplica
+                      ? 'bg-surface-container border-outline-variant/30 shadow-xs'
+                      : 'bg-surface-container/40 border-dashed border-outline-variant/20 opacity-60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer font-medium text-xs text-on-surface truncate flex-1">
+                      <input
+                        type="checkbox"
+                        checked={g.aplica}
+                        onChange={() => onToggleGasto(idx)}
+                        className="w-4 h-4 text-primary rounded border-outline-variant"
+                      />
+                      <span className="truncate font-medium">{g.nombre}</span>
+                    </label>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    {ci.tipo !== 'porcentual_sobre_costo' && (
-                      <span className="text-[10px] text-on-surface-variant font-mono">$</span>
-                    )}
-                    <input
-                      type="number"
-                      step="0.5"
-                      value={ci.valor}
-                      onChange={(e) => onUpdateIndirectCostValor(idx, parseFloat(e.target.value) || 0)}
-                      className="w-16 bg-surface-container-highest border border-outline-variant/30 rounded-lg px-1.5 py-0.5 text-xs text-right font-mono"
-                    />
-                    {ci.tipo === 'porcentual_sobre_costo' && (
-                      <span className="text-[10px] text-on-surface-variant font-bold">%</span>
-                    )}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {getDestinoBadge(g.destino || 'costo_indirecto')}
 
-                    <button
-                      type="button"
-                      onClick={() => onRemoveIndirectCost(idx)}
-                      className="text-on-surface-variant hover:text-error p-1 rounded-full transition-colors ml-1"
-                      title="Eliminar"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => onOpenGastoModal(g)}
+                        className="p-1 text-on-surface-variant hover:text-primary rounded-lg transition-colors"
+                        title="Editar Gasto"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onRemoveGasto(g.id)}
+                        className="p-1 text-on-surface-variant hover:text-error rounded-lg transition-colors"
+                        title="Eliminar Gasto"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
+
+                  {g.aplica && (
+                    <div className="flex justify-between items-center text-[11px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/10">
+                      <span>
+                        {g.modalidad === 'porcentual' ? `${g.valor}%` : g.modalidad === 'parametrico' ? 'Fórmula' : 'Fijo'}:
+                      </span>
+                      <span className="font-bold text-primary">+{formatARS(monto)}</span>
+                    </div>
+                  )}
                 </div>
-
-                {ci.aplica && (
-                  <div className="flex justify-between items-center text-[11px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/10">
-                    <span>
-                      {ci.nombre} ({ci.tipo === 'porcentual_sobre_costo' ? `${ci.valor}% s/Base APU` : 'Fijo'}):
-                    </span>
-                    <span className="font-bold text-primary">{formatARS(montoCalculado)}</span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
           </div>
         )}
 
         <div className="flex justify-between text-xs font-bold text-primary pt-1 border-t border-outline-variant/20">
-          <span>Total Gastos Generales (GG):</span>
+          <span>Costos Indirectos (GG sobre C):</span>
           <span className="font-mono">{formatARS(totales.gastosGeneralesTotal)}</span>
         </div>
       </div>
@@ -278,7 +283,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
               3. Beneficio (B)
             </label>
             <span className="text-[10px] text-on-surface-variant">
-              Calculado sobre Costo + GG ({formatARS(totales.costoTotalObra)})
+              Calculado sobre Costo Directo + Indirectos ({formatARS(totales.costoTotalObra)})
             </span>
           </div>
           <div className="relative w-24">

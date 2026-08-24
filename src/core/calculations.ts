@@ -29,7 +29,11 @@ import {
   FiltroMaterialEnTarea,
   EstrategiaCuadrilla,
   OpcionCuadrillaSimulada,
-  PlanificacionCuadrilla
+  PlanificacionCuadrilla,
+  CapituloPresupuesto,
+  GastoPresupuestoConfig,
+  DestinoGasto,
+  ModalidadGasto
 } from './types';
 import { evaluateMathExpression, evaluateCondition } from './mathEvaluator';
 
@@ -41,6 +45,10 @@ import { evaluateMathExpression, evaluateCondition } from './mathEvaluator';
  */
 export function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+export function roundMoney4(value: number): number {
+  return Math.round((value + Number.EPSILON) * 10000) / 10000;
 }
 
 // ─── Validación de inputs (auditoría #10) ────────────────────────────────────
@@ -570,10 +578,35 @@ export function generarImpuestosPorDefecto(
 
 // ─── Cálculo de totales del presupuesto (Nuevo Motor: C → GG → B → S → Impuestos → Precio Final & K) ───────
 
+export interface GastoDesglosadoResultado {
+  id: string;
+  nombre: string;
+  destino: DestinoGasto;
+  modalidad: ModalidadGasto;
+  valor: number;
+  formula?: string;
+  capituloId?: string;
+  baseImponible: number;
+  montoCalculado: number;
+  aplica: boolean;
+}
+
+export interface CapituloTotalResultado {
+  id: string;
+  nombre: string;
+  costoInsumos: number;
+  costoManoObra: number;
+  costoServicios: number;
+  gastosDirectos: number;
+  costoDirectoTotal: number;
+  precioVentaTotal: number;
+  itemsCount: number;
+}
+
 export interface TotalesPresupuestoResultado {
   // ─── Modelo Estricto: C → GG → B → S → Impuestos → Precio Final & K ───
-  costoGlobal: number; // Costo (C) = suma de insumos + mano de obra + servicios tercerizados
-  gastosGeneralesTotal: number; // GG total = Σ(GG absolutos) + Σ(GG% × C)
+  costoGlobal: number; // Costo (C) = suma de insumos + mano de obra + servicios tercerizados (incluyendo gastos directos)
+  gastosGeneralesTotal: number; // GG total = Σ(GG fijos) + Σ(GG% × C)
   beneficioPorcentaje: number; // % beneficio calculado sobre (C + GG)
   beneficioMonto: number; // B = %beneficio × (C + GG)
   subtotalSinImpuestos: number; // Subtotal (S) = C + GG + B
@@ -584,15 +617,30 @@ export interface TotalesPresupuestoResultado {
   coeficienteK: number; // K = Precio Final Global / Costo Global
   itemsCalculados: ItemPresupuesto[]; // Ítems con su costo y precio de venta unitario/total asignado (Costo × K)
 
-  // Desgloses y compatibilidad retroactiva
-  subtotalInsumos: number;
-  subtotalManoObra: number;
-  subtotalManoObraTeorica?: number; // Base antes de sinergia
-  ahorroSinergiaManoObra?: number; // Descuento por sinergia de obra
-  subtotalServiciosTercerizados: number;
+  // ─── Desglose Detallado de Rubros Directos & Gastos ───
+  subtotalInsumosBase: number;
+  gastosMaterialesTotal: number;
+  subtotalInsumos: number; // Insumos Base + Gastos directos de materiales
+  subtotalInsumosTotal: number;
+
+  subtotalManoObraTeorica: number; // Base antes de sinergia
+  subtotalManoObraBase: number; // Base con sinergia
+  ahorroSinergiaManoObra: number; // Descuento por sinergia de obra
+  gastosManoObraTotal: number; // Cargas sociales, ART, EPP, etc.
+  subtotalManoObra: number; // MO Base + Gastos directos de MO
+  subtotalManoObraTotal: number;
+
+  subtotalServiciosBase: number;
+  gastosServiciosTotal: number;
+  subtotalServiciosTercerizados: number; // Servicios Base + Gastos directos de servicios
+  subtotalServiciosTotal: number;
+
   subtotalCostosDirectos: number; // Alias de C
   subtotalCostosIndirectos: number; // Alias de GG
   costosIndirectosAplicados: CostoIndirectoSnapshot[];
+  gastosDesglosados: GastoDesglosadoResultado[];
+  capitulosTotales: Record<string, CapituloTotalResultado>;
+
   costoTotalObra: number; // C + GG
   montoGanancia: number; // Alias de B
   precioVentaSinImpuestos: number; // Alias de S
@@ -602,8 +650,8 @@ export interface TotalesPresupuestoResultado {
 
 /**
  * Calcula los totales completos de un presupuesto siguiendo el orden de dependencia estricto:
- * 1. Costo (C) = Σ(Insumos) + Σ(Mano de Obra) + Σ(Servicios Tercerizados)
- * 2. Gastos Generales (GG) = Σ(GG fijos) + Σ(GG% × C)
+ * 1. Costo Directo (C) = Total Materiales (Base + Gastos Mat) + Total MO (Base + Gastos MO) + Total Servicios (Base + Gastos Serv)
+ * 2. Costos Indirectos (GG) = Σ(GG fijos) + Σ(GG% × C)
  * 3. Beneficio (B) = %beneficio × (C + GG)
  * 4. Subtotal (S) = C + GG + B
  * 5. Impuestos = Σ(impuesto_i% × S) (sin cascada entre ellos)
@@ -613,8 +661,10 @@ export interface TotalesPresupuestoResultado {
  */
 export function calcularTotalesPresupuesto(params: {
   items: ItemPresupuesto[];
+  capitulos?: CapituloPresupuesto[];
   costosIndirectosCatalog?: CostoIndirecto[];
   costosIndirectosConfig?: CostoIndirectoItemConfig[];
+  gastosConfig?: GastoPresupuestoConfig[];
   margenPorcentaje?: number;
   beneficioPorcentaje?: number;
   impuestosDetalle: ImpuestoItem[];
@@ -624,8 +674,10 @@ export function calcularTotalesPresupuesto(params: {
 }): TotalesPresupuestoResultado {
   const {
     items = [],
+    capitulos = [],
     costosIndirectosCatalog = [],
     costosIndirectosConfig,
+    gastosConfig,
     margenPorcentaje,
     beneficioPorcentaje: beneficioInput,
     impuestosDetalle = [],
@@ -639,15 +691,22 @@ export function calcularTotalesPresupuesto(params: {
     ? safeNum(factorSinergiaManoObra)
     : 1.0;
 
-  // 1. Costo (C) por ítem y global
-  let subtotalInsumos = 0;
-  let subtotalManoObra = 0;
+  // 1. Costos Directos Base (Insumos, MO, Servicios)
+  let subtotalInsumosBase = 0;
   let subtotalManoObraTeorica = 0;
-  let subtotalServiciosTercerizados = 0;
-  let costoGlobal = 0;
-  const itemCosts: number[] = [];
+  let subtotalManoObraBase = 0;
+  let subtotalServiciosBase = 0;
+
+  // Mapas por capítulo para distribución precisa
+  const chapterBases: Record<string, { insumos: number; mo: number; moTeorica: number; servicios: number; itemsCount: number }> = {};
 
   for (const item of items) {
+    const capId = item.capituloId || 'sin_capitulo';
+    if (!chapterBases[capId]) {
+      chapterBases[capId] = { insumos: 0, mo: 0, moTeorica: 0, servicios: 0, itemsCount: 0 };
+    }
+    chapterBases[capId].itemsCount++;
+
     let cInsumos = safeNum(item.costoInsumos);
     if (item.insumosSnapshot && item.insumosSnapshot.length > 0) {
       if (isFacturaC_or_X) {
@@ -678,79 +737,165 @@ export function calcularTotalesPresupuesto(params: {
       cServicios = safeNum(item.costoServiciosTercerizados);
     }
 
-    subtotalInsumos = roundMoney(subtotalInsumos + cInsumos);
+    subtotalInsumosBase = roundMoney(subtotalInsumosBase + cInsumos);
     subtotalManoObraTeorica = roundMoney(subtotalManoObraTeorica + cManoObraTeorica);
-    subtotalManoObra = roundMoney(subtotalManoObra + cManoObra);
-    subtotalServiciosTercerizados = roundMoney(subtotalServiciosTercerizados + cServicios);
+    subtotalManoObraBase = roundMoney(subtotalManoObraBase + cManoObra);
+    subtotalServiciosBase = roundMoney(subtotalServiciosBase + cServicios);
 
-    const hasSnapshots = (item.insumosSnapshot && item.insumosSnapshot.length > 0) ||
-                         (item.manoObraSnapshot && item.manoObraSnapshot.length > 0) ||
-                         (item.serviciosTercerizados && item.serviciosTercerizados.length > 0);
-
-    const itemCosto = hasSnapshots
-      ? roundMoney(cInsumos + cManoObra + cServicios)
-      : roundMoney(safeNum(item.costoDirectoTotal) || safeNum(item.costoTotal));
-
-    itemCosts.push(itemCosto);
-    costoGlobal = roundMoney(costoGlobal + itemCosto);
+    chapterBases[capId].insumos = roundMoney(chapterBases[capId].insumos + cInsumos);
+    chapterBases[capId].moTeorica = roundMoney(chapterBases[capId].moTeorica + cManoObraTeorica);
+    chapterBases[capId].mo = roundMoney(chapterBases[capId].mo + cManoObra);
+    chapterBases[capId].servicios = roundMoney(chapterBases[capId].servicios + cServicios);
   }
 
-  // 2. Gastos Generales (GG):
-  // - GG Absolutos: suma de montos fijos (seguros, fletes, etc.)
-  // - GG Porcentuales: suma de porcentajes a aplicar sobre la base (C + GG_absolutos)
-  let totalGGAbsolutos = 0;
-  let porcentajeGGPct = 0;
+  const ahorroSinergiaManoObra = roundMoney(Math.max(0, subtotalManoObraTeorica - subtotalManoObraBase));
+
+  // 2. Liquidación de Gastos Directos e Indirectos
+  // Normalizar la lista de configuración de gastos
+  const activeGastosConfig: GastoPresupuestoConfig[] = (gastosConfig && gastosConfig.length > 0)
+    ? gastosConfig
+    : (costosIndirectosConfig && costosIndirectosConfig.length > 0)
+      ? costosIndirectosConfig
+      : costosIndirectosCatalog
+          .filter(c => c.incluirPorDefecto !== false)
+          .map(c => ({
+            id: c.id,
+            nombre: c.nombre,
+            destino: 'costo_indirecto' as DestinoGasto,
+            modalidad: (c.tipo === 'porcentual_sobre_costo' ? 'porcentual' : 'monto_fijo') as ModalidadGasto,
+            valor: c.valor,
+            aplica: true
+          }));
+
+  let gastosMaterialesTotal = 0;
+  let gastosManoObraTotal = 0;
+  let gastosServiciosTotal = 0;
+  let totalIndirectosAbsolutos = 0;
+  let porcentajeIndirectosPct = 0;
+
+  const gastosDesglosados: GastoDesglosadoResultado[] = [];
   const costosIndirectosAplicados: CostoIndirectoSnapshot[] = [];
+  const chapterGastosDirectos: Record<string, number> = {};
 
-  const rawConfig = (costosIndirectosConfig && costosIndirectosConfig.length > 0)
-    ? costosIndirectosConfig
-    : costosIndirectosCatalog
-        .filter(c => c.incluirPorDefecto !== false)
-        .map(c => ({ id: c.id, nombre: c.nombre, tipo: c.tipo, valor: c.valor, aplica: true }));
+  // Scope base para fórmulas paramétricas
+  const formulaScopeBase = {
+    materiales: subtotalInsumosBase,
+    mano_obra: subtotalManoObraBase,
+    servicios: subtotalServiciosBase,
+    costo_directo_base: roundMoney(subtotalInsumosBase + subtotalManoObraBase + subtotalServiciosBase)
+  };
 
-  for (const c of rawConfig) {
-    if (c.aplica) {
-      if (c.tipo === 'porcentual_sobre_costo') {
-        porcentajeGGPct += safeNum(c.valor);
-      } else {
-        totalGGAbsolutos = roundMoney(totalGGAbsolutos + safeNum(c.valor));
+  for (const g of activeGastosConfig) {
+    if (!g.aplica) continue;
+
+    const destino: DestinoGasto = g.destino || 'costo_indirecto';
+    const modalidad: ModalidadGasto = g.modalidad || (
+      g.tipo === 'porcentual_sobre_costo' ? 'porcentual' : 'monto_fijo'
+    );
+    const val = safeNum(g.valor);
+    const capId = g.capituloId;
+
+    // Determinar la base imponible correspondiente
+    let baseImponible = 0;
+    if (capId && chapterBases[capId]) {
+      if (destino === 'materiales') baseImponible = chapterBases[capId].insumos;
+      else if (destino === 'mano_obra') baseImponible = chapterBases[capId].mo;
+      else if (destino === 'servicios') baseImponible = chapterBases[capId].servicios;
+      else baseImponible = roundMoney(chapterBases[capId].insumos + chapterBases[capId].mo + chapterBases[capId].servicios);
+    } else {
+      if (destino === 'materiales') baseImponible = subtotalInsumosBase;
+      else if (destino === 'mano_obra') baseImponible = subtotalManoObraBase;
+      else if (destino === 'servicios') baseImponible = subtotalServiciosBase;
+      else baseImponible = formulaScopeBase.costo_directo_base;
+    }
+
+    let montoCalculado = 0;
+    if (modalidad === 'porcentual') {
+      montoCalculado = roundMoney(baseImponible * (val / 100));
+    } else if (modalidad === 'monto_fijo') {
+      montoCalculado = roundMoney(val);
+    } else if (modalidad === 'parametrico' && g.formula) {
+      try {
+        const evalRes = evaluateMathExpression(g.formula, {
+          ...formulaScopeBase,
+          base: baseImponible,
+          materiales: capId && chapterBases[capId] ? chapterBases[capId].insumos : subtotalInsumosBase,
+          mano_obra: capId && chapterBases[capId] ? chapterBases[capId].mo : subtotalManoObraBase,
+          servicios: capId && chapterBases[capId] ? chapterBases[capId].servicios : subtotalServiciosBase
+        });
+        montoCalculado = roundMoney(Math.max(0, evalRes.value ?? 0));
+      } catch {
+        montoCalculado = 0;
       }
     }
-  }
 
-  // Base global = C + Total_GG_absolutos
-  const baseGlobal = roundMoney(costoGlobal + totalGGAbsolutos);
-  const ggPorcentualGlobal = roundMoney(baseGlobal * (porcentajeGGPct / 100));
-  const gastosGeneralesTotal = roundMoney(totalGGAbsolutos + ggPorcentualGlobal);
-
-  // Registro de snapshots de costos indirectos
-  for (const c of rawConfig) {
-    if (c.aplica) {
-      let montoCalculado = 0;
-      if (c.tipo === 'porcentual_sobre_costo') {
-        montoCalculado = roundMoney(baseGlobal * (safeNum(c.valor) / 100));
+    // Acumular según destino
+    if (destino === 'materiales') {
+      gastosMaterialesTotal = roundMoney(gastosMaterialesTotal + montoCalculado);
+      if (capId) chapterGastosDirectos[capId] = roundMoney((chapterGastosDirectos[capId] || 0) + montoCalculado);
+    } else if (destino === 'mano_obra') {
+      gastosManoObraTotal = roundMoney(gastosManoObraTotal + montoCalculado);
+      if (capId) chapterGastosDirectos[capId] = roundMoney((chapterGastosDirectos[capId] || 0) + montoCalculado);
+    } else if (destino === 'servicios') {
+      gastosServiciosTotal = roundMoney(gastosServiciosTotal + montoCalculado);
+      if (capId) chapterGastosDirectos[capId] = roundMoney((chapterGastosDirectos[capId] || 0) + montoCalculado);
+    } else {
+      // Costo Indirecto
+      if (modalidad === 'porcentual') {
+        porcentajeIndirectosPct += val;
       } else {
-        montoCalculado = roundMoney(safeNum(c.valor));
+        totalIndirectosAbsolutos = roundMoney(totalIndirectosAbsolutos + montoCalculado);
       }
       costosIndirectosAplicados.push({
-        costoIndirectoId: c.id,
-        nombre: c.nombre,
-        tipo: c.tipo,
-        valorAplicado: safeNum(c.valor),
+        costoIndirectoId: g.id,
+        nombre: g.nombre,
+        tipo: g.tipo || (modalidad === 'porcentual' ? 'porcentual_sobre_costo' : 'fijo_mensual'),
+        valorAplicado: val,
         montoCalculado
       });
     }
+
+    gastosDesglosados.push({
+      id: g.id,
+      nombre: g.nombre,
+      destino,
+      modalidad,
+      valor: val,
+      formula: g.formula,
+      capituloId: g.capituloId,
+      baseImponible,
+      montoCalculado,
+      aplica: true
+    });
   }
 
-  // 3. Beneficio (B): %beneficio sobre (Base + GG_porcentual) = (C + GG_total)
+  // 3. Totales Directos Consolidados
+  const subtotalInsumosTotal = roundMoney(subtotalInsumosBase + gastosMaterialesTotal);
+  const subtotalManoObraTotal = roundMoney(subtotalManoObraBase + gastosManoObraTotal);
+  const subtotalServiciosTotal = roundMoney(subtotalServiciosBase + gastosServiciosTotal);
+  const costoGlobal = roundMoney(subtotalInsumosTotal + subtotalManoObraTotal + subtotalServiciosTotal);
+
+  // 4. Costos Indirectos Globales (GG)
+  const baseIndirectos = roundMoney(costoGlobal + totalIndirectosAbsolutos);
+  const indirectosPorcentuales = roundMoney(baseIndirectos * (porcentajeIndirectosPct / 100));
+  const gastosGeneralesTotal = roundMoney(totalIndirectosAbsolutos + indirectosPorcentuales);
+
+  // Actualizar monto calculado en costosIndirectosAplicados con la base APU real
+  costosIndirectosAplicados.forEach(c => {
+    if (c.tipo === 'porcentual_sobre_costo') {
+      c.montoCalculado = roundMoney(baseIndirectos * (c.valorAplicado / 100));
+    }
+  });
+
+  // 5. Beneficio (B) = %beneficio × (C + GG)
   const beneficioPct = safeNum(beneficioInput !== undefined ? beneficioInput : margenPorcentaje);
   const baseCostoMasGG = roundMoney(costoGlobal + gastosGeneralesTotal);
   const beneficioMonto = roundMoney(baseCostoMasGG * (beneficioPct / 100));
 
-  // 4. Subtotal (S) = C + GG + B
+  // 6. Subtotal Sin Impuestos (S) = C + GG + B
   const subtotalSinImpuestos = roundMoney(costoGlobal + gastosGeneralesTotal + beneficioMonto);
 
-  // 5. Impuestos: calculados sobre Subtotal (S), sin cascada entre ellos
+  // 7. Impuestos: calculados sobre Subtotal (S)
   let montoImpuestosTotal = 0;
   let impuestosPorcentajeTotal = 0;
 
@@ -770,135 +915,132 @@ export function calcularTotalesPresupuesto(params: {
     };
   });
 
-  // 6. Precio Final Global = S + Impuestos
+  // 8. Precio Final Global = S + Impuestos
   const precioFinalGlobal = roundMoney(subtotalSinImpuestos + montoImpuestosTotal);
 
-  // 7. Coeficiente de Venta Global (K = Precio Final / Costo Global)
-  const coeficienteK = costoGlobal > 0 ? precioFinalGlobal / costoGlobal : 1;
+  // 9. Coeficiente de Venta Global (K = Precio Final / Costo Global)
+  const coeficienteK = costoGlobal > 0 ? roundMoney4(precioFinalGlobal / costoGlobal) : 1;
 
-  // 8. LÓGICA DE PRORRATEO APU (Análisis de Precios Unitarios en Cascada por Ítem)
-  let accumulatedGGAbs = 0;
-  let accumulatedBase = 0;
-  let accumulatedGGPct = 0;
-  let accumulatedBeneficio = 0;
-  let accumulatedSubtotal = 0;
-  let accumulatedImpuestos = 0;
-  let accumulatedPrecioFinal = 0;
-
-  const numItems = items.length;
+  // 10. APU y Precios de Venta por Ítem (Costo Directo del Ítem × K)
+  let sumaGGAbsProrrateado = 0;
+  let sumaSubtotalesItems = 0;
+  let sumaPreciosFinalesItems = 0;
 
   const itemsCalculados: ItemPresupuesto[] = items.map((item, idx) => {
-    const cant = Math.max(0.0001, safeNum(item.cantidad) || 1);
-    const itemC = itemCosts[idx];
-    const isLast = idx === numItems - 1 && numItems > 1;
-
-    // 1. Incidencia de costo del ítem
-    const incidencia = costoGlobal > 0 ? (itemC / costoGlobal) : (numItems > 0 ? 1 / numItems : 1);
-
-    // 2. Prorrateo de GG Absoluto
-    let ggAbsolutoProrrateado = roundMoney(totalGGAbsolutos * incidencia);
-    if (isLast && totalGGAbsolutos > 0) {
-      const diffGGAbs = roundMoney(totalGGAbsolutos - (accumulatedGGAbs + ggAbsolutoProrrateado));
-      if (Math.abs(diffGGAbs) <= 0.10) {
-        ggAbsolutoProrrateado = roundMoney(ggAbsolutoProrrateado + diffGGAbs);
+    let cInsumos = safeNum(item.costoInsumos);
+    if (item.insumosSnapshot && item.insumosSnapshot.length > 0) {
+      if (isFacturaC_or_X) {
+        cInsumos = roundMoney(
+          item.insumosSnapshot.reduce((acc, i) => {
+            if (i.subtotalInsumoFinal !== undefined) return acc + safeNum(i.subtotalInsumoFinal);
+            const alicuota = i.alicuotaIVA !== undefined ? safeNum(i.alicuotaIVA) : 21;
+            const unitFinal = i.precioFinalUnitarioCongelado ?? roundMoney(i.precioUnitarioCongelado * (1 + alicuota / 100));
+            return acc + roundMoney(unitFinal * i.cantidadTotal);
+          }, 0)
+        );
+      } else {
+        cInsumos = roundMoney(
+          item.insumosSnapshot.reduce((acc, i) => acc + safeNum(i.subtotalInsumo), 0)
+        );
       }
     }
-    accumulatedGGAbs = roundMoney(accumulatedGGAbs + ggAbsolutoProrrateado);
 
-    // 3. Nueva Base de Costo del Ítem
-    let baseCostoItem = roundMoney(itemC + ggAbsolutoProrrateado);
-    if (isLast && baseGlobal > 0) {
-      const diffBase = roundMoney(baseGlobal - (accumulatedBase + baseCostoItem));
-      if (Math.abs(diffBase) <= 0.10) {
-        baseCostoItem = roundMoney(baseCostoItem + diffBase);
-      }
+    const cManoObra = roundMoney(safeNum(item.costoManoObra) * sinergiaFactor);
+    let cServicios = 0;
+    if (item.serviciosTercerizados && item.serviciosTercerizados.length > 0) {
+      cServicios = roundMoney(item.serviciosTercerizados.reduce((acc, s) => acc + safeNum(s.costo), 0));
+    } else {
+      cServicios = safeNum(item.costoServiciosTercerizados);
     }
-    accumulatedBase = roundMoney(accumulatedBase + baseCostoItem);
 
-    // 4. GG Porcentual del Ítem
-    let ggPorcentualItem = roundMoney(baseCostoItem * (porcentajeGGPct / 100));
-    if (isLast && ggPorcentualGlobal > 0) {
-      const diffGGPct = roundMoney(ggPorcentualGlobal - (accumulatedGGPct + ggPorcentualItem));
-      if (Math.abs(diffGGPct) <= 0.10) {
-        ggPorcentualItem = roundMoney(ggPorcentualItem + diffGGPct);
-      }
+    // Prorrateo de gastos directos proporcionales a sus rubros
+    const matInc = subtotalInsumosBase > 0 ? cInsumos / subtotalInsumosBase : 0;
+    const moInc = subtotalManoObraBase > 0 ? cManoObra / subtotalManoObraBase : 0;
+    const servInc = subtotalServiciosBase > 0 ? cServicios / subtotalServiciosBase : 0;
+
+    const gMatItem = roundMoney(gastosMaterialesTotal * matInc);
+    const gMoItem = roundMoney(gastosManoObraTotal * moInc);
+    const gServItem = roundMoney(gastosServiciosTotal * servInc);
+
+    const costoDirectoItem = roundMoney(cInsumos + gMatItem + cManoObra + gMoItem + cServicios + gServItem);
+    const cant = safeNum(item.cantidad) > 0 ? safeNum(item.cantidad) : 1;
+
+    // APU Cascade
+    const incidencia = costoGlobal > 0 ? roundMoney4(costoDirectoItem / costoGlobal) : (items.length > 0 ? roundMoney4(1 / items.length) : 0);
+
+    let ggAbsolutoProrrateado = roundMoney(totalIndirectosAbsolutos * incidencia);
+    if (idx === items.length - 1 && items.length > 1) {
+      ggAbsolutoProrrateado = roundMoney(totalIndirectosAbsolutos - sumaGGAbsProrrateado);
     }
-    accumulatedGGPct = roundMoney(accumulatedGGPct + ggPorcentualItem);
+    sumaGGAbsProrrateado = roundMoney(sumaGGAbsProrrateado + ggAbsolutoProrrateado);
 
-    // 5. Beneficio del Ítem = (Base_item + GG_porcentual_item) * porcentaje_Beneficio
-    let beneficioItem = roundMoney((baseCostoItem + ggPorcentualItem) * (beneficioPct / 100));
-    if (isLast && beneficioMonto > 0) {
-      const diffB = roundMoney(beneficioMonto - (accumulatedBeneficio + beneficioItem));
-      if (Math.abs(diffB) <= 0.10) {
-        beneficioItem = roundMoney(beneficioItem + diffB);
-      }
-    }
-    accumulatedBeneficio = roundMoney(accumulatedBeneficio + beneficioItem);
+    const baseCostoItem = roundMoney(costoDirectoItem + ggAbsolutoProrrateado);
+    const ggPorcentualItem = roundMoney(baseCostoItem * (porcentajeIndirectosPct / 100));
+    const beneficioItem = roundMoney((baseCostoItem + ggPorcentualItem) * (beneficioPct / 100));
 
-    // 6. Subtotal del Ítem = Base_item + GG_porcentual_item + Beneficio_item
     let subtotalItem = roundMoney(baseCostoItem + ggPorcentualItem + beneficioItem);
-    if (isLast && subtotalSinImpuestos > 0) {
-      const diffS = roundMoney(subtotalSinImpuestos - (accumulatedSubtotal + subtotalItem));
-      if (Math.abs(diffS) <= 0.10) {
-        subtotalItem = roundMoney(subtotalItem + diffS);
-      }
+    if (idx === items.length - 1 && items.length > 1) {
+      subtotalItem = roundMoney(subtotalSinImpuestos - sumaSubtotalesItems);
     }
-    accumulatedSubtotal = roundMoney(accumulatedSubtotal + subtotalItem);
+    sumaSubtotalesItems = roundMoney(sumaSubtotalesItems + subtotalItem);
 
-    // 7. Impuestos del Ítem = Σ(impuesto_i% * Subtotal_item)
-    let impuestosItem = roundMoney(subtotalItem * (impuestosPorcentajeTotal / 100));
-    if (isLast && montoImpuestosTotal > 0) {
-      const diffImp = roundMoney(montoImpuestosTotal - (accumulatedImpuestos + impuestosItem));
-      if (Math.abs(diffImp) <= 0.10) {
-        impuestosItem = roundMoney(impuestosItem + diffImp);
-      }
-    }
-    accumulatedImpuestos = roundMoney(accumulatedImpuestos + impuestosItem);
+    const impuestosItem = roundMoney(subtotalItem * (impuestosPorcentajeTotal / 100));
 
-    // 8. Precio Final del Ítem = Subtotal_item + Impuestos_item
     let precioFinalItem = roundMoney(subtotalItem + impuestosItem);
-    if (isLast && precioFinalGlobal > 0) {
-      const diffPF = roundMoney(precioFinalGlobal - (accumulatedPrecioFinal + precioFinalItem));
-      if (Math.abs(diffPF) <= 0.10) {
-        precioFinalItem = roundMoney(precioFinalItem + diffPF);
-      }
+    if (idx === items.length - 1 && items.length > 1) {
+      precioFinalItem = roundMoney(precioFinalGlobal - sumaPreciosFinalesItems);
     }
-    accumulatedPrecioFinal = roundMoney(accumulatedPrecioFinal + precioFinalItem);
+    sumaPreciosFinalesItems = roundMoney(sumaPreciosFinalesItems + precioFinalItem);
 
-    const precioVentaUnitarioItem = roundMoney(precioFinalItem / cant);
+    const precioVentaTotal = precioFinalItem;
+    const precioVentaUnitario = roundMoney(precioVentaTotal / cant);
 
     return {
       ...item,
-      costoInsumos: roundMoney(safeNum(item.costoInsumos)),
-      costoManoObra: roundMoney(safeNum(item.costoManoObra)),
-      costoServiciosTercerizados: roundMoney(safeNum(item.costoServiciosTercerizados)),
-      costoDirectoTotal: itemC,
-      costoUnitario: roundMoney(itemC / cant),
-      costoTotal: itemC,
-
-      // APU Prorrateado
-      incidencia: Math.round(incidencia * 10000) / 10000,
+      costoInsumos: cInsumos,
+      costoManoObra: cManoObra,
+      costoServiciosTercerizados: cServicios,
+      costoDirectoTotal: costoDirectoItem,
+      costoTotal: costoDirectoItem,
+      incidencia,
       ggAbsolutoProrrateado,
       baseCostoItem,
       ggPorcentualItem,
+      costoTotalItem: roundMoney(baseCostoItem + ggPorcentualItem),
       beneficioItem,
       subtotalItem,
       impuestosItem,
       precioFinalItem,
-
-      // Precios de Venta Finales del Renglón
-      precioVentaClienteTotal: precioFinalItem,
-      precioVentaClienteUnitario: precioVentaUnitarioItem,
-      precioVentaTotal: precioFinalItem,
-      precioVentaUnitario: precioVentaUnitarioItem
+      precioVentaClienteTotal: precioVentaTotal,
+      precioVentaUnitario,
+      precioVentaTotal
     };
   });
 
-  // Conversión a Moneda Extranjera
-  let totalMonedaExtranjera: number | undefined = undefined;
-  const cotizacion = safeNum(cotizacionMonedaExtranjera, true);
-  if (cotizacion > 0) {
-    totalMonedaExtranjera = roundMoney(precioFinalGlobal / cotizacion);
+  // 11. Totales por Capítulo
+  const capitulosTotales: Record<string, CapituloTotalResultado> = {};
+  const allCapitulos = [
+    ...(capitulos || []),
+    { id: 'sin_capitulo', nombre: 'Partidas Generales' }
+  ];
+
+  for (const cap of allCapitulos) {
+    const base = chapterBases[cap.id] || { insumos: 0, mo: 0, moTeorica: 0, servicios: 0, itemsCount: 0 };
+    const gDirectos = chapterGastosDirectos[cap.id] || 0;
+    const cDirecto = roundMoney(base.insumos + base.mo + base.servicios + gDirectos);
+    const pVenta = roundMoney(cDirecto * (coeficienteK || 1));
+
+    capitulosTotales[cap.id] = {
+      id: cap.id,
+      nombre: cap.nombre,
+      costoInsumos: base.insumos,
+      costoManoObra: base.mo,
+      costoServicios: base.servicios,
+      gastosDirectos: gDirectos,
+      costoDirectoTotal: cDirecto,
+      precioVentaTotal: pVenta,
+      itemsCount: base.itemsCount
+    };
   }
 
   return {
@@ -914,20 +1056,36 @@ export function calcularTotalesPresupuesto(params: {
     coeficienteK,
     itemsCalculados,
 
-    // Compatibilidad y Sinergia
-    subtotalInsumos,
-    subtotalManoObra,
+    subtotalInsumosBase,
+    gastosMaterialesTotal,
+    subtotalInsumos: subtotalInsumosTotal,
+    subtotalInsumosTotal,
+
     subtotalManoObraTeorica,
-    ahorroSinergiaManoObra: roundMoney(subtotalManoObraTeorica - subtotalManoObra),
-    subtotalServiciosTercerizados,
+    subtotalManoObraBase,
+    ahorroSinergiaManoObra,
+    gastosManoObraTotal,
+    subtotalManoObra: subtotalManoObraTotal,
+    subtotalManoObraTotal,
+
+    subtotalServiciosBase,
+    gastosServiciosTotal,
+    subtotalServiciosTercerizados: subtotalServiciosTotal,
+    subtotalServiciosTotal,
+
     subtotalCostosDirectos: costoGlobal,
     subtotalCostosIndirectos: gastosGeneralesTotal,
     costosIndirectosAplicados,
+    gastosDesglosados,
+    capitulosTotales,
+
     costoTotalObra: baseCostoMasGG,
     montoGanancia: beneficioMonto,
     precioVentaSinImpuestos: subtotalSinImpuestos,
     totalARS: precioFinalGlobal,
-    totalMonedaExtranjera
+    totalMonedaExtranjera: cotizacionMonedaExtranjera && cotizacionMonedaExtranjera > 0
+      ? roundMoney(precioFinalGlobal / cotizacionMonedaExtranjera)
+      : undefined
   };
 }
 

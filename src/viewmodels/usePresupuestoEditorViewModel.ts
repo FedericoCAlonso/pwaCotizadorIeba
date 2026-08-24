@@ -17,7 +17,9 @@ import {
   ParametrosEstimacionMaterial,
   MaterialFilterContext,
   EstrategiaCuadrilla,
-  PlanificacionCuadrilla
+  PlanificacionCuadrilla,
+  CapituloPresupuesto,
+  GastoPresupuestoConfig
 } from '../core/types';
 import {
   calcularTotalesPresupuesto,
@@ -81,6 +83,8 @@ export function usePresupuestoEditorViewModel({
   const [margenPorcentaje, setMargenPorcentaje] = useState<number>(config.margenPorDefectoPct || 30);
   const [tipoFactura, setTipoFactura] = useState<TipoFactura>(config.tipoFacturaPorDefecto || 'Factura C');
   const [items, setItems] = useState<ItemPresupuesto[]>([]);
+  const [capitulos, setCapitulos] = useState<CapituloPresupuesto[]>([]);
+  const [gastosConfig, setGastosConfig] = useState<GastoPresupuestoConfig[]>([]);
   const [costosIndirectosConfig, setCostosIndirectosConfig] = useState<CostoIndirectoItemConfig[]>([]);
 
   const [mostrarDolar, setMostrarDolar] = useState<boolean>(config.mostrarDolarPorDefecto ?? false);
@@ -115,6 +119,10 @@ export function usePresupuestoEditorViewModel({
   const [showInSituEditorModal, setShowInSituEditorModal] = useState(false);
   const [editingItemIndexForInSituModal, setEditingItemIndexForInSituModal] = useState<number | null>(null);
   const [editingTareaForInSituModal, setEditingTareaForInSituModal] = useState<TareaTipo | null>(null);
+
+  // Modal de Gestión de Gastos
+  const [showGastoModal, setShowGastoModal] = useState(false);
+  const [editingGasto, setEditingGasto] = useState<GastoPresupuestoConfig | null>(null);
   
   const [estrategiaCuadrilla, setEstrategiaCuadrilla] = useState<EstrategiaCuadrilla>('optima');
   const [aplicarOptimizacionCuadrilla, setAplicarOptimizacionCuadrilla] = useState<boolean>(true);
@@ -127,8 +135,15 @@ export function usePresupuestoEditorViewModel({
       setValidezDias(existingPresupuesto.validezDias);
       setMargenPorcentaje(existingPresupuesto.beneficioPorcentaje ?? existingPresupuesto.margenPorcentaje ?? 30);
       setTipoFactura(existingPresupuesto.tipoFactura);
+      setCapitulos(existingPresupuesto.capitulos || []);
       setItems(existingPresupuesto.items || []);
-      setCostosIndirectosConfig(existingPresupuesto.costosIndirectosConfig || []);
+      
+      const loadedGastos = existingPresupuesto.gastosConfig && existingPresupuesto.gastosConfig.length > 0
+        ? existingPresupuesto.gastosConfig
+        : existingPresupuesto.costosIndirectosConfig || [];
+      setGastosConfig(loadedGastos);
+      setCostosIndirectosConfig(loadedGastos);
+
       if (existingPresupuesto.impuestosDetalle && existingPresupuesto.impuestosDetalle.length > 0) {
         setImpuestosDetalle(existingPresupuesto.impuestosDetalle);
       }
@@ -147,21 +162,11 @@ export function usePresupuestoEditorViewModel({
       const year = new Date().getFullYear();
       const seq = config.siguienteNumeroCorrelativo || 1001;
       setNumero(`${config.prefijoPresupuesto || 'IEBA'}-${year}-${seq.toString().padStart(4, '0')}`);
-      setCostosIndirectosConfig(
-        costosIndirectos
-          .filter(ci => ci.incluirPorDefecto !== false)
-          .map(ci => ({
-            costoIndirectoId: ci.id,
-            id: ci.id,
-            nombre: ci.nombre,
-            tipo: ci.tipo,
-            valor: ci.valor,
-            activo: true,
-            aplica: true
-          }))
-      );
+      setCapitulos([]);
+      setGastosConfig([]);
+      setCostosIndirectosConfig([]);
     }
-  }, [existingPresupuesto, config, costosIndirectos.length]);
+  }, [existingPresupuesto, config]);
 
   // ─── Planificación de Cuadrilla & Sinergia de Obra ───────────────────────────
   const resultadoCuadrilla = useMemo(() => {
@@ -179,6 +184,8 @@ export function usePresupuestoEditorViewModel({
   const totales = useMemo(() => {
     return calcularTotalesPresupuesto({
       items,
+      capitulos,
+      gastosConfig,
       costosIndirectosConfig,
       costosIndirectosCatalog: costosIndirectos,
       beneficioPorcentaje: margenPorcentaje,
@@ -187,7 +194,104 @@ export function usePresupuestoEditorViewModel({
       cotizacionMonedaExtranjera: cotizacionDolar,
       factorSinergiaManoObra: aplicarOptimizacionCuadrilla ? resultadoCuadrilla.planificacion.factorSinergiaAplicado : 1.0
     });
-  }, [items, costosIndirectosConfig, costosIndirectos, margenPorcentaje, tipoFactura, impuestosDetalle, cotizacionDolar, config, aplicarOptimizacionCuadrilla, resultadoCuadrilla]);
+  }, [items, capitulos, gastosConfig, costosIndirectosConfig, costosIndirectos, margenPorcentaje, tipoFactura, impuestosDetalle, cotizacionDolar, config, aplicarOptimizacionCuadrilla, resultadoCuadrilla]);
+
+  // ─── Capítulo & Gastos Management ──────────────────────────────────────────
+  const handleAddCapitulo = (nombre = 'Nuevo Capítulo') => {
+    const newCap: CapituloPresupuesto = {
+      id: `cap-${Date.now()}`,
+      nombre,
+      orden: capitulos.length + 1
+    };
+    setCapitulos(prev => [...prev, newCap]);
+    toast.success(`Capítulo "${nombre}" creado`);
+  };
+
+  const handleUpdateCapitulo = (id: string, nombre: string) => {
+    setCapitulos(prev => prev.map(c => c.id === id ? { ...c, nombre } : c));
+  };
+
+  const handleRemoveCapitulo = (id: string) => {
+    setCapitulos(prev => prev.filter(c => c.id !== id));
+    setItems(prev => prev.map(it => it.capituloId === id ? { ...it, capituloId: undefined } : it));
+    toast.info('Capítulo eliminado');
+  };
+
+  const handleSaveGasto = (gasto: GastoPresupuestoConfig) => {
+    setGastosConfig(prev => {
+      const idx = prev.findIndex(g => g.id === gasto.id);
+      if (idx !== -1) {
+        const next = [...prev];
+        next[idx] = gasto;
+        return next;
+      }
+      return [...prev, gasto];
+    });
+    setCostosIndirectosConfig(prev => {
+      const idx = prev.findIndex(g => g.id === gasto.id);
+      if (idx !== -1) {
+        const next = [...prev];
+        next[idx] = gasto;
+        return next;
+      }
+      return [...prev, gasto];
+    });
+    toast.success(`Gasto "${gasto.nombre}" guardado`);
+  };
+
+  const handleRemoveGasto = (id: string) => {
+    setGastosConfig(prev => prev.filter(g => g.id !== id));
+    setCostosIndirectosConfig(prev => prev.filter(g => g.id !== id));
+    toast.info('Gasto eliminado');
+  };
+
+  const handleToggleGasto = (idx: number) => {
+    setGastosConfig(prev => {
+      const next = [...prev];
+      if (next[idx]) {
+        next[idx] = { ...next[idx], aplica: !next[idx].aplica };
+      }
+      return next;
+    });
+    setCostosIndirectosConfig(prev => {
+      const next = [...prev];
+      if (next[idx]) {
+        next[idx] = { ...next[idx], aplica: !next[idx].aplica };
+      }
+      return next;
+    });
+  };
+
+  const handleAddServicioDirecto = (capituloId?: string) => {
+    const newItem: ItemPresupuesto = {
+      id: `item-${crypto.randomUUID()}`,
+      capituloId,
+      tipoItem: 'servicio_tercerizado',
+      descripcion: 'Alquiler de Equipo / Servicio Tercerizado',
+      cantidad: 1,
+      unidad: 'gl',
+      precioManual: 0,
+      costoUnitario: 0,
+      costoInsumos: 0,
+      costoManoObra: 0,
+      costoServiciosTercerizados: 0,
+      costoDirectoTotal: 0,
+      costoTotal: 0,
+      precioVentaUnitario: 0,
+      precioVentaTotal: 0,
+      insumosSnapshot: [],
+      manoObraSnapshot: [],
+      serviciosTercerizados: [
+        {
+          id: `serv-${crypto.randomUUID()}`,
+          descripcion: 'Alquiler de Equipo / Servicio',
+          costo: 0
+        }
+      ]
+    };
+    setItems(prev => [...prev, newItem]);
+    toast.success('Servicio tercerizado agregado');
+  };
 
   const handleToggleTax = (index: number) => {
     setImpuestosDetalle(prev => {
@@ -508,9 +612,11 @@ export function usePresupuestoEditorViewModel({
     toast.success(`Material "${insumo.nombre}" agregado`);
   };
 
-  const handleAddDirectItem = () => {
+  const handleAddDirectItem = (capituloId?: string) => {
     const newItem: ItemPresupuesto = {
       id: `item-${crypto.randomUUID()}`,
+      capituloId,
+      tipoItem: 'item_libre',
       descripcion: '',
       notasTecnicas: '',
       cantidad: 1,
@@ -519,6 +625,7 @@ export function usePresupuestoEditorViewModel({
       costoUnitario: 0,
       costoInsumos: 0,
       costoManoObra: 0,
+      costoServiciosTercerizados: 0,
       costoDirectoTotal: 0,
       costoTotal: 0,
       precioVentaUnitario: 0,
@@ -776,8 +883,10 @@ export function usePresupuestoEditorViewModel({
       fechaEmision: existingPresupuesto?.fechaEmision || now,
       validezDias,
       tipoFactura,
+      capitulos,
       items: totales.itemsCalculados,
-      costosIndirectosConfig,
+      gastosConfig,
+      costosIndirectosConfig: gastosConfig.length > 0 ? gastosConfig : costosIndirectosConfig,
       costosIndirectosAplicados: totales.costosIndirectosAplicados,
 
       // Planificación de Sinergia de Obra & Cuadrilla
@@ -851,14 +960,21 @@ export function usePresupuestoEditorViewModel({
     setTipoFactura,
     items,
     setItems,
+    capitulos,
+    setCapitulos,
+    handleAddCapitulo,
+    handleUpdateCapitulo,
+    handleRemoveCapitulo,
+    gastosConfig,
+    setGastosConfig,
     costosIndirectosConfig,
     setCostosIndirectosConfig,
     impuestosDetalle,
     setImpuestosDetalle,
     mostrarDolar,
     setMostrarDolar,
-    nombreDolar,
     setNombreDolar,
+    nombreDolar,
     cotizacionDolar,
     setCotizacionDolar,
     condicionesPagoTexto,
@@ -896,8 +1012,16 @@ export function usePresupuestoEditorViewModel({
     setEditingItemIndexForInSituModal,
     editingTareaForInSituModal,
     setEditingTareaForInSituModal,
+    showGastoModal,
+    setShowGastoModal,
+    editingGasto,
+    setEditingGasto,
 
     // Actions & Commands
+    handleSaveGasto,
+    handleRemoveGasto,
+    handleToggleGasto,
+    handleAddServicioDirecto,
     handleAddTareaTipoItem,
     handleOpenParametricModalForNewTask,
     handleOpenParametricModalForExistingItem,

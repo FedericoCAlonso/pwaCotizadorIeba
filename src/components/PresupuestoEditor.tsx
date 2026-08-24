@@ -8,7 +8,11 @@ import {
   Layers,
   Package,
   Calendar,
-  Lock
+  Lock,
+  FolderPlus,
+  Folder,
+  Truck,
+  Trash2
 } from 'lucide-react';
 import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
 import { TareaEditorModal } from './tareasTipo/TareaEditorModal';
@@ -17,7 +21,9 @@ import {
   ItemPresupuesto,
   TipoFactura,
   MaterialFilterContext,
-  CostoIndirecto
+  CostoIndirecto,
+  CapituloPresupuesto,
+  GastoPresupuestoConfig
 } from '../core/types';
 import {
   formatARS,
@@ -35,6 +41,7 @@ import { ItemPickerModal } from './presupuesto/ItemPickerModal';
 import { EmisionPresupuestoModal } from './presupuesto/EmisionPresupuestoModal';
 import { ParametricJobModal } from './presupuesto/ParametricJobModal';
 import { ParametricMaterialModal } from './presupuesto/ParametricMaterialModal';
+import { GastoEditorModal } from './presupuesto/GastoEditorModal';
 import { ClienteCombobox } from './presupuesto/ClienteCombobox';
 import { usePresupuestoEditorViewModel } from '../viewmodels/usePresupuestoEditorViewModel';
 
@@ -122,6 +129,19 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     handleAddInsumoItem,
     handleAddDirectItem,
     handleAddCustomItem,
+    handleAddServicioDirecto,
+    capitulos,
+    handleAddCapitulo,
+    handleUpdateCapitulo,
+    handleRemoveCapitulo,
+    gastosConfig,
+    showGastoModal,
+    setShowGastoModal,
+    editingGasto,
+    setEditingGasto,
+    handleSaveGasto,
+    handleRemoveGasto,
+    handleToggleGasto,
     handleUpdateItemNotasTecnicas,
     handleUpdateItem,
     handleRemoveItem,
@@ -373,79 +393,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     });
   };
 
-  // Indirect Costs handlers
-  const handleToggleIndirectCost = (index: number) => {
-    setCostosIndirectosConfig((prev) => {
-      const next = [...prev];
-      next[index].aplica = !next[index].aplica;
-      return next;
-    });
-  };
 
-  const handleUpdateIndirectCostValor = (index: number, val: number) => {
-    setCostosIndirectosConfig((prev) => {
-      const next = [...prev];
-      next[index].valor = Math.max(0, safeNum(val));
-      return next;
-    });
-  };
-
-  const handleUpdateIndirectCostName = (index: number, name: string) => {
-    setCostosIndirectosConfig((prev) => {
-      const next = [...prev];
-      next[index].nombre = name;
-      return next;
-    });
-  };
-
-  const handleRemoveIndirectCost = (index: number) => {
-    setCostosIndirectosConfig((prev) => prev.filter((_, idx) => idx !== index));
-  };
-
-  const handleAddCustomIndirectCost = () => {
-    setCostosIndirectosConfig((prev) => [
-      ...prev,
-      {
-        id: `ci-custom-${Date.now()}`,
-        nombre: 'Nuevo Gasto General',
-        tipo: 'porcentual_sobre_costo',
-        valor: 5,
-        aplica: true
-      }
-    ]);
-  };
-
-  const handleAddCatalogIndirectCost = (ci: CostoIndirecto) => {
-    setCostosIndirectosConfig((prev) => [
-      ...prev,
-      {
-        costoIndirectoId: ci.id,
-        id: ci.id,
-        nombre: ci.nombre,
-        tipo: ci.tipo,
-        valor: ci.valor,
-        aplica: true
-      }
-    ]);
-    toast.success(`Gasto General "${ci.nombre}" agregado`);
-  };
-
-  const handleResetIndirectCosts = () => {
-    setCostosIndirectosConfig(
-      costosIndirectos
-        .filter((ci) => ci.incluirPorDefecto !== false)
-        .map((ci) => ({
-          costoIndirectoId: ci.id,
-          id: ci.id,
-          nombre: ci.nombre,
-          tipo: ci.tipo,
-          valor: ci.valor,
-          activo: true,
-          aplica: true
-        }))
-    );
-    toast.success('Gastos Generales por defecto restablecidos');
-  };
 
 
 
@@ -615,31 +563,59 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </div>
 
           {/* Items / Partidas Section */}
-          <div className="bg-surface-container-low rounded-3xl p-6 space-y-5 border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow">
+          <div className="bg-surface-container-low rounded-3xl p-5 sm:p-6 space-y-5 border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-              <h3 className="text-sm font-bold text-primary uppercase tracking-wide">
-                Partidas & Tareas a Ejecutar ({items.length})
-              </h3>
+              <div>
+                <h3 className="text-sm font-bold text-primary uppercase tracking-wide flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-primary" />
+                  <span>Partidas de la Cotización ({items.length})</span>
+                </h3>
+                {capitulos.length > 0 && (
+                  <span className="text-[11px] text-on-surface-variant">
+                    {capitulos.length} {capitulos.length === 1 ? 'capítulo organizado' : 'capítulos organizados'}
+                  </span>
+                )}
+              </div>
+
+              {/* M3 Actions Toolbar */}
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowItemPickerModal(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-full text-xs font-semibold transition-colors"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-full text-xs font-bold transition-all"
                   title="Seleccionar tarea tipificada del catálogo (Alt + C)"
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  <span>Cargar Tarea</span>
+                  <span>Trabajo Tipo</span>
                   <span className="text-[10px] opacity-60 font-mono hidden md:inline">Alt+C</span>
                 </button>
                 <button
                   type="button"
-                  onClick={handleAddDirectItem}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-primary hover:bg-primary/90 text-on-primary rounded-full text-xs font-semibold transition-colors shadow-xs"
+                  onClick={() => handleAddCustomItem()}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-primary hover:bg-primary/90 text-on-primary rounded-full text-xs font-bold transition-all shadow-xs"
                   title="Agregar un renglón o partida directa para esta cotización (Alt + N)"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Ítem Directo</span>
+                  <span>Ítem Libre</span>
                   <span className="text-[10px] opacity-75 font-mono hidden md:inline">Alt+N</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddServicioDirecto()}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 rounded-full text-xs font-bold transition-all"
+                  title="Agregar Alquiler de Equipo / Servicio Tercerizado"
+                >
+                  <Truck className="w-3.5 h-3.5" />
+                  <span>Servicio</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddCapitulo()}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface rounded-full text-xs font-bold transition-all border border-outline-variant/30"
+                  title="Crear un nuevo capítulo o ambiente de obra"
+                >
+                  <FolderPlus className="w-3.5 h-3.5 text-primary" />
+                  <span>Nuevo Capítulo</span>
                 </button>
               </div>
             </div>
@@ -690,16 +666,16 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               })()
             )}
 
-            {/* Items Table */}
+            {/* Items Rendering (With or Without Chapters) */}
             {items.length === 0 ? (
               <div className="text-center py-16 border-2 border-dashed border-outline-variant/50 rounded-2xl bg-surface-container">
                 <Layers className="w-10 h-10 text-outline mx-auto mb-3" />
                 <p className="text-base font-medium text-on-surface">Aún no agregaste partidas a esta cotización.</p>
                 <p className="text-sm text-on-surface-variant mt-2 max-w-md mx-auto">
-                  Presiona <strong>"Ítem Directo"</strong> (Alt+N) para agregar un concepto libre o <strong>"Cargar Tarea"</strong> (Alt+C) para seleccionar del catálogo.
+                  Presiona <strong>"Ítem Libre"</strong> (Alt+N), <strong>"Trabajo Tipo"</strong> (Alt+C) o <strong>"Servicio"</strong> para comenzar.
                 </p>
               </div>
-            ) : (
+            ) : capitulos.length === 0 ? (
               <div className="space-y-3">
                 {items.map((item, idx) => {
                   const isExpanded = !!expandedItems[item.id];
@@ -755,6 +731,200 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                   );
                 })}
               </div>
+            ) : (
+              <div className="space-y-6">
+                {capitulos.map((cap) => {
+                  const capItems = items
+                    .map((item, idx) => ({ item, originalIdx: idx }))
+                    .filter(({ item }) => item.capituloId === cap.id);
+                  const capTotal = totales.capitulosTotales?.[cap.id];
+
+                  return (
+                    <div
+                      key={cap.id}
+                      className="bg-surface-container/50 border border-outline-variant/30 rounded-3xl p-4 sm:p-5 space-y-3.5"
+                    >
+                      {/* Chapter Header */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/20 pb-3">
+                        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                          <Folder className="w-4 h-4 text-primary shrink-0" />
+                          <input
+                            type="text"
+                            value={cap.nombre}
+                            onChange={(e) => handleUpdateCapitulo(cap.id, e.target.value)}
+                            className="bg-transparent border-none p-0 text-sm font-bold text-on-surface focus:ring-0 w-full"
+                            placeholder="Nombre del Capítulo..."
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {capTotal && (
+                            <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
+                              Subtotal: {formatARS(capTotal.precioVentaTotal)}
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCapitulo(cap.id)}
+                            className="p-1.5 text-on-surface-variant hover:text-error rounded-full transition-colors"
+                            title="Eliminar Capítulo"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Chapter Items */}
+                      {capItems.length === 0 ? (
+                        <p className="text-xs text-on-surface-variant/70 italic py-2">
+                          Sin partidas en este capítulo.
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {capItems.map(({ item, originalIdx }) => {
+                            const isExpanded = !!expandedItems[item.id];
+                            const calcItem = totales.itemsCalculados[originalIdx] || item;
+
+                            return (
+                              <PresupuestoItemRow
+                                key={item.id}
+                                item={item}
+                                index={originalIdx}
+                                calcItem={calcItem}
+                                isExpanded={isExpanded}
+                                titleInputRef={(el) => {
+                                  if (el) itemTitleRefs.current.set(item.id, el);
+                                  else itemTitleRefs.current.delete(item.id);
+                                }}
+                                onEnterAtEnd={() => handleAddCustomItem(cap.id)}
+                                onToggleExpand={handleToggleExpandItem}
+                                onUpdateItemCondicion={handleUpdateItemCondicion}
+                                onUpdateItemQuantity={handleUpdateItemQuantity}
+                                onUpdateItemUnit={handleUpdateItemUnit}
+                                onUpdateItemUnitDirectCost={handleUpdateItemUnitDirectCost}
+                                onUpdateItemDescription={handleUpdateItemDescription}
+                                onUpdateItemNotasTecnicas={handleUpdateItemNotasTecnicas}
+                                onRemoveItem={handleRemoveItem}
+                                onSaveAsTemplate={(targetItem) => {
+                                  const itemInsumos = (targetItem.insumosSnapshot || []).map((ins) => ({
+                                    materialId: ins.materialId || ins.insumoId,
+                                    productoId: ins.productoId,
+                                    cantidad: ins.cantidadTotal
+                                  }));
+                                  const itemManoObra = (targetItem.manoObraSnapshot || []).map((mo) => ({
+                                    categoriaId: mo.categoriaId,
+                                    horas: mo.horasTotales
+                                  }));
+                                  setSaveAsTemplateData({
+                                    nombre: targetItem.descripcion || 'Nueva Tarea Tipo',
+                                    notasTecnicas: targetItem.notasTecnicas || targetItem.clausulaTecnica || '',
+                                    unidad: targetItem.unidad || 'u',
+                                    insumos: itemInsumos,
+                                    manoObra: itemManoObra
+                                  });
+                                  setShowSaveAsTemplateModal(true);
+                                }}
+                                onOpenParametricModal={handleOpenParametricModalForExistingItem}
+                                onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
+                                onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
+                                condicionesTrabajo={condicionesTrabajo}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Add Item to this Chapter button */}
+                      <div className="pt-2 border-t border-outline-variant/15 flex items-center justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleAddCustomItem(cap.id)}
+                          className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>+ Partida en este Capítulo</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Unassigned Items Block */}
+                {(() => {
+                  const unassigned = items
+                    .map((item, idx) => ({ item, originalIdx: idx }))
+                    .filter(({ item }) => !item.capituloId);
+
+                  if (unassigned.length === 0) return null;
+
+                  return (
+                    <div className="bg-surface-container/30 border border-dashed border-outline-variant/30 rounded-3xl p-4 sm:p-5 space-y-3">
+                      <div className="flex items-center justify-between border-b border-outline-variant/20 pb-2">
+                        <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+                          Partidas Generales (Sin Capítulo Asignado)
+                        </span>
+                        <span className="text-xs font-mono font-bold text-on-surface-variant">
+                          {unassigned.length} {unassigned.length === 1 ? 'partida' : 'partidas'}
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        {unassigned.map(({ item, originalIdx }) => {
+                          const isExpanded = !!expandedItems[item.id];
+                          const calcItem = totales.itemsCalculados[originalIdx] || item;
+
+                          return (
+                            <PresupuestoItemRow
+                              key={item.id}
+                              item={item}
+                              index={originalIdx}
+                              calcItem={calcItem}
+                              isExpanded={isExpanded}
+                              titleInputRef={(el) => {
+                                if (el) itemTitleRefs.current.set(item.id, el);
+                                else itemTitleRefs.current.delete(item.id);
+                              }}
+                              onEnterAtEnd={handleAddDirectItem}
+                              onToggleExpand={handleToggleExpandItem}
+                              onUpdateItemCondicion={handleUpdateItemCondicion}
+                              onUpdateItemQuantity={handleUpdateItemQuantity}
+                              onUpdateItemUnit={handleUpdateItemUnit}
+                              onUpdateItemUnitDirectCost={handleUpdateItemUnitDirectCost}
+                              onUpdateItemDescription={handleUpdateItemDescription}
+                              onUpdateItemNotasTecnicas={handleUpdateItemNotasTecnicas}
+                              onRemoveItem={handleRemoveItem}
+                              onSaveAsTemplate={(targetItem) => {
+                                const itemInsumos = (targetItem.insumosSnapshot || []).map((ins) => ({
+                                  materialId: ins.materialId || ins.insumoId,
+                                  productoId: ins.productoId,
+                                  cantidad: ins.cantidadTotal
+                                }));
+                                const itemManoObra = (targetItem.manoObraSnapshot || []).map((mo) => ({
+                                  categoriaId: mo.categoriaId,
+                                  horas: mo.horasTotales
+                                }));
+                                setSaveAsTemplateData({
+                                  nombre: targetItem.descripcion || 'Nueva Tarea Tipo',
+                                  notasTecnicas: targetItem.notasTecnicas || targetItem.clausulaTecnica || '',
+                                  unidad: targetItem.unidad || 'u',
+                                  insumos: itemInsumos,
+                                  manoObra: itemManoObra
+                                });
+                                setShowSaveAsTemplateModal(true);
+                              }}
+                              onOpenParametricModal={handleOpenParametricModalForExistingItem}
+                              onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
+                              onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
+                              condicionesTrabajo={condicionesTrabajo}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             )}
           </div>
 
@@ -795,15 +965,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           <PresupuestoTotalsCard
             totales={totales}
             tipoFactura={tipoFactura}
-            costosIndirectosConfig={costosIndirectosConfig}
-            costosIndirectosCatalog={costosIndirectos}
-            onToggleIndirectCost={handleToggleIndirectCost}
-            onUpdateIndirectCostName={handleUpdateIndirectCostName}
-            onUpdateIndirectCostValor={handleUpdateIndirectCostValor}
-            onRemoveIndirectCost={handleRemoveIndirectCost}
-            onAddCustomIndirectCost={handleAddCustomIndirectCost}
-            onAddCatalogIndirectCost={handleAddCatalogIndirectCost}
-            onResetIndirectCosts={handleResetIndirectCosts}
+            gastosConfig={gastosConfig}
+            onOpenGastoModal={(g) => {
+              setEditingGasto(g || null);
+              setShowGastoModal(true);
+            }}
+            onToggleGasto={handleToggleGasto}
+            onRemoveGasto={handleRemoveGasto}
             margenPorcentaje={margenPorcentaje}
             onMargenPorcentajeChange={setMargenPorcentaje}
             onToggleTax={handleToggleTax}
@@ -915,6 +1083,23 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           submitButtonText="Aplicar a la Cotización"
         />
       )}
+
+      {/* Gasto & Modificadores Modal */}
+      <GastoEditorModal
+        isOpen={showGastoModal}
+        onClose={() => {
+          setShowGastoModal(false);
+          setEditingGasto(null);
+        }}
+        gastoToEdit={editingGasto}
+        capitulos={capitulos}
+        onSave={handleSaveGasto}
+        onDelete={handleRemoveGasto}
+        baseMateriales={totales.subtotalInsumosBase}
+        baseManoObra={totales.subtotalManoObraBase}
+        baseServicios={totales.subtotalServiciosBase}
+        baseCostoDirecto={totales.costoGlobal}
+      />
     </div>
   );
 };

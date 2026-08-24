@@ -529,6 +529,8 @@ export interface CostoIndirectoSnapshot {
 
 export interface ItemPresupuesto {
   id: string;
+  capituloId?: string;
+  tipoItem?: 'tarea_tipo' | 'material_directo' | 'servicio_tercerizado' | 'item_libre';
   tareaTipoId?: string;
   materialId?: string;
   productoId?: string;
@@ -670,13 +672,31 @@ export interface PlanificacionCuadrilla {
   aplicarOptimizacionAlPresupuesto: boolean;
 }
 
-export interface CostoIndirectoItemConfig {
+export interface CapituloPresupuesto {
   id: string;
   nombre: string;
-  tipo: TipoCostoIndirecto;
-  valor: number;
-  aplica: boolean;
+  orden?: number;
+  descripcion?: string;
 }
+
+export type DestinoGasto = 'materiales' | 'mano_obra' | 'servicios' | 'costo_indirecto';
+export type ModalidadGasto = 'porcentual' | 'monto_fijo' | 'parametrico';
+
+export interface GastoPresupuestoConfig {
+  id: string;
+  costoIndirectoId?: string;
+  nombre: string;
+  destino?: DestinoGasto; // 'materiales' | 'mano_obra' | 'servicios' | 'costo_indirecto'
+  modalidad?: ModalidadGasto; // 'porcentual' | 'monto_fijo' | 'parametrico'
+  valor: number; // Porcentaje o Monto Fijo
+  formula?: string; // Para modalidad === 'parametrico'
+  capituloId?: string; // Si está definido, aplica solo a ese capítulo. Si es undefined o '', aplica a toda la cotización.
+  aplica: boolean;
+  activo?: boolean;
+  tipo?: TipoCostoIndirecto; // Compatibilidad retroactiva
+}
+
+export type CostoIndirectoItemConfig = GastoPresupuestoConfig;
 
 export interface Presupuesto {
   id: string;
@@ -688,7 +708,9 @@ export interface Presupuesto {
 
   tipoFactura: TipoFactura;
 
+  capitulos?: CapituloPresupuesto[];
   items: ItemPresupuesto[];
+  gastosConfig?: GastoPresupuestoConfig[];
   costosIndirectosConfig?: CostoIndirectoItemConfig[];
   costosIndirectosAplicados: CostoIndirectoSnapshot[];
 
