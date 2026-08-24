@@ -406,6 +406,8 @@ export interface VariableCalculadaTrabajoTipo {
 // Alias de conveniencia
 export type VariableTrabajoTipo = ParametroTrabajoTipo;
 
+export type NaturalezaTrabajo = 'instalacion' | 'servicio_profesional' | 'servicio_tercerizado';
+
 export interface CuadrillaRecomendada {
   oficiales: number;
   ayudantes: number;
@@ -416,6 +418,11 @@ export interface TareaTipo {
   nombre: string;
   categoria: string;
   unidad: string;
+  naturaleza?: NaturalezaTrabajo; // 'instalacion' | 'servicio_profesional' | 'servicio_tercerizado'
+  honorarioBase?: number; // Honorario técnico / profesional base (para protocolos, ensayos, certificaciones)
+  formulaHonorarios?: string; // Fórmula matemática de honorarios (ej: "honorario_base + jabalinas * 20000")
+  costoServicioDirecto?: number; // Costo directo de servicio / subcontrato
+
   notasTecnicas?: string;
   clausulaExclusiones?: string; // Texto de exclusiones y resguardo legal / técnico
 
@@ -555,9 +562,12 @@ export interface ItemPresupuesto {
 
   costoInsumos: number;
   costoManoObra: number;
+  costoServicios?: number; // Costo directo de servicios u honorarios técnicos
   costoServiciosTercerizados?: number;
   costoDirectoTotal: number;
 
+  naturaleza?: NaturalezaTrabajo;
+  formulaHonorarios?: string;
   condicionTrabajo?: 'normal' | 'dificultosa' | 'favorable';
   parametrosTrabajoTipo?: ParametrosTrabajoTipo;
   parametrosEstimacionMaterial?: ParametrosEstimacionMaterial;

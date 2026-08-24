@@ -15,6 +15,10 @@ import {
   Calculator,
   ChevronDown,
   ChevronUp,
+  GraduationCap,
+  Truck,
+  FileCheck2,
+  Zap,
   Variable as VariableIcon
 } from 'lucide-react';
 import {
@@ -27,13 +31,15 @@ import {
   VariableCalculadaTrabajoTipo,
   OpcionVariableTrabajo,
   FiltroMaterialEnTarea,
-  CuadrillaRecomendada
+  CuadrillaRecomendada,
+  NaturalezaTrabajo
 } from '../../core/types';
 import {
   calcularConsumosTareaTipo,
   resolverMaterialPorFiltro,
   formatARS,
-  DEFAULT_CLAUSULA_OBRA_EXISTENTE
+  DEFAULT_CLAUSULA_OBRA_EXISTENTE,
+  DEFAULT_CLAUSULA_SRT_900
 } from '../../core/calculations';
 import { evaluateMathExpression, evaluateCondition } from '../../core/mathEvaluator';
 import { ModalContainer } from '../ModalContainer';
@@ -46,6 +52,10 @@ export interface TareaFormData {
   nombre: string;
   categoria: string;
   unidad: string;
+  naturaleza?: NaturalezaTrabajo;
+  honorarioBase?: number;
+  formulaHonorarios?: string;
+  costoServicioDirecto?: number;
   notasTecnicas: string;
   clausulaExclusiones?: string;
   costoFijoOperativo?: number;
@@ -90,6 +100,10 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
     nombre: '',
     categoria: categoriasList[0] || 'Bocas',
     unidad: 'punto',
+    naturaleza: 'instalacion',
+    honorarioBase: 0,
+    formulaHonorarios: '',
+    costoServicioDirecto: 0,
     notasTecnicas: '',
     clausulaExclusiones: '',
     costoFijoOperativo: 0,
@@ -158,6 +172,10 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
         nombre: editingTarea.nombre,
         categoria: editingTarea.categoria || categoriasList[0] || 'Bocas',
         unidad: editingTarea.unidad || 'punto',
+        naturaleza: editingTarea.naturaleza || 'instalacion',
+        honorarioBase: editingTarea.honorarioBase || 0,
+        formulaHonorarios: editingTarea.formulaHonorarios || '',
+        costoServicioDirecto: editingTarea.costoServicioDirecto || 0,
         notasTecnicas: editingTarea.notasTecnicas || '',
         clausulaExclusiones: editingTarea.clausulaExclusiones || editingTarea.clausulaTecnicaDefault || '',
         costoFijoOperativo: editingTarea.costoFijoOperativo || 0,
@@ -180,6 +198,10 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
         nombre: '',
         categoria: categoriasList[0] || 'Bocas',
         unidad: 'boca',
+        naturaleza: 'instalacion',
+        honorarioBase: 0,
+        formulaHonorarios: '',
+        costoServicioDirecto: 0,
         notasTecnicas: '',
         clausulaExclusiones: '',
         costoFijoOperativo: 0,
@@ -224,6 +246,10 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
       nombre: formData.nombre || 'Vista Previa',
       categoria: formData.categoria,
       unidad: formData.unidad,
+      naturaleza: formData.naturaleza,
+      honorarioBase: formData.honorarioBase,
+      formulaHonorarios: formData.formulaHonorarios,
+      costoServicioDirecto: formData.costoServicioDirecto,
       parametros: formData.parametros,
       variables: formData.variables,
       costoFijoOperativo: formData.costoFijoOperativo,
@@ -473,8 +499,91 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
       >
         <form onSubmit={handleSubmit} className="space-y-6">
 
-          {/* 1. Datos Generales */}
+          {/* 1. Naturaleza y Datos Generales */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Selector de Naturaleza de Partida */}
+            <div className="sm:col-span-2 space-y-1.5">
+              <label className="block text-xs font-bold text-on-surface uppercase tracking-wider">
+                Naturaleza de la Partida / Trabajo Tipo
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, naturaleza: 'instalacion' })}
+                  className={`p-3 rounded-2xl border text-left transition flex items-start gap-2.5 ${
+                    (!formData.naturaleza || formData.naturaleza === 'instalacion')
+                      ? 'bg-primary/10 border-primary text-primary font-bold shadow-2xs'
+                      : 'bg-surface-container border-outline-variant/25 text-on-surface hover:bg-surface-container-high'
+                  }`}
+                >
+                  <Package className="w-4 h-4 mt-0.5 shrink-0" />
+                  <div>
+                    <div className="text-xs font-bold">📦 Montaje / Obra (APU)</div>
+                    <div className="text-[10px] text-on-surface-variant font-normal leading-tight mt-0.5">
+                      Materiales + Mano de Obra (MOD)
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next: TareaFormData = {
+                      ...formData,
+                      naturaleza: 'servicio_profesional',
+                      unidad: formData.unidad === 'bocas' || formData.unidad === 'punto' ? 'servicio' : formData.unidad
+                    };
+                    if (!next.parametros || next.parametros.length === 0 || (next.parametros.length === 1 && next.parametros[0].id === 'bocas')) {
+                      next.parametros = [
+                        { id: 'cantidad_jabalinas', nombre: 'Cantidad de Jabalinas / Puntos PAT', tipo: 'numero', valorDefault: 1, unidad: 'jabalinas' },
+                        { id: 'cantidad_tableros', nombre: 'Cantidad de Tableros Eléctricos', tipo: 'numero', valorDefault: 2, unidad: 'tableros' },
+                        { id: 'con_visado_colegial', nombre: 'Requiere Visado / Timbrado Colegial', tipo: 'boolean', valorDefault: 1, unidad: 'Sí/No' }
+                      ];
+                    }
+                    if (!next.formulaHonorarios) {
+                      next.formulaHonorarios = 'honorario_base + (cantidad_jabalinas > 1 ? (cantidad_jabalinas - 1) * 20000 : 0) + (cantidad_tableros * 10000) + (con_visado_colegial == 1 ? 35000 : 0)';
+                      next.honorarioBase = next.honorarioBase || 120000;
+                    }
+                    if (!next.clausulaExclusiones) {
+                      next.clausulaExclusiones = DEFAULT_CLAUSULA_SRT_900;
+                    }
+                    setFormData(next);
+                  }}
+                  className={`p-3 rounded-2xl border text-left transition flex items-start gap-2.5 ${
+                    formData.naturaleza === 'servicio_profesional'
+                      ? 'bg-purple-500/15 border-purple-500 text-purple-700 dark:text-purple-300 font-bold shadow-2xs'
+                      : 'bg-surface-container border-outline-variant/25 text-on-surface hover:bg-surface-container-high'
+                  }`}
+                >
+                  <GraduationCap className="w-4 h-4 mt-0.5 shrink-0 text-purple-600 dark:text-purple-400" />
+                  <div>
+                    <div className="text-xs font-bold">🎓 Servicio Profesional / Ensayo</div>
+                    <div className="text-[10px] text-on-surface-variant font-normal leading-tight mt-0.5">
+                      Protocolo SRT 900/15, Termografía, DCI
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, naturaleza: 'servicio_tercerizado' })}
+                  className={`p-3 rounded-2xl border text-left transition flex items-start gap-2.5 ${
+                    formData.naturaleza === 'servicio_tercerizado'
+                      ? 'bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-300 font-bold shadow-2xs'
+                      : 'bg-surface-container border-outline-variant/25 text-on-surface hover:bg-surface-container-high'
+                  }`}
+                >
+                  <Truck className="w-4 h-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <div>
+                    <div className="text-xs font-bold">🚜 Servicio Tercerizado</div>
+                    <div className="text-[10px] text-on-surface-variant font-normal leading-tight mt-0.5">
+                      Alquiler plataforma, grúa, subcontrato
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-on-surface uppercase tracking-wide mb-1">
                 Nombre de la Tarea / Trabajo Tipo *
@@ -485,7 +594,11 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                 value={formData.nombre}
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                 className={inputCls}
-                placeholder="Ej: Recableado Integral de Circuito, Boca de Iluminación..."
+                placeholder={
+                  formData.naturaleza === 'servicio_profesional'
+                    ? 'Ej: Medición y Protocolo Puesta a Tierra SRT 900/15, Estudio Termográfico...'
+                    : 'Ej: Recableado Integral de Circuito, Boca de Iluminación...'
+                }
               />
             </div>
 
@@ -513,7 +626,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                 value={formData.unidad}
                 onChange={(e) => setFormData({ ...formData, unidad: e.target.value })}
                 className={inputCls}
-                placeholder="ej: depto, tablero, boca, m, global, u"
+                placeholder="ej: servicio, protocolo, depto, tablero, boca, u"
               />
             </div>
 
@@ -524,10 +637,128 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                 value={formData.notasTecnicas}
                 onChange={(e) => setFormData({ ...formData, notasTecnicas: e.target.value })}
                 className={inputCls}
-                placeholder="Especificaciones norma IRAM o montaje"
+                placeholder={
+                  formData.naturaleza === 'servicio_profesional'
+                    ? 'Ej: Medición según IRAM 2281 / Res. SRT 900/15 con instrumental calibrado vigente.'
+                    : 'Especificaciones norma IRAM o montaje'
+                }
               />
             </div>
           </div>
+
+          {/* Sección Dedicada para Servicios Profesionales / Protocolos */}
+          {formData.naturaleza === 'servicio_profesional' && (
+            <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <GraduationCap className="w-4 h-4" />
+                    <span>Honorarios Profesionales, Aranceles y Ensayos Técnicos</span>
+                  </h4>
+                  <p className="text-[11px] text-on-surface-variant">
+                    Define la tarifa base y/o fórmula de honorarios técnicos para el servicio profesional o protocolo reglamentario.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addParametro({ id: 'cantidad_jabalinas', nombre: 'Cantidad de Jabalinas / Puntos PAT', tipo: 'numero', valorDefault: 1, unidad: 'jabalinas' });
+                      toast.success('Parámetro "cantidad_jabalinas" añadido');
+                    }}
+                    className="text-[10px] font-bold px-2 py-1 bg-purple-500/15 hover:bg-purple-500/25 text-purple-700 dark:text-purple-300 rounded-lg transition"
+                  >
+                    + ⚡ Jabalinas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addParametro({ id: 'cantidad_tableros', nombre: 'Cantidad de Tableros Eléctricos', tipo: 'numero', valorDefault: 2, unidad: 'tableros' });
+                      toast.success('Parámetro "cantidad_tableros" añadido');
+                    }}
+                    className="text-[10px] font-bold px-2 py-1 bg-purple-500/15 hover:bg-purple-500/25 text-purple-700 dark:text-purple-300 rounded-lg transition"
+                  >
+                    + 🔌 Tableros
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addParametro({ id: 'con_visado_colegial', nombre: 'Requiere Visado / Timbrado Colegial', tipo: 'boolean', valorDefault: 1, unidad: 'Sí/No' });
+                      toast.success('Parámetro "con_visado_colegial" añadido');
+                    }}
+                    className="text-[10px] font-bold px-2 py-1 bg-purple-500/15 hover:bg-purple-500/25 text-purple-700 dark:text-purple-300 rounded-lg transition"
+                  >
+                    + 📜 Visado Colegial
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
+                <div className="sm:col-span-4">
+                  <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
+                    Honorario Profesional Base ($)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={formData.honorarioBase || 0}
+                    onChange={(e) => setFormData({ ...formData, honorarioBase: parseFloat(e.target.value) || 0 })}
+                    className={inputCls}
+                    placeholder="120000"
+                  />
+                  <span className="text-[10px] text-on-surface-variant mt-0.5 block">
+                    Costo base por informe / visita técnica.
+                  </span>
+                </div>
+
+                <div className="sm:col-span-8">
+                  <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
+                    Fórmula Matemática de Honorarios y Ensayos
+                  </label>
+                  <FormulaInput
+                    value={formData.formulaHonorarios || ''}
+                    onChange={(val) => setFormData({ ...formData, formulaHonorarios: val })}
+                    parametros={[
+                      { id: 'honorario_base', nombre: 'Honorario Base', unidad: '$' },
+                      ...formData.parametros
+                    ]}
+                    variables={formData.variables}
+                    showChips={true}
+                    placeholder="ej: honorario_base + (cantidad_jabalinas > 1 ? (cantidad_jabalinas - 1) * 20000 : 0) + (con_visado_colegial == 1 ? 35000 : 0)"
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sección para Servicio Tercerizado */}
+          {formData.naturaleza === 'servicio_tercerizado' && (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-3">
+              <h4 className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Truck className="w-4 h-4" />
+                <span>Costo de Servicio Tercerizado / Subcontrato</span>
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
+                    Costo Directo del Servicio ($)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={formData.costoServicioDirecto || 0}
+                    onChange={(e) => setFormData({ ...formData, costoServicioDirecto: parseFloat(e.target.value) || 0 })}
+                    className={inputCls}
+                    placeholder="ej: 75000"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 2. Parámetros de Entrada (Inputs del Usuario) */}
           <div className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/25 space-y-4">
@@ -1363,32 +1594,46 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
             </div>
           </div>
 
-          {/* 6. Cláusula Técnica & Exclusiones de Obra */}
+          {/* 6. Cláusula Técnica & Exclusiones de Obra / Protocolo */}
           <div className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/25 space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="text-xs font-bold text-on-surface uppercase tracking-wide flex items-center gap-1.5">
                 <ShieldAlert className="w-4 h-4 text-amber-500" />
-                <span>6. Cláusula Técnica & Exclusiones de Obra (Sugerida para Presupuestos)</span>
+                <span>6. Cláusula Técnica & Exclusiones Sugeridas para Presupuesto</span>
               </label>
-              {!formData.clausulaExclusiones && (
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, clausulaExclusiones: DEFAULT_CLAUSULA_OBRA_EXISTENTE })}
-                  className="text-[10px] text-primary font-bold hover:underline"
-                >
-                  Insertar texto sugerido
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {formData.naturaleza === 'servicio_profesional' ? (
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, clausulaExclusiones: DEFAULT_CLAUSULA_SRT_900 })}
+                    className="text-[10px] text-purple-700 dark:text-purple-300 font-bold hover:underline"
+                  >
+                    Insertar cláusula Res. SRT 900/15
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, clausulaExclusiones: DEFAULT_CLAUSULA_OBRA_EXISTENTE })}
+                    className="text-[10px] text-primary font-bold hover:underline"
+                  >
+                    Insertar cláusula de obra existente
+                  </button>
+                )}
+              </div>
             </div>
             <p className="text-[11px] text-on-surface-variant">
-              Texto que se insertará en el presupuesto para delimitar el alcance, exclusiones (ej: cañerías tapadas, losas) y resguardos legales.
+              Texto que se insertará en el presupuesto para delimitar el alcance, exclusiones (ej: cañerías tapadas, no incluye reparaciones de jabalinas) y resguardos legales.
             </p>
             <textarea
               rows={3}
               value={formData.clausulaExclusiones || ''}
               onChange={(e) => setFormData({ ...formData, clausulaExclusiones: e.target.value })}
               className={`${inputCls} text-xs leading-relaxed`}
-              placeholder="Ej: La cotización contempla el reemplazo a través de canalizaciones transitables..."
+              placeholder={
+                formData.naturaleza === 'servicio_profesional'
+                  ? 'Ej: El servicio contempla la medición de puesta a tierra y disparo de diferenciales según Res. SRT 900/15...'
+                  : 'Ej: La cotización contempla el reemplazo a través de canalizaciones transitables...'
+              }
             />
           </div>
 
@@ -1403,7 +1648,15 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                 {formatARS(liveEvaluation.costoDirectoTotal)}
               </div>
             </div>
-            <div className="text-left sm:text-right font-mono text-[11px] text-on-surface-variant">
+            <div className="text-left sm:text-right font-mono text-[11px] text-on-surface-variant space-y-0.5">
+              {liveEvaluation.costoServiciosTotal !== undefined && liveEvaluation.costoServiciosTotal > 0 && (
+                <div>
+                  🎓 Honorarios / Servicios:{' '}
+                  <strong className="text-purple-700 dark:text-purple-300 font-bold">
+                    {formatARS(liveEvaluation.costoServiciosTotal)}
+                  </strong>
+                </div>
+              )}
               <div>Insumos: <strong className="text-on-surface">{formatARS(liveEvaluation.costoInsumosTotal)}</strong></div>
               <div>
                 Mano de Obra:{' '}

@@ -2036,5 +2036,81 @@ describe('15. Estructura de Gastos Directos vs Indirectos, Fórmulas Paramétric
       antiguedad_anos: 30
     });
   });
+
+  it('evalúa correctamente tareas tipo de naturaleza servicio profesional / protocolo (ej: SRT 900/15)', () => {
+    const tareaSRT900: TareaTipo = {
+      id: 'tt-protocolo-srt-900',
+      nombre: 'Medición y Protocolo de Puesta a Tierra SRT 900/15',
+      categoria: 'Medición / Protocolos',
+      unidad: 'servicio',
+      naturaleza: 'servicio_profesional',
+      honorarioBase: 120000,
+      formulaHonorarios: 'honorario_base + (cantidad_jabalinas > 1 ? (cantidad_jabalinas - 1) * 20000 : 0) + (cantidad_tableros * 10000) + (con_visado_colegial == 1 ? 35000 : 0)',
+      parametros: [
+        { id: 'cantidad_jabalinas', nombre: 'Cantidad de Jabalinas / Puntos PAT', tipo: 'numero', valorDefault: 1, unidad: 'jabalinas' },
+        { id: 'cantidad_tableros', nombre: 'Cantidad de Tableros Eléctricos', tipo: 'numero', valorDefault: 2, unidad: 'tableros' },
+        { id: 'con_visado_colegial', nombre: 'Requiere Visado Colegial', tipo: 'boolean', valorDefault: 1, unidad: 'Sí/No' },
+        { id: 'honorario_base', nombre: 'Honorario Base', tipo: 'numero', valorDefault: 120000, unidad: '$' }
+      ],
+      insumos: [],
+      manoObra: []
+    };
+
+    // Caso 1: Valores default (1 jabalina, 2 tableros, con visado)
+    // 120.000 + 0 + 2 * 10.000 + 35.000 = 175.000
+    const consumos1 = calcularConsumosTareaTipo(tareaSRT900, {}, insumosMap, manoObraMap);
+    expect(consumos1.costoServiciosTotal).toBe(175000);
+    expect(consumos1.costoDirectoTotal).toBe(175000);
+    expect(consumos1.costoInsumosTotal).toBe(0);
+    expect(consumos1.costoManoObraTotal).toBe(0);
+
+    // Caso 2: 3 jabalinas, 4 tableros, sin visado
+    // 120.000 + (3 - 1) * 20.000 + 4 * 10.000 + 0 = 120.000 + 40.000 + 40.000 = 200.000
+    const consumos2 = calcularConsumosTareaTipo(
+      tareaSRT900,
+      {
+        cantidad_jabalinas: 3,
+        cantidad_tableros: 4,
+        con_visado_colegial: 0,
+        honorario_base: 120000
+      },
+      insumosMap,
+      manoObraMap
+    );
+    expect(consumos2.costoServiciosTotal).toBe(200000);
+    expect(consumos2.costoDirectoTotal).toBe(200000);
+
+    // Integración en Presupuesto: Congelar y calcular totales con margen
+    const item: ItemPresupuesto = {
+      id: 'item-srt',
+      descripcion: tareaSRT900.nombre,
+      unidad: 'servicio',
+      cantidad: 1,
+      naturaleza: 'servicio_profesional',
+      costoServicios: consumos2.costoServiciosTotal,
+      costoInsumos: 0,
+      costoManoObra: 0,
+      costoDirectoTotal: 200000,
+      insumosSnapshot: [],
+      manoObraSnapshot: [],
+      precioVentaUnitario: 0,
+      precioVentaTotal: 0
+    };
+
+    const itemCongelado = congelarItemPresupuesto(item, 2);
+    expect(itemCongelado.cantidad).toBe(2);
+    expect(itemCongelado.costoServicios).toBe(400000);
+    expect(itemCongelado.costoDirectoTotal).toBe(400000);
+
+    const totales = calcularTotalesPresupuesto({
+      items: [itemCongelado],
+      margenPorcentaje: 25, // 25% margen
+      impuestosDetalle: []
+    });
+
+    expect(totales.subtotalServiciosBase).toBe(400000);
+    expect(totales.costoGlobal).toBe(400000);
+    expect(totales.precioFinalGlobal).toBe(500000); // 400.000 * 1.25
+  });
 });
 

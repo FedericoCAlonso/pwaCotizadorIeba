@@ -7,7 +7,8 @@ import {
   CheckCircle2,
   Package,
   Clock,
-  Calculator
+  Calculator,
+  GraduationCap
 } from 'lucide-react';
 import {
   TareaTipo,
@@ -124,13 +125,25 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
         {/* Header */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-outline-variant/20 bg-surface-container-low flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="p-2 sm:p-2.5 bg-primary/10 text-primary rounded-2xl shrink-0">
-              <Sliders className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className={`p-2 sm:p-2.5 rounded-2xl shrink-0 ${
+              tarea.naturaleza === 'servicio_profesional'
+                ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300'
+                : 'bg-primary/10 text-primary'
+            }`}>
+              {tarea.naturaleza === 'servicio_profesional' ? (
+                <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5" />
+              ) : (
+                <Sliders className="w-4 h-4 sm:w-5 sm:h-5" />
+              )}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="text-[10px] font-bold text-on-primary-container bg-primary-container px-2 py-0.5 rounded-full uppercase truncate">
-                  {tarea.categoria || 'Trabajo Tipo'}
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase truncate ${
+                  tarea.naturaleza === 'servicio_profesional'
+                    ? 'text-purple-800 dark:text-purple-200 bg-purple-500/20'
+                    : 'text-on-primary-container bg-primary-container'
+                }`}>
+                  {tarea.naturaleza === 'servicio_profesional' ? '🎓 Servicio Profesional' : (tarea.categoria || 'Trabajo Tipo')}
                 </span>
                 <span className="text-xs text-on-surface-variant font-mono shrink-0">
                   /{tarea.unidad || 'u'}
@@ -300,8 +313,35 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
             )}
           </div>
 
-          {/* 2. Consumos Calculados Automáticamente (Live Breakdown) */}
+          {/* 2. Consumos y Honorarios Calculados Automáticamente (Live Breakdown) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Honorarios Profesionales / Ensayos Técnicos si aplica */}
+            {calculosResultado.costoServiciosTotal !== undefined && calculosResultado.costoServiciosTotal > 0 && (
+              <div className="sm:col-span-2 bg-purple-500/10 p-3.5 rounded-2xl border border-purple-500/25 space-y-1.5">
+                <div className="flex items-center justify-between border-b border-purple-500/20 pb-1.5">
+                  <span className="font-bold text-xs text-purple-700 dark:text-purple-300 uppercase flex items-center gap-1">
+                    <GraduationCap className="w-3.5 h-3.5" />
+                    <span>Honorarios Profesionales, Medición y Certificación</span>
+                  </span>
+                  <span className="font-mono font-bold text-purple-700 dark:text-purple-300 text-sm">
+                    {formatARS(calculosResultado.costoServiciosTotal)}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-on-surface-variant">
+                  {tarea.honorarioBase !== undefined && tarea.honorarioBase > 0 && (
+                    <span className="bg-surface-container px-2 py-0.5 rounded-lg border border-outline-variant/20 font-mono">
+                      Honorario Base: <strong className="text-on-surface">{formatARS(tarea.honorarioBase)}</strong>
+                    </span>
+                  )}
+                  {tarea.formulaHonorarios && (
+                    <span className="bg-surface-container px-2 py-0.5 rounded-lg border border-outline-variant/20 font-mono truncate max-w-full">
+                      Fórmula: <code className="text-purple-700 dark:text-purple-300">{tarea.formulaHonorarios}</code>
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Insumos */}
             <div className="bg-surface-container-low p-3.5 rounded-2xl border border-outline-variant/20 space-y-2">
               <div className="flex items-center justify-between border-b border-outline-variant/15 pb-1.5">
@@ -314,19 +354,23 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
                 </span>
               </div>
               <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                {calculosResultado.insumosSnapshot.map((ins, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-[11px] py-1 border-b border-outline-variant/10">
-                    <div className="truncate flex-1 pr-2">
-                      <span className="font-medium text-on-surface block truncate">{ins.nombre}</span>
-                      <span className="text-[10px] text-on-surface-variant font-mono">
-                        {ins.cantidadTotal} {ins.unidad} a {formatARS(ins.precioUnitarioCongelado)}
+                {calculosResultado.insumosSnapshot.length === 0 ? (
+                  <p className="text-[11px] text-on-surface-variant italic py-1">Sin materiales requeridos</p>
+                ) : (
+                  calculosResultado.insumosSnapshot.map((ins, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-[11px] py-1 border-b border-outline-variant/10">
+                      <div className="truncate flex-1 pr-2">
+                        <span className="font-medium text-on-surface block truncate">{ins.nombre}</span>
+                        <span className="text-[10px] text-on-surface-variant font-mono">
+                          {ins.cantidadTotal} {ins.unidad} a {formatARS(ins.precioUnitarioCongelado)}
+                        </span>
+                      </div>
+                      <span className="font-mono font-bold text-on-surface shrink-0">
+                        {formatARS(ins.subtotalInsumo)}
                       </span>
                     </div>
-                    <span className="font-mono font-bold text-on-surface shrink-0">
-                      {formatARS(ins.subtotalInsumo)}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
@@ -342,19 +386,23 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
                 </span>
               </div>
               <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                {calculosResultado.manoObraSnapshot.map((mo, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-[11px] py-1 border-b border-outline-variant/10">
-                    <div className="truncate flex-1 pr-2">
-                      <span className="font-medium text-on-surface block truncate">{mo.nombreCategoria}</span>
-                      <span className="text-[10px] text-on-surface-variant font-mono">
-                        {mo.horasTotales} hs a {formatARS(mo.costoHoraCongelado)}/h
+                {calculosResultado.manoObraSnapshot.length === 0 ? (
+                  <p className="text-[11px] text-on-surface-variant italic py-1">Sin mano de obra adicional</p>
+                ) : (
+                  calculosResultado.manoObraSnapshot.map((mo, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-[11px] py-1 border-b border-outline-variant/10">
+                      <div className="truncate flex-1 pr-2">
+                        <span className="font-medium text-on-surface block truncate">{mo.nombreCategoria}</span>
+                        <span className="text-[10px] text-on-surface-variant font-mono">
+                          {mo.horasTotales} hs a {formatARS(mo.costoHoraCongelado)}/h
+                        </span>
+                      </div>
+                      <span className="font-mono font-bold text-on-surface shrink-0">
+                        {formatARS(mo.subtotalManoObra)}
                       </span>
                     </div>
-                    <span className="font-mono font-bold text-on-surface shrink-0">
-                      {formatARS(mo.subtotalManoObra)}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>

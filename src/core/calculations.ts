@@ -152,6 +152,7 @@ export function calcularCostoTareaTipo(
 ): {
   costoInsumosUnitario: number;
   costoManoObraUnitario: number;
+  costoServiciosUnitario?: number;
   costoFijoOperativo?: number;
   costoDirectoUnitario: number;
   insumosSnapshotUnitario: InsumoSnapshot[];
@@ -169,6 +170,7 @@ export function calcularCostoTareaTipo(
   return {
     costoInsumosUnitario: consumos.costoInsumosTotal,
     costoManoObraUnitario: consumos.costoManoObraTotal,
+    costoServiciosUnitario: consumos.costoServiciosTotal,
     costoFijoOperativo: consumos.costoFijoOperativo,
     costoDirectoUnitario: consumos.costoDirectoTotal,
     insumosSnapshotUnitario: consumos.insumosSnapshot,
@@ -180,6 +182,9 @@ export function calcularCostoTareaTipo(
 
 export const DEFAULT_CLAUSULA_OBRA_EXISTENTE =
   'La cotización contempla el reemplazo de conductores a través de las canalizaciones existentes en condiciones transitables. En caso de detectarse cañerías obstruidas, colapsadas o cajas ciegas no accesibles que demanden apertura de mampostería o colocación de conductos a la vista, los trabajos de destape o recanalización se cotizarán como adicionales previa conformidad del cliente.';
+
+export const DEFAULT_CLAUSULA_SRT_900 =
+  'El servicio contempla la medición de resistencia de puesta a tierra (IRAM 2281), continuidad de masas y ensayo de disparo de interruptores diferenciales con instrumental calibrado bajo norma. Incluye la emisión del informe técnico oficial según Res. SRT 900/15 y croquis de ubicación. No incluye adecuaciones ni reemplazo de elementos no conformes.';
 
 /**
  * Obtiene el coeficiente de Antigüedad y Estado de la Instalación (K_estado).
@@ -407,9 +412,14 @@ export function congelarItemPresupuesto(
 
   const costoManoObra = roundMoney(manoObraCongelada.reduce((acc, m) => acc + m.subtotalManoObra, 0));
 
-  const hasSnapshots = item.insumosSnapshot.length > 0 || item.manoObraSnapshot.length > 0;
+  const unitServicios = item.costoServicios !== undefined
+    ? (cantAnterior > 0 ? item.costoServicios / cantAnterior : item.costoServicios)
+    : (cantAnterior > 0 && item.costoServiciosTercerizados ? item.costoServiciosTercerizados / cantAnterior : (item.costoServiciosTercerizados || 0));
+  const costoServicios = roundMoney(unitServicios * cantidadSana);
+
+  const hasSnapshots = item.insumosSnapshot.length > 0 || item.manoObraSnapshot.length > 0 || costoServicios > 0;
   const costoDirectoTotal = hasSnapshots
-    ? roundMoney(costoInsumos + costoManoObra)
+    ? roundMoney(costoInsumos + costoManoObra + costoServicios)
     : roundMoney((cantAnterior > 0 ? item.costoDirectoTotal / cantAnterior : item.costoDirectoTotal) * cantidadSana);
 
   const precioVentaTotal = roundMoney(safeNum(item.precioVentaUnitario) * cantidadSana);
@@ -421,6 +431,7 @@ export function congelarItemPresupuesto(
     manoObraSnapshot: manoObraCongelada,
     costoInsumos,
     costoManoObra,
+    costoServicios,
     costoDirectoTotal,
     precioVentaTotal
   };
@@ -736,6 +747,8 @@ export function calcularTotalesPresupuesto(params: {
       cServicios = roundMoney(
         item.serviciosTercerizados.reduce((acc, s) => acc + safeNum(s.costo), 0)
       );
+    } else if (item.costoServicios !== undefined && item.costoServicios > 0) {
+      cServicios = safeNum(item.costoServicios);
     } else {
       cServicios = safeNum(item.costoServiciosTercerizados);
     }
@@ -969,6 +982,8 @@ export function calcularTotalesPresupuesto(params: {
     let cServicios = 0;
     if (item.serviciosTercerizados && item.serviciosTercerizados.length > 0) {
       cServicios = roundMoney(item.serviciosTercerizados.reduce((acc, s) => acc + safeNum(s.costo), 0));
+    } else if (item.costoServicios !== undefined && item.costoServicios > 0) {
+      cServicios = safeNum(item.costoServicios);
     } else {
       cServicios = safeNum(item.costoServiciosTercerizados);
     }
@@ -1469,6 +1484,7 @@ export interface ConsumosCalculadosResultado {
   manoObraSnapshot: ManoObraSnapshot[];
   costoInsumosTotal: number;
   costoManoObraTotal: number;
+  costoServiciosTotal?: number;
   costoDirectoTotal: number;
   clausulaExclusiones?: string;
 }
@@ -1747,7 +1763,20 @@ export function calcularConsumosTareaTipo(
     });
   }
 
-  const costoDirectoTotal = roundMoney(costoInsumosTotal + costoManoObraTotal + costoFijo);
+  // 5. Evaluar Honorarios Profesionales / Costo de Servicios Técnicos
+  let costoServiciosTotal = 0;
+  if (tarea.formulaHonorarios && tarea.formulaHonorarios.trim()) {
+    const evalRes = evaluateMathExpression(tarea.formulaHonorarios, scope);
+    if (evalRes.isValid && evalRes.value !== null) {
+      costoServiciosTotal = roundMoney(Math.max(0, evalRes.value));
+    }
+  } else if (tarea.honorarioBase !== undefined && tarea.honorarioBase > 0) {
+    costoServiciosTotal = roundMoney(tarea.honorarioBase);
+  } else if (tarea.costoServicioDirecto !== undefined && tarea.costoServicioDirecto > 0) {
+    costoServiciosTotal = roundMoney(tarea.costoServicioDirecto);
+  }
+
+  const costoDirectoTotal = roundMoney(costoInsumosTotal + costoManoObraTotal + costoServiciosTotal + costoFijo);
 
   // Parámetro representativo principal (primer parámetro o fallback)
   const primerParam = tarea.parametros?.[0];
@@ -1765,6 +1794,7 @@ export function calcularConsumosTareaTipo(
     manoObraSnapshot,
     costoInsumosTotal,
     costoManoObraTotal,
+    costoServiciosTotal,
     costoDirectoTotal,
     clausulaExclusiones: tarea.clausulaExclusiones || tarea.clausulaTecnicaDefault
   };

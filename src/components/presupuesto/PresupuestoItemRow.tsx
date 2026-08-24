@@ -10,7 +10,9 @@ import {
   FileText,
   Layers,
   MoreVertical,
-  Edit3
+  Edit3,
+  GraduationCap,
+  Truck
 } from 'lucide-react';
 import { ItemPresupuesto } from '../../core/types';
 import { formatARS, roundMoney } from '../../core/calculations';
@@ -64,7 +66,8 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
 
   const hasSnapshots =
     (item.insumosSnapshot && item.insumosSnapshot.length > 0) ||
-    (item.manoObraSnapshot && item.manoObraSnapshot.length > 0);
+    (item.manoObraSnapshot && item.manoObraSnapshot.length > 0) ||
+    (item.costoServicios !== undefined && item.costoServicios > 0);
   const isCustom = !item.tareaTipoId && !hasSnapshots;
   const isParametric = Boolean(item.valoresVariables || item.parametrosTrabajoTipo || item.tareaTipoId);
   const hasMaterialCalc = Boolean(item.parametrosEstimacionMaterial);
@@ -90,7 +93,17 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
 
         {/* Right: Type Badge & Actions */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {isCustom ? (
+          {item.naturaleza === 'servicio_profesional' ? (
+            <span className="hidden sm:inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 items-center gap-1">
+              <GraduationCap className="w-3 h-3" />
+              <span>Servicio Profesional</span>
+            </span>
+          ) : item.naturaleza === 'servicio_tercerizado' ? (
+            <span className="hidden sm:inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 items-center gap-1">
+              <Truck className="w-3 h-3" />
+              <span>Servicio Tercerizado</span>
+            </span>
+          ) : isCustom ? (
             <span className="hidden sm:inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 items-center gap-1">
               <FileText className="w-3 h-3" />
               <span>Directo</span>
@@ -370,9 +383,17 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
             className="w-full flex items-center justify-between p-2 rounded-xl text-xs text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
           >
             <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-primary" />
+              {item.naturaleza === 'servicio_profesional' ? (
+                <GraduationCap className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              ) : (
+                <Layers className="w-4 h-4 text-primary" />
+              )}
               <span className="font-medium">
-                Desglose: {item.insumosSnapshot?.length || 0} materiales · {item.manoObraSnapshot?.length || 0} categorías MO
+                {item.naturaleza === 'servicio_profesional' ? (
+                  `Honorarios: ${formatARS(item.costoServicios || 0)}${item.insumosSnapshot?.length ? ` · ${item.insumosSnapshot.length} insumos` : ''}${item.manoObraSnapshot?.length ? ` · ${item.manoObraSnapshot.length} roles MO` : ''}`
+                ) : (
+                  `Desglose: ${item.insumosSnapshot?.length || 0} materiales · ${item.manoObraSnapshot?.length || 0} categorías MO`
+                )}
               </span>
             </div>
             <div className="flex items-center gap-1 text-[11px] font-mono">
@@ -383,6 +404,24 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
 
           {isExpanded && (
             <div className="mt-2 bg-surface-container-lowest p-3.5 rounded-2xl border border-outline-variant/25 space-y-3 text-xs animate-in fade-in-50 duration-150">
+              {/* Honorarios Snapshot */}
+              {item.costoServicios !== undefined && item.costoServicios > 0 && (
+                <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20 space-y-1">
+                  <div className="flex justify-between items-center text-[10px] uppercase font-bold text-purple-700 dark:text-purple-300 tracking-wider">
+                    <span className="flex items-center gap-1">
+                      <GraduationCap className="w-3.5 h-3.5" />
+                      <span>Honorarios y Ensayos Técnicos</span>
+                    </span>
+                    <span className="font-mono text-sm font-bold">{formatARS(item.costoServicios)}</span>
+                  </div>
+                  {item.formulaHonorarios && (
+                    <div className="text-[10px] text-on-surface-variant font-mono truncate">
+                      Fórmula: <code>{item.formulaHonorarios}</code>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Insumos Snapshot */}
               {item.insumosSnapshot && item.insumosSnapshot.length > 0 && (
                 <div className="space-y-1.5">
