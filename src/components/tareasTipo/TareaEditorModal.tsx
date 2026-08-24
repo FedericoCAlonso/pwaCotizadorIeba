@@ -224,9 +224,18 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
     }
   }, [editingTarea, isOpen, categoriasList]);
 
-  // Scope consolidado: primero parámetros, luego variables evaluadas en cascada
+  // Scope consolidado: primero tarifas/honorarios base, luego parámetros, luego variables evaluadas en cascada
   const currentScope = useMemo(() => {
     const scope: Record<string, number> = {};
+    if (formData.honorarioBase !== undefined) {
+      scope['honorario_base'] = formData.honorarioBase;
+      scope['honorarioBase'] = formData.honorarioBase;
+      scope['honorario'] = formData.honorarioBase;
+    }
+    if (formData.costoServicioDirecto !== undefined) {
+      scope['costo_servicio'] = formData.costoServicioDirecto;
+      scope['costoServicio'] = formData.costoServicioDirecto;
+    }
     formData.parametros.forEach(p => {
       scope[p.id] = p.valorDefault ?? 1;
     });
@@ -237,7 +246,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
       }
     });
     return scope;
-  }, [formData.parametros, formData.variables]);
+  }, [formData.parametros, formData.variables, formData.honorarioBase, formData.costoServicioDirecto]);
 
   // Helper calculation for live preview
   const liveEvaluation = useMemo(() => {
@@ -954,57 +963,84 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
           </div>
 
           {/* 4. Honorarios Profesionales / Costo de Servicio (Visible según Naturaleza) */}
-          {formData.naturaleza === 'servicio_profesional' && (
-            <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-3.5">
-              <div>
-                <h4 className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <GraduationCap className="w-4 h-4" />
-                  <span>4. Honorarios Profesionales, Aranceles y Ensayos Técnicos</span>
-                </h4>
-                <p className="text-[11px] text-on-surface-variant">
-                  Define la tarifa base y/o fórmula matemática de cálculo para el servicio profesional o protocolo técnico.
-                </p>
-              </div>
+          {formData.naturaleza === 'servicio_profesional' && (() => {
+            const formulaStr = formData.formulaHonorarios?.trim();
+            const evalRes = formulaStr ? evaluateMathExpression(formulaStr, currentScope) : null;
+            const evaluatedTotal = evalRes && evalRes.isValid && evalRes.value !== null
+              ? evalRes.value
+              : (formData.honorarioBase || 0);
 
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
-                <div className="sm:col-span-4">
-                  <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
-                    Honorario Profesional Base ($)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={100}
-                    value={formData.honorarioBase || 0}
-                    onChange={(e) => setFormData({ ...formData, honorarioBase: parseFloat(e.target.value) || 0 })}
-                    className={inputCls}
-                    placeholder="0"
-                  />
-                  <span className="text-[10px] text-on-surface-variant mt-0.5 block">
-                    Costo base fijo por informe o visita técnica.
-                  </span>
+            return (
+              <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-3.5">
+                <div>
+                  <h4 className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <GraduationCap className="w-4 h-4" />
+                    <span>4. Honorarios Profesionales, Aranceles y Ensayos Técnicos</span>
+                  </h4>
+                  <p className="text-[11px] text-on-surface-variant">
+                    Define la tarifa base y/o fórmula matemática de cálculo para el servicio profesional o protocolo técnico.
+                  </p>
                 </div>
 
-                <div className="sm:col-span-8">
-                  <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
-                    Fórmula Matemática de Honorarios
-                  </label>
-                  <FormulaInput
-                    value={formData.formulaHonorarios || ''}
-                    onChange={(val) => setFormData({ ...formData, formulaHonorarios: val })}
-                    parametros={[
-                      { id: 'honorario_base', nombre: 'Honorario Base', unidad: '$' },
-                      ...formData.parametros
-                    ]}
-                    variables={formData.variables}
-                    showChips={true}
-                    placeholder="ej: honorario_base + jabalinas * 20000"
-                    className="w-full"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
+                  <div className="sm:col-span-4">
+                    <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
+                      Honorario Profesional Base ($)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={100}
+                      value={formData.honorarioBase || 0}
+                      onChange={(e) => setFormData({ ...formData, honorarioBase: parseFloat(e.target.value) || 0 })}
+                      className={inputCls}
+                      placeholder="0"
+                    />
+                    <span className="text-[10px] text-on-surface-variant mt-0.5 block">
+                      Costo base fijo por informe o visita técnica.
+                    </span>
+                  </div>
+
+                  <div className="sm:col-span-8 space-y-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
+                        Fórmula Matemática de Honorarios
+                      </label>
+                      <FormulaInput
+                        value={formData.formulaHonorarios || ''}
+                        onChange={(val) => setFormData({ ...formData, formulaHonorarios: val })}
+                        parametros={[
+                          { id: 'honorario_base', nombre: 'Honorario Base', unidad: '$' },
+                          ...formData.parametros
+                        ]}
+                        variables={formData.variables}
+                        showChips={true}
+                        placeholder="ej: honorario_base + jabalinas * 20000"
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Badge de Total Calculado en Tiempo Real */}
+                    <div className="flex items-center justify-between bg-surface-container/60 p-2.5 rounded-xl border border-purple-500/20">
+                      <span className="text-[11px] font-medium text-purple-700 dark:text-purple-300 flex items-center gap-1">
+                        <Calculator className="w-3.5 h-3.5" />
+                        <span>Honorarios Totales Calculados:</span>
+                      </span>
+                      <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-lg ${
+                        !formulaStr || (evalRes && evalRes.isValid)
+                          ? 'bg-purple-500/20 text-purple-800 dark:text-purple-200'
+                          : 'bg-error/15 text-error'
+                      }`}>
+                        {!formulaStr || (evalRes && evalRes.isValid)
+                          ? formatARS(evaluatedTotal)
+                          : '⚠️ Error de sintaxis en fórmula'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Sección para Servicio Tercerizado */}
           {formData.naturaleza === 'servicio_tercerizado' && (

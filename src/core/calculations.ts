@@ -1607,9 +1607,20 @@ export function calcularConsumosTareaTipo(
   const aliDefault = options?.alicuotaIVADefault ?? 21;
   const costoFijo = roundMoney(safeNum(tarea.costoFijoOperativo));
 
-  // 1. Construir Scope Inicial con Parámetros
+  // 1. Construir Scope Inicial con Parámetros y Tarifas Base
   const scope: Record<string, number> = {};
   const valoresParametros: Record<string, number> = {};
+
+  if (tarea.honorarioBase !== undefined) {
+    scope['honorario_base'] = safeNum(tarea.honorarioBase);
+    scope['honorarioBase'] = safeNum(tarea.honorarioBase);
+    scope['honorario'] = safeNum(tarea.honorarioBase);
+  }
+
+  if (tarea.costoServicioDirecto !== undefined) {
+    scope['costo_servicio'] = safeNum(tarea.costoServicioDirecto);
+    scope['costoServicio'] = safeNum(tarea.costoServicioDirecto);
+  }
 
   if (tarea.parametros && tarea.parametros.length > 0) {
     tarea.parametros.forEach((p) => {
@@ -1623,7 +1634,7 @@ export function calcularConsumosTareaTipo(
 
   // Copiar cualquier otra variable que se haya pasado explícitamente
   Object.entries(parametrosOVariables || {}).forEach(([k, v]) => {
-    if (scope[k] === undefined) {
+    if (scope[k] === undefined || parametrosOVariables[k] !== undefined) {
       scope[k] = safeNum(v);
       valoresParametros[k] = safeNum(v);
     }

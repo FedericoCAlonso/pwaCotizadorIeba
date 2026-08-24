@@ -335,8 +335,12 @@ export function usePresupuestoEditorViewModel({
 
   // ─── Actions / Commands ───────────────────────────────────────────────────────
   const handleAddTareaTipoItem = (tarea: TareaTipo, cantidad = 1) => {
-    // Si la tarea tiene parámetros o variables configurables, abrir inmediatamente el asistente paramétrico
-    if ((tarea.parametros && tarea.parametros.length > 0) || (tarea.variables && tarea.variables.length > 0)) {
+    // Si la tarea tiene parámetros, variables o fórmula de honorarios, abrir inmediatamente el asistente paramétrico
+    if (
+      (tarea.parametros && tarea.parametros.length > 0) ||
+      (tarea.variables && tarea.variables.length > 0) ||
+      Boolean(tarea.formulaHonorarios)
+    ) {
       handleOpenParametricModalForNewTask(tarea);
       return;
     }
@@ -349,6 +353,7 @@ export function usePresupuestoEditorViewModel({
     const costoUnitarioDirecto = costData.costoDirectoUnitario;
     const costoInsumos = costData.costoInsumosUnitario;
     const costoMO = costData.costoManoObraUnitario;
+    const costoServicios = costData.costoServiciosUnitario ?? (tarea.honorarioBase || tarea.costoServicioDirecto || 0);
 
     const newItem: ItemPresupuesto = {
       id: `item-${crypto.randomUUID()}`,
@@ -356,9 +361,12 @@ export function usePresupuestoEditorViewModel({
       descripcion: tarea.nombre,
       cantidad,
       unidad: tarea.unidad || 'u',
+      naturaleza: tarea.naturaleza || 'instalacion',
       costoUnitario: costoUnitarioDirecto,
       costoInsumos: roundMoney(costoInsumos * cantidad),
       costoManoObra: roundMoney(costoMO * cantidad),
+      costoServicios: roundMoney(costoServicios * cantidad),
+      formulaHonorarios: tarea.formulaHonorarios,
       costoDirectoTotal: roundMoney(costoUnitarioDirecto * cantidad),
       costoTotal: roundMoney(costoUnitarioDirecto * cantidad),
       precioVentaUnitario: 0,

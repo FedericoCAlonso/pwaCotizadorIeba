@@ -119,4 +119,39 @@ describe('useTareasTipoViewModel', () => {
       })
     );
   });
+
+  it('guarda correctamente una tarea tipo de servicio profesional con honorarios y fórmula', async () => {
+    const { db } = await import('../db/database');
+    const { result } = renderHook(() =>
+      useTareasTipoViewModel({
+        onViewMaterialsInCatalog: mockOnViewMaterials
+      })
+    );
+
+    await act(async () => {
+      await result.current.handleSaveTarea({
+        nombre: 'Protocolo Medición PAT SRT 900/15',
+        categoria: 'Mediciones',
+        unidad: 'servicio',
+        naturaleza: 'servicio_profesional',
+        honorarioBase: 120000,
+        formulaHonorarios: 'honorario_base + jabalinas * 20000',
+        parametros: [
+          { id: 'jabalinas', nombre: 'Cantidad de Jabalinas', tipo: 'numero', valorDefault: 2 }
+        ],
+        insumos: [],
+        manoObra: []
+      });
+    });
+
+    expect(db.tareasTipo.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nombre: 'Protocolo Medición PAT SRT 900/15',
+        naturaleza: 'servicio_profesional',
+        honorarioBase: 120000,
+        formulaHonorarios: 'honorario_base + jabalinas * 20000',
+        esParametrico: true
+      })
+    );
+  });
 });

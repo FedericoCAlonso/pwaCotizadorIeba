@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Copy, Edit2, Trash2, Sliders, Package, ShieldAlert } from 'lucide-react';
+import { Search, Copy, Edit2, Trash2, Sliders, Package, ShieldAlert, GraduationCap, Truck } from 'lucide-react';
 import { TareaTipo, Insumo, CategoriaManoDeObra, AppConfig, MaterialFilterContext } from '../../core/types';
 import { calcularCostoTareaTipo, formatARS, auditarRentabilidadTareaTipo } from '../../core/calculations';
 
@@ -101,12 +101,22 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                       <span className="text-[11px] font-semibold text-on-tertiary-container bg-tertiary-container px-2.5 py-0.5 rounded-lg uppercase tracking-wider select-none">
                         {tarea.categoria}
                       </span>
-                      {((tarea.parametros && tarea.parametros.length > 0) || (tarea.variables && tarea.variables.length > 0) || tarea.esParametrico) && (
+                      {tarea.naturaleza === 'servicio_profesional' ? (
+                        <span className="text-[10px] font-bold text-purple-800 dark:text-purple-200 bg-purple-500/20 border border-purple-500/30 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none font-mono">
+                          <GraduationCap className="w-3 h-3" />
+                          <span>Servicio Profesional</span>
+                        </span>
+                      ) : tarea.naturaleza === 'servicio_tercerizado' ? (
+                        <span className="text-[10px] font-bold text-amber-800 dark:text-amber-200 bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none font-mono">
+                          <Truck className="w-3 h-3" />
+                          <span>Tercerizado</span>
+                        </span>
+                      ) : ((tarea.parametros && tarea.parametros.length > 0) || (tarea.variables && tarea.variables.length > 0) || tarea.esParametrico) ? (
                         <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none">
                           <Sliders className="w-3 h-3" />
                           <span>Paramétrico {tarea.parametros ? `(${tarea.parametros.length} param${tarea.variables?.length ? `, ${tarea.variables.length} var` : ''})` : ''}</span>
                         </span>
-                      )}
+                      ) : null}
                       {tarea.clausulaExclusiones && (
                         <span className="text-[10px] font-medium text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/25 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none" title={tarea.clausulaExclusiones}>
                           <ShieldAlert className="w-3 h-3 text-amber-500" />
@@ -205,33 +215,64 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                   </p>
                 )}
 
-                {/* Despiece Insumos */}
-                <div className="mt-3 pt-3 border-t border-outline-variant/15 space-y-1 text-xs">
-                  <div className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
-                    Insumos ({tarea.insumos.length}):
+                {/* Despiece o Resumen de Costo según Naturaleza */}
+                {tarea.naturaleza === 'servicio_profesional' ? (
+                  <div className="mt-3 pt-3 border-t border-outline-variant/15 space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
+                      <span className="flex items-center gap-1">
+                        <GraduationCap className="w-3.5 h-3.5" />
+                        <span>Honorarios y Ensayos</span>
+                      </span>
+                      <span className="font-mono font-bold">
+                        {formatARS(costData.costoServiciosUnitario ?? (tarea.honorarioBase || 0))}
+                      </span>
+                    </div>
+                    {tarea.formulaHonorarios ? (
+                      <p className="text-[10px] text-on-surface-variant font-mono truncate bg-surface-container p-1.5 rounded-lg">
+                        Fórmula: <code>{tarea.formulaHonorarios}</code>
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-on-surface-variant font-mono">
+                        Honorario Fijo: {formatARS(tarea.honorarioBase || 0)}
+                      </p>
+                    )}
+                    {tarea.insumos.length > 0 && (
+                      <div className="text-[10px] text-on-surface-variant pt-1 border-t border-outline-variant/10">
+                        + {tarea.insumos.length} insumos ({formatARS(costData.costoInsumosUnitario)})
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
-                    {tarea.insumos.map((item, idx) => {
-                      const mat = insumosMap.get(item.materialId || item.insumoId || '');
-                      return (
-                        <div key={idx} className="flex justify-between items-center text-[11px] text-on-surface">
-                          <span className="truncate max-w-[170px]">{mat?.nombre || 'Material'}</span>
-                          <span className="font-mono text-on-surface-variant shrink-0">
-                            {item.cantidad} {mat?.unidadVenta || mat?.unidad || 'u'}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                ) : (
+                  <>
+                    {/* Despiece Insumos */}
+                    <div className="mt-3 pt-3 border-t border-outline-variant/15 space-y-1 text-xs">
+                      <div className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                        Insumos ({tarea.insumos.length}):
+                      </div>
+                      <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                        {tarea.insumos.map((item, idx) => {
+                          const mat = insumosMap.get(item.materialId || item.insumoId || '');
+                          return (
+                            <div key={idx} className="flex justify-between items-center text-[11px] text-on-surface">
+                              <span className="truncate max-w-[170px]">{mat?.nombre || 'Material'}</span>
+                              <span className="font-mono text-on-surface-variant shrink-0">
+                                {item.cantidad} {mat?.unidadVenta || mat?.unidad || 'u'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                {/* Mano de Obra */}
-                <div className="mt-3 pt-2 border-t border-outline-variant/15 flex justify-between text-xs">
-                  <span className="text-on-surface-variant">Mano de Obra:</span>
-                  <span className="font-mono font-semibold text-on-surface">
-                    {costData.manoObraSnapshotUnitario.reduce((acc, m) => acc + m.horasTotales, 0)} hs
-                  </span>
-                </div>
+                    {/* Mano de Obra */}
+                    <div className="mt-3 pt-2 border-t border-outline-variant/15 flex justify-between text-xs">
+                      <span className="text-on-surface-variant">Mano de Obra:</span>
+                      <span className="font-mono font-semibold text-on-surface">
+                        {costData.manoObraSnapshotUnitario.reduce((acc, m) => acc + m.horasTotales, 0)} hs
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Costos Footer */}

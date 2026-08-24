@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Layers, X, Search, Sliders, Plus, CornerDownLeft } from 'lucide-react';
+import { Layers, X, Search, Sliders, Plus, GraduationCap, Truck } from 'lucide-react';
 import { TareaTipo, Insumo, CategoriaManoDeObra } from '../../core/types';
 import { calcularCostoTareaTipo, formatARS } from '../../core/calculations';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
@@ -50,7 +50,14 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
   }, [searchTerm]);
 
   const handleSelect = (tarea: TareaTipo) => {
-    if (tarea.esParametrico && onConfigureParametricTarea) {
+    const isParametricJob = Boolean(
+      tarea.esParametrico ||
+      (tarea.parametros && tarea.parametros.length > 0) ||
+      (tarea.variables && tarea.variables.length > 0) ||
+      tarea.formulaHonorarios
+    );
+
+    if (isParametricJob && onConfigureParametricTarea) {
       onConfigureParametricTarea(tarea);
     } else {
       onSelectTarea(tarea);
@@ -153,12 +160,22 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
                       <span className="text-[10px] font-bold text-on-tertiary-container bg-tertiary-container px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                         {tarea.categoria}
                       </span>
-                      {tarea.esParametrico && (
+                      {tarea.naturaleza === 'servicio_profesional' ? (
+                        <span className="text-[10px] font-bold text-purple-800 dark:text-purple-200 bg-purple-500/20 border border-purple-500/30 px-2 py-0.5 rounded-md flex items-center gap-1 select-none font-mono">
+                          <GraduationCap className="w-3 h-3" />
+                          <span>Servicio Profesional</span>
+                        </span>
+                      ) : tarea.naturaleza === 'servicio_tercerizado' ? (
+                        <span className="text-[10px] font-bold text-amber-800 dark:text-amber-200 bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded-md flex items-center gap-1 select-none font-mono">
+                          <Truck className="w-3 h-3" />
+                          <span>Tercerizado</span>
+                        </span>
+                      ) : (tarea.esParametrico || (tarea.parametros && tarea.parametros.length > 0)) ? (
                         <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-md flex items-center gap-1 select-none font-mono">
                           <Sliders className="w-3 h-3" />
                           <span>Paramétrico</span>
                         </span>
-                      )}
+                      ) : null}
                       <span className="text-[10px] font-mono text-on-surface-variant">
                         /{tarea.unidad}
                       </span>
@@ -167,9 +184,18 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
                       {tarea.nombre}
                     </h4>
                     <div className="text-xs text-on-surface-variant mt-1 flex items-center gap-3">
-                      <span>Insumos: {cost.insumosSnapshotUnitario.length}</span>
-                      <span>•</span>
-                      <span>MO: {cost.manoObraSnapshotUnitario.reduce((acc, m) => acc + m.horasTotales, 0)} hs</span>
+                      {tarea.naturaleza === 'servicio_profesional' ? (
+                        <span className="font-medium text-purple-700 dark:text-purple-300">
+                          Honorarios: {formatARS(cost.costoServiciosUnitario ?? (tarea.honorarioBase || 0))}
+                          {cost.insumosSnapshotUnitario.length > 0 ? ` • Insumos: ${cost.insumosSnapshotUnitario.length}` : ''}
+                        </span>
+                      ) : (
+                        <>
+                          <span>Insumos: {cost.insumosSnapshotUnitario.length}</span>
+                          <span>•</span>
+                          <span>MO: {cost.manoObraSnapshotUnitario.reduce((acc, m) => acc + m.horasTotales, 0)} hs</span>
+                        </>
+                      )}
                     </div>
                   </div>
 
