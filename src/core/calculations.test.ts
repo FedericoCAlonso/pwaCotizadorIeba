@@ -2044,13 +2044,11 @@ describe('15. Estructura de Gastos Directos vs Indirectos, Fórmulas Paramétric
       categoria: 'Medición / Protocolos',
       unidad: 'servicio',
       naturaleza: 'servicio_profesional',
-      honorarioBase: 120000,
-      formulaHonorarios: 'honorario_base + (cantidad_jabalinas > 1 ? (cantidad_jabalinas - 1) * 20000 : 0) + (cantidad_tableros * 10000) + (con_visado_colegial == 1 ? 35000 : 0)',
+      formulaHonorarios: '120000 + (cantidad_jabalinas > 1 ? (cantidad_jabalinas - 1) * 20000 : 0) + (cantidad_tableros * 10000) + (con_visado_colegial == 1 ? 35000 : 0)',
       parametros: [
         { id: 'cantidad_jabalinas', nombre: 'Cantidad de Jabalinas / Puntos PAT', tipo: 'numero', valorDefault: 1, unidad: 'jabalinas' },
         { id: 'cantidad_tableros', nombre: 'Cantidad de Tableros Eléctricos', tipo: 'numero', valorDefault: 2, unidad: 'tableros' },
-        { id: 'con_visado_colegial', nombre: 'Requiere Visado Colegial', tipo: 'boolean', valorDefault: 1, unidad: 'Sí/No' },
-        { id: 'honorario_base', nombre: 'Honorario Base', tipo: 'numero', valorDefault: 120000, unidad: '$' }
+        { id: 'con_visado_colegial', nombre: 'Requiere Visado Colegial', tipo: 'boolean', valorDefault: 1, unidad: 'Sí/No' }
       ],
       insumos: [],
       manoObra: []
@@ -2071,8 +2069,7 @@ describe('15. Estructura de Gastos Directos vs Indirectos, Fórmulas Paramétric
       {
         cantidad_jabalinas: 3,
         cantidad_tableros: 4,
-        con_visado_colegial: 0,
-        honorario_base: 120000
+        con_visado_colegial: 0
       },
       insumosMap,
       manoObraMap

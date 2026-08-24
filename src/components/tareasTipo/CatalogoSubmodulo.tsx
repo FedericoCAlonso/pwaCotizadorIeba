@@ -224,16 +224,12 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                         <span>Honorarios y Ensayos</span>
                       </span>
                       <span className="font-mono font-bold">
-                        {formatARS(costData.costoServiciosUnitario ?? (tarea.honorarioBase || 0))}
+                        {formatARS(costData.costoServiciosUnitario || 0)}
                       </span>
                     </div>
-                    {tarea.formulaHonorarios ? (
+                    {tarea.formulaHonorarios && (
                       <p className="text-[10px] text-on-surface-variant font-mono truncate bg-surface-container p-1.5 rounded-lg">
                         Fórmula: <code>{tarea.formulaHonorarios}</code>
-                      </p>
-                    ) : (
-                      <p className="text-[10px] text-on-surface-variant font-mono">
-                        Honorario Fijo: {formatARS(tarea.honorarioBase || 0)}
                       </p>
                     )}
                     {tarea.insumos.length > 0 && (

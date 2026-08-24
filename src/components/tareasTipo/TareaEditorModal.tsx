@@ -968,74 +968,50 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
             const evalRes = formulaStr ? evaluateMathExpression(formulaStr, currentScope) : null;
             const evaluatedTotal = evalRes && evalRes.isValid && evalRes.value !== null
               ? evalRes.value
-              : (formData.honorarioBase || 0);
+              : 0;
 
             return (
-              <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-3.5">
-                <div>
-                  <h4 className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <GraduationCap className="w-4 h-4" />
-                    <span>4. Honorarios Profesionales, Aranceles y Ensayos Técnicos</span>
-                  </h4>
-                  <p className="text-[11px] text-on-surface-variant">
-                    Define la tarifa base y/o fórmula matemática de cálculo para el servicio profesional o protocolo técnico.
-                  </p>
+              <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                  <div>
+                    <h4 className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <GraduationCap className="w-4 h-4" />
+                      <span>4. Honorarios Profesionales, Aranceles y Ensayos Técnicos</span>
+                    </h4>
+                    <p className="text-[11px] text-on-surface-variant">
+                      Ingresa el monto fijo de honorarios (ej: <code className="font-mono font-bold text-purple-700 dark:text-purple-300">120000</code>) o una fórmula matemática con parámetros/variables (ej: <code className="font-mono font-bold text-purple-700 dark:text-purple-300">120000 + jabalinas * 20000</code>).
+                    </p>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
-                  <div className="sm:col-span-4">
-                    <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
-                      Honorario Profesional Base ($)
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      step={100}
-                      value={formData.honorarioBase || 0}
-                      onChange={(e) => setFormData({ ...formData, honorarioBase: parseFloat(e.target.value) || 0 })}
-                      className={inputCls}
-                      placeholder="0"
-                    />
-                    <span className="text-[10px] text-on-surface-variant mt-0.5 block">
-                      Costo base fijo por informe o visita técnica.
+                <div className="space-y-2">
+                  <FormulaInput
+                    value={formData.formulaHonorarios || ''}
+                    onChange={(val) => setFormData({ ...formData, formulaHonorarios: val })}
+                    parametros={formData.parametros}
+                    variables={formData.variables}
+                    showChips={true}
+                    placeholder="ej: 120000 + (cantidad_jabalinas > 1 ? (cantidad_jabalinas - 1) * 20000 : 0) + cantidad_tableros * 10000"
+                    className="w-full"
+                  />
+
+                  {/* Live Evaluated Result Banner */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 bg-surface-container-highest/60 px-3 py-2 rounded-xl border border-purple-500/25">
+                    <span className="text-[11px] font-semibold text-on-surface-variant flex items-center gap-1.5">
+                      <Calculator className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                      <span>Honorarios Totales Evaluados (con valores default):</span>
                     </span>
-                  </div>
-
-                  <div className="sm:col-span-8 space-y-2">
-                    <div>
-                      <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
-                        Fórmula Matemática de Honorarios
-                      </label>
-                      <FormulaInput
-                        value={formData.formulaHonorarios || ''}
-                        onChange={(val) => setFormData({ ...formData, formulaHonorarios: val })}
-                        parametros={[
-                          { id: 'honorario_base', nombre: 'Honorario Base', unidad: '$' },
-                          ...formData.parametros
-                        ]}
-                        variables={formData.variables}
-                        showChips={true}
-                        placeholder="ej: honorario_base + jabalinas * 20000"
-                        className="w-full"
-                      />
-                    </div>
-
-                    {/* Badge de Total Calculado en Tiempo Real */}
-                    <div className="flex items-center justify-between bg-surface-container/60 p-2.5 rounded-xl border border-purple-500/20">
-                      <span className="text-[11px] font-medium text-purple-700 dark:text-purple-300 flex items-center gap-1">
-                        <Calculator className="w-3.5 h-3.5" />
-                        <span>Honorarios Totales Calculados:</span>
-                      </span>
-                      <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-lg ${
-                        !formulaStr || (evalRes && evalRes.isValid)
-                          ? 'bg-purple-500/20 text-purple-800 dark:text-purple-200'
-                          : 'bg-error/15 text-error'
-                      }`}>
-                        {!formulaStr || (evalRes && evalRes.isValid)
-                          ? formatARS(evaluatedTotal)
-                          : '⚠️ Error de sintaxis en fórmula'}
-                      </span>
-                    </div>
+                    <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-lg ${
+                      !formulaStr || (evalRes && evalRes.isValid)
+                        ? 'bg-purple-500/20 text-purple-800 dark:text-purple-200'
+                        : 'bg-error/15 text-error'
+                    }`}>
+                      {!formulaStr
+                        ? '$ 0'
+                        : (evalRes && evalRes.isValid)
+                        ? `= ${formatARS(evaluatedTotal)}`
+                        : '⚠️ Error de sintaxis en fórmula'}
+                    </span>
                   </div>
                 </div>
               </div>

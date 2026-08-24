@@ -134,8 +134,7 @@ describe('useTareasTipoViewModel', () => {
         categoria: 'Mediciones',
         unidad: 'servicio',
         naturaleza: 'servicio_profesional',
-        honorarioBase: 120000,
-        formulaHonorarios: 'honorario_base + jabalinas * 20000',
+        formulaHonorarios: '120000 + jabalinas * 20000',
         parametros: [
           { id: 'jabalinas', nombre: 'Cantidad de Jabalinas', tipo: 'numero', valorDefault: 2 }
         ],
@@ -148,8 +147,7 @@ describe('useTareasTipoViewModel', () => {
       expect.objectContaining({
         nombre: 'Protocolo Medición PAT SRT 900/15',
         naturaleza: 'servicio_profesional',
-        honorarioBase: 120000,
-        formulaHonorarios: 'honorario_base + jabalinas * 20000',
+        formulaHonorarios: '120000 + jabalinas * 20000',
         esParametrico: true
       })
     );

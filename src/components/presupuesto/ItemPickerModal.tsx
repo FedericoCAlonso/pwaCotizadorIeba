@@ -186,7 +186,7 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
                     <div className="text-xs text-on-surface-variant mt-1 flex items-center gap-3">
                       {tarea.naturaleza === 'servicio_profesional' ? (
                         <span className="font-medium text-purple-700 dark:text-purple-300">
-                          Honorarios: {formatARS(cost.costoServiciosUnitario ?? (tarea.honorarioBase || 0))}
+                          Honorarios: {formatARS(cost.costoServiciosUnitario || 0)}
                           {cost.insumosSnapshotUnitario.length > 0 ? ` • Insumos: ${cost.insumosSnapshotUnitario.length}` : ''}
                         </span>
                       ) : (

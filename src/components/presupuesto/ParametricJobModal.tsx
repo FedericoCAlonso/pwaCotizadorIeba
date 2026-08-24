@@ -327,18 +327,13 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
                     {formatARS(calculosResultado.costoServiciosTotal)}
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-on-surface-variant">
-                  {tarea.honorarioBase !== undefined && tarea.honorarioBase > 0 && (
-                    <span className="bg-surface-container px-2 py-0.5 rounded-lg border border-outline-variant/20 font-mono">
-                      Honorario Base: <strong className="text-on-surface">{formatARS(tarea.honorarioBase)}</strong>
-                    </span>
-                  )}
-                  {tarea.formulaHonorarios && (
+                {tarea.formulaHonorarios && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-on-surface-variant">
                     <span className="bg-surface-container px-2 py-0.5 rounded-lg border border-outline-variant/20 font-mono truncate max-w-full">
                       Fórmula: <code className="text-purple-700 dark:text-purple-300">{tarea.formulaHonorarios}</code>
                     </span>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
 

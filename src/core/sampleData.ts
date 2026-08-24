@@ -552,8 +552,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
     categoria: 'Medición / Protocolos',
     unidad: 'servicio',
     naturaleza: 'servicio_profesional',
-    honorarioBase: 120000,
-    formulaHonorarios: 'honorario_base + (cantidad_jabalinas > 1 ? (cantidad_jabalinas - 1) * 20000 : 0) + (cantidad_tableros * 10000) + (con_visado_colegial == 1 ? 35000 : 0)',
+    formulaHonorarios: '120000 + (cantidad_jabalinas > 1 ? (cantidad_jabalinas - 1) * 20000 : 0) + (cantidad_tableros * 10000) + (con_visado_colegial == 1 ? 35000 : 0)',
     notasTecnicas: 'Relevamiento y medición de resistencia de puesta a tierra (IRAM 2281), continuidad de masas y ensayo de disparo de interruptores diferenciales con instrumental digital certificado. Emisión de informe técnico oficial Res. SRT 900/15 con croquis.',
     clausulaExclusiones: 'El servicio incluye la medición y emisión del protocolo según Res. SRT 900/15. No incluye adecuaciones de instalación, reemplazo de jabalinas no conformes, ni cambios de interruptores diferenciales defectuosos.',
     costoFijoOperativo: 0,
@@ -561,8 +560,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
     parametros: [
       { id: 'cantidad_jabalinas', nombre: 'Cantidad de Jabalinas / Puntos PAT', tipo: 'numero', valorDefault: 1, unidad: 'jabalinas', descripcion: 'Cantidad de electrodos / tomas de tierra a ensayar' },
       { id: 'cantidad_tableros', nombre: 'Cantidad de Tableros Eléctricos', tipo: 'numero', valorDefault: 2, unidad: 'tableros', descripcion: 'Cantidad de tableros seccionales / principales' },
-      { id: 'con_visado_colegial', nombre: 'Requiere Visado / Timbrado Colegial', tipo: 'boolean', valorDefault: 1, unidad: 'Sí/No', descripcion: 'Incluye arancel y timbrado ante Colegio Profesional / Consejo' },
-      { id: 'honorario_base', nombre: 'Honorario Base', tipo: 'numero', valorDefault: 120000, unidad: '$', descripcion: 'Tarifa base de relevamiento e informe' }
+      { id: 'con_visado_colegial', nombre: 'Requiere Visado / Timbrado Colegial', tipo: 'boolean', valorDefault: 1, unidad: 'Sí/No', descripcion: 'Incluye arancel y timbrado ante Colegio Profesional / Consejo' }
     ],
     variables: [],
     insumos: [],
