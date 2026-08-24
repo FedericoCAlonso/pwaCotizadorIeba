@@ -50,6 +50,36 @@ export function isFormulaString(raw: string): boolean {
 }
 
 /**
+ * Normaliza sintaxis condicional y ternaria:
+ * 1. Convierte 'cond : verdadero : falso' a 'cond ? verdadero : falso'
+ * 2. Agrupa automáticamente ternarios que siguen a operadores aritméticos (+, -, *, /, ^)
+ *    ej: '1 + 3 > 2 ? 4 : 5' -> '1 + (3 > 2 ? 4 : 5)'
+ */
+export function normalizeTernarySyntax(raw: string): string {
+  if (!raw || typeof raw !== 'string') return '';
+  let str = raw;
+
+  // Paso 1: Convertir ': ... :' a '? ... :' para expresiones con operadores relacionales o de igualdad
+  // ej: '3 > 2 : 4 : 5' -> '3 > 2 ? 4 : 5'
+  // ej: '1 + 3 > 2 : 4 : 5' -> '1 + 3 > 2 ? 4 : 5'
+  str = str.replace(
+    /((?:[<>=!]=?|[<>])\s*[^:?()]+?)\s*:\s*([^:?]+?)\s*:\s*([^,);+]+)/g,
+    '$1 ? $2 : $3'
+  );
+
+  // Paso 2: Si un ternario no está entre paréntesis y viene después de un operador aritmético (+, -, *, /, ^),
+  // agruparlo para que la adición/multiplicación opere sobre el resultado de la condición.
+  // ej: '1 + 3 > 2 ? 4 : 5' -> '1 + (3 > 2 ? 4 : 5)'
+  // Regex detecta: ([+\-*/^]\s*)([a-zA-Z0-9_.]+\s*(?:[<>!=]=?|[<>])\s*[^?()]+\s*\?[^:?]+?\s*:\s*[^,);+]+)
+  str = str.replace(
+    /([+\-*/^]\s*)([a-zA-Z0-9_.]+\s*(?:[<>!=]=?|[<>])\s*[^?()]+\s*\?[^:?]+?\s*:\s*[^,);+]+)/g,
+    '$1($2)'
+  );
+
+  return str;
+}
+
+/**
  * Normaliza una cadena de texto sustituyendo comas decimales y limpiando caracteres no permitidos.
  */
 export function sanitizeMathString(raw: string): string {
@@ -58,6 +88,8 @@ export function sanitizeMathString(raw: string): string {
   if (str.startsWith('=')) {
     str = str.substring(1).trim();
   }
+  // Normaliza operadores ternarios y condicionales inline
+  str = normalizeTernarySyntax(str);
   // Reemplaza comas decimales tipo "12,5" o ",5" por punto "12.5"
   str = str.replace(/(\d+),(\d+)(?!\s*[,;a-zA-Z\d])/g, '$1.$2');
   str = str.replace(/(^|[+\-*/^%?<>!=&(,:|])\s*,(\d+)/g, '$10.$2');

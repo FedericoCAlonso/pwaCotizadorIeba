@@ -79,11 +79,22 @@ describe('mathEvaluator', () => {
     });
 
     describe('Operador Ternario (? :) y Comparaciones Lógicas', () => {
-      it('evalúa operador ternario simple', () => {
+      it('evalúa operador ternario simple y con dos puntos (: :)', () => {
         expect(evaluateMathExpression('10 > 5 ? 100 : 200').value).toBe(100);
         expect(evaluateMathExpression('10 < 5 ? 100 : 200').value).toBe(200);
+        expect(evaluateMathExpression('3 > 2 : 4 : 5').value).toBe(4);
+        expect(evaluateMathExpression('3 < 2 : 4 : 5').value).toBe(5);
         expect(evaluateMathExpression('bocas > 10 ? bocas * 1.2 : bocas * 1.0', { bocas: 15 }).value).toBe(18);
         expect(evaluateMathExpression('bocas > 10 ? bocas * 1.2 : bocas * 1.0', { bocas: 8 }).value).toBe(8);
+      });
+
+      it('evalúa correctamente expresiones aritméticas combinadas con condicionales', () => {
+        // Ejemplo del usuario: "1 + 3 > 2 : 4 : 5" -> 1 + 4 = 5
+        expect(evaluateMathExpression('1 + 3 > 2 : 4 : 5').value).toBe(5);
+        expect(evaluateMathExpression('1 + 3 > 2 ? 4 : 5').value).toBe(5);
+        expect(evaluateMathExpression('1 + (3 > 2 ? 4 : 5)').value).toBe(5);
+        expect(evaluateMathExpression('10 * 3 > 2 : 4 : 5').value).toBe(40);
+        expect(evaluateMathExpression('(1 + 3) > 2 : 4 : 5').value).toBe(4); // Con paréntesis forzando condición sumada
       });
 
       it('soporta ternarios anidados / escalonamiento con asociatividad por derecha', () => {
