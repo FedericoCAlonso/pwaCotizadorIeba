@@ -317,6 +317,8 @@ export interface CostoIndirecto {
   destino?: DestinoGasto; // 'materiales' | 'mano_obra' | 'servicios' | 'costo_indirecto'
   modalidad?: ModalidadGasto; // 'porcentual' | 'monto_fijo' | 'parametrico'
   formula?: string;
+  parametros?: ParametroTrabajoTipo[];
+  valoresParametrosDefault?: Record<string, number>;
   tipo?: TipoCostoIndirecto;
   valor: number;
   incluirPorDefecto?: boolean;
@@ -695,6 +697,8 @@ export interface GastoPresupuestoConfig {
   modalidad?: ModalidadGasto; // 'porcentual' | 'monto_fijo' | 'parametrico'
   valor: number; // Porcentaje o Monto Fijo
   formula?: string; // Para modalidad === 'parametrico'
+  parametros?: ParametroTrabajoTipo[]; // Definición de parámetros del gasto (ej: antiguedad, cumple_aea)
+  valoresParametros?: Record<string, number>; // Valores concretos asignados en la cotización
   capituloId?: string; // Si está definido, aplica solo a ese capítulo. Si es undefined o '', aplica a toda la cotización.
   incluirPorDefecto?: boolean;
   aplica: boolean;

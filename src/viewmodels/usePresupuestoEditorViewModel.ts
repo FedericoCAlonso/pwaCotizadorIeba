@@ -245,6 +245,12 @@ export function usePresupuestoEditorViewModel({
     toast.info('Gasto eliminado');
   };
 
+  const handleUpdateGastoParametros = (gastoId: string, valoresParametros: Record<string, number>) => {
+    setGastosConfig(prev => prev.map(g => g.id === gastoId ? { ...g, valoresParametros } : g));
+    setCostosIndirectosConfig(prev => prev.map(g => g.id === gastoId ? { ...g, valoresParametros } : g));
+    toast.success('Parámetros de obra actualizados');
+  };
+
   const handleToggleGasto = (idx: number) => {
     setGastosConfig(prev => {
       const next = [...prev];
@@ -1021,6 +1027,7 @@ export function usePresupuestoEditorViewModel({
     handleSaveGasto,
     handleRemoveGasto,
     handleToggleGasto,
+    handleUpdateGastoParametros,
     handleAddServicioDirecto,
     handleAddTareaTipoItem,
     handleOpenParametricModalForNewTask,

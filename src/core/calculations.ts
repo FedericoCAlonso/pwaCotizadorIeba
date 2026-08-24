@@ -32,6 +32,7 @@ import {
   PlanificacionCuadrilla,
   CapituloPresupuesto,
   GastoPresupuestoConfig,
+  ParametroTrabajoTipo,
   DestinoGasto,
   ModalidadGasto
 } from './types';
@@ -585,6 +586,8 @@ export interface GastoDesglosadoResultado {
   modalidad: ModalidadGasto;
   valor: number;
   formula?: string;
+  parametros?: ParametroTrabajoTipo[];
+  valoresParametros?: Record<string, number>;
   capituloId?: string;
   baseImponible: number;
   montoCalculado: number;
@@ -810,6 +813,20 @@ export function calcularTotalesPresupuesto(params: {
     }
 
     let montoCalculado = 0;
+    const paramScope: Record<string, number> = {};
+
+    if (g.parametros && g.parametros.length > 0) {
+      g.parametros.forEach((p) => {
+        paramScope[p.id] = g.valoresParametros?.[p.id] !== undefined
+          ? safeNum(g.valoresParametros[p.id])
+          : p.valorDefault;
+      });
+    } else if (g.valoresParametros) {
+      Object.entries(g.valoresParametros).forEach(([k, v]) => {
+        paramScope[k] = safeNum(v);
+      });
+    }
+
     if (modalidad === 'porcentual') {
       montoCalculado = roundMoney(baseImponible * (val / 100));
     } else if (modalidad === 'monto_fijo') {
@@ -818,6 +835,7 @@ export function calcularTotalesPresupuesto(params: {
       try {
         const evalRes = evaluateMathExpression(g.formula, {
           ...formulaScopeBase,
+          ...paramScope,
           base: baseImponible,
           materiales: capId && chapterBases[capId] ? chapterBases[capId].insumos : subtotalInsumosBase,
           mano_obra: capId && chapterBases[capId] ? chapterBases[capId].mo : subtotalManoObraBase,
@@ -862,6 +880,8 @@ export function calcularTotalesPresupuesto(params: {
       modalidad,
       valor: val,
       formula: g.formula,
+      parametros: g.parametros,
+      valoresParametros: Object.keys(paramScope).length > 0 ? paramScope : undefined,
       capituloId: g.capituloId,
       baseImponible,
       montoCalculado,

@@ -9,7 +9,9 @@ import {
   HardHat,
   Package,
   Truck,
-  Globe
+  Globe,
+  Sliders,
+  Zap
 } from 'lucide-react';
 import {
   GastoPresupuestoConfig,
@@ -23,6 +25,7 @@ interface PresupuestoTotalsCardProps {
   tipoFactura: TipoFactura;
   gastosConfig: GastoPresupuestoConfig[];
   onOpenGastoModal: (gastoToEdit?: GastoPresupuestoConfig) => void;
+  onOpenParametricGastoModal?: (gasto: GastoPresupuestoConfig) => void;
   onToggleGasto: (idx: number) => void;
   onRemoveGasto: (id: string) => void;
   onResetGastos?: () => void;
@@ -42,6 +45,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
   tipoFactura,
   gastosConfig = [],
   onOpenGastoModal,
+  onOpenParametricGastoModal,
   onToggleGasto,
   onRemoveGasto,
   onResetGastos,
@@ -235,6 +239,18 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
                     <div className="flex items-center gap-1.5 shrink-0">
                       {getDestinoBadge(g.destino || 'costo_indirecto')}
 
+                      {g.parametros && g.parametros.length > 0 && onOpenParametricGastoModal && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenParametricGastoModal(g)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold transition-colors shadow-2xs"
+                          title="Ajustar variables de obra de este gasto"
+                        >
+                          <Sliders className="w-3 h-3" />
+                          <span>Variables ({g.parametros.length})</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => onOpenGastoModal(g)}
@@ -257,8 +273,12 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
 
                   {g.aplica && (
                     <div className="flex justify-between items-center text-[11px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/10">
-                      <span>
-                        {g.modalidad === 'porcentual' ? `${g.valor}%` : g.modalidad === 'parametrico' ? 'Fórmula' : 'Fijo'}:
+                      <span className="flex items-center gap-1 truncate">
+                        {g.modalidad === 'porcentual' ? `${g.valor}%` : g.modalidad === 'parametrico' ? (
+                          <span className="text-primary font-bold inline-flex items-center gap-0.5">
+                            <Zap className="w-2.5 h-2.5" /> Fórmula ⚡
+                          </span>
+                        ) : 'Fijo'}:
                       </span>
                       <span className="font-bold text-primary">+{formatARS(monto)}</span>
                     </div>

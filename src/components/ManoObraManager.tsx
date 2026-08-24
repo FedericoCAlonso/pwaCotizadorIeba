@@ -126,18 +126,19 @@ export const ManoObraManager: React.FC = () => {
       modalidad: gasto.modalidad || 'porcentual',
       valor: gasto.valor,
       formula: gasto.formula,
+      parametros: gasto.parametros,
       tipo: gasto.modalidad === 'porcentual' ? 'porcentual_sobre_costo' : 'fijo_mensual',
       incluirPorDefecto: gasto.incluirPorDefecto ?? true,
       updatedAt: now
     };
 
     if (existing) {
-      await db.costosIndirectos.update(gasto.id, catalogRecord);
+      await db.costosIndirectos.update(gasto.id, catalogRecord as any);
       toast.success(`Gasto "${gasto.nombre}" actualizado`);
     } else {
       catalogRecord.createdAt = now;
       catalogRecord.deleted = false;
-      await db.costosIndirectos.add(catalogRecord);
+      await db.costosIndirectos.add(catalogRecord as any);
       toast.success(`Gasto "${gasto.nombre}" agregado al catálogo`);
     }
     setShowGastoModal(false);

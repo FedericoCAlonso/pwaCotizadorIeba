@@ -42,6 +42,7 @@ import { EmisionPresupuestoModal } from './presupuesto/EmisionPresupuestoModal';
 import { ParametricJobModal } from './presupuesto/ParametricJobModal';
 import { ParametricMaterialModal } from './presupuesto/ParametricMaterialModal';
 import { GastoEditorModal } from './presupuesto/GastoEditorModal';
+import { ParametricGastoModal } from './presupuesto/ParametricGastoModal';
 import { ClienteCombobox } from './presupuesto/ClienteCombobox';
 import { usePresupuestoEditorViewModel } from '../viewmodels/usePresupuestoEditorViewModel';
 
@@ -142,6 +143,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     handleSaveGasto,
     handleRemoveGasto,
     handleToggleGasto,
+    handleUpdateGastoParametros,
     handleUpdateItemNotasTecnicas,
     handleUpdateItem,
     handleRemoveItem,
@@ -164,6 +166,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   });
 
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [parametricGastoToAdjust, setParametricGastoToAdjust] = useState<GastoPresupuestoConfig | null>(null);
 
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [saveAsTemplateData, setSaveAsTemplateData] = useState<{
@@ -970,6 +973,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               setEditingGasto(g || null);
               setShowGastoModal(true);
             }}
+            onOpenParametricGastoModal={(g) => setParametricGastoToAdjust(g)}
             onToggleGasto={handleToggleGasto}
             onRemoveGasto={handleRemoveGasto}
             margenPorcentaje={margenPorcentaje}
@@ -1100,6 +1104,23 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         baseServicios={totales.subtotalServiciosBase}
         baseCostoDirecto={totales.costoGlobal}
       />
+
+      {/* Parametric Gasto Variables Modal */}
+      {parametricGastoToAdjust && (
+        <ParametricGastoModal
+          isOpen={parametricGastoToAdjust !== null}
+          onClose={() => setParametricGastoToAdjust(null)}
+          gasto={parametricGastoToAdjust}
+          baseMateriales={totales.subtotalInsumosBase}
+          baseManoObra={totales.subtotalManoObraBase}
+          baseServicios={totales.subtotalServiciosBase}
+          baseCostoDirecto={totales.costoGlobal}
+          onConfirm={(gastoId, valores) => {
+            handleUpdateGastoParametros(gastoId, valores);
+            setParametricGastoToAdjust(null);
+          }}
+        />
+      )}
     </div>
   );
 };

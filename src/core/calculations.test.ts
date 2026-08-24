@@ -1985,5 +1985,56 @@ describe('15. Estructura de Gastos Directos vs Indirectos, Fórmulas Paramétric
     // Suma de Capítulos = Total Presupuesto
     expect(roundMoney(cap1.precioVentaTotal + cap2.precioVentaTotal)).toBe(result.precioFinalGlobal);
   });
+
+  it('evalúa gastos paramétricos con parámetros personalizados de obra (ej: antigüedad y normas AEA)', () => {
+    const item = makeItem({
+      insumosSnapshot: [],
+      manoObraSnapshot: [],
+      costoInsumos: 60000,
+      costoManoObra: 40000,
+      costoDirectoTotal: 100000,
+      cantidad: 1
+    });
+
+    const gastoContingencia: GastoPresupuestoConfig = {
+      id: 'g-contingencia-aea',
+      nombre: 'Contingencia por Instalación Existente',
+      destino: 'costo_indirecto',
+      modalidad: 'parametrico',
+      // Fórmula: si cumple AEA (1) suma 5% de base, si no cumple (0) suma 20% de base + $500 por cada año de antigüedad
+      formula: 'base * (cumple_aea == 1 ? 0.05 : 0.20) + antiguedad_anos * 500',
+      parametros: [
+        { id: 'cumple_aea', nombre: '¿Cumple AEA?', tipo: 'boolean', valorDefault: 1 },
+        { id: 'antiguedad_anos', nombre: 'Antigüedad', tipo: 'numero', valorDefault: 20 }
+      ],
+      valoresParametros: {
+        cumple_aea: 0, // No cumple AEA -> 20% de base
+        antiguedad_anos: 30 // 30 años -> 30 * 500 = 15.000
+      },
+      valor: 0,
+      aplica: true
+    };
+
+    const result = calcularTotalesPresupuesto({
+      items: [item],
+      gastosConfig: [gastoContingencia],
+      margenPorcentaje: 0,
+      impuestosDetalle: []
+    });
+
+    // Base directa = 100.000
+    // GG = 100.000 * 0.20 + 30 * 500 = 20.000 + 15.000 = 35.000
+    expect(result.costoGlobal).toBe(100000);
+    expect(result.gastosGeneralesTotal).toBe(35000);
+    expect(result.precioFinalGlobal).toBe(135000);
+
+    const desg = result.gastosDesglosados.find(g => g.id === 'g-contingencia-aea');
+    expect(desg).toBeDefined();
+    expect(desg?.montoCalculado).toBe(35000);
+    expect(desg?.valoresParametros).toEqual({
+      cumple_aea: 0,
+      antiguedad_anos: 30
+    });
+  });
 });
 
