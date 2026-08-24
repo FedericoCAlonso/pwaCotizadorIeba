@@ -10,6 +10,7 @@ interface GastoEditorModalProps {
   onClose: () => void;
   gastoToEdit?: GastoPresupuestoConfig | null;
   capitulos?: CapituloPresupuesto[];
+  showIncluirPorDefecto?: boolean;
   onSave: (gasto: GastoPresupuestoConfig) => void;
   onDelete?: (id: string) => void;
   baseMateriales?: number;
@@ -23,6 +24,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
   onClose,
   gastoToEdit,
   capitulos = [],
+  showIncluirPorDefecto = false,
   onSave,
   onDelete,
   baseMateriales = 0,
@@ -36,6 +38,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
   const [valor, setValor] = useState<number>(0);
   const [formula, setFormula] = useState('');
   const [capituloId, setCapituloId] = useState<string>('');
+  const [incluirPorDefecto, setIncluirPorDefecto] = useState<boolean>(true);
   const [errorFormula, setErrorFormula] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,6 +49,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
       setValor(gastoToEdit.valor || 0);
       setFormula(gastoToEdit.formula || '');
       setCapituloId(gastoToEdit.capituloId || '');
+      setIncluirPorDefecto(gastoToEdit.incluirPorDefecto ?? true);
     } else {
       setNombre('');
       setDestino('mano_obra');
@@ -53,16 +57,23 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
       setValor(0);
       setFormula('');
       setCapituloId('');
+      setIncluirPorDefecto(true);
     }
     setErrorFormula(null);
   }, [gastoToEdit, isOpen]);
 
-  // Cálculo en vivo de vista previa
+  // Cálculo en vivo de vista previa (si estamos en catálogo y base=0, usamos base de referencia $100.000)
+  const isCatalogMode = baseMateriales === 0 && baseManoObra === 0 && baseServicios === 0 && baseCostoDirecto === 0;
+  const refMat = isCatalogMode ? 100000 : baseMateriales;
+  const refMO = isCatalogMode ? 100000 : baseManoObra;
+  const refServ = isCatalogMode ? 50000 : baseServicios;
+  const refDirecto = isCatalogMode ? 250000 : baseCostoDirecto;
+
   let baseActual = 0;
-  if (destino === 'materiales') baseActual = baseMateriales;
-  else if (destino === 'mano_obra') baseActual = baseManoObra;
-  else if (destino === 'servicios') baseActual = baseServicios;
-  else baseActual = baseCostoDirecto;
+  if (destino === 'materiales') baseActual = refMat;
+  else if (destino === 'mano_obra') baseActual = refMO;
+  else if (destino === 'servicios') baseActual = refServ;
+  else baseActual = refDirecto;
 
   let montoSimulado = 0;
   if (modalidad === 'porcentual') {
@@ -108,6 +119,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
       valor: modalidad === 'parametrico' ? 0 : valor,
       formula: modalidad === 'parametrico' ? formula.trim() : undefined,
       capituloId: capituloId || undefined,
+      incluirPorDefecto,
       aplica: gastoToEdit?.aplica !== undefined ? gastoToEdit.aplica : true
     };
 
@@ -399,10 +411,34 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
           </div>
         )}
 
+        {/* Incluir por Defecto (Catálogo Global) */}
+        {showIncluirPorDefecto && (
+          <div className="bg-surface-container-highest/60 p-3.5 rounded-2xl border border-outline-variant/20">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={incluirPorDefecto}
+                onChange={(e) => setIncluirPorDefecto(e.target.checked)}
+                className="mt-0.5 w-4 h-4 text-primary rounded border-outline focus:ring-primary"
+              />
+              <div className="text-xs">
+                <span className="font-semibold text-on-surface block">
+                  Incluir por defecto en nuevas cotizaciones
+                </span>
+                <span className="text-on-surface-variant text-[11px] block mt-0.5">
+                  Si está marcado, este gasto se aplicará automáticamente activado al crear un nuevo presupuesto.
+                </span>
+              </div>
+            </label>
+          </div>
+        )}
+
         {/* Live Calculation Preview Banner */}
         <div className="bg-primary/5 border border-primary/20 rounded-2xl p-3.5 flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-on-surface-variant block">Impacto en esta Cotización:</span>
+            <span className="text-[11px] text-on-surface-variant block">
+              {isCatalogMode ? 'Ejemplo de Impacto (Base de referencia):' : 'Impacto en esta Cotización:'}
+            </span>
             <span className="text-sm font-bold font-mono text-primary">
               +{formatARS(montoSimulado)}
             </span>

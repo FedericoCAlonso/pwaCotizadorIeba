@@ -314,13 +314,18 @@ export type TipoCostoIndirecto = 'fijo_mensual' | 'porcentual_sobre_costo' | 'po
 export interface CostoIndirecto {
   id: string;
   nombre: string;
-  tipo: TipoCostoIndirecto;
+  destino?: DestinoGasto; // 'materiales' | 'mano_obra' | 'servicios' | 'costo_indirecto'
+  modalidad?: ModalidadGasto; // 'porcentual' | 'monto_fijo' | 'parametrico'
+  formula?: string;
+  tipo?: TipoCostoIndirecto;
   valor: number;
   incluirPorDefecto?: boolean;
   createdAt?: string;
   updatedAt?: string;
   deleted?: boolean;
 }
+
+export type GastoCatalogo = CostoIndirecto;
 
 // ─── 8. Tareas Tipo y Servicios Tercerizados ──────────────────────────────────
 export interface CriterioAtributoMaterial {
@@ -691,6 +696,7 @@ export interface GastoPresupuestoConfig {
   valor: number; // Porcentaje o Monto Fijo
   formula?: string; // Para modalidad === 'parametrico'
   capituloId?: string; // Si está definido, aplica solo a ese capítulo. Si es undefined o '', aplica a toda la cotización.
+  incluirPorDefecto?: boolean;
   aplica: boolean;
   activo?: boolean;
   tipo?: TipoCostoIndirecto; // Compatibilidad retroactiva
