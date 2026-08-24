@@ -527,28 +527,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => {
-                    const next: TareaFormData = {
-                      ...formData,
-                      naturaleza: 'servicio_profesional',
-                      unidad: formData.unidad === 'bocas' || formData.unidad === 'punto' ? 'servicio' : formData.unidad
-                    };
-                    if (!next.parametros || next.parametros.length === 0 || (next.parametros.length === 1 && next.parametros[0].id === 'bocas')) {
-                      next.parametros = [
-                        { id: 'cantidad_jabalinas', nombre: 'Cantidad de Jabalinas / Puntos PAT', tipo: 'numero', valorDefault: 1, unidad: 'jabalinas' },
-                        { id: 'cantidad_tableros', nombre: 'Cantidad de Tableros Eléctricos', tipo: 'numero', valorDefault: 2, unidad: 'tableros' },
-                        { id: 'con_visado_colegial', nombre: 'Requiere Visado / Timbrado Colegial', tipo: 'boolean', valorDefault: 1, unidad: 'Sí/No' }
-                      ];
-                    }
-                    if (!next.formulaHonorarios) {
-                      next.formulaHonorarios = 'honorario_base + (cantidad_jabalinas > 1 ? (cantidad_jabalinas - 1) * 20000 : 0) + (cantidad_tableros * 10000) + (con_visado_colegial == 1 ? 35000 : 0)';
-                      next.honorarioBase = next.honorarioBase || 120000;
-                    }
-                    if (!next.clausulaExclusiones) {
-                      next.clausulaExclusiones = DEFAULT_CLAUSULA_SRT_900;
-                    }
-                    setFormData(next);
-                  }}
+                  onClick={() => setFormData({ ...formData, naturaleza: 'servicio_profesional' })}
                   className={`p-3 rounded-2xl border text-left transition flex items-start gap-2.5 ${
                     formData.naturaleza === 'servicio_profesional'
                       ? 'bg-purple-500/15 border-purple-500 text-purple-700 dark:text-purple-300 font-bold shadow-2xs'
@@ -645,120 +624,6 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
               />
             </div>
           </div>
-
-          {/* Sección Dedicada para Servicios Profesionales / Protocolos */}
-          {formData.naturaleza === 'servicio_profesional' && (
-            <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-3.5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h4 className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <GraduationCap className="w-4 h-4" />
-                    <span>Honorarios Profesionales, Aranceles y Ensayos Técnicos</span>
-                  </h4>
-                  <p className="text-[11px] text-on-surface-variant">
-                    Define la tarifa base y/o fórmula de honorarios técnicos para el servicio profesional o protocolo reglamentario.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      addParametro({ id: 'cantidad_jabalinas', nombre: 'Cantidad de Jabalinas / Puntos PAT', tipo: 'numero', valorDefault: 1, unidad: 'jabalinas' });
-                      toast.success('Parámetro "cantidad_jabalinas" añadido');
-                    }}
-                    className="text-[10px] font-bold px-2 py-1 bg-purple-500/15 hover:bg-purple-500/25 text-purple-700 dark:text-purple-300 rounded-lg transition"
-                  >
-                    + ⚡ Jabalinas
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      addParametro({ id: 'cantidad_tableros', nombre: 'Cantidad de Tableros Eléctricos', tipo: 'numero', valorDefault: 2, unidad: 'tableros' });
-                      toast.success('Parámetro "cantidad_tableros" añadido');
-                    }}
-                    className="text-[10px] font-bold px-2 py-1 bg-purple-500/15 hover:bg-purple-500/25 text-purple-700 dark:text-purple-300 rounded-lg transition"
-                  >
-                    + 🔌 Tableros
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      addParametro({ id: 'con_visado_colegial', nombre: 'Requiere Visado / Timbrado Colegial', tipo: 'boolean', valorDefault: 1, unidad: 'Sí/No' });
-                      toast.success('Parámetro "con_visado_colegial" añadido');
-                    }}
-                    className="text-[10px] font-bold px-2 py-1 bg-purple-500/15 hover:bg-purple-500/25 text-purple-700 dark:text-purple-300 rounded-lg transition"
-                  >
-                    + 📜 Visado Colegial
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
-                <div className="sm:col-span-4">
-                  <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
-                    Honorario Profesional Base ($)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={100}
-                    value={formData.honorarioBase || 0}
-                    onChange={(e) => setFormData({ ...formData, honorarioBase: parseFloat(e.target.value) || 0 })}
-                    className={inputCls}
-                    placeholder="120000"
-                  />
-                  <span className="text-[10px] text-on-surface-variant mt-0.5 block">
-                    Costo base por informe / visita técnica.
-                  </span>
-                </div>
-
-                <div className="sm:col-span-8">
-                  <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
-                    Fórmula Matemática de Honorarios y Ensayos
-                  </label>
-                  <FormulaInput
-                    value={formData.formulaHonorarios || ''}
-                    onChange={(val) => setFormData({ ...formData, formulaHonorarios: val })}
-                    parametros={[
-                      { id: 'honorario_base', nombre: 'Honorario Base', unidad: '$' },
-                      ...formData.parametros
-                    ]}
-                    variables={formData.variables}
-                    showChips={true}
-                    placeholder="ej: honorario_base + (cantidad_jabalinas > 1 ? (cantidad_jabalinas - 1) * 20000 : 0) + (con_visado_colegial == 1 ? 35000 : 0)"
-                    className="w-full"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Sección para Servicio Tercerizado */}
-          {formData.naturaleza === 'servicio_tercerizado' && (
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-3">
-              <h4 className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Truck className="w-4 h-4" />
-                <span>Costo de Servicio Tercerizado / Subcontrato</span>
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
-                    Costo Directo del Servicio ($)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={100}
-                    value={formData.costoServicioDirecto || 0}
-                    onChange={(e) => setFormData({ ...formData, costoServicioDirecto: parseFloat(e.target.value) || 0 })}
-                    className={inputCls}
-                    placeholder="ej: 75000"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* 2. Parámetros de Entrada (Inputs del Usuario) */}
           <div className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/25 space-y-4">
@@ -1088,13 +953,92 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
             )}
           </div>
 
-          {/* 4. Despiece de Insumos & Materiales con Fórmulas */}
+          {/* 4. Honorarios Profesionales / Costo de Servicio (Visible según Naturaleza) */}
+          {formData.naturaleza === 'servicio_profesional' && (
+            <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-3.5">
+              <div>
+                <h4 className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <GraduationCap className="w-4 h-4" />
+                  <span>4. Honorarios Profesionales, Aranceles y Ensayos Técnicos</span>
+                </h4>
+                <p className="text-[11px] text-on-surface-variant">
+                  Define la tarifa base y/o fórmula matemática de cálculo para el servicio profesional o protocolo técnico.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
+                <div className="sm:col-span-4">
+                  <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
+                    Honorario Profesional Base ($)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={formData.honorarioBase || 0}
+                    onChange={(e) => setFormData({ ...formData, honorarioBase: parseFloat(e.target.value) || 0 })}
+                    className={inputCls}
+                    placeholder="0"
+                  />
+                  <span className="text-[10px] text-on-surface-variant mt-0.5 block">
+                    Costo base fijo por informe o visita técnica.
+                  </span>
+                </div>
+
+                <div className="sm:col-span-8">
+                  <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
+                    Fórmula Matemática de Honorarios
+                  </label>
+                  <FormulaInput
+                    value={formData.formulaHonorarios || ''}
+                    onChange={(val) => setFormData({ ...formData, formulaHonorarios: val })}
+                    parametros={[
+                      { id: 'honorario_base', nombre: 'Honorario Base', unidad: '$' },
+                      ...formData.parametros
+                    ]}
+                    variables={formData.variables}
+                    showChips={true}
+                    placeholder="ej: honorario_base + jabalinas * 20000"
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sección para Servicio Tercerizado */}
+          {formData.naturaleza === 'servicio_tercerizado' && (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-3">
+              <h4 className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Truck className="w-4 h-4" />
+                <span>4. Costo de Servicio Tercerizado / Subcontrato</span>
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
+                    Costo Directo del Servicio ($)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={formData.costoServicioDirecto || 0}
+                    onChange={(e) => setFormData({ ...formData, costoServicioDirecto: parseFloat(e.target.value) || 0 })}
+                    className={inputCls}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 5. Despiece de Insumos & Materiales con Fórmulas */}
           <div className="space-y-3 border-t border-outline-variant/30 pt-4">
             <div className="flex justify-between items-center flex-wrap gap-2">
               <div>
                 <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
                   <Package className="w-4 h-4" />
-                  <span>4. Despiece de Insumos & Materiales (con Fórmulas)</span>
+                  <span>{formData.naturaleza === 'servicio_profesional' || formData.naturaleza === 'servicio_tercerizado' ? '5' : '4'}. Despiece de Insumos & Materiales (con Fórmulas)</span>
                 </h4>
                 <p className="text-[11px] text-on-surface-variant">
                   Agrega materiales directos del catálogo o ranuras dinámicas que seleccionen automáticamente por categoría y parámetros.
@@ -1334,13 +1278,13 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
             </div>
           </div>
 
-          {/* 5. Mano de Obra con Fórmulas (Material Design 3 Card Layout) */}
+          {/* Mano de Obra con Fórmulas (Material Design 3 Card Layout) */}
           <div className="space-y-3.5 border-t border-outline-variant/30 pt-4">
             <div className="flex justify-between items-center">
               <div>
                 <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
                   <Clock className="w-4 h-4" />
-                  <span>5. Horas de Mano de Obra (con Fórmulas)</span>
+                  <span>{formData.naturaleza === 'servicio_profesional' || formData.naturaleza === 'servicio_tercerizado' ? '6' : '5'}. Horas de Mano de Obra (con Fórmulas)</span>
                 </h4>
                 <p className="text-[11px] text-on-surface-variant">
                   Escribe la fórmula para calcular las horas de cada categoría de mano de obra (ej: <code className="font-mono text-primary font-bold">horas_oficial</code> o <code className="font-mono text-primary font-bold">(bocas * 1.5) * k_complejidad</code>).
@@ -1594,12 +1538,12 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
             </div>
           </div>
 
-          {/* 6. Cláusula Técnica & Exclusiones de Obra / Protocolo */}
+          {/* Cláusula Técnica & Exclusiones de Obra / Protocolo */}
           <div className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/25 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="text-xs font-bold text-on-surface uppercase tracking-wide flex items-center gap-1.5">
                 <ShieldAlert className="w-4 h-4 text-amber-500" />
-                <span>6. Cláusula Técnica & Exclusiones Sugeridas para Presupuesto</span>
+                <span>{formData.naturaleza === 'servicio_profesional' || formData.naturaleza === 'servicio_tercerizado' ? '7' : '6'}. Cláusula Técnica & Exclusiones Sugeridas para Presupuesto</span>
               </label>
               <div className="flex items-center gap-2">
                 {formData.naturaleza === 'servicio_profesional' ? (
