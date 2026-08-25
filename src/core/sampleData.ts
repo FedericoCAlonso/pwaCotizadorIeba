@@ -570,6 +570,163 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
     createdAt: now,
     updatedAt: now,
     deleted: false
+  },
+  {
+    id: 'tarea-fa255d31-2fa7-4c47-a67b-cba46f387140',
+    nombre: 'Protocolo SRT 900/15 viviendas, consorcios, comercios pequeños y medianos',
+    categoria: 'Bocas',
+    unidad: 'boca',
+    naturaleza: 'instalacion',
+    honorarioBase: 0,
+    formulaHonorarios: '',
+    costoServicioDirecto: 0,
+    notasTecnicas: '',
+    clausulaTecnicaDefault: '',
+    clausulaExclusiones: '',
+    costoFijoOperativo: 0,
+    descripcionCostoFijo: '',
+    parametros: [
+      {
+        id: 'bocas',
+        nombre: 'Cantidad de Bocas',
+        tipo: 'numero',
+        valorDefault: 10,
+        unidad: 'bocas'
+      },
+      {
+        id: 'jabalinas',
+        nombre: 'Cantidad de jabalinas',
+        tipo: 'numero',
+        valorDefault: 1,
+        unidad: '',
+        descripcion: ''
+      },
+      {
+        id: 'int_diferenciales',
+        nombre: 'Cantidad de interruptores diferenciales',
+        tipo: 'numero',
+        valorDefault: 1,
+        unidad: '',
+        descripcion: ''
+      },
+      {
+        id: 'requiere_unifilar',
+        nombre: '¿Requiere unifilar?',
+        tipo: 'boolean',
+        valorDefault: 0,
+        unidad: '',
+        descripcion: '',
+        opciones: [
+          { id: 'opt-1', label: 'Estándar (1.00x)', valor: 1 },
+          { id: 'opt-2', label: 'Complejo (1.25x)', valor: 1.25 }
+        ]
+      },
+      {
+        id: 'cnt_unifialres',
+        nombre: 'Cantidad de unifilares',
+        tipo: 'numero',
+        valorDefault: 1,
+        unidad: '',
+        descripcion: '',
+        condicion: 'requiere_unifilar == 1'
+      },
+      {
+        id: 'circuitos',
+        nombre: 'Cantidad total de circuitos de los tableros a relevar',
+        tipo: 'numero',
+        valorDefault: 5,
+        unidad: '',
+        descripcion: '',
+        condicion: 'requiere_unifilar == 1'
+      },
+      {
+        id: 'requiere_croquis',
+        nombre: '¿Requiere relevamiento de la instalación?',
+        tipo: 'boolean',
+        valorDefault: 0,
+        unidad: '',
+        descripcion: '',
+        opciones: [
+          { id: 'opt-1', label: 'Estándar (1.00x)', valor: 1 },
+          { id: 'opt-2', label: 'Complejo (1.25x)', valor: 1.25 }
+        ]
+      },
+      {
+        id: 'cnt_locales',
+        nombre: 'Cantidad de locales a relevar',
+        tipo: 'numero',
+        valorDefault: 1,
+        unidad: '',
+        descripcion: '',
+        condicion: 'requiere_croquis == 1'
+      },
+      {
+        id: 'bocas_locales',
+        nombre: 'Cantidad total de bocas en los locales a relevar',
+        tipo: 'numero',
+        valorDefault: 10,
+        unidad: '',
+        descripcion: '',
+        condicion: 'requiere_croquis == 1'
+      },
+      {
+        id: 'encomienda',
+        nombre: 'Valor de la encomienda',
+        tipo: 'numero',
+        valorDefault: 30000,
+        unidad: '',
+        descripcion: ''
+      }
+    ],
+    variables: [
+      {
+        id: 'stot_jabalina',
+        nombre: 'Subtotal por medición de jabalinas',
+        formula: '(10 + 3 * jabalinas > 1? jabalinas -1: 0)* encomienda',
+        unidad: '$',
+        descripcion: ''
+      },
+      {
+        id: 'stot_bocas',
+        nombre: 'Subtotal por cantidad de bocas',
+        formula: '(bocas/5 + 1)* encomienda',
+        unidad: '$',
+        descripcion: ''
+      },
+      {
+        id: 'stot_unifilares',
+        nombre: 'Subtotal por unifilares',
+        formula: '(cnt_unifialres + circuitos/4) * encomienda * requiere_unifilar',
+        unidad: '$',
+        descripcion: ''
+      },
+      {
+        id: 'stot_relevamiento',
+        nombre: 'Sub total por relevamiento de locales',
+        formula: '(1 * cnt_locales  + bocas/ 5) * encomienda * requiere_croquis',
+        unidad: '$',
+        descripcion: ''
+      }
+    ],
+    esParametrico: true,
+    tipoParametrizacion: 'recableado_integral',
+    insumos: [],
+    manoObra: [
+      {
+        categoriaId: 'mo-ayudante',
+        horas: 2.75,
+        formula: '(jabalinas + bocas)/ 4 '
+      }
+    ],
+    horasSetupTotal: 1,
+    cuadrillaRecomendada: {
+      oficiales: 1,
+      ayudantes: 1
+    },
+    frecuenciaUso: 0,
+    createdAt: '2026-08-25T15:45:56.632Z',
+    updatedAt: '2026-08-25T16:04:08.514Z',
+    deleted: false
   }
 ];
 

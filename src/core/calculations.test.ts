@@ -2158,5 +2158,37 @@ describe('15. Estructura de Gastos Directos vs Indirectos, Fórmulas Paramétric
     expect(resOn.manoObraSnapshot[0].horasTotales).toBe(6); // 3 * 2
     expect(resOn.costoManoObraTotal).toBe(90000); // 6 * 15000
   });
+
+  it('debe incluir y evaluar correctamente la tarea tipo por defecto Protocolo SRT 900/15', () => {
+    const srtTask = INITIAL_TAREAS_TIPO.find(t => t.id === 'tarea-fa255d31-2fa7-4c47-a67b-cba46f387140');
+    expect(srtTask).toBeDefined();
+    expect(srtTask?.nombre).toContain('Protocolo SRT 900/15');
+
+    const testManoObraMap = new Map<string, CategoriaManoDeObra>([
+      ['mo-ayudante', { id: 'mo-ayudante', nombre: 'Ayudante', costoHora: 10000, fechaActualizacion: '' }]
+    ]);
+
+    const res = calcularConsumosTareaTipo(
+      srtTask!,
+      {
+        bocas: 10,
+        jabalinas: 1,
+        int_diferenciales: 1,
+        requiere_unifilar: 1,
+        cnt_unifialres: 1,
+        circuitos: 4,
+        requiere_croquis: 0,
+        encomienda: 30000
+      },
+      new Map(),
+      testManoObraMap
+    );
+
+    expect(res.valoresVariables['stot_bocas']).toBe(90000); // (10/5 + 1) * 30000 = 3 * 30000 = 90000
+    expect(res.valoresVariables['stot_unifilares']).toBe(60000); // (1 + 4/4) * 30000 * 1 = 2 * 30000 = 60000
+    expect(res.valoresVariables['stot_relevamiento']).toBe(0); // requiere_croquis = 0
+    expect(res.manoObraSnapshot.length).toBe(1);
+    expect(res.manoObraSnapshot[0].horasTotales).toBe(2.75); // (1 + 10) / 4 = 2.75
+  });
 });
 

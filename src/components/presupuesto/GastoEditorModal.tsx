@@ -204,15 +204,122 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
     });
   };
 
+  // Encuentra el índice del parámetro raíz (sin condición) del cual desciende el parámetro en 'index'
+  const getParametroRootIndex = (list: ParametroTrabajoTipo[], index: number) => {
+    let rootIdx = index;
+    while (rootIdx > 0 && list[rootIdx].condicion) {
+      rootIdx--;
+    }
+    return rootIdx;
+  };
+
+  // Encuentra el rango [startIndex, endIndex] del bloque / sub-árbol familiar a partir de un índice
+  const getParametroBlockRange = (list: ParametroTrabajoTipo[], index: number) => {
+    const blockIds = new Set<string>([list[index].id]);
+    let endIndex = index;
+    for (let i = index + 1; i < list.length; i++) {
+      const p = list[i];
+      if (p.condicion && Array.from(blockIds).some(id => p.condicion!.includes(id))) {
+        blockIds.add(p.id);
+        endIndex = i;
+      } else {
+        break;
+      }
+    }
+    return { startIndex: index, endIndex };
+  };
+
+  // Verifica si el parámetro en 'index' puede moverse hacia arriba o hacia abajo
+  const canMoveParametro = (list: ParametroTrabajoTipo[], index: number, direction: 'up' | 'down') => {
+    if (index < 0 || index >= list.length) return false;
+    const currentParam = list[index];
+    const isChild = Boolean(currentParam.condicion && currentParam.condicion.trim());
+
+    if (direction === 'up') {
+      if (index === 0) return false;
+
+      if (isChild) {
+        const rootIdx = getParametroRootIndex(list, index);
+        // Un hijo nunca puede subir a la posición del padre raíz o antes de él
+        if (index - 1 <= rootIdx) return false;
+
+        // Tampoco puede subir antes de cualquier parámetro del que dependa directamente
+        for (let i = 0; i < index; i++) {
+          if (currentParam.condicion!.includes(list[i].id) && index - 1 <= i) {
+            return false;
+          }
+        }
+        return true;
+      } else {
+        // Es parámetro raíz: puede subir si hay otro bloque raíz antes de él
+        return index > 0;
+      }
+    } else {
+      // direction === 'down'
+      const { endIndex } = getParametroBlockRange(list, index);
+
+      if (isChild) {
+        const rootIdx = getParametroRootIndex(list, index);
+        const { endIndex: familyEnd } = getParametroBlockRange(list, rootIdx);
+        // Un hijo NO puede salir del bloque de su padre hacia abajo
+        if (endIndex >= familyEnd) return false;
+        return true;
+      } else {
+        // Es parámetro raíz: no puede bajar si su bloque ya llega al final de la lista
+        if (endIndex >= list.length - 1) return false;
+        return true;
+      }
+    }
+  };
+
   const handleMoveParam = (index: number, direction: 'up' | 'down') => {
     setParametros((prev) => {
-      const targetIndex = direction === 'up' ? index - 1 : index + 1;
-      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
-      const next = [...prev];
-      const temp = next[index];
-      next[index] = next[targetIndex];
-      next[targetIndex] = temp;
-      return next;
+      const list = [...prev];
+      if (!canMoveParametro(list, index, direction)) return prev;
+
+      const currentParam = list[index];
+      const isChild = Boolean(currentParam.condicion && currentParam.condicion.trim());
+      const { startIndex, endIndex } = getParametroBlockRange(list, index);
+      const blockSize = endIndex - startIndex + 1;
+
+      if (direction === 'up') {
+        const prevItemIdx = startIndex - 1;
+        let targetInsertIdx = prevItemIdx;
+
+        if (!isChild) {
+          // Si es raíz, salta el bloque raíz anterior completo
+          let prevBlockStart = prevItemIdx;
+          while (prevBlockStart > 0 && list[prevBlockStart].condicion) {
+            prevBlockStart--;
+          }
+          targetInsertIdx = prevBlockStart;
+        } else {
+          // Si es hijo, salta el bloque del hermano anterior (sin superar al padre)
+          const rootIdx = getParametroRootIndex(list, index);
+          let prevSiblingStart = prevItemIdx;
+          while (
+            prevSiblingStart > rootIdx + 1 &&
+            list[prevSiblingStart].condicion &&
+            !currentParam.condicion!.includes(list[prevSiblingStart - 1]?.id)
+          ) {
+            prevSiblingStart--;
+          }
+          targetInsertIdx = Math.max(rootIdx + 1, prevSiblingStart);
+        }
+
+        const block = list.splice(startIndex, blockSize);
+        list.splice(targetInsertIdx, 0, ...block);
+      } else {
+        // direction === 'down'
+        const nextBlockIdx = endIndex + 1;
+        const nextRange = getParametroBlockRange(list, nextBlockIdx);
+
+        const block = list.splice(startIndex, blockSize);
+        const insertIdx = nextRange.endIndex - blockSize + 1;
+        list.splice(insertIdx, 0, ...block);
+      }
+
+      return list;
     });
   };
 
@@ -660,7 +767,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                         <div className="flex items-center gap-0.5 bg-surface-container-highest rounded-lg p-0.5 border border-outline-variant/20 shrink-0">
                           <button
                             type="button"
-                            disabled={idx === 0}
+                            disabled={!canMoveParametro(parametros, idx, 'up')}
                             onClick={() => handleMoveParam(idx, 'up')}
                             className="p-1 text-on-surface-variant hover:text-primary disabled:opacity-25 disabled:pointer-events-none rounded transition"
                             title="Mover arriba"
@@ -669,7 +776,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                           </button>
                           <button
                             type="button"
-                            disabled={idx === parametros.length - 1}
+                            disabled={!canMoveParametro(parametros, idx, 'down')}
                             onClick={() => handleMoveParam(idx, 'down')}
                             className="p-1 text-on-surface-variant hover:text-primary disabled:opacity-25 disabled:pointer-events-none rounded transition"
                             title="Mover abajo"
