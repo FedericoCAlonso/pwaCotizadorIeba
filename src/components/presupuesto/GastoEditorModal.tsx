@@ -10,7 +10,9 @@ import {
   Check,
   Sliders,
   Sparkles,
-  Zap
+  Zap,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import { ModalContainer } from '../ModalContainer';
 import {
@@ -198,6 +200,18 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
     setTestParamValues((prev) => {
       const next = { ...prev };
       delete next[paramId];
+      return next;
+    });
+  };
+
+  const handleMoveParam = (index: number, direction: 'up' | 'down') => {
+    setParametros((prev) => {
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const next = [...prev];
+      const temp = next[index];
+      next[index] = next[targetIndex];
+      next[targetIndex] = temp;
       return next;
     });
   };
@@ -586,6 +600,12 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                         step="any"
                         value={newParamForm.valorDefault}
                         onChange={(e) => setNewParamForm({ ...newParamForm, valorDefault: parseFloat(e.target.value) || 0 })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newParamForm.id.trim() && newParamForm.nombre.trim()) {
+                            e.preventDefault();
+                            handleSaveCustomParam();
+                          }
+                        }}
                         className="w-full px-3 py-1.5 bg-surface-container border border-outline-variant/40 rounded-lg text-xs font-mono"
                       />
                     </div>
@@ -596,6 +616,12 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                         placeholder="ej: años, m, %"
                         value={newParamForm.unidad}
                         onChange={(e) => setNewParamForm({ ...newParamForm, unidad: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newParamForm.id.trim() && newParamForm.nombre.trim()) {
+                            e.preventDefault();
+                            handleSaveCustomParam();
+                          }
+                        }}
                         className="w-full px-3 py-1.5 bg-surface-container border border-outline-variant/40 rounded-lg text-xs"
                       />
                     </div>
@@ -624,24 +650,51 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
               {/* Lista de Parámetros Configurados */}
               {parametros.length > 0 ? (
                 <div className="space-y-2 pt-1">
-                  {parametros.map((p) => (
+                  {parametros.map((p, idx) => (
                     <div
                       key={p.id}
                       className="flex items-center justify-between p-2.5 rounded-xl bg-surface-container border border-outline-variant/20 gap-2"
                     >
-                      <div className="min-w-0">
-                        <span className="text-xs font-bold text-on-surface block truncate">{p.nombre}</span>
-                        <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant font-mono">
-                          <span className="bg-surface-container-highest px-1.5 py-0.5 rounded text-primary font-bold">{p.id}</span>
-                          <span>Tipo: {p.tipo}</span>
-                          <span>Default: {p.valorDefault}{p.unidad ? ` ${p.unidad}` : ''}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        {/* Botones Reordenar */}
+                        <div className="flex items-center gap-0.5 bg-surface-container-highest rounded-lg p-0.5 border border-outline-variant/20 shrink-0">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => handleMoveParam(idx, 'up')}
+                            className="p-1 text-on-surface-variant hover:text-primary disabled:opacity-25 disabled:pointer-events-none rounded transition"
+                            title="Mover arriba"
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === parametros.length - 1}
+                            onClick={() => handleMoveParam(idx, 'down')}
+                            className="p-1 text-on-surface-variant hover:text-primary disabled:opacity-25 disabled:pointer-events-none rounded transition"
+                            title="Mover abajo"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-on-surface block truncate">{p.nombre}</span>
+                          <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant font-mono flex-wrap">
+                            <span className="bg-surface-container-highest px-1.5 py-0.5 rounded text-primary font-bold">{p.id}</span>
+                            <span>Tipo: {p.tipo}</span>
+                            <span>Default: {p.valorDefault}{p.unidad ? ` ${p.unidad}` : ''}</span>
+                            {p.condicion && (
+                              <span className="text-amber-800 dark:text-amber-300 font-semibold">↳ {p.condicion}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
                       <button
                         type="button"
                         onClick={() => handleRemoveParam(p.id)}
-                        className="p-1 text-on-surface-variant hover:text-error rounded-md"
+                        className="p-1 text-on-surface-variant hover:text-error rounded-md shrink-0"
                         title="Eliminar parámetro"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -653,6 +706,18 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                 <p className="text-[11px] text-on-surface-variant italic py-1">
                   No hay parámetros definidos aún. Puedes agregar variables arriba o usar directamente <code>base</code>, <code>materiales</code>, <code>mano_obra</code> o <code>servicios</code>.
                 </p>
+              )}
+
+              {/* Botón Cómodo al Pie de la Lista */}
+              {!showAddParamForm && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddParamForm(true)}
+                  className="w-full py-2 px-3 rounded-xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary font-bold text-xs transition flex items-center justify-center gap-1.5 active:scale-[0.99] shadow-2xs mt-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Agregar variable personalizada</span>
+                </button>
               )}
             </div>
 

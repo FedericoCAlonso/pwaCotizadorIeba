@@ -830,9 +830,14 @@ export function calcularTotalesPresupuesto(params: {
 
     if (g.parametros && g.parametros.length > 0) {
       g.parametros.forEach((p) => {
-        paramScope[p.id] = g.valoresParametros?.[p.id] !== undefined
+        let isVisible = true;
+        if (p.condicion && p.condicion.trim()) {
+          isVisible = evaluateCondition(p.condicion, { ...formulaScopeBase, ...paramScope });
+        }
+        const rawVal = g.valoresParametros?.[p.id] !== undefined
           ? safeNum(g.valoresParametros[p.id])
           : p.valorDefault;
+        paramScope[p.id] = isVisible ? rawVal : 0;
       });
     } else if (g.valoresParametros) {
       Object.entries(g.valoresParametros).forEach(([k, v]) => {
@@ -1624,17 +1629,24 @@ export function calcularConsumosTareaTipo(
 
   if (tarea.parametros && tarea.parametros.length > 0) {
     tarea.parametros.forEach((p) => {
-      const val = parametrosOVariables[p.id] !== undefined
+      let isVisible = true;
+      if (p.condicion && p.condicion.trim()) {
+        isVisible = evaluateCondition(p.condicion, scope);
+      }
+
+      const rawVal = parametrosOVariables[p.id] !== undefined
         ? safeNum(parametrosOVariables[p.id])
         : (p.valorDefault ?? 1);
+
+      const val = isVisible ? rawVal : 0;
       scope[p.id] = val;
       valoresParametros[p.id] = val;
     });
   }
 
-  // Copiar cualquier otra variable que se haya pasado explícitamente
+  // Copiar cualquier otra variable que se haya pasado explícitamente (si no fue ya procesada)
   Object.entries(parametrosOVariables || {}).forEach(([k, v]) => {
-    if (scope[k] === undefined || parametrosOVariables[k] !== undefined) {
+    if (scope[k] === undefined) {
       scope[k] = safeNum(v);
       valoresParametros[k] = safeNum(v);
     }

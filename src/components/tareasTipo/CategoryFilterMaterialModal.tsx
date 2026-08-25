@@ -360,7 +360,7 @@ export const CategoryFilterMaterialModal: React.FC<CategoryFilterMaterialModalPr
                 className="px-2.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs rounded-xl border border-primary/20 flex items-center gap-1 transition active:scale-95 min-h-[36px]"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Agregar Atributo</span>
+                <span>Agregar Atributo</span>
               </button>
             </div>
 

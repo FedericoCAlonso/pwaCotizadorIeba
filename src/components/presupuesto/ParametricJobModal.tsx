@@ -8,13 +8,15 @@ import {
   Package,
   Clock,
   Calculator,
-  GraduationCap
+  GraduationCap,
+  CornerDownRight
 } from 'lucide-react';
 import {
   TareaTipo,
   Insumo,
   CategoriaManoDeObra,
-  TipoFactura
+  TipoFactura,
+  ParametroTrabajoTipo
 } from '../../core/types';
 import {
   formatARS,
@@ -22,6 +24,7 @@ import {
   ConsumosCalculadosResultado,
   DEFAULT_CLAUSULA_OBRA_EXISTENTE
 } from '../../core/calculations';
+import { evaluateCondition } from '../../core/mathEvaluator';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 interface ParametricJobModalProps {
@@ -51,22 +54,20 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
   initialParametros,
   initialVariables,
   initialClausula,
-  initialIncluirClausula = true,
+  initialIncluirClausula,
   insumosMap,
   manoObraMap,
-  tipoFactura,
+  tipoFactura = 'Factura A',
   onConfirm
 }) => {
   useEscapeKey(isOpen, onClose);
 
-  // Parámetros State (Inputs del usuario)
+  // Estado local para los valores de parámetros ingresados
   const [parametrosValues, setParametrosValues] = useState<Record<string, number>>({});
-
-  // Cláusula de Exclusiones
-  const [incluirClausula, setIncluirClausula] = useState<boolean>(initialIncluirClausula ?? true);
   const [clausulaTexto, setClausulaTexto] = useState<string>('');
+  const [incluirClausula, setIncluirClausula] = useState<boolean>(true);
 
-  // Sincronizar estado cuando se abre el modal para una partida o cambian los parámetros iniciales
+  // Inicializar valores al abrir el modal
   useEffect(() => {
     if (isOpen) {
       const defaults: Record<string, number> = {};
@@ -91,6 +92,65 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
     }));
   };
 
+  // Agrupar parámetros para renderizado jerárquico Material 3 (Progressive Disclosure)
+  const groupedParametros = useMemo(() => {
+    if (!tarea.parametros || tarea.parametros.length === 0) return [];
+
+    const currentScope: Record<string, number> = {};
+    const evalMap = new Map<string, { isVisible: boolean; isConditional: boolean }>();
+
+    tarea.parametros.forEach((p) => {
+      let isVisible = true;
+      const isConditional = Boolean(p.condicion && p.condicion.trim());
+
+      if (isConditional) {
+        isVisible = evaluateCondition(p.condicion, currentScope);
+      }
+
+      const rawVal = parametrosValues[p.id] !== undefined
+        ? parametrosValues[p.id]
+        : (p.valorDefault ?? 1);
+
+      const effectiveVal = isVisible ? rawVal : 0;
+      currentScope[p.id] = effectiveVal;
+      evalMap.set(p.id, { isVisible, isConditional });
+    });
+
+    type ParamGroup = {
+      root: ParametroTrabajoTipo;
+      rootMeta: { isVisible: boolean; isConditional: boolean };
+      children: Array<{ parametro: ParametroTrabajoTipo; meta: { isVisible: boolean; isConditional: boolean } }>;
+    };
+
+    const groups: ParamGroup[] = [];
+    let currentGroup: ParamGroup | null = null;
+
+    tarea.parametros.forEach((p) => {
+      const meta = evalMap.get(p.id)!;
+      if (!meta.isConditional) {
+        currentGroup = {
+          root: p,
+          rootMeta: meta,
+          children: []
+        };
+        groups.push(currentGroup);
+      } else {
+        if (currentGroup) {
+          currentGroup.children.push({ parametro: p, meta });
+        } else {
+          currentGroup = {
+            root: p,
+            rootMeta: meta,
+            children: []
+          };
+          groups.push(currentGroup);
+        }
+      }
+    });
+
+    return groups;
+  }, [tarea.parametros, parametrosValues]);
+
   // Live evaluation de parámetros, variables calculadas y consumos
   const calculosResultado: ConsumosCalculadosResultado = useMemo(() => {
     return calcularConsumosTareaTipo(
@@ -102,11 +162,29 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
     );
   }, [tarea, parametrosValues, insumosMap, manoObraMap, tipoFactura]);
 
-  if (!isOpen) return null;
-
   const handleApply = () => {
+    const sanitizedParams: Record<string, number> = {};
+    const evalScope: Record<string, number> = {};
+
+    if (tarea.parametros && tarea.parametros.length > 0) {
+      tarea.parametros.forEach((p) => {
+        let isVisible = true;
+        if (p.condicion && p.condicion.trim()) {
+          isVisible = evaluateCondition(p.condicion, evalScope);
+        }
+        const rawVal = parametrosValues[p.id] !== undefined
+          ? parametrosValues[p.id]
+          : (p.valorDefault ?? 1);
+        const val = isVisible ? rawVal : 0;
+        sanitizedParams[p.id] = val;
+        evalScope[p.id] = val;
+      });
+    } else {
+      sanitizedParams['cantidad'] = parametrosValues['cantidad'] ?? 1;
+    }
+
     onConfirm({
-      parametros: parametrosValues,
+      parametros: sanitizedParams,
       variables: calculosResultado.valoresVariables,
       calculos: calculosResultado,
       clausulaExclusiones: incluirClausula ? clausulaTexto : undefined,
@@ -114,6 +192,133 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
     });
     onClose();
   };
+
+  const renderParamField = (parametro: ParametroTrabajoTipo, isInsideGroup: boolean) => {
+    const currentValue = parametrosValues[parametro.id] ?? parametro.valorDefault ?? 1;
+
+    if (parametro.tipo === 'boolean') {
+      const isTrue = currentValue === 1;
+      return (
+        <div
+          key={parametro.id}
+          className={`sm:col-span-2 flex items-center justify-between p-3 rounded-2xl border transition-all ${
+            isInsideGroup
+              ? 'bg-surface-container-highest/60 border-outline-variant/30'
+              : 'bg-surface-container-highest border-outline-variant/30'
+          }`}
+        >
+          <div className="pr-3">
+            <div className="flex items-center gap-1.5">
+              {isInsideGroup && (
+                <span className="text-[10px] font-bold text-primary">↳</span>
+              )}
+              <label className="text-xs font-bold text-on-surface block">
+                {parametro.nombre}
+              </label>
+            </div>
+            {parametro.descripcion && (
+              <p className="text-[10px] text-on-surface-variant mt-0.5">{parametro.descripcion}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-1 bg-surface-container p-1 rounded-xl border border-outline-variant/20 shrink-0">
+            <button
+              type="button"
+              onClick={() => handleParametroChange(parametro.id, 0)}
+              className={`px-3.5 py-1 text-xs font-bold rounded-lg transition ${
+                !isTrue
+                  ? 'bg-surface-variant text-on-surface shadow-2xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              No
+            </button>
+            <button
+              type="button"
+              onClick={() => handleParametroChange(parametro.id, 1)}
+              className={`px-3.5 py-1 text-xs font-bold rounded-lg transition ${
+                isTrue
+                  ? 'bg-primary text-on-primary shadow-2xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              Sí
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (parametro.tipo === 'select' && parametro.opciones && parametro.opciones.length > 0) {
+      return (
+        <div
+          key={parametro.id}
+          className={`sm:col-span-2 ${
+            isInsideGroup ? 'p-2.5 bg-surface-container-highest/40 border border-outline-variant/20 rounded-2xl' : ''
+          }`}
+        >
+          <div className="flex items-center gap-1.5 mb-1">
+            {isInsideGroup && (
+              <span className="text-[10px] font-bold text-primary">↳</span>
+            )}
+            <label className="text-[11px] font-bold text-on-surface block">
+              {parametro.nombre}:
+            </label>
+          </div>
+          {parametro.descripcion && (
+            <p className="text-[10px] text-on-surface-variant mb-1.5">{parametro.descripcion}</p>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {parametro.opciones.map((opc) => (
+              <button
+                key={opc.id}
+                type="button"
+                onClick={() => handleParametroChange(parametro.id, opc.valor)}
+                className={`p-2.5 rounded-xl border text-left text-xs transition ${
+                  currentValue === opc.valor
+                    ? 'bg-primary/15 border-primary text-primary font-bold shadow-xs'
+                    : 'bg-surface-container-highest border-outline-variant/20 text-on-surface-variant hover:border-outline-variant/40'
+                }`}
+              >
+                <div className="font-semibold text-xs leading-snug">{opc.label}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={parametro.id}
+        className={
+          isInsideGroup
+            ? 'p-2.5 bg-surface-container-highest/40 border border-outline-variant/20 rounded-2xl'
+            : ''
+        }
+      >
+        <div className="flex items-center gap-1.5 mb-1">
+          {isInsideGroup && (
+            <span className="text-[10px] font-bold text-primary">↳</span>
+          )}
+          <label className="text-[11px] font-bold text-on-surface block">
+            {parametro.nombre} {parametro.unidad ? `(${parametro.unidad})` : ''}:
+          </label>
+        </div>
+        {parametro.descripcion && (
+          <p className="text-[10px] text-on-surface-variant mb-1">{parametro.descripcion}</p>
+        )}
+        <input
+          type="number"
+          step="any"
+          value={currentValue}
+          onChange={(e) => handleParametroChange(parametro.id, parseFloat(e.target.value) || 0)}
+          className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+        />
+      </div>
+    );
+  };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
@@ -158,25 +363,24 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-on-surface-variant hover:text-on-surface p-2 rounded-full hover:bg-surface-variant transition shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center"
-            aria-label="Cerrar modal"
+            className="p-1.5 sm:p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/40 rounded-xl transition shrink-0"
+            title="Cerrar modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 flex-1 text-xs">
-
-          {/* 1. Formulario de Parámetros de la Obra */}
-          <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 space-y-4">
+        {/* Content Body */}
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5">
+          {/* 1. Entradas y Parámetros de la Tarea Tipo */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-xs text-on-surface uppercase tracking-wide flex items-center gap-1.5">
+              <h4 className="text-xs font-bold text-on-surface uppercase tracking-wide flex items-center gap-1.5">
                 <Sliders className="w-4 h-4 text-primary" />
-                <span>Parámetros de la Obra</span>
-              </span>
-              <span className="text-[11px] text-on-surface-variant">
-                Completa los datos para calcular materiales y mano de obra
+                <span>Parámetros de Entrada</span>
+              </h4>
+              <span className="text-[10px] text-on-surface-variant">
+                Valores para dimensionar consumos
               </span>
             </div>
 
@@ -195,97 +399,32 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
                 />
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {tarea.parametros.map((parametro) => {
-                  const currentValue = parametrosValues[parametro.id] ?? parametro.valorDefault ?? 1;
+              <div className="space-y-3.5">
+                {groupedParametros.map((group) => {
+                  if (!group.rootMeta.isVisible) return null;
 
-                  if (parametro.tipo === 'boolean') {
-                    const isTrue = currentValue === 1;
-                    return (
-                      <div
-                        key={parametro.id}
-                        className="sm:col-span-2 flex items-center justify-between p-3 bg-surface-container-highest rounded-2xl border border-outline-variant/30"
-                      >
-                        <div className="pr-3">
-                          <label className="text-xs font-bold text-on-surface block">
-                            {parametro.nombre}
-                          </label>
-                          {parametro.descripcion && (
-                            <p className="text-[10px] text-on-surface-variant mt-0.5">{parametro.descripcion}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 bg-surface-container p-1 rounded-xl border border-outline-variant/20 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleParametroChange(parametro.id, 0)}
-                            className={`px-3.5 py-1 text-xs font-bold rounded-lg transition ${
-                              !isTrue
-                                ? 'bg-surface-variant text-on-surface shadow-2xs'
-                                : 'text-on-surface-variant hover:text-on-surface'
-                            }`}
-                          >
-                            No
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleParametroChange(parametro.id, 1)}
-                            className={`px-3.5 py-1 text-xs font-bold rounded-lg transition ${
-                              isTrue
-                                ? 'bg-primary text-on-primary shadow-2xs'
-                                : 'text-on-surface-variant hover:text-on-surface'
-                            }`}
-                          >
-                            Sí
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  if (parametro.tipo === 'select' && parametro.opciones && parametro.opciones.length > 0) {
-                    return (
-                      <div key={parametro.id} className="sm:col-span-2">
-                        <label className="text-[11px] font-bold text-on-surface block mb-1">
-                          {parametro.nombre}:
-                        </label>
-                        {parametro.descripcion && (
-                          <p className="text-[10px] text-on-surface-variant mb-1.5">{parametro.descripcion}</p>
-                        )}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          {parametro.opciones.map((opc) => (
-                            <button
-                              key={opc.id}
-                              type="button"
-                              onClick={() => handleParametroChange(parametro.id, opc.valor)}
-                              className={`p-2.5 rounded-xl border text-left text-xs transition ${
-                                currentValue === opc.valor
-                                  ? 'bg-primary/15 border-primary text-primary font-bold shadow-xs'
-                                  : 'bg-surface-container-highest border-outline-variant/20 text-on-surface-variant hover:border-outline-variant/40'
-                              }`}
-                            >
-                              <div className="font-semibold text-xs leading-snug">{opc.label}</div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  }
+                  const visibleChildren = group.children.filter((c) => c.meta.isVisible);
 
                   return (
-                    <div key={parametro.id}>
-                      <label className="text-[11px] font-bold text-on-surface block mb-1">
-                        {parametro.nombre} {parametro.unidad ? `(${parametro.unidad})` : ''}:
-                      </label>
-                      {parametro.descripcion && (
-                        <p className="text-[10px] text-on-surface-variant mb-1">{parametro.descripcion}</p>
+                    <div key={group.root.id} className="space-y-2.5">
+                      {/* Parámetro Principal / Disparador */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {renderParamField(group.root, false)}
+                      </div>
+
+                      {/* Sub-panel M3 Único para todos los dependientes (Hijos, Nietos...) */}
+                      {visibleChildren.length > 0 && (
+                        <div className="p-3.5 sm:p-4 rounded-2xl bg-surface-container border border-outline-variant/30 border-l-4 border-l-primary space-y-3 animate-in fade-in slide-in-from-top-1">
+                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-primary uppercase tracking-wide">
+                            <CornerDownRight className="w-3.5 h-3.5" />
+                            <span>Opciones de {group.root.nombre}</span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {visibleChildren.map(({ parametro }) => renderParamField(parametro, true))}
+                          </div>
+                        </div>
                       )}
-                      <input
-                        type="number"
-                        step="any"
-                        value={currentValue}
-                        onChange={(e) => handleParametroChange(parametro.id, parseFloat(e.target.value) || 0)}
-                        className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      />
                     </div>
                   );
                 })}

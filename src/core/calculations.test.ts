@@ -2109,5 +2109,54 @@ describe('15. Estructura de Gastos Directos vs Indirectos, Fórmulas Paramétric
     expect(totales.costoGlobal).toBe(400000);
     expect(totales.precioFinalGlobal).toBe(500000); // 400.000 * 1.25
   });
+
+  it('evalúa correctamente parámetros condicionales y dependientes en TareaTipo', () => {
+    const testInsumosMap = new Map<string, Insumo>([
+      ['mat-plano', { id: 'mat-plano', categoriaId: 'cat-doc', nombre: 'Plano Unifilar CAD', unidadVenta: 'u', atributos: [], activo: true, precioActual: 5000 }]
+    ]);
+    const testManoObraMap = new Map<string, CategoriaManoDeObra>([
+      ['mo-ing', { id: 'mo-ing', nombre: 'Ingeniero', costoHora: 15000, fechaActualizacion: '' }]
+    ]);
+
+    const tareaCondicional: TareaTipo = {
+      id: 'tt-test-condicional',
+      nombre: 'Relevamiento y Planos',
+      categoria: 'Ingeniería',
+      unidad: 'global',
+      parametros: [
+        { id: 'requiere_unifilar', nombre: '¿Requiere Unifilar?', tipo: 'boolean', valorDefault: 0 },
+        { id: 'cant_unifilares', nombre: 'Cantidad Unifilares', tipo: 'numero', valorDefault: 1, condicion: 'requiere_unifilar == 1' }
+      ],
+      variables: [
+        { id: 'total_planos', nombre: 'Total Planos', formula: 'cant_unifilares' }
+      ],
+      insumos: [
+        { materialId: 'mat-plano', cantidad: 1, formula: 'cant_unifilares', condicion: 'cant_unifilares > 0' }
+      ],
+      manoObra: [
+        { categoriaId: 'mo-ing', horas: 2, formula: 'cant_unifilares * 2', condicion: 'cant_unifilares > 0' }
+      ]
+    };
+
+    // Caso A: requiere_unifilar = 0 (inactivo). cant_unifilares debe forzarse a 0 aunque se pase un valor
+    const resOff = calcularConsumosTareaTipo(tareaCondicional, { requiere_unifilar: 0, cant_unifilares: 5 }, testInsumosMap, testManoObraMap);
+    expect(resOff.valoresParametros['requiere_unifilar']).toBe(0);
+    expect(resOff.valoresParametros['cant_unifilares']).toBe(0);
+    expect(resOff.valoresVariables['total_planos']).toBe(0);
+    expect(resOff.insumosSnapshot.length).toBe(0);
+    expect(resOff.manoObraSnapshot.length).toBe(0);
+    expect(resOff.costoDirectoTotal).toBe(0);
+
+    // Caso B: requiere_unifilar = 1 (activo). cant_unifilares = 3
+    const resOn = calcularConsumosTareaTipo(tareaCondicional, { requiere_unifilar: 1, cant_unifilares: 3 }, testInsumosMap, testManoObraMap);
+    expect(resOn.valoresParametros['requiere_unifilar']).toBe(1);
+    expect(resOn.valoresParametros['cant_unifilares']).toBe(3);
+    expect(resOn.valoresVariables['total_planos']).toBe(3);
+    expect(resOn.insumosSnapshot.length).toBe(1);
+    expect(resOn.insumosSnapshot[0].cantidadTotal).toBe(3);
+    expect(resOn.costoInsumosTotal).toBe(15000); // 3 * 5000
+    expect(resOn.manoObraSnapshot[0].horasTotales).toBe(6); // 3 * 2
+    expect(resOn.costoManoObraTotal).toBe(90000); // 6 * 15000
+  });
 });
 

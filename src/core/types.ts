@@ -390,6 +390,7 @@ export interface ParametroTrabajoTipo {
   unidad?: string; // ej: "bocas", "m²", "ml", "u"
   descripcion?: string; // Texto de ayuda
   opciones?: OpcionVariableTrabajo[]; // Cuando tipo === 'select'
+  condicion?: string; // Expresión condicional opcional (ej: "requiere_unifilar == 1", "bocas > 10")
 }
 
 /**

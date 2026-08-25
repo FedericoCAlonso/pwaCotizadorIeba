@@ -393,10 +393,19 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
       opciones: preset?.opciones ? preset.opciones.map(o => ({ ...o })) : undefined
     };
 
+    const targetIdx = formData.parametros.length;
     setFormData(prev => ({
       ...prev,
       parametros: [...prev.parametros, newParam]
     }));
+
+    setTimeout(() => {
+      const el = document.getElementById(`param-id-${targetIdx}`) as HTMLInputElement;
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    }, 60);
   };
 
   const updateParametro = (index: number, updates: Partial<ParametroTrabajoTipo>) => {
@@ -418,6 +427,47 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
     }));
   };
 
+  const moveParametro = (index: number, direction: 'up' | 'down') => {
+    setFormData(prev => {
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= prev.parametros.length) return prev;
+      const next = [...prev.parametros];
+      const temp = next[index];
+      next[index] = next[targetIndex];
+      next[targetIndex] = temp;
+      return { ...prev, parametros: next };
+    });
+  };
+
+  const setParametroDependency = (index: number, targetId: string) => {
+    setFormData(prev => {
+      const list = [...prev.parametros];
+      const targetIdx = list.findIndex(p => p.id === targetId);
+      if (targetIdx === -1) return prev;
+
+      const targetP = list[targetIdx];
+      const defaultCond = targetP.tipo === 'boolean'
+        ? `${targetId} == 1`
+        : targetP.tipo === 'select' && targetP.opciones?.length
+        ? `${targetId} == ${targetP.opciones[0].valor}`
+        : `${targetId} > 0`;
+
+      // Quitar el parámetro de su posición actual
+      const [item] = list.splice(index, 1);
+      item.condicion = defaultCond;
+
+      // Calcular nueva posición de inserción contigua: después del target y sus dependientes
+      const newTargetIdx = list.findIndex(p => p.id === targetId);
+      let insertIdx = newTargetIdx + 1;
+      while (insertIdx < list.length && list[insertIdx].condicion && list[insertIdx].condicion?.includes(targetId)) {
+        insertIdx++;
+      }
+
+      list.splice(insertIdx, 0, item);
+      return { ...prev, parametros: list };
+    });
+  };
+
   // Manejo de Variables Calculadas Internas
   const addVariable = (preset?: Partial<VariableCalculadaTrabajoTipo>) => {
     const baseId = preset?.id || `var_${formData.variables.length + 1}`;
@@ -436,10 +486,19 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
       descripcion: preset?.descripcion || ''
     };
 
+    const targetIdx = formData.variables.length;
     setFormData(prev => ({
       ...prev,
       variables: [...prev.variables, newVar]
     }));
+
+    setTimeout(() => {
+      const el = document.getElementById(`var-id-${targetIdx}`) as HTMLInputElement;
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    }, 60);
   };
 
   const updateVariable = (index: number, updates: Partial<VariableCalculadaTrabajoTipo>) => {
@@ -455,6 +514,18 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
       ...prev,
       variables: prev.variables.filter((_, i) => i !== index)
     }));
+  };
+
+  const moveVariable = (index: number, direction: 'up' | 'down') => {
+    setFormData(prev => {
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= prev.variables.length) return prev;
+      const next = [...prev.variables];
+      const temp = next[index];
+      next[index] = next[targetIndex];
+      next[targetIndex] = temp;
+      return { ...prev, variables: next };
+    });
   };
 
   // Submit
@@ -654,7 +725,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs rounded-xl transition flex items-center gap-1"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>+ Agregar Parámetro</span>
+                  <span>Agregar Parámetro</span>
                 </button>
               </div>
             </div>
@@ -664,8 +735,88 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
               {formData.parametros.map((parametro, idx) => (
                 <div
                   key={idx}
-                  className="p-3 sm:p-3.5 bg-surface-container-highest/60 border border-outline-variant/25 rounded-2xl space-y-2.5"
+                  className={`p-3 sm:p-3.5 rounded-2xl space-y-2.5 transition border ${
+                    parametro.condicion
+                      ? 'bg-amber-500/5 border-amber-500/30'
+                      : 'bg-surface-container-highest/60 border-outline-variant/25'
+                  }`}
                 >
+                  {/* Barra Superior del Parámetro: Reordenamiento, Índice, Badges y Acciones */}
+                  <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-outline-variant/15">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Botones de Reordenamiento */}
+                      <div className="flex items-center gap-0.5 bg-surface-container rounded-lg p-0.5 border border-outline-variant/20">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => moveParametro(idx, 'up')}
+                          className="p-1 text-on-surface-variant hover:text-primary disabled:opacity-25 disabled:pointer-events-none rounded transition"
+                          title="Mover parámetro hacia arriba"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={idx === formData.parametros.length - 1}
+                          onClick={() => moveParametro(idx, 'down')}
+                          className="p-1 text-on-surface-variant hover:text-primary disabled:opacity-25 disabled:pointer-events-none rounded transition"
+                          title="Mover parámetro hacia abajo"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <span className="text-[11px] font-mono font-bold text-on-surface-variant">
+                        #{idx + 1}
+                      </span>
+
+                      {parametro.condicion && (
+                        <span className="text-[10px] font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-md border border-amber-500/25 flex items-center gap-1">
+                          <span>↳ Condicional:</span>
+                          <code className="font-mono">{parametro.condicion}</code>
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      {/* Toggle de Condición (solo disponible si hay al menos un parámetro anterior) */}
+                      {idx > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (parametro.condicion) {
+                              updateParametro(idx, { condicion: undefined });
+                            } else {
+                              const prevParam = formData.parametros[idx - 1];
+                              const defaultCond = prevParam.tipo === 'boolean'
+                                ? `${prevParam.id} == 1`
+                                : `${prevParam.id} > 0`;
+                              updateParametro(idx, { condicion: defaultCond });
+                            }
+                          }}
+                          className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition ${
+                            parametro.condicion
+                              ? 'bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/40'
+                              : 'bg-surface-container text-on-surface-variant hover:text-on-surface border-outline-variant/30'
+                          }`}
+                          title="Definir si este parámetro depende del valor de un parámetro anterior"
+                        >
+                          {parametro.condicion ? '⚡ Condicional Activo' : '+ Condición'}
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => removeParametro(idx)}
+                        className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-lg transition"
+                        title="Eliminar parámetro"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Campos Principales: Identificador, Nombre, Tipo, Default */}
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
                     <div className="sm:col-span-3">
                       <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
@@ -675,6 +826,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                         <code className="text-xs font-mono font-bold text-primary">$</code>
                         <input
                           type="text"
+                          id={`param-id-${idx}`}
                           required
                           value={parametro.id}
                           onChange={(e) => updateParametro(idx, { id: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
@@ -684,12 +836,13 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                       </div>
                     </div>
 
-                    <div className="sm:col-span-4">
+                    <div className="sm:col-span-5">
                       <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
                         Nombre Visible
                       </label>
                       <input
                         type="text"
+                        id={`param-nombre-${idx}`}
                         required
                         value={parametro.nombre}
                         onChange={(e) => updateParametro(idx, { nombre: e.target.value })}
@@ -731,22 +884,76 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                           step="any"
                           value={parametro.valorDefault}
                           onChange={(e) => updateParametro(idx, { valorDefault: parseFloat(e.target.value) || 0 })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addParametro();
+                            }
+                          }}
                           className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-on-surface focus:outline-none"
                         />
                       </div>
                     </div>
-
-                    <div className="sm:col-span-1 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => removeParametro(idx)}
-                        className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition"
-                        title="Eliminar parámetro"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
                   </div>
+
+                  {/* Panel de Configuración Condicional (si está habilitado) */}
+                  {parametro.condicion !== undefined && idx > 0 && (
+                    <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/25 space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                        <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wide flex items-center gap-1">
+                          <span>↳ Regla de Visibilidad / Activación</span>
+                        </span>
+                        <span className="text-[10px] text-on-surface-variant">
+                          Este parámetro solo se mostrará si la condición es verdadera (&gt; 0)
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                        <div className="sm:col-span-4">
+                          <label className="text-[9px] font-bold text-on-surface-variant uppercase block mb-0.5">
+                            Depende de:
+                          </label>
+                          <select
+                            value={
+                              formData.parametros.slice(0, idx).find(p => parametro.condicion?.includes(p.id))?.id ||
+                              formData.parametros[idx - 1].id
+                            }
+                            onChange={(e) => setParametroDependency(idx, e.target.value)}
+                            className="w-full bg-surface-container border border-outline-variant/30 rounded-lg px-2 py-1.5 text-xs text-on-surface focus:outline-none"
+                          >
+                            {formData.parametros.slice(0, idx).map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.nombre} (${p.id})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="sm:col-span-8">
+                          <label className="text-[9px] font-bold text-on-surface-variant uppercase block mb-0.5">
+                            Fórmula de Condición (ej: <code>req_unifilar == 1</code>, <code>bocas &gt; 5</code>)
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={parametro.condicion}
+                              onChange={(e) => updateParametro(idx, { condicion: e.target.value })}
+                              className="w-full bg-surface-container border border-amber-500/40 rounded-lg px-2.5 py-1 text-xs font-mono font-bold text-amber-900 dark:text-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                              placeholder="ej: requiere_unifilar == 1"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => updateParametro(idx, { condicion: undefined })}
+                              className="p-1 text-on-surface-variant hover:text-error rounded"
+                              title="Quitar condición"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Editor de Opciones si es Selector */}
                   {parametro.tipo === 'select' && (
@@ -815,6 +1022,16 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   )}
                 </div>
               ))}
+
+              {/* Botón Cómodo al Pie de la Lista de Parámetros */}
+              <button
+                type="button"
+                onClick={() => addParametro()}
+                className="w-full py-2.5 px-4 rounded-xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary font-bold text-xs transition flex items-center justify-center gap-1.5 active:scale-[0.99] shadow-2xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Agregar otro parámetro</span>
+              </button>
             </div>
           </div>
 
@@ -838,7 +1055,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold text-xs rounded-xl transition flex items-center gap-1 border border-emerald-500/25"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>+ Agregar Variable</span>
+                  <span>Agregar Variable</span>
                 </button>
               </div>
             </div>
@@ -861,8 +1078,30 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                       key={idx}
                       className="p-3 sm:p-3.5 bg-surface-container-highest/60 border border-emerald-500/25 rounded-2xl space-y-2.5"
                     >
-                      {/* Fila Superior: Identificador, Nombre, Unidad y Botón Eliminar */}
+                      {/* Fila Superior: Identificador, Nombre, Unidad y Botones */}
                       <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                        {/* Botones de Reordenamiento */}
+                        <div className="flex items-center gap-0.5 bg-surface-container rounded-lg p-0.5 border border-outline-variant/20 self-end sm:self-center mt-3 sm:mt-0">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => moveVariable(idx, 'up')}
+                            className="p-1 text-on-surface-variant hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-25 disabled:pointer-events-none rounded transition"
+                            title="Mover variable hacia arriba"
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === formData.variables.length - 1}
+                            onClick={() => moveVariable(idx, 'down')}
+                            className="p-1 text-on-surface-variant hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-25 disabled:pointer-events-none rounded transition"
+                            title="Mover variable hacia abajo"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
                         {/* Identificador */}
                         <div className="w-full sm:w-44 shrink-0">
                           <label className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 block uppercase mb-0.5">
@@ -872,6 +1111,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                             <code className="text-xs font-mono font-black text-emerald-700 dark:text-emerald-300">⚡$</code>
                             <input
                               type="text"
+                              id={`var-id-${idx}`}
                               required
                               value={variable.id}
                               onChange={(e) => updateVariable(idx, { id: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
@@ -888,6 +1128,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                           </label>
                           <input
                             type="text"
+                            id={`var-nombre-${idx}`}
                             required
                             value={variable.nombre}
                             onChange={(e) => updateVariable(idx, { nombre: e.target.value })}
@@ -905,13 +1146,19 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                             type="text"
                             value={variable.unidad || ''}
                             onChange={(e) => updateVariable(idx, { unidad: e.target.value })}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                addVariable();
+                              }
+                            }}
                             className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-2 py-1.5 text-xs font-mono text-center text-on-surface focus:outline-none"
                             placeholder="m, u, hs"
                           />
                         </div>
 
                         {/* Botón Eliminar */}
-                        <div className="self-end sm:self-center pt-3 sm:pt-4">
+                        <div className="self-end sm:self-center pt-3 sm:pt-0">
                           <button
                             type="button"
                             onClick={() => removeVariable(idx)}
@@ -958,6 +1205,16 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                     </div>
                   );
                 })}
+
+                {/* Botón Cómodo al Pie de la Lista de Variables */}
+                <button
+                  type="button"
+                  onClick={() => addVariable()}
+                  className="w-full py-2.5 px-4 rounded-xl border border-dashed border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold text-xs transition flex items-center justify-center gap-1.5 active:scale-[0.99] shadow-2xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Agregar otra variable calculada</span>
+                </button>
               </div>
             )}
           </div>
@@ -1064,7 +1321,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   title="Seleccionar un material puntual fijo del catálogo"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>+ Material Directo</span>
+                  <span>Material Directo</span>
                 </button>
                 <button
                   type="button"
@@ -1076,7 +1333,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   title="Definir una ranura que elija materiales según categoría y parámetros/variables"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>+ Agregar por Categoría</span>
+                  <span>Agregar por Categoría</span>
                 </button>
               </div>
             </div>
@@ -1287,6 +1544,31 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   );
                 })
               )}
+
+              {/* Botón Cómodo al Pie de la Lista de Insumos */}
+              {formData.insumos.length > 0 && (
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsMaterialPickerOpen(true)}
+                    className="flex-1 py-2 px-3 bg-surface-container-highest/60 hover:bg-surface-container-highest border border-dashed border-outline-variant/40 text-on-surface font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 active:scale-[0.99] shadow-2xs"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-primary" />
+                    <span>Agregar Material del Catálogo</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingCategoryFilterIdx(null);
+                      setIsCategoryFilterModalOpen(true);
+                    }}
+                    className="py-2 px-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold text-xs rounded-xl transition flex items-center gap-1.5 border border-emerald-500/30 active:scale-[0.99]"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Material Dinámico</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1308,7 +1590,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                 className="px-3.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs rounded-xl transition flex items-center gap-1.5 border border-primary/25 active:scale-95"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Agregar Rol MO</span>
+                <span>Agregar Rol MO</span>
               </button>
             </div>
 
@@ -1546,6 +1828,18 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                     </div>
                   );
                 })
+              )}
+
+              {/* Botón Cómodo al Pie de la Lista de Mano de Obra */}
+              {formData.manoObra.length > 0 && (
+                <button
+                  type="button"
+                  onClick={addManoObraRow}
+                  className="w-full py-2.5 px-4 rounded-xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary font-bold text-xs transition flex items-center justify-center gap-1.5 active:scale-[0.99] shadow-2xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Agregar otro puesto / rol de mano de obra</span>
+                </button>
               )}
             </div>
           </div>
