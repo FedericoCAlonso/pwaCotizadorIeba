@@ -466,7 +466,11 @@ export async function initializeDatabaseSeed(): Promise<void> {
         'tt-boca-iug-nueva',
         'tt-tablero-seccional',
         'tt-tablero-seccional-monofasico',
-        'tt-tablero-seccional-8m'
+        'tt-tablero-seccional-8m',
+        'tt-tablero-seccional-din',
+        'tt-puesta-a-tierra-integral',
+        'tt-boca-nueva-completa',
+        'tt-protocolo-srt-900'
       ];
       for (const oldId of oldSeedIds) {
         const oldTask = await db.tareasTipo.get(oldId);
