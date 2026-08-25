@@ -227,6 +227,33 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
   // Scope consolidado: primero tarifas/honorarios base, luego parámetros, luego variables evaluadas en cascada
   const currentScope = useMemo(() => {
     const scope: Record<string, number> = {};
+
+    if (manoObraMap) {
+      manoObraMap.forEach((mo) => {
+        const rate = Number(mo.costoHora) || 0;
+        const safeId = mo.id.replace(/-/g, '_');
+        scope[safeId] = rate;
+        scope[`costo_hora_${safeId}`] = rate;
+        scope[`tarifa_${safeId}`] = rate;
+
+        const normalizedName = mo.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (normalizedName.includes('oficial') && !normalizedName.includes('ayudante')) {
+          scope['costo_hora_oficial'] = rate;
+          scope['tarifa_oficial'] = rate;
+        } else if (normalizedName.includes('ayudante')) {
+          scope['costo_hora_ayudante'] = rate;
+          scope['tarifa_ayudante'] = rate;
+        } else if (normalizedName.includes('tecnico') || normalizedName.includes('matriculado') || normalizedName.includes('profesional') || normalizedName.includes('proyectista')) {
+          scope['costo_hora_tecnico'] = rate;
+          scope['costo_hora_matriculado'] = rate;
+          scope['costo_hora_profesional'] = rate;
+          scope['tarifa_profesional'] = rate;
+          scope['tarifa_tecnico'] = rate;
+          scope['tarifa_matriculado'] = rate;
+        }
+      });
+    }
+
     if (formData.honorarioBase !== undefined) {
       scope['honorario_base'] = formData.honorarioBase;
       scope['honorarioBase'] = formData.honorarioBase;
@@ -246,7 +273,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
       }
     });
     return scope;
-  }, [formData.parametros, formData.variables, formData.honorarioBase, formData.costoServicioDirecto]);
+  }, [formData.parametros, formData.variables, formData.honorarioBase, formData.costoServicioDirecto, manoObraMap]);
 
   // Helper calculation for live preview
   const liveEvaluation = useMemo(() => {

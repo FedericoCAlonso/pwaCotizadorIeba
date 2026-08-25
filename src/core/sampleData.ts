@@ -574,15 +574,15 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
   {
     id: 'tarea-fa255d31-2fa7-4c47-a67b-cba46f387140',
     nombre: 'Protocolo SRT 900/15 viviendas, consorcios, comercios pequeños y medianos',
-    categoria: 'Bocas',
-    unidad: 'boca',
-    naturaleza: 'instalacion',
+    categoria: 'Medición / Protocolos',
+    unidad: 'servicio',
+    naturaleza: 'servicio_profesional',
     honorarioBase: 0,
-    formulaHonorarios: '',
+    formulaHonorarios: 'stot_jabalina + stot_bocas + stot_unifilares + stot_relevamiento',
     costoServicioDirecto: 0,
-    notasTecnicas: '',
-    clausulaTecnicaDefault: '',
-    clausulaExclusiones: '',
+    notasTecnicas: 'Relevamiento, verificación de continuidad de masas, ensayo de tiempo de disparo de interruptores diferenciales y medición de resistencia de puesta a tierra bajo norma IRAM 2281 / Res. SRT 900/15 con instrumental digital contrastado.',
+    clausulaTecnicaDefault: 'El servicio incluye la emisión de informe técnico con croquis e instrumental utilizado. No incluye reparaciones ni reemplazo de elementos no conformes.',
+    clausulaExclusiones: 'El servicio contempla la medición e informe en condiciones normales de acceso. No incluye obras de adecuación ni canalizaciones adicionales.',
     costoFijoOperativo: 0,
     descripcionCostoFijo: '',
     parametros: [
@@ -591,31 +591,32 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
         nombre: 'Cantidad de Bocas',
         tipo: 'numero',
         valorDefault: 10,
-        unidad: 'bocas'
+        unidad: 'bocas',
+        descripcion: 'Cantidad de bocas/tomas a verificar continuidad de masas'
       },
       {
         id: 'jabalinas',
         nombre: 'Cantidad de jabalinas',
         tipo: 'numero',
         valorDefault: 1,
-        unidad: '',
-        descripcion: ''
+        unidad: 'jabalinas',
+        descripcion: 'Electrodos de puesta a tierra a medir'
       },
       {
         id: 'int_diferenciales',
         nombre: 'Cantidad de interruptores diferenciales',
         tipo: 'numero',
         valorDefault: 1,
-        unidad: '',
-        descripcion: ''
+        unidad: 'diferenciales',
+        descripcion: 'Dispositivos diferenciales (RCD) a ensayar con rampa de disparo'
       },
       {
         id: 'requiere_unifilar',
-        nombre: '¿Requiere unifilar?',
+        nombre: '¿Requiere confección de plano unifilar?',
         tipo: 'boolean',
         valorDefault: 0,
-        unidad: '',
-        descripcion: '',
+        unidad: 'Sí/No',
+        descripcion: 'Habilita el dibujo y diseño del esquema unifilar de tableros',
         opciones: [
           { id: 'opt-1', label: 'Estándar (1.00x)', valor: 1 },
           { id: 'opt-2', label: 'Complejo (1.25x)', valor: 1.25 }
@@ -623,11 +624,11 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
       },
       {
         id: 'cnt_unifialres',
-        nombre: 'Cantidad de unifilares',
+        nombre: 'Cantidad de planos unifilares',
         tipo: 'numero',
         valorDefault: 1,
-        unidad: '',
-        descripcion: '',
+        unidad: 'planos',
+        descripcion: 'Cantidad de esquemas unifilares a dibujar',
         condicion: 'requiere_unifilar == 1'
       },
       {
@@ -635,17 +636,17 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
         nombre: 'Cantidad total de circuitos de los tableros a relevar',
         tipo: 'numero',
         valorDefault: 5,
-        unidad: '',
-        descripcion: '',
+        unidad: 'circuitos',
+        descripcion: 'Circuitos totales en los tableros a relevar',
         condicion: 'requiere_unifilar == 1'
       },
       {
         id: 'requiere_croquis',
-        nombre: '¿Requiere relevamiento de la instalación?',
+        nombre: '¿Requiere relevamiento y croquis de la instalación?',
         tipo: 'boolean',
         valorDefault: 0,
-        unidad: '',
-        descripcion: '',
+        unidad: 'Sí/No',
+        descripcion: 'Habilita el relevamiento de locales y bocas para croquis',
         opciones: [
           { id: 'opt-1', label: 'Estándar (1.00x)', valor: 1 },
           { id: 'opt-2', label: 'Complejo (1.25x)', valor: 1.25 }
@@ -656,8 +657,8 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
         nombre: 'Cantidad de locales a relevar',
         tipo: 'numero',
         valorDefault: 1,
-        unidad: '',
-        descripcion: '',
+        unidad: 'locales',
+        descripcion: 'Ambientes / locales comerciales a relevar',
         condicion: 'requiere_croquis == 1'
       },
       {
@@ -665,47 +666,54 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
         nombre: 'Cantidad total de bocas en los locales a relevar',
         tipo: 'numero',
         valorDefault: 10,
-        unidad: '',
-        descripcion: '',
+        unidad: 'bocas',
+        descripcion: 'Bocas totales a ubicar en el croquis',
         condicion: 'requiere_croquis == 1'
       },
       {
         id: 'encomienda',
-        nombre: 'Valor de la encomienda',
+        nombre: 'Valor de la encomienda ($)',
         tipo: 'numero',
         valorDefault: 30000,
-        unidad: '',
-        descripcion: ''
+        unidad: '$',
+        descripcion: 'Arancel base (ingresa 0 para vincular automáticamente con la tarifa de Mano de Obra y Costos)'
       }
     ],
     variables: [
       {
+        id: 'valor_encomienda',
+        nombre: 'Valor efectivo de la Encomienda',
+        formula: 'encomienda > 0 ? encomienda : (tarifa_profesional > 0 ? tarifa_profesional * 2 : (costo_hora_tecnico > 0 ? costo_hora_tecnico * 2 : 30000))',
+        unidad: '$',
+        descripcion: 'Toma el valor fijado o calcula automáticamente desde Mano de Obra'
+      },
+      {
         id: 'stot_jabalina',
         nombre: 'Subtotal por medición de jabalinas',
-        formula: '(10 + 3 * jabalinas > 1? jabalinas -1: 0)* encomienda',
+        formula: '(1 + (jabalinas > 1 ? (jabalinas - 1) * 0.3 : 0)) * valor_encomienda',
         unidad: '$',
-        descripcion: ''
+        descripcion: 'Base por 1ra jabalina + adicional por jabalinas extras'
       },
       {
         id: 'stot_bocas',
-        nombre: 'Subtotal por cantidad de bocas',
-        formula: '(bocas/5 + 1)* encomienda',
+        nombre: 'Subtotal por verificación de bocas',
+        formula: '(bocas / 5 + 1) * valor_encomienda',
         unidad: '$',
-        descripcion: ''
+        descripcion: 'Inspección de continuidad según cantidad de bocas'
       },
       {
         id: 'stot_unifilares',
-        nombre: 'Subtotal por unifilares',
-        formula: '(cnt_unifialres + circuitos/4) * encomienda * requiere_unifilar',
+        nombre: 'Subtotal por esquemas unifilares',
+        formula: '(cnt_unifialres + circuitos / 4) * valor_encomienda * requiere_unifilar',
         unidad: '$',
-        descripcion: ''
+        descripcion: 'Diseño de unifilares y circuitos'
       },
       {
         id: 'stot_relevamiento',
-        nombre: 'Sub total por relevamiento de locales',
-        formula: '(1 * cnt_locales  + bocas/ 5) * encomienda * requiere_croquis',
+        nombre: 'Subtotal por relevamiento y croquis',
+        formula: '(1 * cnt_locales + bocas_locales / 5) * valor_encomienda * requiere_croquis',
         unidad: '$',
-        descripcion: ''
+        descripcion: 'Relevamiento en sitio de locales y bocas'
       }
     ],
     esParametrico: true,
@@ -715,7 +723,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
       {
         categoriaId: 'mo-ayudante',
         horas: 2.75,
-        formula: '(jabalinas + bocas)/ 4 '
+        formula: '(jabalinas + bocas) / 4'
       }
     ],
     horasSetupTotal: 1,
@@ -725,7 +733,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
     },
     frecuenciaUso: 0,
     createdAt: '2026-08-25T15:45:56.632Z',
-    updatedAt: '2026-08-25T16:04:08.514Z',
+    updatedAt: now,
     deleted: false
   }
 ];

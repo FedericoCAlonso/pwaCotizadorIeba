@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Save, X } from 'lucide-react';
 import { db } from '../db/database';
-import { InsumoEnTarea, ManoObraEnTarea, TareaTipo } from '../core/types';
+import { InsumoEnTarea, ManoObraEnTarea, TareaTipo, ParametroTrabajoTipo, VariableCalculadaTrabajoTipo } from '../core/types';
 import { useAppOptions } from '../hooks/useAppOptions';
 import { useToast } from '../contexts/ToastContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -12,6 +12,17 @@ interface SaveAsTareaTipoModalProps {
   defaultNombre: string;
   defaultCategoria?: string;
   defaultNotasTecnicas?: string;
+  naturaleza?: 'instalacion' | 'servicio_profesional' | 'servicio_tercerizado';
+  honorarioBase?: number;
+  formulaHonorarios?: string;
+  costoServicioDirecto?: number;
+  costoFijoOperativo?: number;
+  descripcionCostoFijo?: string;
+  clausulaExclusiones?: string;
+  parametros?: ParametroTrabajoTipo[];
+  variables?: VariableCalculadaTrabajoTipo[];
+  horasSetupTotal?: number;
+  cuadrillaRecomendada?: { oficiales: number; ayudantes: number };
   insumos: InsumoEnTarea[];
   manoObra: ManoObraEnTarea[];
   unidad?: string;
@@ -24,6 +35,17 @@ export const SaveAsTareaTipoModal: React.FC<SaveAsTareaTipoModalProps> = ({
   defaultNombre,
   defaultCategoria,
   defaultNotasTecnicas,
+  naturaleza = 'instalacion',
+  honorarioBase = 0,
+  formulaHonorarios = '',
+  costoServicioDirecto = 0,
+  costoFijoOperativo = 0,
+  descripcionCostoFijo = '',
+  clausulaExclusiones = '',
+  parametros,
+  variables,
+  horasSetupTotal = 1,
+  cuadrillaRecomendada = { oficiales: 1, ayudantes: 1 },
   insumos,
   manoObra,
   unidad = 'u',
@@ -61,10 +83,19 @@ export const SaveAsTareaTipoModal: React.FC<SaveAsTareaTipoModalProps> = ({
         id: newId,
         nombre: nombre.trim(),
         categoria,
+        naturaleza,
+        honorarioBase,
+        formulaHonorarios,
+        costoServicioDirecto,
+        costoFijoOperativo,
+        descripcionCostoFijo,
+        clausulaExclusiones,
+        horasSetupTotal,
+        cuadrillaRecomendada,
         insumos,
         manoObra,
         unidad: unidad || 'u',
-        parametros: [
+        parametros: parametros && parametros.length > 0 ? parametros : [
           {
             id: 'cantidad',
             nombre: `Cantidad de ${unidad || 'Unidades'}`,
@@ -73,7 +104,8 @@ export const SaveAsTareaTipoModal: React.FC<SaveAsTareaTipoModalProps> = ({
             unidad: unidad || 'u'
           }
         ],
-        variables: [],
+        variables: variables || [],
+        esParametrico: Boolean((parametros && parametros.length > 0) || (variables && variables.length > 0) || formulaHonorarios),
         notasTecnicas: notasTecnicas.trim() || undefined,
         frecuenciaUso: 1,
         ultimoUsoFecha: now,

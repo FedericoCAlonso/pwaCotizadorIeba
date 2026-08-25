@@ -172,6 +172,15 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   const [saveAsTemplateData, setSaveAsTemplateData] = useState<{
     nombre: string;
     notasTecnicas?: string;
+    naturaleza?: 'instalacion' | 'servicio_profesional' | 'servicio_tercerizado';
+    honorarioBase?: number;
+    formulaHonorarios?: string;
+    costoServicioDirecto?: number;
+    costoFijoOperativo?: number;
+    descripcionCostoFijo?: string;
+    clausulaExclusiones?: string;
+    parametros?: any[];
+    variables?: any[];
     insumos: any[];
     manoObra: any[];
     unidad?: string;
@@ -720,6 +729,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                         setSaveAsTemplateData({
                           nombre: targetItem.descripcion || 'Nueva Tarea Tipo',
                           notasTecnicas: targetItem.notasTecnicas || targetItem.clausulaTecnica || '',
+                          naturaleza: targetItem.naturaleza || (targetItem.formulaHonorarios ? 'servicio_profesional' : 'instalacion'),
+                          honorarioBase: targetItem.costoServicios || 0,
+                          formulaHonorarios: targetItem.formulaHonorarios || '',
+                          costoServicioDirecto: targetItem.costoServicios || 0,
+                          costoFijoOperativo: targetItem.costoFijoOperativo || 0,
+                          descripcionCostoFijo: targetItem.descripcionCostoFijo || '',
+                          clausulaExclusiones: targetItem.clausulaExclusiones || '',
                           unidad: targetItem.unidad || 'u',
                           insumos: itemInsumos,
                           manoObra: itemManoObra
@@ -822,6 +838,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                                   setSaveAsTemplateData({
                                     nombre: targetItem.descripcion || 'Nueva Tarea Tipo',
                                     notasTecnicas: targetItem.notasTecnicas || targetItem.clausulaTecnica || '',
+                                    naturaleza: targetItem.naturaleza || (targetItem.formulaHonorarios ? 'servicio_profesional' : 'instalacion'),
+                                    honorarioBase: targetItem.costoServicios || 0,
+                                    formulaHonorarios: targetItem.formulaHonorarios || '',
+                                    costoServicioDirecto: targetItem.costoServicios || 0,
+                                    costoFijoOperativo: targetItem.costoFijoOperativo || 0,
+                                    descripcionCostoFijo: targetItem.descripcionCostoFijo || '',
+                                    clausulaExclusiones: targetItem.clausulaExclusiones || '',
                                     unidad: targetItem.unidad || 'u',
                                     insumos: itemInsumos,
                                     manoObra: itemManoObra
@@ -910,6 +933,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                                 setSaveAsTemplateData({
                                   nombre: targetItem.descripcion || 'Nueva Tarea Tipo',
                                   notasTecnicas: targetItem.notasTecnicas || targetItem.clausulaTecnica || '',
+                                  naturaleza: targetItem.naturaleza || (targetItem.formulaHonorarios ? 'servicio_profesional' : 'instalacion'),
+                                  honorarioBase: targetItem.costoServicios || 0,
+                                  formulaHonorarios: targetItem.formulaHonorarios || '',
+                                  costoServicioDirecto: targetItem.costoServicios || 0,
+                                  costoFijoOperativo: targetItem.costoFijoOperativo || 0,
+                                  descripcionCostoFijo: targetItem.descripcionCostoFijo || '',
+                                  clausulaExclusiones: targetItem.clausulaExclusiones || '',
                                   unidad: targetItem.unidad || 'u',
                                   insumos: itemInsumos,
                                   manoObra: itemManoObra
@@ -1067,6 +1097,15 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         onClose={() => setShowSaveAsTemplateModal(false)}
         defaultNombre={saveAsTemplateData.nombre}
         defaultNotasTecnicas={saveAsTemplateData.notasTecnicas}
+        naturaleza={saveAsTemplateData.naturaleza}
+        honorarioBase={saveAsTemplateData.honorarioBase}
+        formulaHonorarios={saveAsTemplateData.formulaHonorarios}
+        costoServicioDirecto={saveAsTemplateData.costoServicioDirecto}
+        costoFijoOperativo={saveAsTemplateData.costoFijoOperativo}
+        descripcionCostoFijo={saveAsTemplateData.descripcionCostoFijo}
+        clausulaExclusiones={saveAsTemplateData.clausulaExclusiones}
+        parametros={saveAsTemplateData.parametros}
+        variables={saveAsTemplateData.variables}
         unidad={saveAsTemplateData.unidad}
         insumos={saveAsTemplateData.insumos}
         manoObra={saveAsTemplateData.manoObra}

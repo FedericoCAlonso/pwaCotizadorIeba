@@ -61,8 +61,19 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [saveAsTemplateData, setSaveAsTemplateData] = useState<{
     nombre: string;
+    notasTecnicas?: string;
+    naturaleza?: 'instalacion' | 'servicio_profesional' | 'servicio_tercerizado';
+    honorarioBase?: number;
+    formulaHonorarios?: string;
+    costoServicioDirecto?: number;
+    costoFijoOperativo?: number;
+    descripcionCostoFijo?: string;
+    clausulaExclusiones?: string;
+    parametros?: any[];
+    variables?: any[];
     insumos: InsumoEnTarea[];
     manoObra: ManoObraEnTarea[];
+    unidad?: string;
   }>({
     nombre: '',
     insumos: [],
@@ -634,6 +645,17 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
         isOpen={showSaveAsTemplateModal}
         onClose={() => setShowSaveAsTemplateModal(false)}
         defaultNombre={saveAsTemplateData.nombre}
+        defaultNotasTecnicas={saveAsTemplateData.notasTecnicas}
+        naturaleza={saveAsTemplateData.naturaleza}
+        honorarioBase={saveAsTemplateData.honorarioBase}
+        formulaHonorarios={saveAsTemplateData.formulaHonorarios}
+        costoServicioDirecto={saveAsTemplateData.costoServicioDirecto}
+        costoFijoOperativo={saveAsTemplateData.costoFijoOperativo}
+        descripcionCostoFijo={saveAsTemplateData.descripcionCostoFijo}
+        clausulaExclusiones={saveAsTemplateData.clausulaExclusiones}
+        parametros={saveAsTemplateData.parametros}
+        variables={saveAsTemplateData.variables}
+        unidad={saveAsTemplateData.unidad}
         insumos={saveAsTemplateData.insumos}
         manoObra={saveAsTemplateData.manoObra}
       />
