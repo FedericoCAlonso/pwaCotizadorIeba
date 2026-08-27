@@ -42,6 +42,7 @@ import { EmisionPresupuestoModal } from './presupuesto/EmisionPresupuestoModal';
 import { ParametricJobModal } from './presupuesto/ParametricJobModal';
 import { ParametricMaterialModal } from './presupuesto/ParametricMaterialModal';
 import { GastoEditorModal } from './presupuesto/GastoEditorModal';
+import { GastoCatalogPickerModal } from './presupuesto/GastoCatalogPickerModal';
 import { ParametricGastoModal } from './presupuesto/ParametricGastoModal';
 import { ClienteCombobox } from './presupuesto/ClienteCombobox';
 import { usePresupuestoEditorViewModel } from '../viewmodels/usePresupuestoEditorViewModel';
@@ -140,8 +141,12 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     setShowGastoModal,
     editingGasto,
     setEditingGasto,
+    showGastoCatalogPickerModal,
+    setShowGastoCatalogPickerModal,
     handleSaveGasto,
     handleRemoveGasto,
+    handleAddGastosFromCatalog,
+    handleResetGastos,
     handleToggleGasto,
     handleUpdateGastoParametros,
     handleUpdateItemNotasTecnicas,
@@ -1003,6 +1008,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               setEditingGasto(g || null);
               setShowGastoModal(true);
             }}
+            onOpenCatalogPicker={() => setShowGastoCatalogPickerModal(true)}
+            onResetGastos={handleResetGastos}
             onOpenParametricGastoModal={(g) => setParametricGastoToAdjust(g)}
             onToggleGasto={handleToggleGasto}
             onRemoveGasto={handleRemoveGasto}
@@ -1136,12 +1143,22 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         }}
         gastoToEdit={editingGasto}
         capitulos={capitulos}
+        costosIndirectosCatalog={costosIndirectos}
         onSave={handleSaveGasto}
         onDelete={handleRemoveGasto}
         baseMateriales={totales.subtotalInsumosBase}
         baseManoObra={totales.subtotalManoObraBase}
         baseServicios={totales.subtotalServiciosBase}
         baseCostoDirecto={totales.costoGlobal}
+      />
+
+      {/* Gasto Catalog Picker Modal */}
+      <GastoCatalogPickerModal
+        isOpen={showGastoCatalogPickerModal}
+        onClose={() => setShowGastoCatalogPickerModal(false)}
+        catalogGastos={costosIndirectos}
+        currentGastosConfig={gastosConfig}
+        onAddGastos={handleAddGastosFromCatalog}
       />
 
       {/* Parametric Gasto Variables Modal */}

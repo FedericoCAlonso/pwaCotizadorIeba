@@ -12,7 +12,8 @@ import {
   Sparkles,
   Zap,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  BookOpen
 } from 'lucide-react';
 import { ModalContainer } from '../ModalContainer';
 import {
@@ -20,7 +21,8 @@ import {
   DestinoGasto,
   ModalidadGasto,
   CapituloPresupuesto,
-  ParametroTrabajoTipo
+  ParametroTrabajoTipo,
+  CostoIndirecto
 } from '../../core/types';
 import { formatARS, roundMoney } from '../../core/calculations';
 import { evaluateMathExpression } from '../../core/mathEvaluator';
@@ -30,6 +32,7 @@ interface GastoEditorModalProps {
   onClose: () => void;
   gastoToEdit?: GastoPresupuestoConfig | null;
   capitulos?: CapituloPresupuesto[];
+  costosIndirectosCatalog?: CostoIndirecto[];
   showIncluirPorDefecto?: boolean;
   onSave: (gasto: GastoPresupuestoConfig) => void;
   onDelete?: (id: string) => void;
@@ -44,6 +47,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
   onClose,
   gastoToEdit,
   capitulos = [],
+  costosIndirectosCatalog = [],
   showIncluirPorDefecto = false,
   onSave,
   onDelete,
@@ -113,6 +117,27 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
     setShowAddParamForm(false);
     setErrorFormula(null);
   }, [gastoToEdit, isOpen]);
+
+  const handleApplyTemplate = (template: CostoIndirecto) => {
+    setNombre(template.nombre || '');
+    setDestino(template.destino || (template.tipo === 'porcentual_sobre_costo' ? 'costo_indirecto' : 'costo_indirecto'));
+    setModalidad(template.modalidad || (template.tipo === 'porcentual_sobre_costo' ? 'porcentual' : 'monto_fijo'));
+    setValor(template.valor || 0);
+    setFormula(template.formula || '');
+    setIncluirPorDefecto(template.incluirPorDefecto ?? true);
+
+    const loadedParams = template.parametros || [];
+    setParametros(loadedParams);
+
+    const defaults: Record<string, number> = {};
+    loadedParams.forEach((p) => {
+      defaults[p.id] = template.valoresParametrosDefault?.[p.id] !== undefined
+        ? template.valoresParametrosDefault[p.id]
+        : p.valorDefault;
+    });
+    setTestParamValues(defaults);
+    setErrorFormula(null);
+  };
 
   // Cálculo en vivo de vista previa (si base=0, usamos base de referencia para el simulador)
   const isCatalogMode = baseMateriales === 0 && baseManoObra === 0 && baseServicios === 0 && baseCostoDirecto === 0;
@@ -394,6 +419,39 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Plantilla desde catálogo si es un gasto nuevo */}
+        {!gastoToEdit && costosIndirectosCatalog && costosIndirectosCatalog.length > 0 && (
+          <div className="p-3 bg-surface-container/60 border border-outline-variant/30 rounded-2xl space-y-1.5">
+            <label className="block text-xs font-bold text-on-surface flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5 text-primary" />
+              <span>Cargar desde una plantilla del catálogo</span>
+            </label>
+            <select
+              onChange={(e) => {
+                const sel = costosIndirectosCatalog.find((c) => c.id === e.target.value);
+                if (sel) {
+                  handleApplyTemplate(sel);
+                }
+              }}
+              defaultValue=""
+              className="w-full text-xs bg-surface border border-outline-variant/30 rounded-xl px-3 py-2 text-on-surface focus:outline-none focus:border-primary transition-colors cursor-pointer"
+            >
+              <option value="" disabled>
+                -- Selecciona un gasto estándar para autorrellenar --
+              </option>
+              {costosIndirectosCatalog.filter(c => !c.deleted).map((c) => {
+                const modalidad = c.modalidad || (c.tipo === 'porcentual_sobre_costo' ? 'porcentual' : 'monto_fijo');
+                const valStr = modalidad === 'porcentual' ? `${c.valor}%` : modalidad === 'parametrico' ? 'Fórmula' : formatARS(c.valor);
+                return (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre} ({valStr})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
+
         {/* Nombre del Gasto */}
         <div>
           <label className="block text-xs font-bold text-on-surface mb-1.5">

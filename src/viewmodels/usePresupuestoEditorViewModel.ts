@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
 import {
@@ -8,6 +8,7 @@ import {
   TareaTipo,
   Insumo,
   CategoriaManoDeObra,
+  CostoIndirecto,
   CostoIndirectoItemConfig,
   EstadoPresupuesto,
   TipoFactura,
@@ -123,9 +124,12 @@ export function usePresupuestoEditorViewModel({
   // Modal de Gestión de Gastos
   const [showGastoModal, setShowGastoModal] = useState(false);
   const [editingGasto, setEditingGasto] = useState<GastoPresupuestoConfig | null>(null);
-  
+  const [showGastoCatalogPickerModal, setShowGastoCatalogPickerModal] = useState(false);
+
   const [estrategiaCuadrilla, setEstrategiaCuadrilla] = useState<EstrategiaCuadrilla>('optima');
   const [aplicarOptimizacionCuadrilla, setAplicarOptimizacionCuadrilla] = useState<boolean>(true);
+
+  const newPresupuestoInitializedRef = useRef(false);
 
   // Inicialización desde Presupuesto Existente o Nuevo
   useEffect(() => {
@@ -163,10 +167,54 @@ export function usePresupuestoEditorViewModel({
       const seq = config.siguienteNumeroCorrelativo || 1001;
       setNumero(`${config.prefijoPresupuesto || 'IEBA'}-${year}-${seq.toString().padStart(4, '0')}`);
       setCapitulos([]);
-      setGastosConfig([]);
-      setCostosIndirectosConfig([]);
+      
+      // Si es un presupuesto nuevo y hay costos indirectos en el catálogo, cargar los que correspondan por defecto
+      if (costosIndirectos.length > 0 && !newPresupuestoInitializedRef.current) {
+        newPresupuestoInitializedRef.current = true;
+        const defaultGastos: GastoPresupuestoConfig[] = costosIndirectos
+          .filter(c => c.incluirPorDefecto !== false)
+          .map(c => ({
+            id: `gasto-${c.id}`,
+            costoIndirectoId: c.id,
+            nombre: c.nombre,
+            destino: c.destino || (c.tipo === 'porcentual_sobre_costo' ? 'costo_indirecto' : 'costo_indirecto'),
+            modalidad: c.modalidad || (c.tipo === 'porcentual_sobre_costo' ? 'porcentual' : 'monto_fijo'),
+            valor: c.valor || 0,
+            formula: c.formula,
+            parametros: c.parametros,
+            valoresParametros: c.valoresParametrosDefault,
+            incluirPorDefecto: c.incluirPorDefecto ?? true,
+            aplica: true
+          }));
+        setGastosConfig(defaultGastos);
+        setCostosIndirectosConfig(defaultGastos);
+      }
     }
-  }, [existingPresupuesto, config]);
+  }, [existingPresupuesto, config, costosIndirectos]);
+
+  // Si los costos indirectos cargan de la BD después de que el hook ya inició para un nuevo presupuesto
+  useEffect(() => {
+    if (!presupuestoId && !existingPresupuesto && costosIndirectos.length > 0 && !newPresupuestoInitializedRef.current) {
+      newPresupuestoInitializedRef.current = true;
+      const defaultGastos: GastoPresupuestoConfig[] = costosIndirectos
+        .filter(c => c.incluirPorDefecto !== false)
+        .map(c => ({
+          id: `gasto-${c.id}`,
+          costoIndirectoId: c.id,
+          nombre: c.nombre,
+          destino: c.destino || (c.tipo === 'porcentual_sobre_costo' ? 'costo_indirecto' : 'costo_indirecto'),
+          modalidad: c.modalidad || (c.tipo === 'porcentual_sobre_costo' ? 'porcentual' : 'monto_fijo'),
+          valor: c.valor || 0,
+          formula: c.formula,
+          parametros: c.parametros,
+          valoresParametros: c.valoresParametrosDefault,
+          incluirPorDefecto: c.incluirPorDefecto ?? true,
+          aplica: true
+        }));
+      setGastosConfig(defaultGastos);
+      setCostosIndirectosConfig(defaultGastos);
+    }
+  }, [presupuestoId, existingPresupuesto, costosIndirectos]);
 
   // ─── Planificación de Cuadrilla & Sinergia de Obra ───────────────────────────
   const resultadoCuadrilla = useMemo(() => {
@@ -243,6 +291,53 @@ export function usePresupuestoEditorViewModel({
     setGastosConfig(prev => prev.filter(g => g.id !== id));
     setCostosIndirectosConfig(prev => prev.filter(g => g.id !== id));
     toast.info('Gasto eliminado');
+  };
+
+  const handleAddGastosFromCatalog = (selectedCatalogItems: CostoIndirecto[]) => {
+    if (!selectedCatalogItems || selectedCatalogItems.length === 0) return;
+    const newGastos: GastoPresupuestoConfig[] = selectedCatalogItems.map(c => ({
+      id: `gasto-${c.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      costoIndirectoId: c.id,
+      nombre: c.nombre,
+      destino: c.destino || (c.tipo === 'porcentual_sobre_costo' ? 'costo_indirecto' : 'costo_indirecto'),
+      modalidad: c.modalidad || (c.tipo === 'porcentual_sobre_costo' ? 'porcentual' : 'monto_fijo'),
+      valor: c.valor || 0,
+      formula: c.formula,
+      parametros: c.parametros,
+      valoresParametros: c.valoresParametrosDefault,
+      incluirPorDefecto: c.incluirPorDefecto ?? true,
+      aplica: true
+    }));
+
+    setGastosConfig(prev => [...prev, ...newGastos]);
+    setCostosIndirectosConfig(prev => [...prev, ...newGastos]);
+    toast.success(
+      newGastos.length === 1
+        ? `Gasto "${newGastos[0].nombre}" agregado a la cotización`
+        : `${newGastos.length} gastos agregados a la cotización`
+    );
+  };
+
+  const handleResetGastos = () => {
+    const defaults: GastoPresupuestoConfig[] = costosIndirectos
+      .filter(c => c.incluirPorDefecto !== false)
+      .map(c => ({
+        id: `gasto-${c.id}`,
+        costoIndirectoId: c.id,
+        nombre: c.nombre,
+        destino: c.destino || (c.tipo === 'porcentual_sobre_costo' ? 'costo_indirecto' : 'costo_indirecto'),
+        modalidad: c.modalidad || (c.tipo === 'porcentual_sobre_costo' ? 'porcentual' : 'monto_fijo'),
+        valor: c.valor || 0,
+        formula: c.formula,
+        parametros: c.parametros,
+        valoresParametros: c.valoresParametrosDefault,
+        incluirPorDefecto: c.incluirPorDefecto ?? true,
+        aplica: true
+      }));
+
+    setGastosConfig(defaults);
+    setCostosIndirectosConfig(defaults);
+    toast.info('Gastos restablecidos a los valores predeterminados del catálogo');
   };
 
   const handleUpdateGastoParametros = (gastoId: string, valoresParametros: Record<string, number>) => {
@@ -1036,10 +1131,14 @@ export function usePresupuestoEditorViewModel({
     setShowGastoModal,
     editingGasto,
     setEditingGasto,
+    showGastoCatalogPickerModal,
+    setShowGastoCatalogPickerModal,
 
     // Actions & Commands
     handleSaveGasto,
     handleRemoveGasto,
+    handleAddGastosFromCatalog,
+    handleResetGastos,
     handleToggleGasto,
     handleUpdateGastoParametros,
     handleAddServicioDirecto,

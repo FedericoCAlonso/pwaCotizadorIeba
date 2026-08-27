@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { handlePopstateModalClose, getOpenModalsCount } from '../core/modalBackStack';
+import { handlePopstateModalClose, shouldIgnorePopstate } from '../core/modalBackStack';
 import { MaterialFilterContext } from '../core/types';
 
 interface UsePwaBackNavigationProps {
@@ -14,11 +14,12 @@ interface UsePwaBackNavigationProps {
 
 /**
  * Hook centralizado de navegación móvil para PWA:
- * 1. Si hay un modal abierto → Cierra el modal (LIFO stack).
- * 2. Si hay un filtro de materiales activo → Limpia el filtro y regresa.
- * 3. Si está en una sub-pantalla (Editor o Detalle) → Regresa al listado.
- * 4. Si está en otra pestaña secundaria → Regresa a la pestaña principal (Presupuestos).
- * 5. Si está en la pantalla principal → Aplica el patrón "Doble toque para salir" con Toast.
+ * 1. Si el popstate fue originado por cierre UI de un modal → Se ignora para no alterar la navegación de la app.
+ * 2. Si hay un modal abierto → Cierra el modal (LIFO stack).
+ * 3. Si hay un filtro de materiales activo → Limpia el filtro y regresa.
+ * 4. Si está en una sub-pantalla (Editor o Detalle) → Regresa al listado.
+ * 5. Si está en otra pestaña secundaria → Regresa a la pestaña principal (Presupuestos).
+ * 6. Si está en la pantalla principal → Aplica el patrón "Doble toque para salir" con Toast.
  */
 export function usePwaBackNavigation({
   activeTab,
@@ -62,8 +63,13 @@ export function usePwaBackNavigation({
     if (typeof window === 'undefined') return;
 
     const handlePopState = () => {
-      // 1er Nivel: ¿Hay algún modal abierto?
-      if (getOpenModalsCount() > 0 || handlePopstateModalClose()) {
+      // 0. Si el popstate proviene de la sincronización de historial por cierre de modal en UI, ignorar
+      if (shouldIgnorePopstate()) {
+        return;
+      }
+
+      // 1er Nivel: ¿Hay algún modal abierto? Cerrar el superior
+      if (handlePopstateModalClose()) {
         return;
       }
 

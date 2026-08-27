@@ -11,7 +11,8 @@ import {
   Truck,
   Globe,
   Sliders,
-  Zap
+  Zap,
+  BookOpen
 } from 'lucide-react';
 import {
   GastoPresupuestoConfig,
@@ -25,6 +26,7 @@ interface PresupuestoTotalsCardProps {
   tipoFactura: TipoFactura;
   gastosConfig: GastoPresupuestoConfig[];
   onOpenGastoModal: (gastoToEdit?: GastoPresupuestoConfig) => void;
+  onOpenCatalogPicker?: () => void;
   onOpenParametricGastoModal?: (gasto: GastoPresupuestoConfig) => void;
   onToggleGasto: (idx: number) => void;
   onRemoveGasto: (id: string) => void;
@@ -45,6 +47,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
   tipoFactura,
   gastosConfig = [],
   onOpenGastoModal,
+  onOpenCatalogPicker,
   onOpenParametricGastoModal,
   onToggleGasto,
   onRemoveGasto,
@@ -182,21 +185,33 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
             {onResetGastos && (
               <button
                 type="button"
                 onClick={onResetGastos}
                 className="p-1 text-on-surface-variant hover:text-primary transition-colors"
-                title="Restablecer gastos"
+                title="Restablecer gastos por defecto del catálogo"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {onOpenCatalogPicker && (
+              <button
+                type="button"
+                onClick={onOpenCatalogPicker}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-secondary-container text-on-secondary-container text-xs font-bold hover:bg-secondary-container/80 transition-colors"
+                title="Elegir gastos existentes del catálogo"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Desde Lista</span>
               </button>
             )}
             <button
               type="button"
               onClick={() => onOpenGastoModal()}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
+              title="Crear un nuevo gasto personalizado"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Nuevo Gasto</span>
@@ -205,10 +220,40 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
         </div>
 
         {gastosConfig.length === 0 ? (
-          <div className="p-3 rounded-xl bg-surface-container/50 border border-dashed border-outline-variant/30 text-center space-y-1">
+          <div className="p-3.5 rounded-xl bg-surface-container/50 border border-dashed border-outline-variant/30 text-center space-y-2">
             <p className="text-[11px] text-on-surface-variant">
-              Sin gastos aplicados. Presiona <strong className="text-primary font-bold">"+ Nuevo Gasto"</strong> para sumar cargas sociales a MO, garantía a materiales o contingencias.
+              Sin gastos aplicados en esta cotización.
             </p>
+            <div className="flex items-center justify-center gap-2 flex-wrap pt-0.5">
+              {onOpenCatalogPicker && (
+                <button
+                  type="button"
+                  onClick={onOpenCatalogPicker}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-secondary-container text-on-secondary-container text-xs font-bold hover:bg-secondary-container/80 transition-colors"
+                >
+                  <BookOpen className="w-3 h-3" />
+                  <span>Elegir de la Lista</span>
+                </button>
+              )}
+              {onResetGastos && (
+                <button
+                  type="button"
+                  onClick={onResetGastos}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-high text-on-surface text-xs font-medium hover:bg-surface-container-highest transition-colors"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Cargar por Defecto</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onOpenGastoModal()}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Crear Nuevo</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-2">
