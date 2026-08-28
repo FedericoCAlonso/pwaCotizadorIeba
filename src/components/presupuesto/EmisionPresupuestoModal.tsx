@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, X, Lock } from 'lucide-react';
+import { CheckCircle, X, Lock, AlertCircle } from 'lucide-react';
 import { OpcionesEmisionPresupuesto } from '../../core/types';
 import { formatARS, TotalesPresupuestoResultado } from '../../core/calculations';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
@@ -103,6 +103,19 @@ export const EmisionPresupuestoModal: React.FC<EmisionPresupuestoModalProps> = (
               Estas notas se guardan como parte del snapshot inmutable de esta emisión.
             </p>
           </div>
+
+          {/* Recomendación Financiera de Anticipo */}
+          {totales.subtotalInsumos > 0 && (
+            <div className="bg-surface-container-low p-3.5 rounded-2xl border border-outline-variant/20 text-xs text-on-surface-variant flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold text-on-surface block">Recomendación Financiera de Anticipo</span>
+                <span>
+                  Para congelar precios en distribuidores, se sugiere solicitar un anticipo mínimo del 100% de los insumos (<strong>{formatARS(totales.subtotalInsumos)}</strong>).
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Summary box before emitting */}
           <div className="bg-primary-container/30 border border-primary/20 p-4 rounded-2xl flex items-center justify-between">

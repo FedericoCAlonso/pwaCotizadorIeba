@@ -553,6 +553,98 @@ export function calcularDispersionHorasTareaLegacy(
   };
 }
 
+// ─── Actualización de Snapshots con Catálogo Vigente ───────────────────────────
+
+export interface ActualizacionInsumosResultado {
+  updatedItems: ItemPresupuesto[];
+  changesCount: number;
+  oldTotalCosto: number;
+  newTotalCosto: number;
+}
+
+/**
+ * Actualiza los snapshots de insumos congelados de un presupuesto con los precios vigentes del catálogo.
+ * Preserva intactas las cantidades, unidades, fórmulas, notas y estructura de capítulos.
+ */
+export function actualizarSnapshotsInsumosConCatalogo(
+  items: ItemPresupuesto[],
+  insumosMap: Map<string, Insumo>
+): ActualizacionInsumosResultado {
+  let changesCount = 0;
+  let oldTotalCosto = 0;
+  let newTotalCosto = 0;
+
+  const updatedItems: ItemPresupuesto[] = items.map(item => {
+    let newItemInsumosCosto = 0;
+
+    const newInsumosSnapshot: InsumoSnapshot[] = (item.insumosSnapshot || []).map(ins => {
+      oldTotalCosto += safeNum(ins.subtotalInsumo);
+
+      if (ins.esAdHoc) {
+        newItemInsumosCosto += safeNum(ins.subtotalInsumo);
+        newTotalCosto += safeNum(ins.subtotalInsumo);
+        return ins;
+      }
+
+      const matId = ins.materialId || ins.insumoId;
+      const catalogInsumo = matId ? insumosMap.get(matId) : undefined;
+
+      if (!catalogInsumo) {
+        newItemInsumosCosto += safeNum(ins.subtotalInsumo);
+        newTotalCosto += safeNum(ins.subtotalInsumo);
+        return ins;
+      }
+
+      const currentNetPrice = safeNum(catalogInsumo.precioActual ?? catalogInsumo.precioNeto ?? 0);
+      const currentAlicuota = catalogInsumo.alicuotaIVA !== undefined ? safeNum(catalogInsumo.alicuotaIVA) : (ins.alicuotaIVA ?? 21);
+      const currentFinalPrice = catalogInsumo.precioFinal !== undefined ? safeNum(catalogInsumo.precioFinal) : calcularPrecioFinal(currentNetPrice, currentAlicuota);
+
+      const isChanged = Math.abs(safeNum(ins.precioUnitarioCongelado) - currentNetPrice) > 0.001 ||
+                        Math.abs(safeNum(ins.alicuotaIVA ?? 21) - currentAlicuota) > 0.001;
+
+      if (isChanged) {
+        changesCount++;
+      }
+
+      const updatedSubtotalNeto = roundMoney(currentNetPrice * safeNum(ins.cantidadTotal));
+      const updatedSubtotalFinal = roundMoney(currentFinalPrice * safeNum(ins.cantidadTotal));
+
+      newItemInsumosCosto += updatedSubtotalNeto;
+      newTotalCosto += updatedSubtotalNeto;
+
+      return {
+        ...ins,
+        nombre: catalogInsumo.nombre || ins.nombre,
+        precioUnitarioCongelado: currentNetPrice,
+        alicuotaIVA: currentAlicuota,
+        precioFinalUnitarioCongelado: currentFinalPrice,
+        subtotalInsumo: updatedSubtotalNeto,
+        subtotalInsumoFinal: updatedSubtotalFinal
+      };
+    });
+
+    const costoInsumos = roundMoney(newItemInsumosCosto);
+    const costoManoObra = safeNum(item.costoManoObra);
+    const costoServicios = safeNum(item.costoServicios ?? item.costoServiciosTercerizados);
+    const costoDirectoTotal = roundMoney(costoInsumos + costoManoObra + costoServicios);
+
+    return {
+      ...item,
+      insumosSnapshot: newInsumosSnapshot,
+      costoInsumos,
+      costoDirectoTotal,
+      costoTotal: costoDirectoTotal
+    };
+  });
+
+  return {
+    updatedItems,
+    changesCount,
+    oldTotalCosto: roundMoney(oldTotalCosto),
+    newTotalCosto: roundMoney(newTotalCosto)
+  };
+}
+
 // ─── Configuración de impuestos por tipo de factura (spec §5) ─────────────────
 
 /**
@@ -784,8 +876,17 @@ export function calcularTotalesPresupuesto(params: {
           }));
 
   let gastosMaterialesTotal = 0;
+  let gastosMaterialesGlobales = 0;
+  const chapterGastosMateriales: Record<string, number> = {};
+
   let gastosManoObraTotal = 0;
+  let gastosManoObraGlobales = 0;
+  const chapterGastosManoObra: Record<string, number> = {};
+
   let gastosServiciosTotal = 0;
+  let gastosServiciosGlobales = 0;
+  const chapterGastosServicios: Record<string, number> = {};
+
   let totalIndirectosAbsolutos = 0;
   let porcentajeIndirectosPct = 0;
 
@@ -868,13 +969,28 @@ export function calcularTotalesPresupuesto(params: {
     // Acumular según destino
     if (destino === 'materiales') {
       gastosMaterialesTotal = roundMoney(gastosMaterialesTotal + montoCalculado);
-      if (capId) chapterGastosDirectos[capId] = roundMoney((chapterGastosDirectos[capId] || 0) + montoCalculado);
+      if (capId) {
+        chapterGastosMateriales[capId] = roundMoney((chapterGastosMateriales[capId] || 0) + montoCalculado);
+        chapterGastosDirectos[capId] = roundMoney((chapterGastosDirectos[capId] || 0) + montoCalculado);
+      } else {
+        gastosMaterialesGlobales = roundMoney(gastosMaterialesGlobales + montoCalculado);
+      }
     } else if (destino === 'mano_obra') {
       gastosManoObraTotal = roundMoney(gastosManoObraTotal + montoCalculado);
-      if (capId) chapterGastosDirectos[capId] = roundMoney((chapterGastosDirectos[capId] || 0) + montoCalculado);
+      if (capId) {
+        chapterGastosManoObra[capId] = roundMoney((chapterGastosManoObra[capId] || 0) + montoCalculado);
+        chapterGastosDirectos[capId] = roundMoney((chapterGastosDirectos[capId] || 0) + montoCalculado);
+      } else {
+        gastosManoObraGlobales = roundMoney(gastosManoObraGlobales + montoCalculado);
+      }
     } else if (destino === 'servicios') {
       gastosServiciosTotal = roundMoney(gastosServiciosTotal + montoCalculado);
-      if (capId) chapterGastosDirectos[capId] = roundMoney((chapterGastosDirectos[capId] || 0) + montoCalculado);
+      if (capId) {
+        chapterGastosServicios[capId] = roundMoney((chapterGastosServicios[capId] || 0) + montoCalculado);
+        chapterGastosDirectos[capId] = roundMoney((chapterGastosDirectos[capId] || 0) + montoCalculado);
+      } else {
+        gastosServiciosGlobales = roundMoney(gastosServiciosGlobales + montoCalculado);
+      }
     } else {
       // Costo Indirecto
       if (modalidad === 'porcentual') {
@@ -993,14 +1109,31 @@ export function calcularTotalesPresupuesto(params: {
       cServicios = safeNum(item.costoServiciosTercerizados);
     }
 
-    // Prorrateo de gastos directos proporcionales a sus rubros
-    const matInc = subtotalInsumosBase > 0 ? cInsumos / subtotalInsumosBase : 0;
-    const moInc = subtotalManoObraBase > 0 ? cManoObra / subtotalManoObraBase : 0;
-    const servInc = subtotalServiciosBase > 0 ? cServicios / subtotalServiciosBase : 0;
+    // Prorrateo de gastos directos: combinación de gastos globales y gastos específicos del capítulo
+    const capId = item.capituloId || 'sin_capitulo';
+    const capInsumosBase = (chapterBases[capId] && chapterBases[capId].insumos > 0) ? chapterBases[capId].insumos : 0;
+    const capMoBase = (chapterBases[capId] && chapterBases[capId].mo > 0) ? chapterBases[capId].mo : 0;
+    const capServBase = (chapterBases[capId] && chapterBases[capId].servicios > 0) ? chapterBases[capId].servicios : 0;
 
-    const gMatItem = roundMoney(gastosMaterialesTotal * matInc);
-    const gMoItem = roundMoney(gastosManoObraTotal * moInc);
-    const gServItem = roundMoney(gastosServiciosTotal * servInc);
+    const matGlobalInc = subtotalInsumosBase > 0 ? cInsumos / subtotalInsumosBase : 0;
+    const moGlobalInc = subtotalManoObraBase > 0 ? cManoObra / subtotalManoObraBase : 0;
+    const servGlobalInc = subtotalServiciosBase > 0 ? cServicios / subtotalServiciosBase : 0;
+
+    const matCapInc = capInsumosBase > 0 ? cInsumos / capInsumosBase : 0;
+    const moCapInc = capMoBase > 0 ? cManoObra / capMoBase : 0;
+    const servCapInc = capServBase > 0 ? cServicios / capServBase : 0;
+
+    const gMatGlobalItem = roundMoney(gastosMaterialesGlobales * matGlobalInc);
+    const gMatCapItem = roundMoney((chapterGastosMateriales[capId] || 0) * matCapInc);
+    const gMatItem = roundMoney(gMatGlobalItem + gMatCapItem);
+
+    const gMoGlobalItem = roundMoney(gastosManoObraGlobales * moGlobalInc);
+    const gMoCapItem = roundMoney((chapterGastosManoObra[capId] || 0) * moCapInc);
+    const gMoItem = roundMoney(gMoGlobalItem + gMoCapItem);
+
+    const gServGlobalItem = roundMoney(gastosServiciosGlobales * servGlobalInc);
+    const gServCapItem = roundMoney((chapterGastosServicios[capId] || 0) * servCapInc);
+    const gServItem = roundMoney(gServGlobalItem + gServCapItem);
 
     const costoDirectoItem = roundMoney(cInsumos + gMatItem + cManoObra + gMoItem + cServicios + gServItem);
     const cant = safeNum(item.cantidad) > 0 ? safeNum(item.cantidad) : 1;

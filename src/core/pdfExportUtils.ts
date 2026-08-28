@@ -23,7 +23,6 @@ export const buildPresupuestoPDFDoc = (
   const margin = 14;
   const contentWidth = pageWidth - margin * 2;
 
-  const isFacturaA = presupuesto.tipoFactura === 'Factura A';
   const mostrarDetalle = presupuesto.opcionesEmision?.mostrarDetalleCostos ?? false;
   const mostrarItemizado = presupuesto.opcionesEmision?.mostrarItemizado ?? true;
 
@@ -31,14 +30,14 @@ export const buildPresupuestoPDFDoc = (
   doc.setFillColor(217, 119, 6); // Amber 600
   doc.rect(0, 0, pageWidth, 4, 'F');
 
-  let currentY = 14;
+  let currentY = 13;
 
   // ─── 2. Membrete Emisor (Izquierda) ─────────────────────────────────────────
   const emisorNombre = config?.nombreEmpresa || 'IEBA - INSTALACIONES ELÉCTRICAS';
   const emisorSubtitulo = config?.subtituloEmpresa || 'Soluciones e Ingeniería Eléctrica';
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
+  doc.setFontSize(13);
   doc.setTextColor(15, 23, 42); // Slate 900
   doc.text(emisorNombre, margin, currentY);
 
@@ -53,8 +52,8 @@ export const buildPresupuestoPDFDoc = (
   doc.setTextColor(71, 85, 105); // Slate 600
 
   const datosFiscales: string[] = [];
-  if (config?.cuit) datosFiscales.push(`CUIT: ${config.cuit}`);
-  if (config?.telefono) datosFiscales.push(`Tel/WA: ${config.telefono}`);
+  if (config?.cuit) datosFiscales.push(`CUIT / Matrícula: ${config.cuit}`);
+  if (config?.telefono) datosFiscales.push(`Tel / WA: ${config.telefono}`);
   if (config?.email) datosFiscales.push(`Email: ${config.email}`);
   if (config?.direccion) datosFiscales.push(`Dirección: ${config.direccion}`);
 
@@ -63,69 +62,81 @@ export const buildPresupuestoPDFDoc = (
     currentY += 3.5;
   });
 
+  const leftHeaderEndY = currentY;
+
   // ─── 3. Recuadro de Metadatos de la Cotización (Derecha) ─────────────────────
-  const boxX = pageWidth - margin - 65;
+  const boxW = 68;
+  const boxH = 22;
+  const boxX = pageWidth - margin - boxW;
   const boxY = 10;
-  const boxW = 65;
-  const boxH = 28;
 
   doc.setFillColor(248, 250, 252); // Slate 50
   doc.setDrawColor(203, 213, 225); // Slate 300
+  doc.setLineWidth(0.3);
   doc.roundedRect(boxX, boxY, boxW, boxH, 2, 2, 'FD');
 
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('PRESUPUESTO COMERCIAL', boxX + boxW / 2, boxY + 4.8, { align: 'center' });
+
   doc.setFontSize(11);
-  doc.setTextColor(15, 23, 42);
-  doc.text(`PRESUPUESTO`, boxX + boxW / 2, boxY + 5.5, { align: 'center' });
-  doc.setFontSize(12);
-  doc.setTextColor(217, 119, 6);
-  doc.text(`${presupuesto.numero}`, boxX + boxW / 2, boxY + 10.5, { align: 'center' });
+  doc.setTextColor(217, 119, 6); // Amber 600
+  doc.text(`${presupuesto.numero}`, boxX + boxW / 2, boxY + 9.8, { align: 'center' });
+
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.2);
+  doc.line(boxX + 5, boxY + 12, boxX + boxW - 5, boxY + 12);
 
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(71, 85, 105);
-  doc.text(`Fecha: ${new Date(presupuesto.fechaEmision).toLocaleDateString('es-AR')}`, boxX + 4, boxY + 16);
-  doc.text(`Validez: ${presupuesto.validezDias || 15} días`, boxX + 4, boxY + 20);
-  doc.text(`Tipo: ${presupuesto.tipoFactura || 'Factura B'}`, boxX + 4, boxY + 24);
+  doc.text(`Fecha: ${new Date(presupuesto.fechaEmision).toLocaleDateString('es-AR')}`, boxX + 5, boxY + 16.5);
+  doc.text(`Validez: ${presupuesto.validezDias || 15} días`, boxX + 5, boxY + 20);
 
-  currentY = Math.max(currentY + 2, boxY + boxH + 4);
+  currentY = Math.max(leftHeaderEndY + 2.5, boxY + boxH + 3.5);
 
   // Línea divisoria
   doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.4);
+  doc.setLineWidth(0.3);
   doc.line(margin, currentY, pageWidth - margin, currentY);
-  currentY += 4;
+  currentY += 3.5;
 
   // ─── 4. Recuadro de Información del Cliente ────────────────────────────────
-  const clientBoxH = 18;
-  doc.setFillColor(241, 245, 249); // Slate 100
+  const clientBoxH = 22;
+  doc.setFillColor(248, 250, 252); // Slate 50
   doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
   doc.roundedRect(margin, currentY, contentWidth, clientBoxH, 2, 2, 'FD');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('DATOS DEL CLIENTE Y DESTINATARIO', margin + 3.5, currentY + 4.5);
+  doc.text('DATOS DEL CLIENTE / DESTINATARIO', margin + 4, currentY + 4.5);
 
+  const clienteNombre = cliente?.nombre || (cliente as any)?.razonSocial || 'General / Consumidor Final';
+  const col2X = margin + contentWidth * 0.44;
+  const col3X = margin + contentWidth * 0.74;
+
+  // Fila 1 datos cliente
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
+  doc.setFontSize(8.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(cliente?.nombre || 'General / Consumidor Final', margin + 3.5, currentY + 9.5);
+  doc.text(clienteNombre, margin + 4, currentY + 10);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setTextColor(71, 85, 105);
+  doc.text(`CUIT / DNI: ${cliente?.cuitDni || 'S/D'}`, col2X, currentY + 10);
+  doc.text(cliente?.telefono ? `Tel: ${cliente.telefono}` : 'Tel: S/D', col3X, currentY + 10);
 
-  const col2X = margin + contentWidth * 0.45;
-  const col3X = margin + contentWidth * 0.75;
+  // Fila 2 datos cliente
+  const direccionStr = cliente?.direccion ? `Dir / Obra: ${cliente.direccion}` : 'Obra: Según relevamiento';
+  doc.text(direccionStr, margin + 4, currentY + 16.5);
+  doc.text(`Condición IVA: ${cliente?.condicionIVA || 'Consumidor Final'}`, col2X, currentY + 16.5);
+  doc.text(cliente?.email ? `Email: ${cliente.email}` : 'Email: S/D', col3X, currentY + 16.5);
 
-  doc.text(`CUIT/DNI: ${cliente?.cuitDni || 'S/D'}`, col2X, currentY + 9.5);
-  doc.text(`Condición IVA: ${cliente?.condicionIVA || 'Consumidor Final'}`, col2X, currentY + 14);
-
-  if (cliente?.telefono) doc.text(`Tel: ${cliente.telefono}`, col3X, currentY + 9.5);
-  if (cliente?.email) doc.text(`Email: ${cliente.email}`, col3X, currentY + 14);
-
-  currentY += clientBoxH + 5;
+  currentY += clientBoxH + 4.5;
 
   // ─── 5. Tabla de Partidas / Ítems de Cotización ───────────────────────────
   const tableHeaders = [
@@ -133,20 +144,16 @@ export const buildPresupuestoPDFDoc = (
     'Descripción / Detalle de la Partida',
     'Unidad',
     'Cant.',
-    isFacturaA ? 'P. Unit. Neto' : 'P. Unitario',
-    isFacturaA ? 'Subtotal Neto' : 'Subtotal'
+    'Precio Unitario',
+    'Subtotal'
   ];
 
   const tableBody: any[][] = [];
 
   if (mostrarItemizado) {
     presupuesto.items.forEach((item, idx) => {
-      const pUnit = isFacturaA
-        ? (item.subtotalItem && item.cantidad ? item.subtotalItem / item.cantidad : (item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0))
-        : (item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0);
-      const pTotal = isFacturaA
-        ? (item.subtotalItem ?? item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit))
-        : (item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit));
+      const pUnit = item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0;
+      const pTotal = item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit);
 
       let desc = item.descripcion || 'Sin descripción';
       if (item.notasTecnicas) {
@@ -183,25 +190,25 @@ export const buildPresupuestoPDFDoc = (
       fillColor: [15, 23, 42], // Slate 900
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 8.5,
+      fontSize: 8,
       halign: 'center',
       cellPadding: 2.5
     },
     bodyStyles: {
-      fontSize: 8,
+      fontSize: 7.5,
       textColor: [30, 41, 59],
       cellPadding: 2.5
     },
     columnStyles: {
       0: { halign: 'center', cellWidth: 8 },
       1: { halign: 'left', cellWidth: 'auto' },
-      2: { halign: 'center', cellWidth: 16 },
-      3: { halign: 'right', cellWidth: 16 },
-      4: { halign: 'right', cellWidth: 32 },
-      5: { halign: 'right', cellWidth: 34, fontStyle: 'bold' }
+      2: { halign: 'center', cellWidth: 15 },
+      3: { halign: 'right', cellWidth: 15 },
+      4: { halign: 'right', cellWidth: 28 },
+      5: { halign: 'right', cellWidth: 30, fontStyle: 'bold' }
     },
     didDrawCell: (data) => {
-      // Dibujar borde inferior fino en filas del cuerpo
+      // Borde inferior fino en cada fila
       if (data.section === 'body') {
         doc.setDrawColor(241, 245, 249);
         doc.setLineWidth(0.2);
@@ -211,36 +218,128 @@ export const buildPresupuestoPDFDoc = (
   });
 
   const lastTable = (doc as any).lastAutoTable;
-  currentY = lastTable ? lastTable.finalY + 4 : currentY + 30;
+  currentY = lastTable ? lastTable.finalY + 4 : currentY + 25;
 
-  // ─── 6. Sección de Cierre: Condiciones (Izq) y Cuadro de Totales (Der) ────
-  // Verificar si hay espacio suficiente para los totales o agregar página
-  if (currentY > pageHeight - 65) {
+  // ─── 6. Preparación de Totales y Columnas de Cierre ────────────────────────
+  interface TotalRowItem {
+    label: string;
+    value: string;
+    isBold?: boolean;
+    isHighlight?: boolean;
+    isSubtle?: boolean;
+  }
+
+  const totalRows: TotalRowItem[] = [];
+
+  if (mostrarDetalle) {
+    totalRows.push({ label: '1. Costo Materiales / Insumos:', value: formatARS(presupuesto.subtotalInsumos || 0) });
+    totalRows.push({ label: '1. Costo Mano de Obra (MOD):', value: formatARS(presupuesto.subtotalManoObra || 0) });
+    if (presupuesto.subtotalServiciosTercerizados) {
+      totalRows.push({ label: '1. Servicios Tercerizados:', value: formatARS(presupuesto.subtotalServiciosTercerizados) });
+    }
+    totalRows.push({
+      label: 'Costo Directo Total (C):',
+      value: formatARS(presupuesto.costoGlobal || presupuesto.subtotalCostosDirectos || 0),
+      isBold: true
+    });
+
+    const ggTotal = presupuesto.gastosGeneralesTotal || presupuesto.subtotalCostosIndirectos || 0;
+    if (ggTotal > 0) {
+      totalRows.push({ label: '2. Gastos Generales (GG):', value: formatARS(ggTotal) });
+    }
+
+    totalRows.push({
+      label: `3. Beneficio (${presupuesto.beneficioPorcentaje ?? presupuesto.margenPorcentaje}%):`,
+      value: formatARS(presupuesto.beneficioMonto || presupuesto.montoGanancia || 0)
+    });
+    totalRows.push({
+      label: '4. Subtotal sin Impuestos:',
+      value: formatARS(presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - (presupuesto.montoImpuestos || 0))),
+      isBold: true
+    });
+
+    if (presupuesto.montoImpuestosTotal || presupuesto.montoImpuestos) {
+      totalRows.push({
+        label: '5. Total Impuestos / Gravámenes:',
+        value: formatARS(presupuesto.montoImpuestosTotal || presupuesto.montoImpuestos || 0)
+      });
+    }
+  } else {
+    if (presupuesto.montoImpuestosTotal && presupuesto.montoImpuestosTotal > 0) {
+      totalRows.push({
+        label: 'Subtotal:',
+        value: formatARS(presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - presupuesto.montoImpuestosTotal))
+      });
+      totalRows.push({
+        label: 'Impuestos / IVA Aplicado:',
+        value: formatARS(presupuesto.montoImpuestosTotal)
+      });
+    } else {
+      totalRows.push({
+        label: 'Subtotal Trabajos:',
+        value: formatARS(presupuesto.totalARS || 0)
+      });
+    }
+  }
+
+  // Total Final ARS
+  totalRows.push({
+    label: 'TOTAL FINAL ARS:',
+    value: formatARS(presupuesto.totalARS || 0),
+    isBold: true,
+    isHighlight: true
+  });
+
+  // Referencia Moneda Extranjera
+  if (presupuesto.mostrarReferenciaMonedaExtranjera && presupuesto.cotizacionMonedaExtranjera) {
+    const totalUSD = presupuesto.totalMonedaExtranjera || (presupuesto.totalARS / presupuesto.cotizacionMonedaExtranjera);
+    totalRows.push({
+      label: `Ref. ${presupuesto.nombreMonedaExtranjera || 'USD'} (T/C $${presupuesto.cotizacionMonedaExtranjera}):`,
+      value: `u$s ${totalUSD.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      isSubtle: true
+    });
+  }
+
+  // Cálculo dinámico de altura del recuadro de totales
+  const totalsBoxH = totalRows.length * 4.0 + 8;
+  const leftW = contentWidth * 0.48;
+  const rightW = contentWidth * 0.48;
+  const splitX = margin + contentWidth - rightW;
+
+  // Verificación de salto de página
+  if (currentY + Math.max(totalsBoxH, 42) > pageHeight - 16) {
     doc.addPage();
     currentY = 16;
   }
 
-  const splitX = margin + contentWidth * 0.52;
-  const leftW = contentWidth * 0.48;
-  const rightW = contentWidth * 0.48;
-
-  // ── 6.A Columna Izquierda: Condiciones Comerciales y Cláusulas Técnicas ──
+  // ── 6.A Columna Izquierda: Condiciones Comerciales, Resguardo y Pagos ──
   let leftY = currentY;
 
   const condiciones = presupuesto.opcionesEmision?.condicionesComerciales || presupuesto.condicionesPagoTexto;
   if (condiciones) {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(15, 23, 42);
-    doc.text('CONDICIONES COMERCIALES Y DE PAGO', margin, leftY);
+    doc.text('CONDICIONES COMERCIALES Y FORMA DE PAGO', margin, leftY);
     leftY += 3.5;
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(71, 85, 105);
     const condLines = doc.splitTextToSize(condiciones, leftW - 2);
     doc.text(condLines, margin, leftY);
-    leftY += condLines.length * 3.2 + 2;
+    leftY += condLines.length * 3.0 + 2;
+  }
+
+  // Cláusula de Resguardo Cambiario
+  if (presupuesto.mostrarReferenciaMonedaExtranjera && presupuesto.cotizacionMonedaExtranjera) {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    const usdClause = `* Validez de precios sujeta a estabilidad cambiaria. Cotización calculada sobre la base de 1 ${presupuesto.nombreMonedaExtranjera || 'USD'} = ${formatARS(presupuesto.cotizacionMonedaExtranjera)}. Variaciones cambiarias superiores al 5% antes de la aceptación facultarán al reajuste de la partida de materiales.`;
+    const usdLines = doc.splitTextToSize(usdClause, leftW - 2);
+    doc.text(usdLines, margin, leftY);
+    leftY += usdLines.length * 2.7 + 2;
   }
 
   // Esquema de Pagos e Hitos
@@ -271,89 +370,71 @@ export const buildPresupuestoPDFDoc = (
   );
 
   if (clausulas.length > 0) {
+    let totalLinesCount = 0;
+    const splitClausulas = clausulas.slice(0, 3).map((cl) => {
+      const lines = doc.splitTextToSize(`• ${cl}`, leftW - 5);
+      totalLinesCount += lines.length;
+      return lines;
+    });
+
+    const clBoxH = Math.max(12, totalLinesCount * 2.8 + 6);
     doc.setFillColor(254, 243, 199); // Amber 100
-    doc.setDrawColor(251, 191, 36); // Amber 400
-    const clBoxH = Math.min(25, clausulas.length * 4 + 6);
+    doc.setDrawColor(251, 191, 36);  // Amber 400
+    doc.setLineWidth(0.3);
     doc.roundedRect(margin, leftY, leftW, clBoxH, 1.5, 1.5, 'FD');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
+    doc.setFontSize(6.8);
     doc.setTextColor(146, 64, 14); // Amber 800
-    doc.text('RESGUARDO CONSTRUCTIVO / EXCLUSIONES', margin + 2.5, leftY + 3.5);
+    doc.text('RESGUARDO CONSTRUCTIVO / EXCLUSIONES', margin + 2.5, leftY + 3.2);
 
     doc.setFont('helvetica', 'italic');
-    doc.setFontSize(6.5);
-    let clY = leftY + 6.5;
-    clausulas.slice(0, 3).forEach((cl) => {
-      const splitCl = doc.splitTextToSize(`• ${cl}`, leftW - 5);
-      doc.text(splitCl, margin + 2.5, clY);
-      clY += splitCl.length * 2.8;
+    doc.setFontSize(6.3);
+    let clY = leftY + 6.2;
+    splitClausulas.forEach((lines) => {
+      doc.text(lines, margin + 2.5, clY);
+      clY += lines.length * 2.7;
     });
     leftY += clBoxH + 3;
   }
 
-  // ── 6.B Columna Derecha: Cuadro Resumen de Totales ─────────────────────────
-  let rightY = currentY;
-
+  // ── 6.B Columna Derecha: Recuadro de Totales (Dinámico) ────────────────────
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(203, 213, 225);
-  const totalsBoxH = mostrarDetalle ? 48 : 32;
-  doc.roundedRect(splitX, rightY, rightW, totalsBoxH, 2, 2, 'FD');
+  doc.setLineWidth(0.3);
+  doc.roundedRect(splitX, currentY, rightW, totalsBoxH, 2, 2, 'FD');
 
-  let rowY = rightY + 5;
-  const printTotalLine = (label: string, value: string, isBold = false, isHighlight = false) => {
-    doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-    doc.setFontSize(isHighlight ? 10 : 7.5);
-    doc.setTextColor(isHighlight ? 217 : (isBold ? 15 : 71), isHighlight ? 119 : (isBold ? 23 : 85), isHighlight ? 6 : (isBold ? 42 : 105));
-    doc.text(label, splitX + 4, rowY);
-    doc.text(value, splitX + rightW - 4, rowY, { align: 'right' });
-    rowY += isHighlight ? 5.5 : 3.8;
-  };
+  let rY = currentY + 4.8;
+  totalRows.forEach((row) => {
+    if (row.isHighlight) {
+      // Línea divisoria antes del total final
+      doc.setDrawColor(217, 119, 6);
+      doc.setLineWidth(0.3);
+      doc.line(splitX + 3, rY - 1.2, splitX + rightW - 3, rY - 1.2);
+      rY += 1.6;
 
-  if (mostrarDetalle) {
-    printTotalLine('1. Costo Insumos:', formatARS(presupuesto.subtotalInsumos || 0));
-    printTotalLine('1. Costo Mano de Obra:', formatARS(presupuesto.subtotalManoObra || 0));
-    if (presupuesto.subtotalServiciosTercerizados) {
-      printTotalLine('1. Servicios Tercerizados:', formatARS(presupuesto.subtotalServiciosTercerizados));
-    }
-    printTotalLine('Costo Directo Total (C):', formatARS(presupuesto.costoGlobal || presupuesto.subtotalCostosDirectos || 0), true);
-
-    const ggTotal = presupuesto.gastosGeneralesTotal || presupuesto.subtotalCostosIndirectos || 0;
-    if (ggTotal > 0) {
-      printTotalLine('2. Gastos Generales (GG):', formatARS(ggTotal));
-    }
-
-    printTotalLine(`3. Beneficio (${presupuesto.beneficioPorcentaje ?? presupuesto.margenPorcentaje}%):`, formatARS(presupuesto.beneficioMonto || presupuesto.montoGanancia || 0));
-    printTotalLine('4. Subtotal sin Impuestos (S):', formatARS(presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - (presupuesto.montoImpuestos || 0))), true);
-
-    if (presupuesto.montoImpuestosTotal || presupuesto.montoImpuestos) {
-      printTotalLine('5. Total Impuestos:', formatARS(presupuesto.montoImpuestosTotal || presupuesto.montoImpuestos || 0));
-    }
-  } else {
-    if (isFacturaA) {
-      printTotalLine('Subtotal Neto Gravado:', formatARS(presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - (presupuesto.montoImpuestosTotal || 0))));
-      printTotalLine('IVA Discriminado (21%):', formatARS(presupuesto.montoImpuestosTotal || 0));
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(217, 119, 6); // Amber 600
+      doc.text(row.label, splitX + 4, rY);
+      doc.text(row.value, splitX + rightW - 4, rY, { align: 'right' });
+      rY += 5.0;
+    } else if (row.isSubtle) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.8);
+      doc.setTextColor(2, 132, 199); // Sky 600
+      doc.text(row.label, splitX + 4, rY);
+      doc.text(row.value, splitX + rightW - 4, rY, { align: 'right' });
+      rY += 3.6;
     } else {
-      printTotalLine('Subtotal Trabajos:', formatARS(presupuesto.totalARS || 0));
+      doc.setFont('helvetica', row.isBold ? 'bold' : 'normal');
+      doc.setFontSize(7.2);
+      doc.setTextColor(row.isBold ? 15 : 71, row.isBold ? 23 : 85, row.isBold ? 42 : 105);
+      doc.text(row.label, splitX + 4, rY);
+      doc.text(row.value, splitX + rightW - 4, rY, { align: 'right' });
+      rY += 3.8;
     }
-  }
-
-  // Divisor de total final
-  doc.setDrawColor(217, 119, 6);
-  doc.setLineWidth(0.4);
-  doc.line(splitX + 3, rowY - 1, splitX + rightW - 3, rowY - 1);
-  rowY += 2;
-
-  printTotalLine('TOTAL FINAL ARS:', formatARS(presupuesto.totalARS || 0), true, true);
-
-  if (presupuesto.mostrarReferenciaMonedaExtranjera && presupuesto.cotizacionMonedaExtranjera) {
-    const totalUSD = presupuesto.totalMonedaExtranjera || (presupuesto.totalARS / presupuesto.cotizacionMonedaExtranjera);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    doc.setTextColor(2, 132, 199);
-    doc.text(`Ref. ${presupuesto.nombreMonedaExtranjera || 'USD'} (T/C $${presupuesto.cotizacionMonedaExtranjera}):`, splitX + 4, rowY);
-    doc.text(`u$s ${totalUSD.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, splitX + rightW - 4, rowY, { align: 'right' });
-  }
+  });
 
   // ─── 7. Pie de Página y Numeración de Páginas ─────────────────────────────
   const totalPages = (doc.internal as any).getNumberOfPages();
@@ -368,7 +449,7 @@ export const buildPresupuestoPDFDoc = (
     doc.line(margin, pageHeight - 9, pageWidth - margin, pageHeight - 9);
 
     doc.text(
-      `Presupuesto Nº ${presupuesto.numero} | ${emisorNombre} | Generado el ${new Date().toLocaleDateString('es-AR')}`,
+      `Presupuesto Nº ${presupuesto.numero} | ${emisorNombre} | Emitido el ${new Date(presupuesto.fechaEmision).toLocaleDateString('es-AR')}`,
       margin,
       pageHeight - 5
     );
@@ -411,7 +492,6 @@ export const getPresupuestoPDFBlob = (
 
 /**
  * Generador de Código Fuente LaTeX (.tex)
- * Permite al usuario exportar el documento listo para compilar con pdflatex / xelatex / Overleaf.
  */
 export const exportPresupuestoToLaTeX = (
   presupuesto: Presupuesto,
@@ -420,7 +500,6 @@ export const exportPresupuestoToLaTeX = (
 ) => {
   const emisorNombre = config?.nombreEmpresa || 'IEBA - Instalaciones Eléctricas';
   const emisorSubtitulo = config?.subtituloEmpresa || 'Soluciones e Ingeniería Eléctrica';
-  const isFacturaA = presupuesto.tipoFactura === 'Factura A';
 
   const escapeLaTeX = (str: string = '') => {
     return str
@@ -438,12 +517,8 @@ export const exportPresupuestoToLaTeX = (
 
   const rowsLaTeX = presupuesto.items
     .map((item, idx) => {
-      const pUnit = isFacturaA
-        ? (item.subtotalItem && item.cantidad ? item.subtotalItem / item.cantidad : (item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0))
-        : (item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0);
-      const pTotal = isFacturaA
-        ? (item.subtotalItem ?? item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit))
-        : (item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit));
+      const pUnit = item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0;
+      const pTotal = item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit);
 
       return `    ${idx + 1} & ${escapeLaTeX(item.descripcion)} & ${item.cantidad} ${escapeLaTeX(item.unidad || 'u')} & ${formatARS(pUnit)} & ${formatARS(pTotal)} \\\\`;
     })
@@ -485,8 +560,7 @@ export const exportPresupuestoToLaTeX = (
     \\begin{tcolorbox}[colback=iebagray,colframe=iebadark,title=Datos de la Cotización]
         \\textbf{Presupuesto Nº:} ${escapeLaTeX(presupuesto.numero)}\\\\
         \\textbf{Fecha:} ${new Date(presupuesto.fechaEmision).toLocaleDateString('es-AR')}\\\\
-        \\textbf{Validez:} ${presupuesto.validezDias || 15} días\\\\
-        \\textbf{Tipo:} ${escapeLaTeX(presupuesto.tipoFactura || 'Factura B')}
+        \\textbf{Validez:} ${presupuesto.validezDias || 15} días
     \\end{tcolorbox}
 \\end{minipage}
 

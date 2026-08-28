@@ -12,7 +12,8 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
-  Send
+  Send,
+  MessageSquare
 } from 'lucide-react';
 import { Contacto, Presupuesto, SolicitudCotizacion } from '../../core/types';
 import { formatARS } from '../../core/calculations';
@@ -83,6 +84,12 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
             {contacto.condicionIVA && (
               <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-lg bg-surface-container-highest text-on-surface-variant select-none">
                 {contacto.condicionIVA}
+              </span>
+            )}
+
+            {contacto.plantillaWhatsAppPersonalizada && (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1 select-none" title="Formato de mensaje personalizado de WhatsApp activo">
+                <MessageSquare className="w-3 h-3" /> WhatsApp Custom
               </span>
             )}
           </div>

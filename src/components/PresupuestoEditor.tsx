@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   FileText,
   Plus,
@@ -12,7 +12,9 @@ import {
   FolderPlus,
   Folder,
   Truck,
-  Trash2
+  Trash2,
+  RefreshCw,
+  MessageSquare
 } from 'lucide-react';
 import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
 import { TareaEditorModal } from './tareasTipo/TareaEditorModal';
@@ -23,7 +25,8 @@ import {
   MaterialFilterContext,
   CostoIndirecto,
   CapituloPresupuesto,
-  GastoPresupuestoConfig
+  GastoPresupuestoConfig,
+  Presupuesto
 } from '../core/types';
 import {
   formatARS,
@@ -39,6 +42,8 @@ import { PresupuestoTotalsCard } from './presupuesto/PresupuestoTotalsCard';
 import { PlanificadorCuadrillaCard } from './presupuesto/PlanificadorCuadrillaCard';
 import { ItemPickerModal } from './presupuesto/ItemPickerModal';
 import { EmisionPresupuestoModal } from './presupuesto/EmisionPresupuestoModal';
+import { WhatsAppShareModal } from './presupuesto/WhatsAppShareModal';
+import { ListaMaterialesModal } from './presupuesto/ListaMaterialesModal';
 import { ParametricJobModal } from './presupuesto/ParametricJobModal';
 import { ParametricMaterialModal } from './presupuesto/ParametricMaterialModal';
 import { GastoEditorModal } from './presupuesto/GastoEditorModal';
@@ -152,11 +157,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     handleUpdateItemNotasTecnicas,
     handleUpdateItem,
     handleRemoveItem,
+    impuestosDetalle,
     handleToggleTax,
     handleUpdateTaxPct,
     handleRemoveTax,
     handleAddCustomTax,
     handleOpenMaterialsInCatalog,
+    handleRecalcularConPreciosVigentes,
     handleSavePresupuesto,
     estrategiaCuadrilla,
     setEstrategiaCuadrilla,
@@ -172,6 +179,68 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [parametricGastoToAdjust, setParametricGastoToAdjust] = useState<GastoPresupuestoConfig | null>(null);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [showListaMaterialesModal, setShowListaMaterialesModal] = useState(false);
+
+  const selectedCliente = useMemo(() => {
+    return clientes.find((c) => c.id === clienteId) || null;
+  }, [clientes, clienteId]);
+
+  const currentPresupuestoObj: Presupuesto = useMemo(() => ({
+    id: existingPresupuesto?.id || 'pres-preview',
+    numero: numero || 'IEBA-PREVIEW',
+    clienteId,
+    fechaEmision: existingPresupuesto?.fechaEmision || new Date().toISOString(),
+    validezDias,
+    tipoFactura,
+    capitulos,
+    items: totales.itemsCalculados,
+    gastosConfig,
+    costosIndirectosAplicados: totales.costosIndirectosAplicados,
+    costoGlobal: totales.costoGlobal,
+    gastosGeneralesTotal: totales.gastosGeneralesTotal,
+    beneficioPorcentaje: margenPorcentaje,
+    beneficioMonto: totales.beneficioMonto,
+    subtotalSinImpuestos: totales.subtotalSinImpuestos,
+    montoImpuestosTotal: totales.montoImpuestosTotal,
+    precioFinalGlobal: totales.precioFinalGlobal,
+    coeficienteK: totales.coeficienteK,
+    subtotalInsumos: totales.subtotalInsumos,
+    subtotalManoObra: totales.subtotalManoObra,
+    subtotalServiciosTercerizados: totales.subtotalServiciosTercerizados,
+    subtotalCostosDirectos: totales.subtotalCostosDirectos,
+    subtotalCostosIndirectos: totales.subtotalCostosIndirectos,
+    costoTotalObra: totales.costoTotalObra,
+    margenPorcentaje,
+    montoGanancia: totales.beneficioMonto,
+    impuestosDetalle,
+    impuestosPorcentaje: 0,
+    montoImpuestos: totales.montoImpuestosTotal,
+    totalARS: totales.precioFinalGlobal,
+    mostrarReferenciaMonedaExtranjera: mostrarDolar,
+    nombreMonedaExtranjera: nombreDolar,
+    cotizacionMonedaExtranjera: cotizacionDolar,
+    condicionesPagoTexto,
+    opcionesEmision,
+    estado: existingPresupuesto?.estado || 'borrador',
+    fechaModificacion: new Date().toISOString()
+  }), [
+    existingPresupuesto,
+    numero,
+    clienteId,
+    validezDias,
+    tipoFactura,
+    capitulos,
+    totales,
+    gastosConfig,
+    margenPorcentaje,
+    impuestosDetalle,
+    mostrarDolar,
+    nombreDolar,
+    cotizacionDolar,
+    condicionesPagoTexto,
+    opcionesEmision
+  ]);
 
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [saveAsTemplateData, setSaveAsTemplateData] = useState<{
@@ -459,15 +528,26 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap">
-          {onViewMaterialsInCatalog && items.length > 0 && (
+          {items.length > 0 && (
             <button
               type="button"
-              onClick={handleOpenMaterialsInCatalog}
+              onClick={handleRecalcularConPreciosVigentes}
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-surface-variant hover:bg-surface-container-highest text-on-surface font-semibold rounded-full text-xs transition-colors flex items-center justify-center gap-1.5 shadow-xs"
+              title="Actualiza los precios de todos los insumos congelados de la cotización con los valores vigentes del catálogo"
+            >
+              <RefreshCw className="w-4 h-4 text-primary" />
+              <span>Actualizar Precios</span>
+            </button>
+          )}
+          {items.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowListaMaterialesModal(true)}
               className="flex-1 sm:flex-none px-4 py-2.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-semibold rounded-full text-xs transition-colors flex items-center justify-center gap-1.5 shadow-xs"
-              title="Abrir catálogo filtrado con los materiales de esta cotización para consultar ofertas o actualizar precios"
+              title="Ver la lista consolidada de materiales (BOM), abrir en catálogo, exportar a Excel o enviar por WhatsApp"
             >
               <Package className="w-4 h-4 text-primary" />
-              <span>Insumos en Catálogo</span>
+              <span>Lista Materiales</span>
             </button>
           )}
           <button
@@ -477,6 +557,17 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           >
             Guardar Borrador
           </button>
+          {items.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowWhatsAppModal(true)}
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-semibold rounded-full text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all"
+              title="Compartir cotización por WhatsApp (formato directo o plataformas como Vaitty)"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>WhatsApp</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowEmitirModal(true)}
@@ -636,30 +727,6 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 </button>
               </div>
             </div>
-
-            {/* Favorites Bar */}
-            {favoriteTareas.length > 0 && (
-              <div className="bg-surface-container/60 p-3 rounded-2xl border border-outline-variant/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1.5">
-                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" /> Accesos Directos (Tócalo en Obra)
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {favoriteTareas.map((tarea) => (
-                    <button
-                      key={tarea.id}
-                      type="button"
-                      onClick={() => handleAddTareaTipoItem(tarea)}
-                      className="px-3 py-1.5 bg-surface-container-highest hover:bg-primary/10 text-on-surface hover:text-primary border border-outline-variant/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 touch-manipulation shadow-2xs"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-primary" />
-                      <span>{tarea.nombre}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Alerta de Margen Bajo */}
             {totales.totalARS > 0 && (
@@ -1022,6 +1089,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             mostrarDolar={mostrarDolar}
             nombreDolar={nombreDolar}
             onEmitirClick={() => setShowEmitirModal(true)}
+            onOpenListaMateriales={() => setShowListaMaterialesModal(true)}
           />
         </div>
       </div>
@@ -1177,6 +1245,25 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           }}
         />
       )}
+
+      {/* Modal de Envío por WhatsApp */}
+      <WhatsAppShareModal
+        isOpen={showWhatsAppModal}
+        onClose={() => setShowWhatsAppModal(false)}
+        presupuesto={currentPresupuestoObj}
+        cliente={selectedCliente}
+        config={config}
+      />
+
+      {/* Modal de Lista Consolidada de Materiales (BOM) */}
+      <ListaMaterialesModal
+        isOpen={showListaMaterialesModal}
+        onClose={() => setShowListaMaterialesModal(false)}
+        presupuesto={currentPresupuestoObj}
+        cliente={selectedCliente}
+        config={config}
+        onOpenInCatalog={onViewMaterialsInCatalog ? handleOpenMaterialsInCatalog : undefined}
+      />
     </div>
   );
 };

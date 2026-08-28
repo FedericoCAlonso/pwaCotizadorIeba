@@ -30,6 +30,7 @@ import {
   calcularConsumosTareaTipo,
   ConsumosCalculadosResultado,
   generarImpuestosPorDefecto,
+  actualizarSnapshotsInsumosConCatalogo,
   obtenerMultiplicadorCondicion,
   roundMoney,
   safeNum
@@ -65,11 +66,15 @@ export function usePresupuestoEditorViewModel({
     return Array.from(map.values());
   }, [rawContactos, rawClientes]);
 
-  const tareasTipo = (useLiveQuery(() => db.tareasTipo.toArray()) || []).filter(t => !t.deleted);
-  const favoriteTareas = [...tareasTipo].sort((a, b) => (b.frecuenciaUso || 0) - (a.frecuenciaUso || 0)).slice(0, 8);
+  const rawTareasTipo = useLiveQuery(() => db.tareasTipo.toArray()) || [];
+  const tareasTipo = useMemo(() => rawTareasTipo.filter(t => !t.deleted), [rawTareasTipo]);
+  const favoriteTareas = useMemo(() => [...tareasTipo].sort((a, b) => (b.frecuenciaUso || 0) - (a.frecuenciaUso || 0)).slice(0, 8), [tareasTipo]);
 
-  const manoObraList = (useLiveQuery(() => db.manoObra.toArray()) || []).filter(m => !m.deleted);
-  const costosIndirectos = (useLiveQuery(() => db.costosIndirectos.toArray()) || []).filter(c => !c.deleted);
+  const rawManoObra = useLiveQuery(() => db.manoObra.toArray()) || [];
+  const manoObraList = useMemo(() => rawManoObra.filter(m => !m.deleted), [rawManoObra]);
+
+  const rawCostosIndirectos = useLiveQuery(() => db.costosIndirectos.toArray()) || [];
+  const costosIndirectos = useMemo(() => rawCostosIndirectos.filter(c => !c.deleted), [rawCostosIndirectos]);
   const existingPresupuestos = useLiveQuery<Presupuesto[]>(() => presupuestoId ? db.presupuestos.where('id').equals(presupuestoId).toArray() : Promise.resolve([]), [presupuestoId]);
   const existingPresupuesto: Presupuesto | null = existingPresupuestos && existingPresupuestos.length > 0 ? existingPresupuestos[0] : null;
 
@@ -1050,6 +1055,20 @@ export function usePresupuestoEditorViewModel({
     onSaved(finalPresupuesto.id);
   };
 
+  const handleRecalcularConPreciosVigentes = () => {
+    if (items.length === 0) {
+      toast.info('No hay ítems en la cotización para actualizar');
+      return;
+    }
+    const res = actualizarSnapshotsInsumosConCatalogo(items, insumosMap);
+    if (res.changesCount > 0) {
+      setItems(res.updatedItems);
+      toast.success(`Se actualizaron ${res.changesCount} insumo(s) al precio vigente del catálogo`);
+    } else {
+      toast.info('Todos los insumos ya cuentan con los precios vigentes del catálogo');
+    }
+  };
+
   return {
     // Data
     clientes,
@@ -1161,6 +1180,7 @@ export function usePresupuestoEditorViewModel({
     handleRemoveTax,
     handleAddCustomTax,
     handleOpenMaterialsInCatalog,
+    handleRecalcularConPreciosVigentes,
     handleSavePresupuesto
   };
 }

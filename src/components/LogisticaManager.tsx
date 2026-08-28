@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Truck, CheckSquare, Square, ShoppingCart, Send, Mail, Copy } from 'lucide-react';
+import { Truck, CheckSquare, Square, ShoppingCart, Send, Mail, Copy, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
 import { db } from '../db/database';
 import { Proveedor, InsumoSnapshot } from '../core/types';
-import { formatARS } from '../core/calculations';
+import { formatARS, roundMoney } from '../core/calculations';
 
 interface ConsolidatedItem {
   key: string;
@@ -16,7 +16,11 @@ interface ConsolidatedItem {
   proveedorId: string;
   proveedorNombre: string;
   precioUnitario: number;
+  precioPresupuestadoUnitario: number;
   subtotal: number;
+  subtotalPresupuestado: number;
+  diferenciaMonto: number;
+  diferenciaPorcentaje: number;
 }
 
 export const LogisticaManager: React.FC = () => {
@@ -81,14 +85,30 @@ export const LogisticaManager: React.FC = () => {
         const provId = oferta?.proveedorId || proveedores[0]?.id || 'prov-general';
         const prov = proveedoresMap.get(provId);
 
+        const precioPresupuestado = ins.precioUnitarioCongelado || 0;
+        const precioUnitario = oferta ? oferta.precio : precioPresupuestado;
+        const subtotalActual = roundMoney(cantidadNecesaria * precioUnitario);
+        const subtotalPresupuestado = roundMoney(cantidadNecesaria * precioPresupuestado);
+
         const key = `${matId}_${ins.productoId || 'none'}_${provId}`;
 
         if (consolidatedMap.has(key)) {
           const current = consolidatedMap.get(key)!;
           current.cantidadTotal += cantidadNecesaria;
-          current.subtotal = current.cantidadTotal * current.precioUnitario;
+          current.subtotal = roundMoney(current.subtotal + subtotalActual);
+          current.subtotalPresupuestado = roundMoney(current.subtotalPresupuestado + subtotalPresupuestado);
+          current.precioPresupuestadoUnitario = current.cantidadTotal > 0 ? roundMoney(current.subtotalPresupuestado / current.cantidadTotal) : 0;
+          current.precioUnitario = current.cantidadTotal > 0 ? roundMoney(current.subtotal / current.cantidadTotal) : 0;
+          current.diferenciaMonto = roundMoney(current.subtotal - current.subtotalPresupuestado);
+          current.diferenciaPorcentaje = current.subtotalPresupuestado > 0
+            ? roundMoney(((current.subtotal - current.subtotalPresupuestado) / current.subtotalPresupuestado) * 100)
+            : 0;
         } else {
-          const precioUnitario = oferta ? oferta.precio : ins.precioUnitarioCongelado || 0;
+          const diferenciaMonto = roundMoney(subtotalActual - subtotalPresupuestado);
+          const diferenciaPorcentaje = subtotalPresupuestado > 0
+            ? roundMoney(((subtotalActual - subtotalPresupuestado) / subtotalPresupuestado) * 100)
+            : 0;
+
           consolidatedMap.set(key, {
             key,
             materialId: matId,
@@ -100,7 +120,11 @@ export const LogisticaManager: React.FC = () => {
             proveedorId: provId,
             proveedorNombre: prov?.razonSocial || prov?.nombre || 'Proveedor por Defecto',
             precioUnitario,
-            subtotal: cantidadNecesaria * precioUnitario
+            precioPresupuestadoUnitario: precioPresupuestado,
+            subtotal: subtotalActual,
+            subtotalPresupuestado,
+            diferenciaMonto,
+            diferenciaPorcentaje
           });
         }
       });
@@ -120,11 +144,15 @@ export const LogisticaManager: React.FC = () => {
   const supplierGroups = Array.from(supplierGroupsMap.entries()).map(([provId, items]) => {
     const prov = proveedoresMap.get(provId);
     const totalGroup = items.reduce((acc, i) => acc + i.subtotal, 0);
+    const totalPresupuestadoGroup = items.reduce((acc, i) => acc + i.subtotalPresupuestado, 0);
+    const diferenciaGroup = roundMoney(totalGroup - totalPresupuestadoGroup);
     return {
       provId,
       prov,
       items,
-      totalGroup
+      totalGroup,
+      totalPresupuestadoGroup,
+      diferenciaGroup
     };
   });
 
@@ -293,11 +321,21 @@ export const LogisticaManager: React.FC = () => {
                   <span className="text-base font-bold font-mono text-primary">
                     {formatARS(consolidatedItems.reduce((acc, i) => acc + i.subtotal, 0))}
                   </span>
+                  {(() => {
+                    const diffGlobal = roundMoney(consolidatedItems.reduce((acc, i) => acc + i.diferenciaMonto, 0));
+                    if (Math.abs(diffGlobal) < 1) return null;
+                    return (
+                      <div className={`text-[11px] font-semibold mt-0.5 flex items-center justify-end gap-1 ${diffGlobal > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                        {diffGlobal > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                        <span>{diffGlobal > 0 ? `+${formatARS(diffGlobal)} sobrecosto vs presupuestado` : `${formatARS(diffGlobal)} de ahorro vs presupuestado`}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
               {/* Grupos por Proveedor */}
-              {supplierGroups.map(({ provId, prov, items, totalGroup }) => {
+              {supplierGroups.map(({ provId, prov, items, totalGroup, diferenciaGroup }) => {
                 const provName = prov?.razonSocial || prov?.nombre || 'Proveedor por Defecto';
                 const isCopied = copiedSupplierId === provId;
 
@@ -309,6 +347,12 @@ export const LogisticaManager: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <Truck className="w-4 h-4 text-primary shrink-0" />
                           <h4 className="font-semibold text-base text-on-surface">{provName}</h4>
+                          {diferenciaGroup > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                              <AlertTriangle className="w-3 h-3" />
+                              <span>+{formatARS(diferenciaGroup)} vs pres.</span>
+                            </span>
+                          )}
                         </div>
                         {prov?.contacto && (
                           <span className="text-xs text-on-surface-variant block mt-0.5">
@@ -352,7 +396,7 @@ export const LogisticaManager: React.FC = () => {
                             <th className="p-2.5">Material / Insumo</th>
                             <th className="p-2.5">Marca / Modelo</th>
                             <th className="p-2.5 text-center">Cantidad Total</th>
-                            <th className="p-2.5 text-right">Precio Ref.</th>
+                            <th className="p-2.5 text-right">Precio Actual vs Presup.</th>
                             <th className="p-2.5 text-right">Subtotal</th>
                           </tr>
                         </thead>
@@ -364,7 +408,17 @@ export const LogisticaManager: React.FC = () => {
                               <td className="p-2.5 text-center font-bold font-mono text-primary bg-primary/5 rounded-lg">
                                 {Math.ceil(it.cantidadTotal)} {it.unidadVenta}
                               </td>
-                              <td className="p-2.5 text-right font-mono text-on-surface-variant">{formatARS(it.precioUnitario)}</td>
+                              <td className="p-2.5 text-right font-mono">
+                                <div className="text-on-surface font-medium">{formatARS(it.precioUnitario)}</div>
+                                {Math.abs(it.diferenciaMonto) > 0.01 && (
+                                  <span
+                                    className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${it.diferenciaMonto > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+                                    title={`Precio congelado en presupuesto: ${formatARS(it.precioPresupuestadoUnitario)}`}
+                                  >
+                                    {it.diferenciaMonto > 0 ? '▲' : '▼'} {it.diferenciaMonto > 0 ? '+' : ''}{it.diferenciaPorcentaje.toFixed(0)}%
+                                  </span>
+                                )}
+                              </td>
                               <td className="p-2.5 text-right font-mono font-bold text-on-surface">{formatARS(it.subtotal)}</td>
                             </tr>
                           ))}
@@ -373,11 +427,19 @@ export const LogisticaManager: React.FC = () => {
                     </div>
 
                     {/* Footer Grupo */}
-                    <div className="pt-2 flex justify-between items-center text-xs font-mono border-t border-outline-variant/10">
+                    <div className="pt-2 flex flex-wrap justify-between items-center text-xs font-mono border-t border-outline-variant/10 gap-2">
                       <span className="text-on-surface-variant">{items.length} tipo(s) de materiales en la orden</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-on-surface-variant font-sans">Total Proveedor:</span>
-                        <span className="text-sm font-bold text-primary">{formatARS(totalGroup)}</span>
+                      <div className="flex items-center gap-3">
+                        {diferenciaGroup > 0 && (
+                          <span className="text-xs text-amber-600 dark:text-amber-400 font-sans font-medium flex items-center gap-1">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            <span>Sobrecosto: +{formatARS(diferenciaGroup)}</span>
+                          </span>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <span className="text-on-surface-variant font-sans">Total Proveedor:</span>
+                          <span className="text-sm font-bold text-primary">{formatARS(totalGroup)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>

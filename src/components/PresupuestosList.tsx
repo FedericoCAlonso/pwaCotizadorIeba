@@ -13,13 +13,15 @@ import {
   Download,
   Share2,
   X,
+  MessageSquare
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
 import { Presupuesto, Cliente, AppConfig } from '../core/types';
 import { formatARS, formatUSD } from '../core/calculations';
 import { EstadoBadge } from './EstadoBadge';
-import { exportPresupuestoToXLSX, sharePresupuesto } from '../core/exportUtils';
+import { exportPresupuestoToXLSX } from '../core/exportUtils';
 import { exportPresupuestoToPDF } from '../core/pdfExportUtils';
+import { WhatsAppShareModal } from './presupuesto/WhatsAppShareModal';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 
@@ -49,6 +51,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEstado, setSelectedEstado] = useState<string>('todos');
+  const [presupuestoForWhatsApp, setPresupuestoForWhatsApp] = useState<Presupuesto | null>(null);
 
   const filteredPresupuestos = presupuestos.filter((p) => {
     const cliente = clientesMap.get(p.clienteId);
@@ -249,11 +252,11 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => sharePresupuesto(p, cliente)}
-                      className="min-w-[42px] min-h-[42px] flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0 border border-outline-variant/20"
-                      title="Compartir por WhatsApp"
+                      onClick={() => setPresupuestoForWhatsApp(p)}
+                      className="min-w-[42px] min-h-[42px] flex items-center justify-center text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-colors shrink-0 border border-emerald-500/30"
+                      title="Compartir por WhatsApp con formato inteligente"
                     >
-                      <Share2 className="w-4 h-4" />
+                      <MessageSquare className="w-4 h-4" />
                     </button>
 
                     <button
@@ -279,6 +282,17 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
             );
           })}
         </div>
+      )}
+
+      {/* Modal de Envío por WhatsApp */}
+      {presupuestoForWhatsApp && (
+        <WhatsAppShareModal
+          isOpen={presupuestoForWhatsApp !== null}
+          onClose={() => setPresupuestoForWhatsApp(null)}
+          presupuesto={presupuestoForWhatsApp}
+          cliente={clientesMap.get(presupuestoForWhatsApp.clienteId)}
+          config={config}
+        />
       )}
 
       {/* Mobile M3 Extended FAB */}

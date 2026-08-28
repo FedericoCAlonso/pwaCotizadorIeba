@@ -6,7 +6,10 @@ import {
   Plus,
   X,
   Tag,
-  Smartphone
+  Smartphone,
+  MessageSquare,
+  Sparkles,
+  RotateCcw
 } from 'lucide-react';
 import {
   Contacto,
@@ -17,6 +20,11 @@ import {
   DatosFinancierosContacto
 } from '../../core/types';
 import { CONDICIONES_IVA } from '../../core/sampleData';
+import {
+  VARIABLES_WHATSAPP_DISPONIBLES,
+  DEFAULT_WHATSAPP_TEMPLATE_VAITTY,
+  DEFAULT_WHATSAPP_TEMPLATE_GENERIC
+} from '../../core/whatsappUtils';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useModalKeyboardNavigation } from '../../hooks/useModalKeyboardNavigation';
 
@@ -36,6 +44,7 @@ export interface ContactoFormData {
   sitioWeb: string;
   contactos: PersonaContacto[];
   financiero: DatosFinancierosContacto;
+  plantillaWhatsAppPersonalizada?: string;
   notas: string;
 }
 
@@ -58,7 +67,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
 }) => {
   useEscapeKey(isOpen, onClose);
   const { containerRef, handleKeyDown } = useModalKeyboardNavigation({ isOpen });
-  const [modalActiveTab, setModalActiveTab] = useState<'general' | 'personas' | 'financiero' | 'notas'>('general');
+  const [modalActiveTab, setModalActiveTab] = useState<'general' | 'personas' | 'financiero' | 'whatsapp' | 'notas'>('general');
   const [tagInput, setTagInput] = useState('');
 
   const [formData, setFormData] = useState<ContactoFormData>({
@@ -87,6 +96,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
       cuitTitular: '',
       diasPlazoPago: 30
     },
+    plantillaWhatsAppPersonalizada: '',
     notas: ''
   });
 
@@ -118,6 +128,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
           cuitTitular: editingContacto.financiero?.cuitTitular || '',
           diasPlazoPago: editingContacto.financiero?.diasPlazoPago || 30
         },
+        plantillaWhatsAppPersonalizada: editingContacto.plantillaWhatsAppPersonalizada || '',
         notas: editingContacto.notas || ''
       });
       setModalActiveTab('general');
@@ -149,6 +160,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
           cuitTitular: '',
           diasPlazoPago: 30
         },
+        plantillaWhatsAppPersonalizada: '',
         notas: ''
       });
       setModalActiveTab('general');
@@ -317,6 +329,21 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
           </button>
           <button
             type="button"
+            onClick={() => setModalActiveTab('whatsapp')}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 ${
+              modalActiveTab === 'whatsapp'
+                ? 'bg-secondary-container text-on-secondary-container'
+                : 'text-on-surface-variant hover:bg-surface-variant'
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>4. Plantilla WhatsApp</span>
+            {formData.plantillaWhatsAppPersonalizada && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            )}
+          </button>
+          <button
+            type="button"
             onClick={() => setModalActiveTab('notas')}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
               modalActiveTab === 'notas'
@@ -324,7 +351,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
                 : 'text-on-surface-variant hover:bg-surface-variant'
             }`}
           >
-            4. Notas
+            5. Notas
           </button>
         </div>
 
@@ -818,6 +845,131 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {modalActiveTab === 'whatsapp' && (
+            <div className="space-y-4">
+              <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/20 space-y-3">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-on-surface">
+                    Formato de Cotización por WhatsApp
+                  </h4>
+                </div>
+                <p className="text-xs text-on-surface-variant">
+                  Configura un formato de mensaje a medida para este cliente o plataforma (ej. Vaitty, aseguradoras, inmobiliarias). Si no se define, se utilizará automáticamente la plantilla genérica global de la empresa.
+                </p>
+
+                <div className="space-y-2 pt-1">
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="whatsappTemplateMode"
+                      checked={!formData.plantillaWhatsAppPersonalizada}
+                      onChange={() => setFormData((prev) => ({ ...prev, plantillaWhatsAppPersonalizada: '' }))}
+                      className="text-primary focus:ring-primary w-4 h-4"
+                    />
+                    <span className="text-xs font-medium text-on-surface">
+                      Usar plantilla global por defecto (Recomendado para clientes particulares)
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="whatsappTemplateMode"
+                      checked={Boolean(formData.plantillaWhatsAppPersonalizada)}
+                      onChange={() => {
+                        if (!formData.plantillaWhatsAppPersonalizada) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            plantillaWhatsAppPersonalizada: DEFAULT_WHATSAPP_TEMPLATE_VAITTY
+                          }));
+                        }
+                      }}
+                      className="text-primary focus:ring-primary w-4 h-4"
+                    />
+                    <span className="text-xs font-medium text-on-surface">
+                      Personalizar plantilla para este cliente / plataforma
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {Boolean(formData.plantillaWhatsAppPersonalizada) && (
+                <div className="bg-surface-container-high p-4 rounded-2xl border border-outline-variant/30 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-primary uppercase tracking-wide">
+                      Cuerpo del Mensaje
+                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            plantillaWhatsAppPersonalizada: DEFAULT_WHATSAPP_TEMPLATE_VAITTY
+                          }))
+                        }
+                        className="px-2.5 py-1 bg-surface-container hover:bg-surface text-on-surface text-[11px] font-medium rounded-full border border-outline-variant/30 transition-colors flex items-center gap-1 shadow-xs"
+                      >
+                        <Sparkles className="w-3 h-3 text-primary" />
+                        <span>Cargar Preset Vaitty</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            plantillaWhatsAppPersonalizada: DEFAULT_WHATSAPP_TEMPLATE_GENERIC
+                          }))
+                        }
+                        className="px-2.5 py-1 bg-surface-container hover:bg-surface text-on-surface text-[11px] font-medium rounded-full border border-outline-variant/30 transition-colors flex items-center gap-1 shadow-xs"
+                      >
+                        <RotateCcw className="w-3 h-3 text-on-surface-variant" />
+                        <span>Cargar Genérico</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <textarea
+                    rows={10}
+                    value={formData.plantillaWhatsAppPersonalizada}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, plantillaWhatsAppPersonalizada: e.target.value }))
+                    }
+                    className="w-full bg-surface-container-highest border border-outline-variant/40 rounded-xl p-3.5 text-xs text-on-surface font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 leading-relaxed"
+                    placeholder="Escribe la plantilla de mensaje..."
+                  />
+
+                  {/* Chips de inserción de tags */}
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-semibold text-on-surface-variant block">
+                      Variables disponibles (Haz clic para insertar en el texto):
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1.5 bg-surface-container rounded-xl border border-outline-variant/20">
+                      {VARIABLES_WHATSAPP_DISPONIBLES.map((v) => (
+                        <button
+                          key={v.tag}
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              plantillaWhatsAppPersonalizada:
+                                (prev.plantillaWhatsAppPersonalizada || '') + ` ${v.tag} `
+                            }));
+                          }}
+                          className="px-2 py-0.5 bg-surface-container-high hover:bg-primary/10 hover:text-primary text-on-surface text-[10px] font-mono rounded-lg border border-outline-variant/20 transition-colors"
+                          title={`${v.descripcion} (Ejemplo: ${v.ejemplo})`}
+                        >
+                          +{v.etiqueta}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -14,14 +14,17 @@ import {
   MoreVertical,
   Printer,
   Check,
-  HardHat
+  HardHat,
+  MessageSquare
 } from 'lucide-react';
 import { AppConfig, Presupuesto, EstadoPresupuesto, InsumoEnTarea, ManoObraEnTarea, MaterialFilterContext } from '../core/types';
 import { formatARS } from '../core/calculations';
 import { ESTADOS_PRESUPUESTO } from '../core/sampleData';
 import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
+import { WhatsAppShareModal } from './presupuesto/WhatsAppShareModal';
+import { ListaMaterialesModal } from './presupuesto/ListaMaterialesModal';
 import { usePresupuestoDetailViewModel } from '../viewmodels/usePresupuestoDetailViewModel';
-import { exportPresupuestoToXLSX, sharePresupuesto } from '../core/exportUtils';
+import { exportPresupuestoToXLSX } from '../core/exportUtils';
 import { exportPresupuestoToPDF, getPresupuestoPDFBlob } from '../core/pdfExportUtils';
 
 interface PresupuestoDetailProps {
@@ -58,6 +61,8 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
   });
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [showListaMaterialesModal, setShowListaMaterialesModal] = useState(false);
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [saveAsTemplateData, setSaveAsTemplateData] = useState<{
     nombre: string;
@@ -166,14 +171,24 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
               <span className="hidden sm:inline">Excel</span>
             </button>
 
+            {/* Lista Materiales BOM Button */}
+            <button
+              onClick={() => setShowListaMaterialesModal(true)}
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 text-primary bg-primary/10 hover:bg-primary/20 rounded-full text-xs font-semibold transition-colors border border-primary/30 min-h-[40px]"
+              title="Ver lista consolidada de materiales (BOM), abrir en catálogo o exportar para compras"
+            >
+              <Package className="w-4 h-4" />
+              <span className="hidden md:inline">Materiales</span>
+            </button>
+
             {/* Share WhatsApp */}
             <button
-              onClick={() => sharePresupuesto(presupuesto, cliente)}
-              className="p-2 sm:px-3 sm:py-2 text-primary hover:bg-primary/10 rounded-full text-xs font-medium transition-colors border border-primary/20 flex items-center gap-1 min-h-[40px] min-w-[40px] justify-center"
+              onClick={() => setShowWhatsAppModal(true)}
+              className="p-2 sm:px-3.5 sm:py-2 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-full text-xs font-semibold transition-colors border border-emerald-500/30 flex items-center gap-1.5 min-h-[40px] min-w-[40px] justify-center"
               title="Compartir por WhatsApp"
             >
-              <Share2 className="w-4 h-4" />
-              <span className="hidden md:inline">Compartir</span>
+              <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span className="hidden md:inline">WhatsApp</span>
             </button>
 
             {/* Edit Button */}
@@ -358,11 +373,6 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
             <div className="inline-block bg-slate-100 text-slate-800 font-mono text-lg sm:text-xl font-bold px-3.5 py-1.5 rounded-lg border border-slate-300">
               {presupuesto.numero}
             </div>
-            <div className="mt-1">
-              <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                {presupuesto.tipoFactura || 'Factura B'}
-              </span>
-            </div>
             <div className="text-xs text-slate-600 mt-2 space-y-1">
               <div>
                 <strong>Fecha Emisión:</strong> {new Date(presupuesto.fechaEmision).toLocaleDateString('es-AR')}
@@ -420,24 +430,15 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                 <th className="px-3 sm:px-4 py-3 text-center w-10">#</th>
                 <th className="px-3 sm:px-4 py-3">Descripción de la Partida</th>
                 <th className="px-3 sm:px-4 py-3 text-center">Unidad</th>
-                <th className="px-3 sm:px-4 py-3 text-right">
-                  {presupuesto.tipoFactura === 'Factura A' ? 'P. Unit. Neto' : 'P. Unitario'}
-                </th>
-                <th className="px-3 sm:px-4 py-3 text-right">
-                  {presupuesto.tipoFactura === 'Factura A' ? 'Subtotal Neto' : 'Subtotal'}
-                </th>
+                <th className="px-3 sm:px-4 py-3 text-right">P. Unitario</th>
+                <th className="px-3 sm:px-4 py-3 text-right">Subtotal</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-slate-800">
               {(presupuesto.opcionesEmision?.mostrarItemizado ?? true) ? (
                 presupuesto.items.map((item, idx) => {
-                  const isFacturaA = presupuesto.tipoFactura === 'Factura A';
-                  const pUnit = isFacturaA
-                    ? (item.subtotalItem && item.cantidad ? item.subtotalItem / item.cantidad : (item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0))
-                    : (item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0);
-                  const pTotal = isFacturaA
-                    ? (item.subtotalItem ?? item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit))
-                    : (item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit));
+                  const pUnit = item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0;
+                  const pTotal = item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit);
 
                   return (
                     <React.Fragment key={item.id || idx}>
@@ -600,15 +601,15 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
             ) : (
               /* Simplified summary without exposing raw costs or margins */
               <div className="space-y-1.5 text-xs text-slate-600 border-b border-slate-300 pb-3">
-                {presupuesto.tipoFactura === 'Factura A' ? (
+                {presupuesto.montoImpuestosTotal && presupuesto.montoImpuestosTotal > 0 ? (
                   <>
                     <div className="flex justify-between font-medium">
-                      <span>Subtotal Neto Gravado:</span>
-                      <span className="font-mono">{formatARS(presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - (presupuesto.montoImpuestosTotal || 0)))}</span>
+                      <span>Subtotal:</span>
+                      <span className="font-mono">{formatARS(presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - presupuesto.montoImpuestosTotal))}</span>
                     </div>
                     <div className="flex justify-between font-medium">
-                      <span>IVA Discriminado (21%):</span>
-                      <span className="font-mono">{formatARS(presupuesto.montoImpuestosTotal || 0)}</span>
+                      <span>Impuestos / IVA Aplicado:</span>
+                      <span className="font-mono">{formatARS(presupuesto.montoImpuestosTotal)}</span>
                     </div>
                   </>
                 ) : (
@@ -658,6 +659,25 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
         unidad={saveAsTemplateData.unidad}
         insumos={saveAsTemplateData.insumos}
         manoObra={saveAsTemplateData.manoObra}
+      />
+
+      {/* Modal de Envío por WhatsApp */}
+      <WhatsAppShareModal
+        isOpen={showWhatsAppModal}
+        onClose={() => setShowWhatsAppModal(false)}
+        presupuesto={presupuesto}
+        cliente={cliente as any}
+        config={config}
+      />
+
+      {/* Modal de Lista Consolidada de Materiales (BOM) */}
+      <ListaMaterialesModal
+        isOpen={showListaMaterialesModal}
+        onClose={() => setShowListaMaterialesModal(false)}
+        presupuesto={presupuesto}
+        cliente={cliente as any}
+        config={config}
+        onOpenInCatalog={onViewMaterialsInCatalog ? handleOpenMaterialsInCatalog : undefined}
       />
     </div>
   );

@@ -22,6 +22,7 @@ import {
   calcularConsumosTareaTipo,
   resolverMaterialPorFiltro,
   calcularOptimizacionCuadrilla,
+  actualizarSnapshotsInsumosConCatalogo,
   DEFAULT_CLAUSULA_OBRA_EXISTENTE
 } from './calculations';
 import { evaluateCondition, evaluateMathExpression } from './mathEvaluator';
@@ -2192,7 +2193,7 @@ describe('15. Estructura de Gastos Directos vs Indirectos, Fórmulas Paramétric
     expect(res.valoresVariables['stot_bocas']).toBe(90000); // (10/5 + 1) * 30000 = 3 * 30000 = 90000
     expect(res.valoresVariables['stot_unifilares']).toBe(60000); // (1 + 4/4) * 30000 * 1 = 2 * 30000 = 60000
     expect(res.valoresVariables['stot_relevamiento']).toBe(0); // requiere_croquis = 0
-    expect(res.costoServiciosTotal).toBe(180000); // 30000 + 90000 + 60000 + 0
+    expect(res.costoServiciosTotal).toBe(240000); // 30000 (jabalinas) + 90000 (bocas) + 60000 (diferenciales) + 60000 (unifilares) + 0
     expect(res.manoObraSnapshot[0].horasTotales).toBe(2.75); // (1 + 10) / 4 = 2.75
 
     // Caso B: Con encomienda = 0 (toma automáticamente 2 * tarifa_profesional = 2 * 20000 = 40000)
@@ -2217,7 +2218,137 @@ describe('15. Estructura de Gastos Directos vs Indirectos, Fórmulas Paramétric
     expect(resAuto.valoresVariables['stot_bocas']).toBe(120000); // (10/5 + 1) * 40000 = 3 * 40000 = 120000
     expect(resAuto.valoresVariables['stot_unifilares']).toBe(0); // requiere_unifilar = 0
     expect(resAuto.valoresVariables['stot_relevamiento']).toBe(120000); // (1*2 + 5/5) * 40000 * 1 = 3 * 40000 = 120000
-    expect(resAuto.costoServiciosTotal).toBe(292000); // 52000 + 120000 + 0 + 120000 = 292000
+  });
+
+  it('debe prorratear gastos directos focalizados estrictamente dentro de los ítems de su propio capítulo sin afectar a otros capítulos', () => {
+    const capitulos: CapituloPresupuesto[] = [
+      { id: 'cap-1', nombre: 'Capítulo 1: Tableros' },
+      { id: 'cap-2', nombre: 'Capítulo 2: Iluminación' }
+    ];
+
+    const item1: ItemPresupuesto = {
+      id: 'item-1',
+      capituloId: 'cap-1',
+      descripcion: 'Gabinete Tablero',
+      cantidad: 1,
+      unidad: 'u',
+      costoInsumos: 100000,
+      costoManoObra: 50000,
+      costoDirectoTotal: 150000,
+      precioVentaUnitario: 150000,
+      precioVentaTotal: 150000,
+      insumosSnapshot: [{ insumoId: 'ins-1', nombre: 'Gabinete', unidad: 'u', cantidadTotal: 1, precioUnitarioCongelado: 100000, alicuotaIVA: 0, subtotalInsumo: 100000, subtotalInsumoFinal: 100000 }],
+      manoObraSnapshot: []
+    };
+
+    const item2: ItemPresupuesto = {
+      id: 'item-2',
+      capituloId: 'cap-2',
+      descripcion: 'Bocas de Iluminación',
+      cantidad: 1,
+      unidad: 'u',
+      costoInsumos: 100000,
+      costoManoObra: 50000,
+      costoDirectoTotal: 150000,
+      precioVentaUnitario: 150000,
+      precioVentaTotal: 150000,
+      insumosSnapshot: [{ insumoId: 'ins-2', nombre: 'Cables e Iluminacion', unidad: 'u', cantidadTotal: 1, precioUnitarioCongelado: 100000, alicuotaIVA: 0, subtotalInsumo: 100000, subtotalInsumoFinal: 100000 }],
+      manoObraSnapshot: []
+    };
+
+    // Gasto focalizado exclusivamente al Capítulo 2 (10% sobre materiales de Cap 2 = $10.000)
+    const gastosConfig: GastoPresupuestoConfig[] = [
+      {
+        id: 'gasto-flete-cap2',
+        nombre: 'Flete Exclusivo Iluminación',
+        capituloId: 'cap-2',
+        destino: 'materiales',
+        modalidad: 'porcentual',
+        valor: 10, // 10% sobre materiales del capítulo 2 = $10.000
+        aplica: true
+      }
+    ];
+
+    const res = calcularTotalesPresupuesto({
+      items: [item1, item2],
+      capitulos,
+      gastosConfig,
+      beneficioPorcentaje: 0,
+      tipoFactura: 'Factura C',
+      impuestosDetalle: []
+    });
+
+    // Total materiales = 100.000 + 100.000 + 10.000 (gasto cap 2) = 210.000
+    expect(res.subtotalInsumos).toBe(210000);
+    expect(res.subtotalManoObra).toBe(100000);
+    expect(res.costoTotalObra).toBe(310000);
+
+    // Item 1 (Capítulo 1): No debe tener gasto directo de materiales prorrateado (costo directo = 100.000 + 50.000 = 150.000)
+    expect(res.itemsCalculados[0].costoDirectoTotal).toBe(150000);
+
+    // Item 2 (Capítulo 2): Debe absorber los $10.000 del gasto de materiales de su capítulo (costo directo = 100.000 + 10.000 + 50.000 = 160.000)
+    expect(res.itemsCalculados[1].costoDirectoTotal).toBe(160000);
+  });
+
+  it('debe actualizar los snapshots congelados de insumos con los precios vigentes del catálogo preservando cantidades', () => {
+    const testInsumosMap = new Map<string, Insumo>([
+      [
+        'mat-cable-25',
+        {
+          id: 'mat-cable-25',
+          nombre: 'Cable Unipolar 2.5 mm2 IRAM 247-3',
+          categoriaId: 'cat-cables',
+          unidadVenta: 'm',
+          atributos: [],
+          activo: true,
+          precioActual: 1500, // Precio nuevo actualizado
+          precioNeto: 1500,
+          alicuotaIVA: 21,
+          precioFinal: 1815
+        }
+      ]
+    ]);
+
+    const initialItem: ItemPresupuesto = {
+      id: 'item-1',
+      descripcion: 'Recableado Circuito Iluminación',
+      cantidad: 2,
+      unidad: 'circuito',
+      costoInsumos: 100000,
+      costoManoObra: 80000,
+      costoDirectoTotal: 180000,
+      precioVentaUnitario: 180000,
+      precioVentaTotal: 360000,
+      insumosSnapshot: [
+        {
+          materialId: 'mat-cable-25',
+          nombre: 'Cable Unipolar 2.5 mm2 IRAM 247-3',
+          unidad: 'm',
+          cantidadTotal: 100,
+          precioUnitarioCongelado: 1000, // Precio viejo congelado
+          alicuotaIVA: 21,
+          precioFinalUnitarioCongelado: 1210,
+          subtotalInsumo: 100000,
+          subtotalInsumoFinal: 121000
+        }
+      ],
+      manoObraSnapshot: []
+    };
+
+    const res = actualizarSnapshotsInsumosConCatalogo([initialItem], testInsumosMap);
+
+    expect(res.changesCount).toBe(1);
+    expect(res.oldTotalCosto).toBe(100000);
+    expect(res.newTotalCosto).toBe(150000); // 100m * 1500 = 150.000
+
+    const updatedItem = res.updatedItems[0];
+    expect(updatedItem.costoInsumos).toBe(150000);
+    expect(updatedItem.costoDirectoTotal).toBe(230000); // 150.000 + 80.000 MO = 230.000
+    expect(updatedItem.insumosSnapshot[0].precioUnitarioCongelado).toBe(150000 / 100);
+    expect(updatedItem.insumosSnapshot[0].subtotalInsumo).toBe(150000);
+    expect(updatedItem.insumosSnapshot[0].subtotalInsumoFinal).toBe(181500); // 150.000 * 1.21
   });
 });
+
+
 

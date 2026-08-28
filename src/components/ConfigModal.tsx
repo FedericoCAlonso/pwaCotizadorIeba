@@ -1,7 +1,8 @@
 import React from 'react';
-import { X, Save, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle, RefreshCw, Layers, Plus, Edit2, Trash2, Check, RotateCcw, AlertTriangle } from 'lucide-react';
+import { X, Save, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle, RefreshCw, Layers, Plus, Edit2, Trash2, Check, RotateCcw, AlertTriangle, MessageSquare, Sparkles } from 'lucide-react';
 import { AppConfig } from '../core/types';
 import { TIPOS_FACTURA, INITIAL_MATERIALES, INITIAL_MANO_OBRA, INITIAL_COSTOS_INDIRECTOS, INITIAL_TAREAS_TIPO, BASE_TAREA_CATEGORIES, DEFAULT_MOTORES_BUSQUEDA, DEFAULT_APP_CONFIG } from '../core/sampleData';
+import { VARIABLES_WHATSAPP_DISPONIBLES, DEFAULT_WHATSAPP_TEMPLATE_GENERIC, DEFAULT_WHATSAPP_TEMPLATE_VAITTY } from '../core/whatsappUtils';
 import { AuthModal } from './AuthModal';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useToast } from '../contexts/ToastContext';
@@ -350,6 +351,67 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Prefijo de Número</label>
                 <input type="text" value={formData.prefijoPresupuesto} onChange={(e) => setFormData({ ...formData, prefijoPresupuesto: e.target.value.toUpperCase() })} className={`${inputCls} font-mono`} />
+              </div>
+            </div>
+          </div>
+
+          <hr className="border-outline-variant/30" />
+
+          {/* Plantilla de Cotización WhatsApp Predeterminada (Global) */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className={`${sectionTitle} mb-0 flex items-center gap-2`}>
+                <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                Plantilla de Cotización WhatsApp (Global por Defecto)
+              </h3>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, plantillaWhatsAppDefault: DEFAULT_WHATSAPP_TEMPLATE_GENERIC })}
+                  className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Restablecer Genérico</span>
+                </button>
+              </div>
+            </div>
+            <p className="text-[11px] text-on-surface-variant mb-3">
+              Mensaje predeterminado que se generará al compartir una cotización con clientes que no tengan un formato personalizado.
+            </p>
+
+            <div className="bg-surface-container-high p-4 rounded-2xl border border-outline-variant/30 space-y-3">
+              <textarea
+                rows={8}
+                value={formData.plantillaWhatsAppDefault ?? DEFAULT_WHATSAPP_TEMPLATE_GENERIC}
+                onChange={(e) => setFormData({ ...formData, plantillaWhatsAppDefault: e.target.value })}
+                className="w-full bg-surface-container-highest border border-outline-variant/40 rounded-xl p-3 text-xs text-on-surface font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 leading-relaxed"
+                placeholder="Escribe el mensaje genérico..."
+              />
+
+              {/* Chips de inserción de tags */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-semibold text-on-surface-variant block">
+                  Variables disponibles (Haz clic para insertar en el texto):
+                </span>
+                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 bg-surface-container rounded-xl border border-outline-variant/20">
+                  {VARIABLES_WHATSAPP_DISPONIBLES.map((v) => (
+                    <button
+                      key={v.tag}
+                      type="button"
+                      onClick={() => {
+                        const current = formData.plantillaWhatsAppDefault ?? DEFAULT_WHATSAPP_TEMPLATE_GENERIC;
+                        setFormData({
+                          ...formData,
+                          plantillaWhatsAppDefault: `${current} ${v.tag} `
+                        });
+                      }}
+                      className="px-2 py-0.5 bg-surface-container-high hover:bg-primary/10 hover:text-primary text-on-surface text-[10px] font-mono rounded-lg border border-outline-variant/20 transition-colors"
+                      title={`${v.descripcion} (Ejemplo: ${v.ejemplo})`}
+                    >
+                      +{v.etiqueta}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

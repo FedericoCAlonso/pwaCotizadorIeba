@@ -434,7 +434,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
     unidad: 'servicio',
     naturaleza: 'servicio_profesional',
     honorarioBase: 0,
-    formulaHonorarios: 'stot_jabalina + stot_bocas + stot_unifilares + stot_relevamiento',
+    formulaHonorarios: 'stot_jabalina + stot_bocas + stot_diferenciales + stot_unifilares + stot_relevamiento',
     costoServicioDirecto: 0,
     notasTecnicas: 'Relevamiento, verificación de continuidad de masas, ensayo de tiempo de disparo de interruptores diferenciales y medición de resistencia de puesta a tierra bajo norma IRAM 2281 / Res. SRT 900/15 con instrumental digital contrastado.',
     clausulaTecnicaDefault: 'El servicio incluye la emisión de informe técnico con croquis e instrumental utilizado. No incluye reparaciones ni reemplazo de elementos no conformes.',
@@ -538,10 +538,10 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
     variables: [
       {
         id: 'valor_encomienda',
-        nombre: 'Valor efectivo de la Encomienda',
-        formula: 'encomienda > 0 ? encomienda : (tarifa_profesional > 0 ? tarifa_profesional * 2 : (costo_hora_tecnico > 0 ? costo_hora_tecnico * 2 : 30000))',
+        nombre: 'Valor base de la encomienda',
+        formula: 'encomienda > 0 ? encomienda : 2 * tarifa_profesional',
         unidad: '$',
-        descripcion: 'Toma el valor fijado o calcula automáticamente desde Mano de Obra'
+        descripcion: 'Valor de encomienda calculado o ingresado'
       },
       {
         id: 'stot_jabalina',
@@ -556,6 +556,13 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
         formula: '(bocas / 5 + 1) * valor_encomienda',
         unidad: '$',
         descripcion: 'Inspección de continuidad según cantidad de bocas'
+      },
+      {
+        id: 'stot_diferenciales',
+        nombre: 'Subtotal por medición de interruptores diferenciales',
+        formula: '(int_diferenciales < 5 ? 2 : 1/4) * valor_encomienda',
+        unidad: '$',
+        descripcion: 'Base por los primeros 5 ID + adicional por cada 4 ID extra'
       },
       {
         id: 'stot_unifilares',

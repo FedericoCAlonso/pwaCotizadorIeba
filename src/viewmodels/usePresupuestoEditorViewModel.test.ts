@@ -32,15 +32,18 @@ const { mockTarea } = vi.hoisted(() => {
   return { mockTarea };
 });
 
+const emptyArray: any[] = [];
+const mockInsumosMap = new Map<string, any>([
+  ['mat-cable-2.5-marron', { id: 'mat-cable-2.5-marron', nombre: 'Cable 2.5', precioActual: 100, unidad: 'm' }],
+  ['mat-caja-octogonal', { id: 'mat-caja-octogonal', nombre: 'Caja Octogonal', precioActual: 500, unidad: 'u' }]
+]);
+
 vi.mock('dexie-react-hooks', () => ({
-  useLiveQuery: () => []
+  useLiveQuery: () => emptyArray
 }));
 
 vi.mock('../hooks/useInsumosMap', () => ({
-  useInsumosMap: () => new Map([
-    ['mat-cable-2.5-marron', { id: 'mat-cable-2.5-marron', nombre: 'Cable 2.5', precioActual: 100, unidad: 'm' }],
-    ['mat-caja-octogonal', { id: 'mat-caja-octogonal', nombre: 'Caja Octogonal', precioActual: 500, unidad: 'u' }]
-  ])
+  useInsumosMap: () => mockInsumosMap
 }));
 
 vi.mock('../db/database', () => ({
@@ -124,4 +127,26 @@ describe('usePresupuestoEditorViewModel', () => {
     expect(result.current.totales.itemsCalculados.length).toBe(1);
     expect(result.current.totales.itemsCalculados[0].costoDirectoTotal).toBeGreaterThan(0);
   });
+
+  it('permite recalcular snapshots de insumos con los precios vigentes del catálogo', () => {
+    const { result } = renderHook(() =>
+      usePresupuestoEditorViewModel({
+        config: DEFAULT_APP_CONFIG,
+        onSaved: mockOnSaved
+      })
+    );
+
+    act(() => {
+      result.current.handleAddTareaTipoItem(mockTarea, 1);
+    });
+
+    expect(result.current.items.length).toBe(1);
+
+    act(() => {
+      result.current.handleRecalcularConPreciosVigentes();
+    });
+
+    expect(result.current.items[0].insumosSnapshot.length).toBe(2);
+  });
 });
+

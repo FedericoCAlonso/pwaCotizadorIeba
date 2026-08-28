@@ -261,6 +261,9 @@ export interface Contacto {
   // Módulo Financiero
   financiero?: DatosFinancierosContacto;
   
+  // Plantilla de Cotización WhatsApp específica para este cliente / plataforma (ej: Vaitty)
+  plantillaWhatsAppPersonalizada?: string;
+  
   notas?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -859,6 +862,7 @@ export interface AppConfig {
   syncIntervalMinutes?: number; // Default 5 mins
   motoresBusquedaOnline?: MotorBusquedaEcommerce[];
   categoriasTarea?: string[];
+  plantillaWhatsAppDefault?: string;
 
   createdAt?: string;
   updatedAt?: string;

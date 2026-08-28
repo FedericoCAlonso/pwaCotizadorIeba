@@ -94,14 +94,6 @@ export const exportPresupuestoToXLSX = async (
   ]);
   clientRow2.font = { name: 'Arial', size: 10 };
 
-  if (presupuesto.tipoFactura) {
-    const facturaRow = wsComercial.addRow([
-      'Tipo de Comprobante:', presupuesto.tipoFactura, '',
-      'Estado:', (presupuesto.estado || 'borrador').toUpperCase()
-    ]);
-    facturaRow.font = { name: 'Arial', size: 10 };
-  }
-
   wsComercial.addRow([]); // Blank
 
   // Encabezados de Tabla Comercial
@@ -110,8 +102,8 @@ export const exportPresupuestoToXLSX = async (
     'Descripción / Partida a Ejecutar',
     'Unidad',
     'Cantidad',
-    isFacturaA ? 'Precio Unitario Neto ARS' : 'Precio Unitario ARS',
-    isFacturaA ? 'Subtotal Neto ARS' : 'Subtotal ARS'
+    'Precio Unitario ARS',
+    'Subtotal ARS'
   ]);
   tableHeaderRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: COLOR_HEADER_TEXT } };
   tableHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_HEADER_BG } };
@@ -121,12 +113,8 @@ export const exportPresupuestoToXLSX = async (
   // Filas de Partidas
   if (mostrarItemizado) {
     presupuesto.items.forEach((item, idx) => {
-      const pUnit = isFacturaA
-        ? (item.subtotalItem && item.cantidad ? item.subtotalItem / item.cantidad : (item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0))
-        : (item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0);
-      const pTotal = isFacturaA
-        ? (item.subtotalItem ?? item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit))
-        : (item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit));
+      const pUnit = item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0;
+      const pTotal = item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit);
 
       const desc = item.notasTecnicas ? `${item.descripcion}\nNotas: ${item.notasTecnicas}` : item.descripcion;
 
@@ -212,9 +200,9 @@ export const exportPresupuestoToXLSX = async (
       addTotalRow('5. Total Impuestos ARS:', presupuesto.montoImpuestosTotal || presupuesto.montoImpuestos || 0);
     }
   } else {
-    if (isFacturaA) {
-      addTotalRow('Subtotal Neto Gravado ARS:', presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - (presupuesto.montoImpuestosTotal || 0)));
-      addTotalRow('IVA Discriminado ARS:', presupuesto.montoImpuestosTotal || 0);
+    if (presupuesto.montoImpuestosTotal && presupuesto.montoImpuestosTotal > 0) {
+      addTotalRow('Subtotal ARS:', presupuesto.subtotalSinImpuestos || (presupuesto.totalARS - presupuesto.montoImpuestosTotal));
+      addTotalRow('Total Impuestos / IVA ARS:', presupuesto.montoImpuestosTotal);
     } else {
       addTotalRow('Subtotal Trabajos ARS:', presupuesto.totalARS || 0);
     }
@@ -599,6 +587,160 @@ export const exportPresupuestoToXLSX = async (
   const safeNum = (presupuesto.numero || 'cotizacion').replace(/[^a-zA-Z0-9_-]/g, '_');
   const filename = `Presupuesto_IEBA_${safeNum}_${new Date().toISOString().split('T')[0]}.xlsx`;
   a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+export const exportListaMaterialesToXLSX = async (
+  presupuesto: Presupuesto,
+  cliente?: Cliente | Contacto | null,
+  config?: AppConfig | null,
+  incluirPrecios: boolean = true
+) => {
+  const ExcelModule = await import('exceljs');
+  const ExcelJS = ExcelModule.default || ExcelModule;
+  const wb = new ExcelJS.Workbook();
+  wb.creator = config?.nombreEmpresa || 'Cotizador Eléctrico IEBA';
+  wb.created = new Date();
+
+  const COLOR_HEADER_BG = 'FF0F172A';
+  const COLOR_HEADER_TEXT = 'FFFFFFFF';
+  const COLOR_ACCENT_BG = 'FFF59E0B';
+  const COLOR_TOTAL_BG = 'FFFEF3C7';
+  const BORDER_THIN = {
+    top: { style: 'thin' as const, color: { argb: 'FFCBD5E1' } },
+    left: { style: 'thin' as const, color: { argb: 'FFCBD5E1' } },
+    bottom: { style: 'thin' as const, color: { argb: 'FFCBD5E1' } },
+    right: { style: 'thin' as const, color: { argb: 'FFCBD5E1' } }
+  };
+  const BORDER_HEADER = {
+    top: { style: 'medium' as const, color: { argb: 'FF0F172A' } },
+    left: { style: 'thin' as const, color: { argb: 'FF0F172A' } },
+    bottom: { style: 'medium' as const, color: { argb: 'FF0F172A' } },
+    right: { style: 'thin' as const, color: { argb: 'FF0F172A' } }
+  };
+
+  const ws = wb.addWorksheet('Lista de Materiales');
+  ws.views = [{ showGridLines: true }];
+
+  ws.columns = [
+    { width: 6 },  // A: #
+    { width: 45 }, // B: Material / Insumo
+    { width: 15 }, // C: Cantidad
+    { width: 12 }, // D: Unidad
+    { width: 22 }, // E: Precio Unit. ARS
+    { width: 24 }  // F: Subtotal Estimado ARS
+  ];
+
+  // Membrete
+  const emisorNombre = config?.nombreEmpresa || 'IEBA - INSTALACIONES ELÉCTRICAS';
+  const r1 = ws.addRow([emisorNombre]);
+  r1.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFD97706' } };
+
+  const r2 = ws.addRow([`LISTA CONSOLIDADA DE MATERIALES / INSUMOS PARA COMPRA`]);
+  r2.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF1E293B' } };
+
+  ws.addRow([
+    `Cotización Ref.: ${presupuesto.numero}`,
+    '',
+    `Cliente: ${cliente?.nombre || 'General'}`,
+    '',
+    `Fecha: ${new Date(presupuesto.fechaEmision).toLocaleDateString('es-AR')}`
+  ]);
+  ws.addRow([]);
+
+  const headerRow = ws.addRow([
+    '#',
+    'Descripción del Material / Insumo',
+    'Cantidad Total',
+    'Unidad',
+    incluirPrecios ? 'Costo Unitario Ref. ARS' : '',
+    incluirPrecios ? 'Subtotal Estimado ARS' : ''
+  ]);
+  headerRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: COLOR_HEADER_TEXT } };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_ACCENT_BG } };
+  headerRow.height = 22;
+
+  // Consolidar insumos
+  const map = new Map<string, {
+    nombre: string;
+    unidad: string;
+    cantidadTotal: number;
+    costoUnitario: number;
+    subtotal: number;
+  }>();
+
+  (presupuesto.items || []).forEach((it) => {
+    (it.insumosSnapshot || []).forEach((ins) => {
+      const key = `${ins.materialId || ins.insumoId || ins.nombre}_${ins.unidad || 'u'}`;
+      const existing = map.get(key);
+      const cant = ins.cantidadTotal || 1;
+      const sub = ins.subtotalInsumo || 0;
+      if (existing) {
+        existing.cantidadTotal += cant;
+        existing.subtotal += sub;
+        if (existing.cantidadTotal > 0) {
+          existing.costoUnitario = existing.subtotal / existing.cantidadTotal;
+        }
+      } else {
+        map.set(key, {
+          nombre: ins.nombre,
+          unidad: ins.unidad || 'u',
+          cantidadTotal: cant,
+          costoUnitario: ins.precioUnitarioCongelado || (cant > 0 ? sub / cant : 0),
+          subtotal: sub
+        });
+      }
+    });
+  });
+
+  const materialsList = Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+  let idx = 1;
+  let totalCost = 0;
+  materialsList.forEach((mat) => {
+    totalCost += mat.subtotal;
+    const row = ws.addRow([
+      idx++,
+      mat.nombre,
+      mat.cantidadTotal,
+      mat.unidad,
+      incluirPrecios ? mat.costoUnitario : '',
+      incluirPrecios ? mat.subtotal : ''
+    ]);
+    row.font = { name: 'Arial', size: 10 };
+    row.getCell(1).alignment = { horizontal: 'center' };
+    row.getCell(3).alignment = { horizontal: 'right' };
+    row.getCell(3).numFmt = '#,##0.00';
+    row.getCell(4).alignment = { horizontal: 'center' };
+    if (incluirPrecios) {
+      row.getCell(5).alignment = { horizontal: 'right' };
+      row.getCell(5).numFmt = '"$"#,##0.00';
+      row.getCell(6).alignment = { horizontal: 'right' };
+      row.getCell(6).numFmt = '"$"#,##0.00';
+    }
+    for (let c = 1; c <= 6; c++) row.getCell(c).border = BORDER_THIN;
+  });
+
+  if (materialsList.length === 0) {
+    const empty = ws.addRow(['-', 'No se especificaron materiales detallados en esta cotización', 0, 'gl', '', '']);
+    empty.font = { name: 'Arial', size: 10, italic: true };
+  } else if (incluirPrecios) {
+    const totRow = ws.addRow(['', 'TOTAL GENERAL DE MATERIALES:', '', '', '', totalCost]);
+    totRow.font = { name: 'Arial', size: 11, bold: true };
+    totRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_TOTAL_BG } };
+    totRow.getCell(6).numFmt = '"$"#,##0.00';
+    totRow.getCell(5).border = BORDER_HEADER;
+    totRow.getCell(6).border = BORDER_HEADER;
+  }
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safeNum = (presupuesto.numero || 'cotizacion').replace(/[^a-zA-Z0-9_-]/g, '_');
+  a.download = `Materiales_${safeNum}_${new Date().toISOString().split('T')[0]}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 };

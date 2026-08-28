@@ -169,6 +169,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
         sitioWeb: formData.sitioWeb.trim() || undefined,
         contactos: formData.contactos.filter((p) => p.nombre && p.nombre.trim() !== ''),
         financiero: formData.financiero,
+        plantillaWhatsAppPersonalizada: formData.plantillaWhatsAppPersonalizada?.trim() || undefined,
         notas: formData.notas.trim() || undefined,
         updatedAt: now
       });
@@ -192,6 +193,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
         sitioWeb: formData.sitioWeb.trim() || undefined,
         contactos: formData.contactos.filter((p) => p.nombre && p.nombre.trim() !== ''),
         financiero: formData.financiero,
+        plantillaWhatsAppPersonalizada: formData.plantillaWhatsAppPersonalizada?.trim() || undefined,
         notas: formData.notas.trim() || undefined,
         createdAt: now,
         updatedAt: now,

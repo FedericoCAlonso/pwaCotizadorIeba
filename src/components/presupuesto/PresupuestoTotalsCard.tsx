@@ -40,6 +40,7 @@ interface PresupuestoTotalsCardProps {
   mostrarDolar: boolean;
   nombreDolar: string;
   onEmitirClick: () => void;
+  onOpenListaMateriales?: () => void;
 }
 
 export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
@@ -60,7 +61,8 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
   onAddCustomTax,
   mostrarDolar,
   nombreDolar,
-  onEmitirClick
+  onEmitirClick,
+  onOpenListaMateriales
 }) => {
   const getDestinoBadge = (destino: DestinoGasto) => {
     switch (destino) {
@@ -124,6 +126,15 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
                 <span className="text-blue-600 dark:text-blue-400 font-semibold">
                   +{formatARS(totales.gastosMaterialesTotal)} gastos directos
                 </span>
+              )}
+              {onOpenListaMateriales && (
+                <button
+                  type="button"
+                  onClick={onOpenListaMateriales}
+                  className="text-primary hover:underline font-sans font-semibold flex items-center gap-1 cursor-pointer ml-auto"
+                >
+                  <Package className="w-3 h-3" /> Ver / Exportar Insumos
+                </button>
               )}
             </div>
           </div>
