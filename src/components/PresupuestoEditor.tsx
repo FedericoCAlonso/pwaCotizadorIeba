@@ -172,6 +172,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     handleConfirmActualizarPrecios,
     estrategiaCuadrilla,
     setEstrategiaCuadrilla,
+    nivelConfianzaCuadrilla,
+    setNivelConfianzaCuadrilla,
     aplicarOptimizacionCuadrilla,
     setAplicarOptimizacionCuadrilla
   } = usePresupuestoEditorViewModel({
@@ -1046,8 +1048,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               costosIndirectosConfig={costosIndirectosConfig}
               categoriasManoObra={manoObraList}
               estrategiaSeleccionada={estrategiaCuadrilla}
+              nivelConfianza={nivelConfianzaCuadrilla}
               aplicarOptimizacion={aplicarOptimizacionCuadrilla}
               onSelectEstrategia={setEstrategiaCuadrilla}
+              onSelectNivelConfianza={setNivelConfianzaCuadrilla}
               onToggleAplicarOptimizacion={setAplicarOptimizacionCuadrilla}
             />
           )}

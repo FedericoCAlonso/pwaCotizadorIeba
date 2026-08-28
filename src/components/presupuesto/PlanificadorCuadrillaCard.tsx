@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import {
   EstrategiaCuadrilla,
+  NivelConfianzaSinergia,
   ItemPresupuesto,
   CostoIndirecto,
   CostoIndirectoItemConfig,
@@ -30,8 +31,10 @@ interface PlanificadorCuadrillaCardProps {
   costosIndirectosConfig?: CostoIndirectoItemConfig[];
   categoriasManoObra?: CategoriaManoDeObra[];
   estrategiaSeleccionada: EstrategiaCuadrilla;
+  nivelConfianza?: NivelConfianzaSinergia;
   aplicarOptimizacion: boolean;
   onSelectEstrategia: (estrategia: EstrategiaCuadrilla) => void;
+  onSelectNivelConfianza?: (nivel: NivelConfianzaSinergia) => void;
   onToggleAplicarOptimizacion: (aplicar: boolean) => void;
 }
 
@@ -41,8 +44,10 @@ export const PlanificadorCuadrillaCard: React.FC<PlanificadorCuadrillaCardProps>
   costosIndirectosConfig,
   categoriasManoObra = [],
   estrategiaSeleccionada,
+  nivelConfianza = 80,
   aplicarOptimizacion,
   onSelectEstrategia,
+  onSelectNivelConfianza,
   onToggleAplicarOptimizacion
 }) => {
   if (!items || items.length === 0) return null;
@@ -55,10 +60,18 @@ export const PlanificadorCuadrillaCard: React.FC<PlanificadorCuadrillaCardProps>
     costosIndirectosConfig,
     categoriasManoObra,
     estrategiaSeleccionada,
+    nivelConfianza,
     aplicarOptimizacion: aplicarOptimizacion && sonCompatibles
   });
 
-  const { opciones, opcionActiva, horasTeoricasTotal, horasSetupTotal, costoDiarioMovilidad } = resultado;
+  const { opciones, opcionActiva, horasTeoricasTotal, horasSetupTotal, desvioEstandarTotal, coeficienteVariacionPct, costoDiarioMovilidad, planificacion } = resultado;
+
+  const nivelesConfianza: { valor: NivelConfianzaSinergia; label: string; sub: string; z: string }[] = [
+    { valor: 50, label: '50% Competitivo', sub: 'Media pura (Z=0)', z: '0.00' },
+    { valor: 80, label: '80% Equilibrado', sub: 'Estándar obra (Z=0.84)', z: '0.84' },
+    { valor: 90, label: '90% Conservador', sub: 'Mayor cobertura (Z=1.28)', z: '1.28' },
+    { valor: 95, label: '95% Blindado', sub: 'Cero riesgo (Z=1.64)', z: '1.64' }
+  ];
 
   return (
     <div className="bg-surface-container-low border border-outline-variant/30 rounded-3xl p-4 sm:p-6 space-y-4 shadow-sm hover:shadow-md transition-shadow">
@@ -71,14 +84,17 @@ export const PlanificadorCuadrillaCard: React.FC<PlanificadorCuadrillaCardProps>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm sm:text-base font-bold text-on-surface">
-                Planificación de Cuadrilla & Sinergia de Obra
+                Planificación de Cuadrilla & Sinergia Estocástica
               </h3>
               <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container">
                 {opcionActiva.operariosTotales} {opcionActiva.operariosTotales === 1 ? 'Operario' : 'Operarios'} · {opcionActiva.jornadasDias} Días
               </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                Confianza: {nivelConfianza}% (Z={planificacion.zScore?.toFixed(2)})
+              </span>
             </div>
             <p className="text-xs text-on-surface-variant mt-0.5">
-              Simula la relación entre cantidad de trabajadores, duración de obra, sinergia y riesgo de tiempos muertos.
+              Composición probabilística de mano de obra (PERT / T.C.L.) con reducción de setup compartido y tándem.
             </p>
           </div>
         </div>
@@ -92,7 +108,7 @@ export const PlanificadorCuadrillaCard: React.FC<PlanificadorCuadrillaCardProps>
           }`}
           title={
             sonCompatibles
-              ? 'Aplica el coeficiente de sinergia de cuadrilla a la mano de obra del presupuesto'
+              ? 'Aplica el coeficiente de sinergia estocástica de cuadrilla a la mano de obra del presupuesto'
               : 'La sinergia requiere al menos 2 ítems de obra compatibles en la cotización'
           }
         >
@@ -108,6 +124,42 @@ export const PlanificadorCuadrillaCard: React.FC<PlanificadorCuadrillaCardProps>
           </span>
         </label>
       </div>
+
+      {/* Probabilistic Confidence Level Selector */}
+      {sonCompatibles && onSelectNivelConfianza && (
+        <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/20 space-y-2">
+          <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+            <span className="font-bold text-on-surface flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-primary" />
+              Nivel de Certeza / Confianza Probabilística:
+            </span>
+            <span className="text-[11px] text-on-surface-variant font-mono">
+              σ Total = ±{desvioEstandarTotal} hs (CV: {coeficienteVariacionPct}%)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {nivelesConfianza.map((nc) => {
+              const isSelected = nivelConfianza === nc.valor;
+              return (
+                <button
+                  key={nc.valor}
+                  type="button"
+                  onClick={() => onSelectNivelConfianza(nc.valor)}
+                  className={`p-2 rounded-xl text-left border transition-all ${
+                    isSelected
+                      ? 'bg-primary/15 border-primary text-primary font-bold shadow-xs'
+                      : 'bg-surface-container-high border-outline-variant/20 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest'
+                  }`}
+                >
+                  <div className="text-xs">{nc.label}</div>
+                  <div className="text-[10px] opacity-80">{nc.sub}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 3 Strategy Comparison Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">

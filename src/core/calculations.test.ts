@@ -1720,35 +1720,67 @@ describe('14. Motor de Optimización de Sinergia de Obra & Cuadrilla', () => {
     }
   ];
 
-  it('calcula las 3 alternativas de cuadrilla con sinergia y costos logísticos', () => {
+  it('calcula las 3 alternativas de cuadrilla con sinergia probabilística y costos logísticos', () => {
     const res = calcularOptimizacionCuadrilla({
       items: mockItems,
       costoDiarioMovilidadManual: 20000,
-      estrategiaSeleccionada: 'optima'
+      estrategiaSeleccionada: 'optima',
+      nivelConfianza: 80
     });
 
     // Total horas teóricas = 6 + 6 + 5 = 17 hs
     expect(res.horasTeoricasTotal).toBe(17);
     expect(res.costoDiarioMovilidad).toBe(20000);
+    expect(res.desvioEstandarTotal).toBeGreaterThan(0);
+    expect(res.planificacion.zScore).toBe(0.8416);
 
     // 1. Mínima (1 Operario, sinergia 100%)
     expect(res.opciones.minima.factorSinergia).toBe(1.0);
     expect(res.opciones.minima.operariosTotales).toBe(1);
-    expect(res.opciones.minima.horasTotales).toBe(17);
+    expect(res.opciones.minima.horasBaseTeoricas).toBe(17);
     expect(res.opciones.minima.jornadasDias).toBeGreaterThanOrEqual(2);
     expect(res.opciones.minima.nivelRiesgo).toBe('muy_bajo');
 
-    // 2. Óptima (2 Operarios: 1 Ofic + 1 Ayud, sinergia 85%)
-    expect(res.opciones.optima.factorSinergia).toBe(0.85);
+    // 2. Óptima (2 Operarios: 1 Ofic + 1 Ayud, sinergia estocástica)
+    expect(res.opciones.optima.factorSinergia).toBeLessThanOrEqual(0.95);
+    expect(res.opciones.optima.factorSinergia).toBeGreaterThanOrEqual(0.75);
     expect(res.opciones.optima.operariosTotales).toBe(2);
-    expect(res.opciones.optima.horasTotales).toBeCloseTo(17 * 0.85, 1);
+    expect(res.opciones.optima.horasTotales).toBeLessThan(17);
     expect(res.opciones.optima.recomendado).toBe(true);
     expect(res.opciones.optima.nivelRiesgo).toBe('bajo');
 
-    // 3. Rápida (4 Operarios, sinergia 95%)
-    expect(res.opciones.rapida.factorSinergia).toBe(0.95);
+    // 3. Rápida (4 Operarios)
     expect(res.opciones.rapida.operariosTotales).toBe(4);
     expect(res.opciones.rapida.nivelRiesgo).toBe('alto');
+  });
+
+  it('modula el factor de sinergia estocástica según el nivel de confianza seleccionado (50%, 80%, 95%)', () => {
+    const res50 = calcularOptimizacionCuadrilla({
+      items: mockItems,
+      estrategiaSeleccionada: 'optima',
+      nivelConfianza: 50
+    });
+
+    const res80 = calcularOptimizacionCuadrilla({
+      items: mockItems,
+      estrategiaSeleccionada: 'optima',
+      nivelConfianza: 80
+    });
+
+    const res95 = calcularOptimizacionCuadrilla({
+      items: mockItems,
+      estrategiaSeleccionada: 'optima',
+      nivelConfianza: 95
+    });
+
+    expect(res50.planificacion.zScore).toBe(0.0);
+    expect(res80.planificacion.zScore).toBe(0.8416);
+    expect(res95.planificacion.zScore).toBe(1.6449);
+
+    // A mayor nivel de confianza (mayor aversión al riesgo), mayor es el colchón de horas presupuestadas
+    expect(res50.planificacion.horasFinalesOptimizadas).toBeLessThan(res80.planificacion.horasFinalesOptimizadas);
+    expect(res80.planificacion.horasFinalesOptimizadas).toBeLessThan(res95.planificacion.horasFinalesOptimizadas);
+    expect(res50.planificacion.factorSinergiaAplicado).toBeLessThanOrEqual(res80.planificacion.factorSinergiaAplicado);
   });
 
   it('integra factorSinergiaManoObra en calcularTotalesPresupuesto reduciendo el costo de MOD', () => {

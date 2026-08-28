@@ -28,6 +28,7 @@ import {
   ParametrosEstimacionMaterial,
   FiltroMaterialEnTarea,
   EstrategiaCuadrilla,
+  NivelConfianzaSinergia,
   OpcionCuadrillaSimulada,
   PlanificacionCuadrilla,
   CapituloPresupuesto,
@@ -2525,6 +2526,13 @@ export function calcularConsumosTareaTipo(
 
 // ─── 14. Motor de Optimización de Sinergia de Obra & Cuadrilla ───────────────
 
+export const Z_SCORES_CONFIANZA: Record<NivelConfianzaSinergia, number> = {
+  50: 0.0,
+  80: 0.8416,
+  90: 1.2816,
+  95: 1.6449
+};
+
 export interface ParametrosOptimizacionCuadrilla {
   items: ItemPresupuesto[];
   costosIndirectosCatalog?: CostoIndirecto[];
@@ -2532,6 +2540,7 @@ export interface ParametrosOptimizacionCuadrilla {
   categoriasManoObra?: CategoriaManoDeObra[];
   costoDiarioMovilidadManual?: number;
   estrategiaSeleccionada?: EstrategiaCuadrilla;
+  nivelConfianza?: NivelConfianzaSinergia;
   aplicarOptimizacion?: boolean;
 }
 
@@ -2539,6 +2548,8 @@ export interface ResultadoOptimizacionCuadrilla {
   horasTeoricasTotal: number;
   horasSetupTotal: number;
   horasNetasTotal: number;
+  desvioEstandarTotal: number;
+  coeficienteVariacionPct: number;
   costoDiarioMovilidad: number;
   tarifaHoraPonderada: number;
   opciones: {
@@ -2573,7 +2584,8 @@ export function sonItemsCompatiblesParaSinergia(items: ItemPresupuesto[]): boole
 
 /**
  * Simula y optimiza la relación entre tamaño de cuadrilla, duración de obra,
- * sinergia de tareas simultáneas y riesgo de tiempos muertos (parates).
+ * sinergia de tareas simultáneas y riesgo de tiempos muertos (parates),
+ * utilizando un modelo probabilístico estocástico (PERT / Teorema Central del Límite).
  */
 export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuadrilla): ResultadoOptimizacionCuadrilla {
   const {
@@ -2583,45 +2595,81 @@ export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuad
     categoriasManoObra = [],
     costoDiarioMovilidadManual,
     estrategiaSeleccionada = 'optima',
+    nivelConfianza = 80,
     aplicarOptimizacion = false
   } = params;
 
   const sonCompatibles = sonItemsCompatiblesParaSinergia(items);
+  const zScore = Z_SCORES_CONFIANZA[nivelConfianza] ?? 0.8416;
 
-  // 1. Extraer horas y costos de mano de obra
+  // 1. Extraer horas, costos y calcular dispersión estocástica por ítem (sigma_i)
   let horasTeoricasTotal = 0;
   let costoManoObraBase = 0;
-  let horasSetupEstimadas = 0;
+  let sumaVarianzas = 0;
+  let setupAisladoTotal = 0;
+  const itemsCompatiblesList = items.filter(
+    (it) => (it.manoObraSnapshot && it.manoObraSnapshot.length > 0) || (it.costoManoObra && it.costoManoObra > 0)
+  );
 
   for (const item of items) {
+    let itemHorasMO = 0;
+    let itemCostoMO = 0;
+
     if (item.manoObraSnapshot && item.manoObraSnapshot.length > 0) {
       for (const mo of item.manoObraSnapshot) {
         const hs = safeNum(mo.horasTotales);
-        horasTeoricasTotal = roundMoney(horasTeoricasTotal + hs);
-        costoManoObraBase = roundMoney(costoManoObraBase + safeNum(mo.subtotalManoObra));
+        itemHorasMO += hs;
+        itemCostoMO += safeNum(mo.subtotalManoObra);
       }
     } else if (item.costoManoObra) {
-      costoManoObraBase = roundMoney(costoManoObraBase + safeNum(item.costoManoObra));
-      // Estimar horas asumiendo tarifa media si no hay snapshots
+      itemCostoMO += safeNum(item.costoManoObra);
       const tarifaRef = 12000;
-      horasTeoricasTotal = roundMoney(horasTeoricasTotal + (safeNum(item.costoManoObra) / tarifaRef));
+      itemHorasMO += safeNum(item.costoManoObra) / tarifaRef;
     }
 
-    // Estimar setup por ítem (1.0h por defecto si no está especificado)
-    horasSetupEstimadas = roundMoney(horasSetupEstimadas + 1.0);
+    horasTeoricasTotal = roundMoney(horasTeoricasTotal + itemHorasMO);
+    costoManoObraBase = roundMoney(costoManoObraBase + itemCostoMO);
+
+    if (itemHorasMO > 0) {
+      let factorIncertidumbre = 1.0;
+      if (item.valoresParametros) {
+        const estado = item.valoresParametros.estado || item.valoresParametros.antiguedad;
+        const accesibilidad = item.valoresParametros.accesibilidad;
+        const altura = item.valoresParametros.altura;
+        if (estado && String(estado) !== 'nuevo') factorIncertidumbre += 0.25;
+        if (accesibilidad && String(accesibilidad) !== 'buena' && String(accesibilidad) !== 'normal') factorIncertidumbre += 0.20;
+        if (altura && String(altura) !== 'baja' && String(altura) !== 'estandar') factorIncertidumbre += 0.20;
+      }
+      const cvItem = 0.12 * factorIncertidumbre;
+      const sigmaItem = itemHorasMO * cvItem;
+      sumaVarianzas += sigmaItem * sigmaItem;
+
+      const setupItem = Math.min(1.0, Math.max(0.25, itemHorasMO * 0.15));
+      setupAisladoTotal += setupItem;
+    }
   }
 
   // Fallbacks si no hay horas
   if (horasTeoricasTotal <= 0) {
     horasTeoricasTotal = 8;
+    sumaVarianzas = 8 * 0.12 * 8 * 0.12;
   }
   if (costoManoObraBase <= 0) {
     costoManoObraBase = roundMoney(horasTeoricasTotal * 12000);
   }
 
+  const desvioEstandarTotal = roundMoney(Math.sqrt(sumaVarianzas));
+  const coeficienteVariacionPct = roundMoney((desvioEstandarTotal / horasTeoricasTotal) * 100);
   const tarifaHoraPonderada = roundMoney(costoManoObraBase / horasTeoricasTotal);
-  const horasSetupTotal = Math.min(horasTeoricasTotal * 0.35, horasSetupEstimadas);
+
+  // Setup e integración
+  const horasSetupTotal = roundMoney(Math.min(horasTeoricasTotal * 0.35, setupAisladoTotal));
   const horasNetasTotal = roundMoney(Math.max(0, horasTeoricasTotal - horasSetupTotal));
+
+  // Reducción de setup compartida en obra
+  const setupConsolidado = sonCompatibles ? (1.0 + 0.15 * (itemsCompatiblesList.length - 1)) : setupAisladoTotal;
+  const ahorroSetupHs = sonCompatibles ? Math.max(0, setupAisladoTotal - setupConsolidado) : 0;
+  const bonoTandemHs = sonCompatibles ? (horasTeoricasTotal * 0.10) : 0;
 
   // 2. Extraer costo diario de movilidad / logística
   let costoDiarioMovilidad = safeNum(costoDiarioMovilidadManual);
@@ -2637,12 +2685,14 @@ export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuad
     costoDiarioMovilidad = indirectoMovilidad ? safeNum(indirectoMovilidad.valor) : 15000;
   }
 
-  // 3. Simular las 3 Estrategias de Cuadrilla:
-  // A) Mínima: 1 Operario Oficial
+  // 3. Simular Estrategias con el Modelo Probabilístico:
+
+  // A) Mínima (1 Oficial solo):
+  const horasMinimaMedia = horasTeoricasTotal;
+  const horasMinimaProb = roundMoney(horasMinimaMedia + zScore * desvioEstandarTotal * 0.5);
   const factorSinergiaMinima = 1.0;
-  const horasMinima = horasTeoricasTotal;
-  const jornadasMinima = Math.max(0.5, roundMoney(horasMinima / 8));
-  const costoMODMinima = roundMoney(horasMinima * tarifaHoraPonderada);
+  const jornadasMinima = Math.max(0.5, roundMoney(horasMinimaProb / 8));
+  const costoMODMinima = roundMoney(horasMinimaProb * tarifaHoraPonderada);
   const costoLogMinima = roundMoney(Math.ceil(jornadasMinima) * costoDiarioMovilidad);
   const costoTotalMinima = roundMoney(costoMODMinima + costoLogMinima);
 
@@ -2654,7 +2704,9 @@ export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuad
     operariosAyudantes: 0,
     operariosTotales: 1,
     factorSinergia: factorSinergiaMinima,
-    horasTotales: horasMinima,
+    horasTotales: horasMinimaProb,
+    horasBaseTeoricas: horasTeoricasTotal,
+    desvioEstandarHoras: desvioEstandarTotal,
     jornadasDias: jornadasMinima,
     costoManoObraARS: costoMODMinima,
     costoLogisticaARS: costoLogMinima,
@@ -2665,11 +2717,22 @@ export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuad
     recomendado: false
   };
 
-  // B) Óptima: 2 Operarios (1 Oficial + 1 Ayudante)
-  const factorSinergiaOptima = sonCompatibles ? 0.85 : 1.0;
-  const horasOptima = roundMoney(horasTeoricasTotal * factorSinergiaOptima);
-  const jornadasOptima = Math.max(0.5, roundMoney(horasOptima / 16));
-  const costoMODOptima = roundMoney(horasOptima * tarifaHoraPonderada);
+  // B) Óptima (1 Oficial + 1 Ayudante - 2 Operarios):
+  let horasOptimaMedia = horasTeoricasTotal;
+  let factorSinergiaOptima = 1.0;
+  let horasOptimaProb = horasTeoricasTotal;
+
+  if (sonCompatibles) {
+    horasOptimaMedia = Math.max(1.0, horasTeoricasTotal - ahorroSetupHs - bonoTandemHs);
+    horasOptimaProb = roundMoney(horasOptimaMedia + zScore * desvioEstandarTotal);
+    factorSinergiaOptima = roundMoney4(Math.min(1.0, Math.max(0.70, horasOptimaProb / horasTeoricasTotal)));
+  } else {
+    horasOptimaProb = horasTeoricasTotal;
+    factorSinergiaOptima = 1.0;
+  }
+
+  const jornadasOptima = Math.max(0.5, roundMoney(horasOptimaProb / 16));
+  const costoMODOptima = roundMoney(horasOptimaProb * tarifaHoraPonderada);
   const costoLogOptima = roundMoney(Math.ceil(jornadasOptima) * costoDiarioMovilidad);
   const costoTotalOptima = roundMoney(costoMODOptima + costoLogOptima);
   const ahorroOptima = roundMoney(costoTotalMinima - costoTotalOptima);
@@ -2682,7 +2745,9 @@ export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuad
     operariosAyudantes: 1,
     operariosTotales: 2,
     factorSinergia: factorSinergiaOptima,
-    horasTotales: horasOptima,
+    horasTotales: horasOptimaProb,
+    horasBaseTeoricas: horasTeoricasTotal,
+    desvioEstandarHoras: desvioEstandarTotal,
     jornadasDias: jornadasOptima,
     costoManoObraARS: costoMODOptima,
     costoLogisticaARS: costoLogOptima,
@@ -2690,16 +2755,27 @@ export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuad
     ahorroRespectoBaseARS: Math.max(0, ahorroOptima),
     nivelRiesgo: 'bajo',
     descripcionRiesgo: sonCompatibles
-      ? 'Punto óptimo de costo y rendimiento. Sinergia activa por tareas múltiples compatibles.'
+      ? `Sinergia estocástica al ${nivelConfianza}% de confianza (Z=${zScore.toFixed(2)}, σ=±${desvioEstandarTotal}hs).`
       : 'Ítem único o sin compatibilidad de tareas combinables. Mano de obra nominal sin reducción.',
     recomendado: true
   };
 
-  // C) Rápida: 4 Operarios (2 Oficiales + 2 Ayudantes)
-  const factorSinergiaRapida = sonCompatibles ? 0.95 : 1.0;
-  const horasRapida = roundMoney(horasTeoricasTotal * factorSinergiaRapida);
-  const jornadasRapida = Math.max(0.5, roundMoney(horasRapida / 32));
-  const costoMODRapida = roundMoney(horasRapida * tarifaHoraPonderada);
+  // C) Rápida (2 Oficiales + 2 Ayudantes - 4 Operarios):
+  let horasRapidaMedia = horasTeoricasTotal;
+  let factorSinergiaRapida = 1.0;
+  let horasRapidaProb = horasTeoricasTotal;
+
+  if (sonCompatibles) {
+    horasRapidaMedia = Math.max(1.0, horasTeoricasTotal - ahorroSetupHs * 1.2 + horasTeoricasTotal * 0.08);
+    horasRapidaProb = roundMoney(horasRapidaMedia + zScore * desvioEstandarTotal * 1.15);
+    factorSinergiaRapida = roundMoney4(Math.min(1.05, Math.max(0.75, horasRapidaProb / horasTeoricasTotal)));
+  } else {
+    horasRapidaProb = horasTeoricasTotal;
+    factorSinergiaRapida = 1.0;
+  }
+
+  const jornadasRapida = Math.max(0.5, roundMoney(horasRapidaProb / 32));
+  const costoMODRapida = roundMoney(horasRapidaProb * tarifaHoraPonderada);
   const costoLogRapida = roundMoney(Math.ceil(jornadasRapida) * (costoDiarioMovilidad * 1.5));
   const costoTotalRapida = roundMoney(costoMODRapida + costoLogRapida);
   const ahorroRapida = roundMoney(costoTotalMinima - costoTotalRapida);
@@ -2712,7 +2788,9 @@ export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuad
     operariosAyudantes: 2,
     operariosTotales: 4,
     factorSinergia: factorSinergiaRapida,
-    horasTotales: horasRapida,
+    horasTotales: horasRapidaProb,
+    horasBaseTeoricas: horasTeoricasTotal,
+    desvioEstandarHoras: desvioEstandarTotal,
     jornadasDias: jornadasRapida,
     costoManoObraARS: costoMODRapida,
     costoLogisticaARS: costoLogRapida,
@@ -2733,9 +2811,14 @@ export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuad
 
   const planificacion: PlanificacionCuadrilla = {
     estrategia: estrategiaSeleccionada,
+    nivelConfianza,
+    zScore,
+    desvioEstandarHoras: desvioEstandarTotal,
+    coeficienteVariacionPct,
     horasTeoricasTotal,
     horasSetupTotal,
     horasNetasTotal,
+    horasMediaEsperada: roundMoney(horasOptimaMedia),
     factorSinergiaAplicado: opcionActiva.factorSinergia,
     horasFinalesOptimizadas: opcionActiva.horasTotales,
     operariosOficiales: opcionActiva.operariosOficiales,
@@ -2755,6 +2838,8 @@ export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuad
     horasTeoricasTotal,
     horasSetupTotal,
     horasNetasTotal,
+    desvioEstandarTotal,
+    coeficienteVariacionPct,
     costoDiarioMovilidad,
     tarifaHoraPonderada,
     opciones,

@@ -654,6 +654,8 @@ export interface Proyecto {
 
 export type EstrategiaCuadrilla = 'minima' | 'optima' | 'rapida' | 'personalizada';
 
+export type NivelConfianzaSinergia = 50 | 80 | 90 | 95;
+
 export interface OpcionCuadrillaSimulada {
   estrategia: EstrategiaCuadrilla;
   titulo: string;
@@ -663,6 +665,8 @@ export interface OpcionCuadrillaSimulada {
   operariosTotales: number;
   factorSinergia: number; // e.g. 1.0, 0.85, 0.95
   horasTotales: number;   // Horas finales tras sinergia
+  horasBaseTeoricas?: number;
+  desvioEstandarHoras?: number;
   jornadasDias: number;   // Días de obra (base 8h/jornada)
   costoManoObraARS: number;
   costoLogisticaARS: number; // Movilidad / viáticos diarios
@@ -675,9 +679,14 @@ export interface OpcionCuadrillaSimulada {
 
 export interface PlanificacionCuadrilla {
   estrategia: EstrategiaCuadrilla;
+  nivelConfianza?: NivelConfianzaSinergia;
+  zScore?: number;
+  desvioEstandarHoras?: number;
+  coeficienteVariacionPct?: number;
   horasTeoricasTotal: number;
   horasSetupTotal: number;
   horasNetasTotal: number;
+  horasMediaEsperada?: number;
   factorSinergiaAplicado: number;
   horasFinalesOptimizadas: number;
   operariosOficiales: number;

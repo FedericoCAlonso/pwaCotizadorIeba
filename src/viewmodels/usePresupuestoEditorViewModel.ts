@@ -18,6 +18,7 @@ import {
   ParametrosEstimacionMaterial,
   MaterialFilterContext,
   EstrategiaCuadrilla,
+  NivelConfianzaSinergia,
   PlanificacionCuadrilla,
   CapituloPresupuesto,
   GastoPresupuestoConfig
@@ -141,6 +142,7 @@ export function usePresupuestoEditorViewModel({
   const [analisisPreciosModal, setAnalisisPreciosModal] = useState<AnalisisCambiosPreciosPresupuesto | null>(null);
 
   const [estrategiaCuadrilla, setEstrategiaCuadrilla] = useState<EstrategiaCuadrilla>('optima');
+  const [nivelConfianzaCuadrilla, setNivelConfianzaCuadrilla] = useState<NivelConfianzaSinergia>(80);
   const [aplicarOptimizacionCuadrilla, setAplicarOptimizacionCuadrilla] = useState<boolean>(false);
 
   const newPresupuestoInitializedRef = useRef(false);
@@ -238,9 +240,10 @@ export function usePresupuestoEditorViewModel({
       costosIndirectosConfig,
       categoriasManoObra: manoObraList,
       estrategiaSeleccionada: estrategiaCuadrilla,
+      nivelConfianza: nivelConfianzaCuadrilla,
       aplicarOptimizacion: aplicarOptimizacionCuadrilla
     });
-  }, [items, costosIndirectos, costosIndirectosConfig, manoObraList, estrategiaCuadrilla, aplicarOptimizacionCuadrilla]);
+  }, [items, costosIndirectos, costosIndirectosConfig, manoObraList, estrategiaCuadrilla, nivelConfianzaCuadrilla, aplicarOptimizacionCuadrilla]);
 
   // ─── Real-Time Layered Calculations (Model Layer) ─────────────────────────────
   const totales = useMemo(() => {
@@ -1191,6 +1194,8 @@ export function usePresupuestoEditorViewModel({
     // Planificación de Cuadrilla y Sinergia
     estrategiaCuadrilla,
     setEstrategiaCuadrilla,
+    nivelConfianzaCuadrilla,
+    setNivelConfianzaCuadrilla,
     aplicarOptimizacionCuadrilla,
     setAplicarOptimizacionCuadrilla,
     resultadoCuadrilla,
