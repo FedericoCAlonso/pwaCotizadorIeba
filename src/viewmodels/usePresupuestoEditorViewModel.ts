@@ -25,6 +25,7 @@ import {
 import {
   calcularTotalesPresupuesto,
   calcularOptimizacionCuadrilla,
+  sonItemsCompatiblesParaSinergia,
   calcularCostoTareaTipo,
   calcularCostoParametricoTareaTipo,
   calcularConsumosTareaTipo,
@@ -132,7 +133,7 @@ export function usePresupuestoEditorViewModel({
   const [showGastoCatalogPickerModal, setShowGastoCatalogPickerModal] = useState(false);
 
   const [estrategiaCuadrilla, setEstrategiaCuadrilla] = useState<EstrategiaCuadrilla>('optima');
-  const [aplicarOptimizacionCuadrilla, setAplicarOptimizacionCuadrilla] = useState<boolean>(true);
+  const [aplicarOptimizacionCuadrilla, setAplicarOptimizacionCuadrilla] = useState<boolean>(false);
 
   const newPresupuestoInitializedRef = useRef(false);
 
@@ -165,7 +166,7 @@ export function usePresupuestoEditorViewModel({
       }
       if (existingPresupuesto.planificacionCuadrilla) {
         setEstrategiaCuadrilla(existingPresupuesto.planificacionCuadrilla.estrategia);
-        setAplicarOptimizacionCuadrilla(existingPresupuesto.planificacionCuadrilla.aplicarOptimizacionAlPresupuesto ?? true);
+        setAplicarOptimizacionCuadrilla(existingPresupuesto.planificacionCuadrilla.aplicarOptimizacionAlPresupuesto ?? false);
       }
     } else {
       const year = new Date().getFullYear();
@@ -245,7 +246,9 @@ export function usePresupuestoEditorViewModel({
       tipoFactura,
       impuestosDetalle,
       cotizacionMonedaExtranjera: cotizacionDolar,
-      factorSinergiaManoObra: aplicarOptimizacionCuadrilla ? resultadoCuadrilla.planificacion.factorSinergiaAplicado : 1.0
+      factorSinergiaManoObra: (aplicarOptimizacionCuadrilla && sonItemsCompatiblesParaSinergia(items))
+        ? resultadoCuadrilla.planificacion.factorSinergiaAplicado
+        : 1.0
     });
   }, [items, capitulos, gastosConfig, costosIndirectosConfig, costosIndirectos, margenPorcentaje, tipoFactura, impuestosDetalle, cotizacionDolar, config, aplicarOptimizacionCuadrilla, resultadoCuadrilla]);
 
@@ -1011,7 +1014,9 @@ export function usePresupuestoEditorViewModel({
 
       // Planificación de Sinergia de Obra & Cuadrilla
       planificacionCuadrilla: resultadoCuadrilla.planificacion,
-      factorSinergiaManoObra: aplicarOptimizacionCuadrilla ? resultadoCuadrilla.planificacion.factorSinergiaAplicado : 1.0,
+      factorSinergiaManoObra: (aplicarOptimizacionCuadrilla && sonItemsCompatiblesParaSinergia(items))
+        ? resultadoCuadrilla.planificacion.factorSinergiaAplicado
+        : 1.0,
 
       // Calculation Engine
       costoGlobal: totales.costoGlobal,

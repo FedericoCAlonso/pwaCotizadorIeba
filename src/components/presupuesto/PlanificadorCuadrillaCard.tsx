@@ -20,6 +20,7 @@ import {
 } from '../../core/types';
 import {
   calcularOptimizacionCuadrilla,
+  sonItemsCompatiblesParaSinergia,
   formatARS
 } from '../../core/calculations';
 
@@ -46,13 +47,15 @@ export const PlanificadorCuadrillaCard: React.FC<PlanificadorCuadrillaCardProps>
 }) => {
   if (!items || items.length === 0) return null;
 
+  const sonCompatibles = sonItemsCompatiblesParaSinergia(items);
+
   const resultado = calcularOptimizacionCuadrilla({
     items,
     costosIndirectosCatalog,
     costosIndirectosConfig,
     categoriasManoObra,
     estrategiaSeleccionada,
-    aplicarOptimizacion
+    aplicarOptimizacion: aplicarOptimizacion && sonCompatibles
   });
 
   const { opciones, opcionActiva, horasTeoricasTotal, horasSetupTotal, costoDiarioMovilidad } = resultado;
@@ -81,15 +84,27 @@ export const PlanificadorCuadrillaCard: React.FC<PlanificadorCuadrillaCardProps>
         </div>
 
         {/* Switch Aplicar al Presupuesto */}
-        <label className="flex items-center gap-2.5 cursor-pointer bg-surface-container px-3.5 py-2 rounded-2xl border border-outline-variant/20 shrink-0 select-none">
+        <label
+          className={`flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border border-outline-variant/20 shrink-0 select-none ${
+            sonCompatibles
+              ? 'cursor-pointer bg-surface-container'
+              : 'opacity-60 cursor-not-allowed bg-surface-container/50'
+          }`}
+          title={
+            sonCompatibles
+              ? 'Aplica el coeficiente de sinergia de cuadrilla a la mano de obra del presupuesto'
+              : 'La sinergia requiere al menos 2 ítems de obra compatibles en la cotización'
+          }
+        >
           <input
             type="checkbox"
-            checked={aplicarOptimizacion}
+            checked={aplicarOptimizacion && sonCompatibles}
+            disabled={!sonCompatibles}
             onChange={(e) => onToggleAplicarOptimizacion(e.target.checked)}
-            className="w-4 h-4 text-primary rounded border-outline bg-surface-container-highest focus:ring-primary"
+            className="w-4 h-4 text-primary rounded border-outline bg-surface-container-highest focus:ring-primary disabled:opacity-50"
           />
           <span className="text-xs font-semibold text-on-surface">
-            Aplicar sinergia al precio
+            {sonCompatibles ? 'Aplicar sinergia al precio' : 'Sinergia no aplicable (1 solo ítem)'}
           </span>
         </label>
       </div>

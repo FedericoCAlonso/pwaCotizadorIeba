@@ -109,9 +109,9 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
       { id: 'tug', nombre: 'Cantidad de bocas TUG', tipo: 'numero', valorDefault: 10, unidad: 'bocas', descripcion: 'Tomas de Uso General (2.5 mm²)' },
       { id: 'iug', nombre: 'Cantidad de bocas IUG', tipo: 'numero', valorDefault: 5, unidad: 'bocas', descripcion: 'Iluminación de Uso General (1.5 mm²)' },
       { id: 'tue', nombre: 'Cantidad de bocas TUE', tipo: 'numero', valorDefault: 2, unidad: 'bocas', descripcion: 'Tomas de Uso Especial (4.0 mm²)' },
-      { id: 'circuitos_tue', nombre: 'Cantidad de circuitos TUE', tipo: 'numero', valorDefault: 1, unidad: 'circuitos', descripcion: 'Circuitos exclusivos TUE (4.0 mm²)' },
+      { id: 'circuitos_tue', nombre: 'Cantidad de circuitos TUE', tipo: 'numero', valorDefault: 1, unidad: 'circuitos', descripcion: 'Circuitos exclusivos TUE (4.0 mm²)', condicion: 'tue > 0' },
       { id: 'esp', nombre: 'Cantidad de bocas especiales', tipo: 'numero', valorDefault: 0, unidad: 'bocas', descripcion: 'Otras bocas / circuitos especiales' },
-      { id: 'circuitos_esp', nombre: 'Cantidad de circuitos especiales', tipo: 'numero', valorDefault: 0, unidad: 'circuitos', descripcion: 'Circuitos dedicados para cargas especiales' },
+      { id: 'circuitos_esp', nombre: 'Cantidad de circuitos especiales', tipo: 'numero', valorDefault: 0, unidad: 'circuitos', descripcion: 'Circuitos dedicados para cargas especiales', condicion: 'esp > 0' },
       {
         id: 'seccion_esp',
         nombre: 'Sección cables de circuitos especiales',
@@ -119,6 +119,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
         valorDefault: 4,
         unidad: 'mm²',
         descripcion: 'Sección nominal para circuitos especiales',
+        condicion: 'esp > 0',
         opciones: [
           { id: 'opt-1-5', label: '1.5 mm²', valor: 1.5 },
           { id: 'opt-2-5', label: '2.5 mm²', valor: 2.5 },
@@ -126,7 +127,32 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
           { id: 'opt-6-0', label: '6.0 mm²', valor: 6.0 }
         ]
       },
-      { id: 'superficie', nombre: 'Superficie cubierta', tipo: 'numero', valorDefault: 50, unidad: 'm²', descripcion: 'Superficie de la vivienda en metros cuadrados' }
+      { id: 'superficie', nombre: 'Superficie cubierta', tipo: 'numero', valorDefault: 50, unidad: 'm²', descripcion: 'Superficie de la vivienda en metros cuadrados' },
+      {
+        id: 'estado_caneria',
+        nombre: 'Estado / Complejidad de cañerías existentes',
+        tipo: 'select',
+        valorDefault: 1,
+        unidad: 'coef',
+        descripcion: 'Factor de dificultad por cañerías antiguas o curvas cerradas',
+        opciones: [
+          { id: 'opt-can-1', label: 'Normal / Buen estado (1.00x)', valor: 1 },
+          { id: 'opt-can-2', label: 'Antigua / Hierro / Curvas (1.25x)', valor: 1.25 },
+          { id: 'opt-can-3', label: 'Compleja / Semiobstruida (1.50x)', valor: 1.5 }
+        ]
+      },
+      {
+        id: 'cambio_modulos',
+        nombre: 'Desarmado y rearmado de módulos / bastidores',
+        tipo: 'select',
+        valorDefault: 1,
+        unidad: 'sn',
+        descripcion: 'Desmontaje de bastidores y reconexión de tomas e interruptores',
+        opciones: [
+          { id: 'opt-mod-1', label: 'Sí (Desarmado y rearme completo)', valor: 1 },
+          { id: 'opt-mod-0', label: 'No (Solo pasaje y empalmes)', valor: 0 }
+        ]
+      }
     ],
     variables: [
       {
@@ -172,37 +198,38 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
         descripcion: 'Suma de bocas a cablear'
       },
       {
-        id: 'horas_base_oficial',
-        nombre: 'Horas netas Oficial Electricista',
-        formula: 'bocas_totales * 0.35 + 2.0',
+        id: 'horas_base_cuadrilla',
+        nombre: 'Horas base Cuadrilla (Oficial + Ayudante en Obra)',
+        formula: '(bocas_totales * (0.35 + (cambio_modulos == 1 ? 0.15 : 0)) + 2.0) * estado_caneria',
         unidad: 'hs',
-        descripcion: 'Base de replanteo y conexionado + tiempo por boca'
+        descripcion: 'Tiempo de enhebrado, tracción simultánea y conexión por cuadrilla indivisible'
       },
       {
-        id: 'horas_base_ayudante',
-        nombre: 'Horas netas Ayudante',
-        formula: 'bocas_totales * 0.25 + 2.0',
+        id: 'horas_cuadrilla',
+        nombre: 'Horas Cuadrilla (con descansos reglamentarios)',
+        formula: 'round(horas_base_cuadrilla + floor(horas_base_cuadrilla / 2) * 0.333, 2)',
         unidad: 'hs',
-        descripcion: 'Base de asistencia + tiempo por boca'
+        descripcion: 'Jornada efectiva de la cuadrilla (20m descanso cada 2hs de tracción)'
       },
       {
         id: 'horas_oficial',
-        nombre: 'Horas Oficial (con descanso 20m cada 2hs)',
-        formula: 'round(horas_base_oficial + floor(horas_base_oficial / 2) * 0.333, 2)',
+        nombre: 'Horas Oficial Electricista',
+        formula: 'horas_cuadrilla',
         unidad: 'hs',
-        descripcion: 'Horas con descanso reglamentario de 20 min por cada bloque de 2 hs'
+        descripcion: 'Horas de oficial trabajando en tándem de cuadrilla'
       },
       {
         id: 'horas_ayudante',
-        nombre: 'Horas Ayudante (con descanso 20m cada 2hs)',
-        formula: 'round(horas_base_ayudante + floor(horas_base_ayudante / 2) * 0.333, 2)',
+        nombre: 'Horas Ayudante',
+        formula: 'horas_cuadrilla',
         unidad: 'hs',
-        descripcion: 'Horas con descanso reglamentario de 20 min por cada bloque de 2 hs'
+        descripcion: 'Horas de ayudante trabajando en tándem de cuadrilla (mismo tiempo que oficial)'
       }
     ],
     insumos: [
       {
         nombreSlot: 'Cable 2.5 mm² Celeste (Neutro)',
+        condicion: 'tug > 0',
         filtroMaterial: {
           categoriaId: 'cat-cables',
           etiqueta: 'Cable Unipolar 2.5 mm² Celeste',
@@ -219,6 +246,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
       },
       {
         nombreSlot: 'Cable 2.5 mm² Marrón (Fase)',
+        condicion: 'tug > 0',
         filtroMaterial: {
           categoriaId: 'cat-cables',
           etiqueta: 'Cable Unipolar 2.5 mm² Marrón',
@@ -235,6 +263,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
       },
       {
         nombreSlot: 'Cable 2.5 mm² Verde/Amarillo (Tierra)',
+        condicion: 'tug > 0',
         filtroMaterial: {
           categoriaId: 'cat-cables',
           etiqueta: 'Cable Unipolar 2.5 mm² Tierra',
@@ -251,6 +280,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
       },
       {
         nombreSlot: 'Cable 1.5 mm² Blanco (Retorno)',
+        condicion: 'iug > 0',
         filtroMaterial: {
           categoriaId: 'cat-cables',
           etiqueta: 'Cable Unipolar 1.5 mm² Blanco',
@@ -267,6 +297,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
       },
       {
         nombreSlot: 'Cable 1.5 mm² Marrón (Fase)',
+        condicion: 'iug > 0',
         filtroMaterial: {
           categoriaId: 'cat-cables',
           etiqueta: 'Cable Unipolar 1.5 mm² Marrón',
@@ -283,6 +314,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
       },
       {
         nombreSlot: 'Cable 1.5 mm² Verde/Amarillo (Tierra)',
+        condicion: 'iug > 0',
         filtroMaterial: {
           categoriaId: 'cat-cables',
           etiqueta: 'Cable Unipolar 1.5 mm² Tierra',
@@ -299,6 +331,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
       },
       {
         nombreSlot: 'Cable 1.5 mm² Celeste (Neutro)',
+        condicion: 'iug > 0',
         filtroMaterial: {
           categoriaId: 'cat-cables',
           etiqueta: 'Cable Unipolar 1.5 mm² Celeste',
@@ -417,7 +450,7 @@ export const DEFAULT_TAREAS_TIPO_SEEDS: TareaTipo[] = [
       }
     ],
     manoObra: [
-      { categoriaId: 'mo-ayudante', horas: 6.5, horasSetup: 1.0, horasRendimiento: 5.5, formula: 'horas_ayudante' },
+      { categoriaId: 'mo-ayudante', horas: 8.5, horasSetup: 1.0, horasRendimiento: 7.5, formula: 'horas_ayudante' },
       { categoriaId: 'mo-oficial-electricista', horas: 8.5, horasSetup: 1.0, horasRendimiento: 7.5, formula: 'horas_oficial' }
     ],
     horasSetupTotal: 2.0,

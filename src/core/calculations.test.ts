@@ -22,6 +22,7 @@ import {
   calcularConsumosTareaTipo,
   resolverMaterialPorFiltro,
   calcularOptimizacionCuadrilla,
+  sonItemsCompatiblesParaSinergia,
   actualizarSnapshotsInsumosConCatalogo,
   DEFAULT_CLAUSULA_OBRA_EXISTENTE
 } from './calculations';
@@ -1767,6 +1768,65 @@ describe('14. Motor de Optimización de Sinergia de Obra & Cuadrilla', () => {
     expect(conSinergia.subtotalManoObra).toBe(roundMoney(sinSinergia.subtotalManoObra * 0.85));
     expect(conSinergia.ahorroSinergiaManoObra).toBeGreaterThan(0);
     expect(conSinergia.totalARS).toBeLessThan(sinSinergia.totalARS);
+  });
+
+  it('no aplica sinergia por defecto cuando hay 1 solo ítem o ítems no compatibles', () => {
+    const singleItem = [mockItems[0]];
+    expect(sonItemsCompatiblesParaSinergia(singleItem)).toBe(false);
+
+    const resSingle = calcularOptimizacionCuadrilla({
+      items: singleItem,
+      costoDiarioMovilidadManual: 20000,
+      estrategiaSeleccionada: 'optima'
+    });
+
+    // Con 1 solo ítem, el factor de sinergia debe ser estrictamente 1.0 (sin reducción de mano de obra por sinergia)
+    expect(resSingle.opciones.optima.factorSinergia).toBe(1.0);
+    expect(resSingle.opciones.rapida.factorSinergia).toBe(1.0);
+    expect(resSingle.planificacion.factorSinergiaAplicado).toBe(1.0);
+  });
+
+  it('evalúa la tarea tipo por defecto de recableado con cuadrilla sincronizada e insumos condicionales', () => {
+    const recableadoTask = INITIAL_TAREAS_TIPO.find(t => t.id === 'tt-cableado-vivienda-10kw');
+    expect(recableadoTask).toBeDefined();
+    if (!recableadoTask) return;
+
+    // Crear catálogo mock para cables
+    const mockCatalogo = new Map<string, Insumo>([
+      ['mat-c-25-marron', { id: 'mat-c-25-marron', categoriaId: 'cat-cables', nombre: 'Cable 2.5 Marrón', unidad: 'm', precioActual: 300, alicuotaIVA: 21, atributos: [{ clave: 'tipo_cable', valor: 'Unipolar IRAM 247-3' }, { clave: 'seccion', valor: '2.5' }, { clave: 'color', valor: 'Marrón (Fase)' }] } as unknown as Insumo],
+      ['mat-c-25-celeste', { id: 'mat-c-25-celeste', categoriaId: 'cat-cables', nombre: 'Cable 2.5 Celeste', unidad: 'm', precioActual: 300, alicuotaIVA: 21, atributos: [{ clave: 'tipo_cable', valor: 'Unipolar IRAM 247-3' }, { clave: 'seccion', valor: '2.5' }, { clave: 'color', valor: 'Celeste (Neutro)' }] } as unknown as Insumo],
+      ['mat-c-25-tierra', { id: 'mat-c-25-tierra', categoriaId: 'cat-cables', nombre: 'Cable 2.5 Tierra', unidad: 'm', precioActual: 300, alicuotaIVA: 21, atributos: [{ clave: 'tipo_cable', valor: 'Unipolar IRAM 247-3' }, { clave: 'seccion', valor: '2.5' }, { clave: 'color', valor: 'Verde/Amarillo (Tierra)' }] } as unknown as Insumo],
+      ['mat-c-15-marron', { id: 'mat-c-15-marron', categoriaId: 'cat-cables', nombre: 'Cable 1.5 Marrón', unidad: 'm', precioActual: 200, alicuotaIVA: 21, atributos: [{ clave: 'tipo_cable', valor: 'Unipolar IRAM 247-3' }, { clave: 'seccion', valor: '1.5' }, { clave: 'color', valor: 'Marrón (Fase)' }] } as unknown as Insumo],
+      ['mat-c-15-celeste', { id: 'mat-c-15-celeste', categoriaId: 'cat-cables', nombre: 'Cable 1.5 Celeste', unidad: 'm', precioActual: 200, alicuotaIVA: 21, atributos: [{ clave: 'tipo_cable', valor: 'Unipolar IRAM 247-3' }, { clave: 'seccion', valor: '1.5' }, { clave: 'color', valor: 'Celeste (Neutro)' }] } as unknown as Insumo],
+      ['mat-c-15-blanco', { id: 'mat-c-15-blanco', categoriaId: 'cat-cables', nombre: 'Cable 1.5 Blanco', unidad: 'm', precioActual: 200, alicuotaIVA: 21, atributos: [{ clave: 'tipo_cable', valor: 'Unipolar IRAM 247-3' }, { clave: 'seccion', valor: '1.5' }, { clave: 'color', valor: 'Blanco (Retorno)' }] } as unknown as Insumo],
+      ['mat-c-15-tierra', { id: 'mat-c-15-tierra', categoriaId: 'cat-cables', nombre: 'Cable 1.5 Tierra', unidad: 'm', precioActual: 200, alicuotaIVA: 21, atributos: [{ clave: 'tipo_cable', valor: 'Unipolar IRAM 247-3' }, { clave: 'seccion', valor: '1.5' }, { clave: 'color', valor: 'Verde/Amarillo (Tierra)' }] } as unknown as Insumo]
+    ]);
+
+    const mockMO = new Map<string, CategoriaManoDeObra>([
+      ['mo-ayudante', { id: 'mo-ayudante', nombre: 'Ayudante', costoHora: 8000, fechaActualizacion: '2026-08-28' }],
+      ['mo-oficial-electricista', { id: 'mo-oficial-electricista', nombre: 'Oficial Electricista', costoHora: 14000, fechaActualizacion: '2026-08-28' }]
+    ]);
+
+    // Evaluación de recableado estándar (TUG=10, IUG=5, TUE=0, ESP=0)
+    const evaluacion = calcularConsumosTareaTipo(
+      recableadoTask,
+      { tug: 10, iug: 5, tue: 0, esp: 0, superficie: 50, estado_caneria: 1 },
+      mockCatalogo,
+      mockMO
+    );
+
+    // 1. Los tiempos de oficial y ayudante deben ser EXACTAMENTE IDÉNTICOS (actúan como cuadrilla en tándem)
+    const hsAyudante = evaluacion.manoObraSnapshot.find(m => m.categoriaId === 'mo-ayudante')?.horasTotales;
+    const hsOficial = evaluacion.manoObraSnapshot.find(m => m.categoriaId === 'mo-oficial-electricista')?.horasTotales;
+    expect(hsAyudante).toBeDefined();
+    expect(hsOficial).toBeDefined();
+    expect(hsAyudante).toBe(hsOficial);
+
+    // 2. SIEMPRE se computa cable Verde/Amarillo (PE Puesta a Tierra) para los circuitos presentes
+    const tierraItems = evaluacion.insumosSnapshot.filter(i => i.nombre.toLowerCase().includes('tierra'));
+    expect(tierraItems.length).toBe(2); // 2.5mm² para TUG y 1.5mm² para IUG
+    expect(tierraItems.some(i => i.nombre.includes('2.5'))).toBe(true);
+    expect(tierraItems.some(i => i.nombre.includes('1.5'))).toBe(true);
   });
 });
 

@@ -2012,6 +2012,26 @@ export interface ResultadoOptimizacionCuadrilla {
 }
 
 /**
+ * Evalúa si un conjunto de ítems de cotización es compatible y combinable (mergeable)
+ * para generar sinergia real de cuadrilla y reducción de tiempos muertos en obra.
+ *
+ * Criterios técnicos de compatibilidad:
+ * 1. Debe haber más de 1 ítem (items.length > 1).
+ * 2. Al menos 2 ítems deben requerir mano de obra real (manoObraSnapshot o costoManoObra > 0).
+ */
+export function sonItemsCompatiblesParaSinergia(items: ItemPresupuesto[]): boolean {
+  if (!items || items.length <= 1) return false;
+
+  const itemsConMO = items.filter(
+    (it) =>
+      (it.manoObraSnapshot && it.manoObraSnapshot.length > 0) ||
+      (it.costoManoObra && it.costoManoObra > 0)
+  );
+
+  return itemsConMO.length >= 2;
+}
+
+/**
  * Simula y optimiza la relación entre tamaño de cuadrilla, duración de obra,
  * sinergia de tareas simultáneas y riesgo de tiempos muertos (parates).
  */
@@ -2023,8 +2043,10 @@ export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuad
     categoriasManoObra = [],
     costoDiarioMovilidadManual,
     estrategiaSeleccionada = 'optima',
-    aplicarOptimizacion = true
+    aplicarOptimizacion = false
   } = params;
+
+  const sonCompatibles = sonItemsCompatiblesParaSinergia(items);
 
   // 1. Extraer horas y costos de mano de obra
   let horasTeoricasTotal = 0;
@@ -2104,8 +2126,7 @@ export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuad
   };
 
   // B) Óptima: 2 Operarios (1 Oficial + 1 Ayudante)
-  const isMultiItem = items.length > 1;
-  const factorSinergiaOptima = isMultiItem ? 0.85 : 0.90;
+  const factorSinergiaOptima = sonCompatibles ? 0.85 : 1.0;
   const horasOptima = roundMoney(horasTeoricasTotal * factorSinergiaOptima);
   const jornadasOptima = Math.max(0.5, roundMoney(horasOptima / 16));
   const costoMODOptima = roundMoney(horasOptima * tarifaHoraPonderada);
@@ -2128,12 +2149,14 @@ export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuad
     costoTotalEjecucionARS: costoTotalOptima,
     ahorroRespectoBaseARS: Math.max(0, ahorroOptima),
     nivelRiesgo: 'bajo',
-    descripcionRiesgo: 'Punto óptimo de costo y rendimiento. Sinergia en cableado simultáneo y armado de tableros.',
+    descripcionRiesgo: sonCompatibles
+      ? 'Punto óptimo de costo y rendimiento. Sinergia activa por tareas múltiples compatibles.'
+      : 'Ítem único o sin compatibilidad de tareas combinables. Mano de obra nominal sin reducción.',
     recomendado: true
   };
 
   // C) Rápida: 4 Operarios (2 Oficiales + 2 Ayudantes)
-  const factorSinergiaRapida = 0.95; // Leve penalización por congestión en espacios cerrados
+  const factorSinergiaRapida = sonCompatibles ? 0.95 : 1.0;
   const horasRapida = roundMoney(horasTeoricasTotal * factorSinergiaRapida);
   const jornadasRapida = Math.max(0.5, roundMoney(horasRapida / 32));
   const costoMODRapida = roundMoney(horasRapida * tarifaHoraPonderada);
@@ -2154,7 +2177,7 @@ export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuad
     costoManoObraARS: costoMODRapida,
     costoLogisticaARS: costoLogRapida,
     costoTotalEjecucionARS: costoTotalRapida,
-    ahorroRespectoBaseARS: ahorroRapida,
+    ahorroRespectoBaseARS: Math.max(0, ahorroRapida),
     nivelRiesgo: 'alto',
     descripcionRiesgo: 'Mínimo tiempo de obra. Mayor riesgo: un parate de 1h cuesta 4 horas-hombre de salario muerto.',
     recomendado: false
