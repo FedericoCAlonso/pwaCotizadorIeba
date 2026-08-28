@@ -32,6 +32,10 @@ import {
   ConsumosCalculadosResultado,
   generarImpuestosPorDefecto,
   actualizarSnapshotsInsumosConCatalogo,
+  analizarCambiosPreciosPresupuesto,
+  aplicarActualizacionPreciosPresupuesto,
+  AnalisisCambiosPreciosPresupuesto,
+  OpcionesActualizacionPrecios,
   obtenerMultiplicadorCondicion,
   roundMoney,
   safeNum
@@ -131,6 +135,10 @@ export function usePresupuestoEditorViewModel({
   const [showGastoModal, setShowGastoModal] = useState(false);
   const [editingGasto, setEditingGasto] = useState<GastoPresupuestoConfig | null>(null);
   const [showGastoCatalogPickerModal, setShowGastoCatalogPickerModal] = useState(false);
+
+  // Modal de Actualización Integral de Precios
+  const [showActualizarPreciosModal, setShowActualizarPreciosModal] = useState(false);
+  const [analisisPreciosModal, setAnalisisPreciosModal] = useState<AnalisisCambiosPreciosPresupuesto | null>(null);
 
   const [estrategiaCuadrilla, setEstrategiaCuadrilla] = useState<EstrategiaCuadrilla>('optima');
   const [aplicarOptimizacionCuadrilla, setAplicarOptimizacionCuadrilla] = useState<boolean>(false);
@@ -1060,19 +1068,78 @@ export function usePresupuestoEditorViewModel({
     onSaved(finalPresupuesto.id);
   };
 
-  const handleRecalcularConPreciosVigentes = () => {
-    if (items.length === 0) {
-      toast.info('No hay ítems en la cotización para actualizar');
+  const handleOpenActualizarPreciosModal = () => {
+    if (items.length === 0 && gastosConfig.length === 0) {
+      toast.info('No hay ítems ni gastos en la cotización para actualizar');
       return;
     }
-    const res = actualizarSnapshotsInsumosConCatalogo(items, insumosMap);
-    if (res.changesCount > 0) {
-      setItems(res.updatedItems);
-      toast.success(`Se actualizaron ${res.changesCount} insumo(s) al precio vigente del catálogo`);
+
+    const tareasTipoMap = new Map<string, TareaTipo>();
+    tareasTipo.forEach(t => tareasTipoMap.set(t.id, t));
+
+    const analisis = analizarCambiosPreciosPresupuesto({
+      items,
+      gastosConfig,
+      cotizacionDolar,
+      insumosMap,
+      manoObraMap,
+      costosIndirectosCatalog: costosIndirectos,
+      tareasTipoMap,
+      configDolarReferenciaValor: config.dolarReferenciaValor
+    });
+
+    setAnalisisPreciosModal(analisis);
+    setShowActualizarPreciosModal(true);
+  };
+
+  const handleConfirmActualizarPrecios = (opciones: OpcionesActualizacionPrecios) => {
+    const tareasTipoMap = new Map<string, TareaTipo>();
+    tareasTipo.forEach(t => tareasTipoMap.set(t.id, t));
+
+    const resultado = aplicarActualizacionPreciosPresupuesto({
+      items,
+      gastosConfig,
+      cotizacionDolar,
+      opciones,
+      insumosMap,
+      manoObraMap,
+      costosIndirectosCatalog: costosIndirectos,
+      tareasTipoMap,
+      configDolarReferenciaValor: config.dolarReferenciaValor
+    });
+
+    setItems(resultado.updatedItems);
+    setGastosConfig(resultado.updatedGastosConfig);
+    setCostosIndirectosConfig(resultado.updatedGastosConfig);
+    if (resultado.resumen.dolarActualizado) {
+      setCotizacionDolar(resultado.updatedCotizacionDolar);
+    }
+
+    const partes: string[] = [];
+    if (resultado.resumen.materialesCount > 0) {
+      partes.push(`${resultado.resumen.materialesCount} insumo(s)`);
+    }
+    if (resultado.resumen.manoObraCount > 0) {
+      partes.push(`${resultado.resumen.manoObraCount} categoría(s) de MO`);
+    }
+    if (resultado.resumen.tareasTipoCount > 0) {
+      partes.push(`${resultado.resumen.tareasTipoCount} tarea(s)`);
+    }
+    if (resultado.resumen.indirectosCount > 0) {
+      partes.push(`${resultado.resumen.indirectosCount} gasto(s) indirecto(s)`);
+    }
+    if (resultado.resumen.dolarActualizado) {
+      partes.push(`dólar ($${resultado.updatedCotizacionDolar})`);
+    }
+
+    if (partes.length > 0) {
+      toast.success(`Se actualizaron: ${partes.join(', ')}.`);
     } else {
-      toast.info('Todos los insumos ya cuentan con los precios vigentes del catálogo');
+      toast.info('No se requirieron cambios en las capas seleccionadas');
     }
   };
+
+  const handleRecalcularConPreciosVigentes = handleOpenActualizarPreciosModal;
 
   return {
     // Data
@@ -1157,6 +1224,9 @@ export function usePresupuestoEditorViewModel({
     setEditingGasto,
     showGastoCatalogPickerModal,
     setShowGastoCatalogPickerModal,
+    showActualizarPreciosModal,
+    setShowActualizarPreciosModal,
+    analisisPreciosModal,
 
     // Actions & Commands
     handleSaveGasto,
@@ -1185,6 +1255,8 @@ export function usePresupuestoEditorViewModel({
     handleRemoveTax,
     handleAddCustomTax,
     handleOpenMaterialsInCatalog,
+    handleOpenActualizarPreciosModal,
+    handleConfirmActualizarPrecios,
     handleRecalcularConPreciosVigentes,
     handleSavePresupuesto
   };

@@ -562,6 +562,546 @@ export interface ActualizacionInsumosResultado {
   newTotalCosto: number;
 }
 
+export interface CambioPrecioMaterial {
+  itemId: string;
+  itemDescripcion: string;
+  insumoId: string;
+  nombre: string;
+  unidad: string;
+  cantidadTotal: number;
+  precioAnterior: number;
+  precioNuevo: number;
+  alicuotaAnterior: number;
+  alicuotaNueva: number;
+  impactoNeto: number;
+}
+
+export interface CambioTarifaManoObra {
+  itemId: string;
+  itemDescripcion: string;
+  categoriaId: string;
+  nombreCategoria: string;
+  horasTotales: number;
+  costoHoraAnterior: number;
+  costoHoraNuevo: number;
+  impactoNeto: number;
+}
+
+export interface CambioTareaTipoRecalculo {
+  itemId: string;
+  itemDescripcion: string;
+  tareaTipoId: string;
+  costoDirectoAnterior: number;
+  costoDirectoNuevo: number;
+  impactoNeto: number;
+}
+
+export interface CambioCostoIndirecto {
+  gastoId: string;
+  costoIndirectoId?: string;
+  nombre: string;
+  modalidad?: ModalidadGasto;
+  valorAnterior: number;
+  valorNuevo: number;
+  impactoNeto: number;
+}
+
+export interface CambioCotizacionDolar {
+  valorAnterior: number;
+  valorNuevo: number;
+}
+
+export interface AnalisisCambiosPreciosPresupuesto {
+  materiales: {
+    cambios: CambioPrecioMaterial[];
+    totalImpacto: number;
+    count: number;
+  };
+  manoObra: {
+    cambios: CambioTarifaManoObra[];
+    totalImpacto: number;
+    count: number;
+  };
+  tareasTipo: {
+    cambios: CambioTareaTipoRecalculo[];
+    totalImpacto: number;
+    count: number;
+  };
+  costosIndirectos: {
+    cambios: CambioCostoIndirecto[];
+    totalImpacto: number;
+    count: number;
+  };
+  dolar: {
+    cambio: CambioCotizacionDolar | null;
+  };
+  hayCambios: boolean;
+  totalImpactoEstimado: number;
+}
+
+export interface OpcionesActualizacionPrecios {
+  actualizarMateriales: boolean;
+  actualizarManoObra: boolean;
+  actualizarTareasTipo: boolean;
+  actualizarCostosIndirectos: boolean;
+  actualizarDolar: boolean;
+}
+
+export interface ResultadoActualizacionPreciosPresupuesto {
+  updatedItems: ItemPresupuesto[];
+  updatedGastosConfig: GastoPresupuestoConfig[];
+  updatedCotizacionDolar: number;
+  resumen: {
+    materialesCount: number;
+    manoObraCount: number;
+    tareasTipoCount: number;
+    indirectosCount: number;
+    dolarActualizado: boolean;
+    totalImpactoNeto: number;
+  };
+}
+
+/**
+ * Analiza todas las capas de costo de una cotización (materiales, mano de obra, tareas tipo, indirectos, dólar)
+ * y detecta diferencias con respecto a los valores vigentes del catálogo y configuración.
+ */
+export function analizarCambiosPreciosPresupuesto(params: {
+  items: ItemPresupuesto[];
+  gastosConfig?: GastoPresupuestoConfig[];
+  cotizacionDolar?: number;
+  insumosMap: Map<string, Insumo>;
+  manoObraMap: Map<string, CategoriaManoDeObra>;
+  costosIndirectosCatalog?: CostoIndirecto[];
+  tareasTipoMap?: Map<string, TareaTipo>;
+  configDolarReferenciaValor?: number;
+}): AnalisisCambiosPreciosPresupuesto {
+  const {
+    items = [],
+    gastosConfig = [],
+    cotizacionDolar = 0,
+    insumosMap,
+    manoObraMap,
+    costosIndirectosCatalog = [],
+    tareasTipoMap = new Map(),
+    configDolarReferenciaValor
+  } = params;
+
+  const cambiosMateriales: CambioPrecioMaterial[] = [];
+  const cambiosManoObra: CambioTarifaManoObra[] = [];
+  const cambiosTareasTipo: CambioTareaTipoRecalculo[] = [];
+  const cambiosCostosIndirectos: CambioCostoIndirecto[] = [];
+
+  let impactoMateriales = 0;
+  let impactoManoObra = 0;
+  let impactoTareasTipo = 0;
+  let impactoCostosIndirectos = 0;
+
+  // 1. Analizar Materiales e Insumos en Items
+  for (const item of items) {
+    if (item.insumosSnapshot && item.insumosSnapshot.length > 0) {
+      for (const ins of item.insumosSnapshot) {
+        if (ins.esAdHoc) continue;
+        const matId = ins.materialId || ins.insumoId;
+        if (!matId) continue;
+        const cat = insumosMap.get(matId);
+        if (!cat) continue;
+
+        const currentNetPrice = safeNum(cat.precioActual ?? cat.precioNeto ?? 0);
+        const currentAlicuota = cat.alicuotaIVA !== undefined ? safeNum(cat.alicuotaIVA) : (ins.alicuotaIVA ?? 21);
+
+        const oldNetPrice = safeNum(ins.precioUnitarioCongelado);
+        const oldAlicuota = ins.alicuotaIVA !== undefined ? safeNum(ins.alicuotaIVA) : 21;
+
+        if (Math.abs(oldNetPrice - currentNetPrice) > 0.001 || Math.abs(oldAlicuota - currentAlicuota) > 0.001) {
+          const cant = safeNum(ins.cantidadTotal);
+          const impacto = roundMoney((currentNetPrice - oldNetPrice) * cant);
+          impactoMateriales = roundMoney(impactoMateriales + impacto);
+          cambiosMateriales.push({
+            itemId: item.id,
+            itemDescripcion: item.descripcion,
+            insumoId: matId,
+            nombre: cat.nombre || ins.nombre,
+            unidad: ins.unidad,
+            cantidadTotal: cant,
+            precioAnterior: oldNetPrice,
+            precioNuevo: currentNetPrice,
+            alicuotaAnterior: oldAlicuota,
+            alicuotaNueva: currentAlicuota,
+            impactoNeto: impacto
+          });
+        }
+      }
+    }
+
+    // 2. Analizar Mano de Obra en Items
+    if (item.manoObraSnapshot && item.manoObraSnapshot.length > 0) {
+      for (const mo of item.manoObraSnapshot) {
+        const catMo = manoObraMap.get(mo.categoriaId);
+        if (!catMo) continue;
+
+        const currentCostoHora = safeNum(catMo.costoHora);
+        const oldCostoHora = safeNum(mo.costoHoraCongelado);
+
+        if (Math.abs(oldCostoHora - currentCostoHora) > 0.001) {
+          const hs = safeNum(mo.horasTotales);
+          const impacto = roundMoney((currentCostoHora - oldCostoHora) * hs);
+          impactoManoObra = roundMoney(impactoManoObra + impacto);
+          cambiosManoObra.push({
+            itemId: item.id,
+            itemDescripcion: item.descripcion,
+            categoriaId: mo.categoriaId,
+            nombreCategoria: catMo.nombre || mo.nombreCategoria,
+            horasTotales: hs,
+            costoHoraAnterior: oldCostoHora,
+            costoHoraNuevo: currentCostoHora,
+            impactoNeto: impacto
+          });
+        }
+      }
+    }
+
+    // 3. Analizar Tareas Tipo Paramétricas
+    if (item.tareaTipoId && tareasTipoMap.has(item.tareaTipoId)) {
+      const tareaDef = tareasTipoMap.get(item.tareaTipoId)!;
+      const calculos = calcularConsumosTareaTipo(
+        tareaDef,
+        item.valoresParametros || {},
+        insumosMap,
+        manoObraMap
+      );
+      const cant = safeNum(item.cantidad || 1);
+      const costoDirectoNuevo = roundMoney(calculos.costoDirectoTotal * cant);
+      const costoDirectoAnterior = safeNum(item.costoDirectoTotal);
+
+      if (Math.abs(costoDirectoAnterior - costoDirectoNuevo) > 0.01) {
+        const impacto = roundMoney(costoDirectoNuevo - costoDirectoAnterior);
+        impactoTareasTipo = roundMoney(impactoTareasTipo + impacto);
+        cambiosTareasTipo.push({
+          itemId: item.id,
+          itemDescripcion: item.descripcion || tareaDef.nombre,
+          tareaTipoId: item.tareaTipoId,
+          costoDirectoAnterior,
+          costoDirectoNuevo,
+          impactoNeto: impacto
+        });
+      }
+    }
+  }
+
+  // 4. Analizar Costos Indirectos de Obra
+  for (const gasto of gastosConfig) {
+    const ciId = gasto.costoIndirectoId || gasto.id?.replace('gasto-', '');
+    if (!ciId) continue;
+    const catCI = costosIndirectosCatalog.find(c => c.id === ciId);
+    if (!catCI || catCI.valor === undefined) continue;
+
+    const oldVal = safeNum(gasto.valor);
+    const newVal = safeNum(catCI.valor);
+
+    if (Math.abs(oldVal - newVal) > 0.001) {
+      const impacto = roundMoney(newVal - oldVal);
+      impactoCostosIndirectos = roundMoney(impactoCostosIndirectos + impacto);
+      cambiosCostosIndirectos.push({
+        gastoId: gasto.id,
+        costoIndirectoId: ciId,
+        nombre: catCI.nombre || gasto.nombre,
+        modalidad: gasto.modalidad,
+        valorAnterior: oldVal,
+        valorNuevo: newVal,
+        impactoNeto: impacto
+      });
+    }
+  }
+
+  // 5. Analizar Dólar
+  let cambioDolar: CambioCotizacionDolar | null = null;
+  if (configDolarReferenciaValor !== undefined && configDolarReferenciaValor > 0) {
+    if (Math.abs(safeNum(cotizacionDolar) - configDolarReferenciaValor) > 0.01) {
+      cambioDolar = {
+        valorAnterior: safeNum(cotizacionDolar),
+        valorNuevo: configDolarReferenciaValor
+      };
+    }
+  }
+
+  const hayCambios = cambiosMateriales.length > 0 ||
+                     cambiosManoObra.length > 0 ||
+                     cambiosTareasTipo.length > 0 ||
+                     cambiosCostosIndirectos.length > 0 ||
+                     cambioDolar !== null;
+
+  const totalImpactoEstimado = roundMoney(impactoMateriales + impactoManoObra + impactoCostosIndirectos);
+
+  return {
+    materiales: {
+      cambios: cambiosMateriales,
+      totalImpacto: impactoMateriales,
+      count: cambiosMateriales.length
+    },
+    manoObra: {
+      cambios: cambiosManoObra,
+      totalImpacto: impactoManoObra,
+      count: cambiosManoObra.length
+    },
+    tareasTipo: {
+      cambios: cambiosTareasTipo,
+      totalImpacto: impactoTareasTipo,
+      count: cambiosTareasTipo.length
+    },
+    costosIndirectos: {
+      cambios: cambiosCostosIndirectos,
+      totalImpacto: impactoCostosIndirectos,
+      count: cambiosCostosIndirectos.length
+    },
+    dolar: {
+      cambio: cambioDolar
+    },
+    hayCambios,
+    totalImpactoEstimado
+  };
+}
+
+/**
+ * Aplica la actualización de precios a las capas seleccionadas de la cotización.
+ */
+export function aplicarActualizacionPreciosPresupuesto(params: {
+  items: ItemPresupuesto[];
+  gastosConfig?: GastoPresupuestoConfig[];
+  cotizacionDolar?: number;
+  opciones: OpcionesActualizacionPrecios;
+  insumosMap: Map<string, Insumo>;
+  manoObraMap: Map<string, CategoriaManoDeObra>;
+  costosIndirectosCatalog?: CostoIndirecto[];
+  tareasTipoMap?: Map<string, TareaTipo>;
+  configDolarReferenciaValor?: number;
+}): ResultadoActualizacionPreciosPresupuesto {
+  const {
+    items = [],
+    gastosConfig = [],
+    cotizacionDolar = 0,
+    opciones,
+    insumosMap,
+    manoObraMap,
+    costosIndirectosCatalog = [],
+    tareasTipoMap = new Map(),
+    configDolarReferenciaValor
+  } = params;
+
+  let materialesCount = 0;
+  let manoObraCount = 0;
+  let tareasTipoCount = 0;
+  let indirectosCount = 0;
+  let dolarActualizado = false;
+  let totalImpactoNeto = 0;
+
+  const updatedItems: ItemPresupuesto[] = items.map(item => {
+    // Si la opción de Tareas Tipo está activa y el ítem es una Tarea Tipo existente:
+    if (opciones.actualizarTareasTipo && item.tareaTipoId && tareasTipoMap.has(item.tareaTipoId)) {
+      const tareaDef = tareasTipoMap.get(item.tareaTipoId)!;
+      const calculos = calcularConsumosTareaTipo(
+        tareaDef,
+        item.valoresParametros || {},
+        insumosMap,
+        manoObraMap
+      );
+      const cant = safeNum(item.cantidad || 1);
+      const oldCostoDirecto = safeNum(item.costoDirectoTotal);
+      const newCostoDirecto = roundMoney(calculos.costoDirectoTotal * cant);
+
+      if (Math.abs(oldCostoDirecto - newCostoDirecto) > 0.01) {
+        tareasTipoCount++;
+        totalImpactoNeto = roundMoney(totalImpactoNeto + (newCostoDirecto - oldCostoDirecto));
+      }
+
+      const newInsumos = calculos.insumosSnapshot.map(i => {
+        const uCant = i.cantidadUnitaria !== undefined ? i.cantidadUnitaria : i.cantidadTotal;
+        return {
+          ...i,
+          cantidadUnitaria: uCant,
+          cantidadTotal: roundMoney(uCant * cant),
+          subtotalInsumo: roundMoney(i.precioUnitarioCongelado * uCant * cant),
+          subtotalInsumoFinal: roundMoney((i.precioFinalUnitarioCongelado || i.precioUnitarioCongelado) * uCant * cant)
+        };
+      });
+
+      const newMO = calculos.manoObraSnapshot.map(m => {
+        const uHs = m.horasUnitarias !== undefined ? m.horasUnitarias : m.horasTotales;
+        return {
+          ...m,
+          horasUnitarias: uHs,
+          horasTotales: roundMoney(uHs * cant),
+          subtotalManoObra: roundMoney(m.costoHoraCongelado * uHs * cant)
+        };
+      });
+
+      const costoInsumos = roundMoney(calculos.costoInsumosTotal * cant);
+      const costoManoObra = roundMoney(calculos.costoManoObraTotal * cant);
+      const costoServicios = roundMoney((calculos.costoServiciosTotal || tareaDef.costoServicioDirecto || tareaDef.honorarioBase || 0) * cant);
+      const costoFijoOperativo = roundMoney((calculos.costoFijoOperativo || 0) * cant);
+      const costoDirectoTotal = roundMoney(costoInsumos + costoManoObra + costoServicios + costoFijoOperativo);
+
+      return {
+        ...item,
+        costoUnitario: calculos.costoDirectoTotal,
+        costoInsumos,
+        costoManoObra,
+        costoServicios,
+        costoFijoOperativo,
+        costoDirectoTotal,
+        costoTotal: costoDirectoTotal,
+        insumosSnapshot: newInsumos,
+        manoObraSnapshot: newMO
+      };
+    }
+
+    // Actualización granular de Materiales e Insumos
+    let newInsumosSnapshot = item.insumosSnapshot || [];
+    let costoInsumos = safeNum(item.costoInsumos);
+
+    if (opciones.actualizarMateriales && newInsumosSnapshot.length > 0) {
+      let newItemInsumosCosto = 0;
+      newInsumosSnapshot = newInsumosSnapshot.map(ins => {
+        if (ins.esAdHoc) {
+          newItemInsumosCosto += safeNum(ins.subtotalInsumo);
+          return ins;
+        }
+
+        const matId = ins.materialId || ins.insumoId;
+        const catalogInsumo = matId ? insumosMap.get(matId) : undefined;
+        if (!catalogInsumo) {
+          newItemInsumosCosto += safeNum(ins.subtotalInsumo);
+          return ins;
+        }
+
+        const currentNetPrice = safeNum(catalogInsumo.precioActual ?? catalogInsumo.precioNeto ?? 0);
+        const currentAlicuota = catalogInsumo.alicuotaIVA !== undefined ? safeNum(catalogInsumo.alicuotaIVA) : (ins.alicuotaIVA ?? 21);
+        const currentFinalPrice = catalogInsumo.precioFinal !== undefined ? safeNum(catalogInsumo.precioFinal) : calcularPrecioFinal(currentNetPrice, currentAlicuota);
+
+        const isChanged = Math.abs(safeNum(ins.precioUnitarioCongelado) - currentNetPrice) > 0.001 ||
+                          Math.abs(safeNum(ins.alicuotaIVA ?? 21) - currentAlicuota) > 0.001;
+
+        if (isChanged) {
+          materialesCount++;
+          const cant = safeNum(ins.cantidadTotal);
+          totalImpactoNeto = roundMoney(totalImpactoNeto + (currentNetPrice - safeNum(ins.precioUnitarioCongelado)) * cant);
+        }
+
+        const updatedSubtotalNeto = roundMoney(currentNetPrice * safeNum(ins.cantidadTotal));
+        const updatedSubtotalFinal = roundMoney(currentFinalPrice * safeNum(ins.cantidadTotal));
+        newItemInsumosCosto += updatedSubtotalNeto;
+
+        return {
+          ...ins,
+          nombre: catalogInsumo.nombre || ins.nombre,
+          precioUnitarioCongelado: currentNetPrice,
+          alicuotaIVA: currentAlicuota,
+          precioFinalUnitarioCongelado: currentFinalPrice,
+          subtotalInsumo: updatedSubtotalNeto,
+          subtotalInsumoFinal: updatedSubtotalFinal
+        };
+      });
+      costoInsumos = roundMoney(newItemInsumosCosto);
+    }
+
+    // Actualización granular de Mano de Obra
+    let newManoObraSnapshot = item.manoObraSnapshot || [];
+    let costoManoObra = safeNum(item.costoManoObra);
+
+    if (opciones.actualizarManoObra && newManoObraSnapshot.length > 0) {
+      let newItemMOCosto = 0;
+      newManoObraSnapshot = newManoObraSnapshot.map(mo => {
+        const catalogMo = manoObraMap.get(mo.categoriaId);
+        if (!catalogMo) {
+          newItemMOCosto += safeNum(mo.subtotalManoObra);
+          return mo;
+        }
+
+        const currentCostoHora = safeNum(catalogMo.costoHora);
+        const isChanged = Math.abs(safeNum(mo.costoHoraCongelado) - currentCostoHora) > 0.001;
+
+        if (isChanged) {
+          manoObraCount++;
+          const hs = safeNum(mo.horasTotales);
+          totalImpactoNeto = roundMoney(totalImpactoNeto + (currentCostoHora - safeNum(mo.costoHoraCongelado)) * hs);
+        }
+
+        const updatedSubtotal = roundMoney(currentCostoHora * safeNum(mo.horasTotales));
+        newItemMOCosto += updatedSubtotal;
+
+        return {
+          ...mo,
+          nombreCategoria: catalogMo.nombre || mo.nombreCategoria,
+          costoHoraCongelado: currentCostoHora,
+          subtotalManoObra: updatedSubtotal
+        };
+      });
+      costoManoObra = roundMoney(newItemMOCosto);
+    }
+
+    const costoServicios = safeNum(item.costoServicios ?? item.costoServiciosTercerizados);
+    const costoFijoOperativo = safeNum(item.costoFijoOperativo);
+    const costoDirectoTotal = roundMoney(costoInsumos + costoManoObra + costoServicios + costoFijoOperativo);
+    const cant = Math.max(0.0001, item.cantidad || 1);
+
+    return {
+      ...item,
+      costoInsumos,
+      costoManoObra,
+      costoDirectoTotal,
+      costoTotal: costoDirectoTotal,
+      costoUnitario: roundMoney(costoDirectoTotal / cant),
+      insumosSnapshot: newInsumosSnapshot,
+      manoObraSnapshot: newManoObraSnapshot
+    };
+  });
+
+  // Actualizar Costos Indirectos
+  let updatedGastosConfig = gastosConfig;
+  if (opciones.actualizarCostosIndirectos && gastosConfig.length > 0) {
+    updatedGastosConfig = gastosConfig.map(gasto => {
+      const ciId = gasto.costoIndirectoId || gasto.id?.replace('gasto-', '');
+      if (!ciId) return gasto;
+      const catCI = costosIndirectosCatalog.find(c => c.id === ciId);
+      if (!catCI || catCI.valor === undefined) return gasto;
+
+      const isChanged = Math.abs(safeNum(gasto.valor) - safeNum(catCI.valor)) > 0.001;
+      if (isChanged) {
+        indirectosCount++;
+        totalImpactoNeto = roundMoney(totalImpactoNeto + (safeNum(catCI.valor) - safeNum(gasto.valor)));
+      }
+
+      return {
+        ...gasto,
+        valor: safeNum(catCI.valor),
+        formula: catCI.formula || gasto.formula
+      };
+    });
+  }
+
+  // Actualizar Dólar
+  let updatedCotizacionDolar = cotizacionDolar;
+  if (opciones.actualizarDolar && configDolarReferenciaValor !== undefined && configDolarReferenciaValor > 0) {
+    if (Math.abs(safeNum(cotizacionDolar) - configDolarReferenciaValor) > 0.01) {
+      updatedCotizacionDolar = configDolarReferenciaValor;
+      dolarActualizado = true;
+    }
+  }
+
+  return {
+    updatedItems,
+    updatedGastosConfig,
+    updatedCotizacionDolar,
+    resumen: {
+      materialesCount,
+      manoObraCount,
+      tareasTipoCount,
+      indirectosCount,
+      dolarActualizado,
+      totalImpactoNeto
+    }
+  };
+}
+
 /**
  * Actualiza los snapshots de insumos congelados de un presupuesto con los precios vigentes del catálogo.
  * Preserva intactas las cantidades, unidades, fórmulas, notas y estructura de capítulos.

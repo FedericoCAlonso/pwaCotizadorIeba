@@ -24,6 +24,8 @@ import {
   calcularOptimizacionCuadrilla,
   sonItemsCompatiblesParaSinergia,
   actualizarSnapshotsInsumosConCatalogo,
+  analizarCambiosPreciosPresupuesto,
+  aplicarActualizacionPreciosPresupuesto,
   DEFAULT_CLAUSULA_OBRA_EXISTENTE
 } from './calculations';
 import { evaluateCondition, evaluateMathExpression } from './mathEvaluator';
@@ -2409,6 +2411,174 @@ describe('15. Estructura de Gastos Directos vs Indirectos, Fórmulas Paramétric
     expect(updatedItem.insumosSnapshot[0].subtotalInsumoFinal).toBe(181500); // 150.000 * 1.21
   });
 });
+
+// ─── 22. Motor de Actualización Integral de Precios (Materiales, MO, Tareas Tipo, Indirectos, Dólar) ──
+
+describe('22. Motor de Actualización Integral de Precios y Tarifas', () => {
+  const testInsumosMap = new Map<string, Insumo>([
+    ['mat-cable-25', {
+      id: 'mat-cable-25',
+      nombre: 'Cable Unipolar 2.5 mm2',
+      unidad: 'm',
+      precioActual: 1800, // Subió de 1000 a 1800
+      precioFinal: 2178,
+      alicuotaIVA: 21
+    } as unknown as Insumo]
+  ]);
+
+  const testMOMap = new Map<string, CategoriaManoDeObra>([
+    ['mo-oficial', {
+      id: 'mo-oficial',
+      nombre: 'Oficial Electricista',
+      costoHora: 15000, // Subió de 10000 a 15000
+      fechaActualizacion: '2026-08-28'
+    }],
+    ['mo-ayudante', {
+      id: 'mo-ayudante',
+      nombre: 'Ayudante',
+      costoHora: 9000, // Subió de 6000 a 9000
+      fechaActualizacion: '2026-08-28'
+    }]
+  ]);
+
+  const testCostosIndirectos: CostoIndirecto[] = [
+    {
+      id: 'ci-movilidad',
+      nombre: 'Movilidad y Combustible por Día',
+      modalidad: 'monto_fijo',
+      valor: 25000, // Subió de 18000 a 25000
+      updatedAt: '2026-08-28'
+    }
+  ];
+
+  const testItem: ItemPresupuesto = {
+    id: 'item-1',
+    descripcion: 'Instalación de bocas y circuitos',
+    cantidad: 1,
+    unidad: 'u',
+    costoInsumos: 100000,
+    costoManoObra: 100000,
+    costoDirectoTotal: 200000,
+    precioVentaUnitario: 260000,
+    precioVentaTotal: 260000,
+    insumosSnapshot: [
+      {
+        materialId: 'mat-cable-25',
+        nombre: 'Cable Unipolar 2.5 mm2',
+        unidad: 'm',
+        cantidadTotal: 100,
+        precioUnitarioCongelado: 1000,
+        alicuotaIVA: 21,
+        precioFinalUnitarioCongelado: 1210,
+        subtotalInsumo: 100000,
+        subtotalInsumoFinal: 121000
+      }
+    ],
+    manoObraSnapshot: [
+      {
+        categoriaId: 'mo-oficial',
+        nombreCategoria: 'Oficial Electricista',
+        horasTotales: 10,
+        costoHoraCongelado: 10000,
+        subtotalManoObra: 100000
+      }
+    ]
+  };
+
+  const testGastos: GastoPresupuestoConfig[] = [
+    {
+      id: 'gasto-ci-movilidad',
+      costoIndirectoId: 'ci-movilidad',
+      nombre: 'Movilidad y Combustible por Día',
+      valor: 18000,
+      aplica: true
+    }
+  ];
+
+  it('analiza exhaustivamente variaciones en todas las capas de costos', () => {
+    const analisis = analizarCambiosPreciosPresupuesto({
+      items: [testItem],
+      gastosConfig: testGastos,
+      cotizacionDolar: 1200,
+      insumosMap: testInsumosMap,
+      manoObraMap: testMOMap,
+      costosIndirectosCatalog: testCostosIndirectos,
+      configDolarReferenciaValor: 1350
+    });
+
+    expect(analisis.hayCambios).toBe(true);
+    expect(analisis.materiales.count).toBe(1);
+    expect(analisis.materiales.cambios[0].precioNuevo).toBe(1800);
+    expect(analisis.materiales.totalImpacto).toBe(80000); // (1800 - 1000) * 100
+
+    expect(analisis.manoObra.count).toBe(1);
+    expect(analisis.manoObra.cambios[0].costoHoraNuevo).toBe(15000);
+    expect(analisis.manoObra.totalImpacto).toBe(50000); // (15000 - 10000) * 10hs
+
+    expect(analisis.costosIndirectos.count).toBe(1);
+    expect(analisis.costosIndirectos.cambios[0].valorNuevo).toBe(25000);
+
+    expect(analisis.dolar.cambio).not.toBeNull();
+    expect(analisis.dolar.cambio?.valorNuevo).toBe(1350);
+  });
+
+  it('aplica actualización selectiva de capas según las opciones elegidas', () => {
+    // Caso 1: Actualizar SOLO mano de obra (dejando insumos intactos)
+    const resMOOnly = aplicarActualizacionPreciosPresupuesto({
+      items: [testItem],
+      gastosConfig: testGastos,
+      cotizacionDolar: 1200,
+      opciones: {
+        actualizarMateriales: false,
+        actualizarManoObra: true,
+        actualizarTareasTipo: false,
+        actualizarCostosIndirectos: false,
+        actualizarDolar: false
+      },
+      insumosMap: testInsumosMap,
+      manoObraMap: testMOMap,
+      costosIndirectosCatalog: testCostosIndirectos,
+      configDolarReferenciaValor: 1350
+    });
+
+    const itemMO = resMOOnly.updatedItems[0];
+    expect(itemMO.costoInsumos).toBe(100000); // No cambió
+    expect(itemMO.costoManoObra).toBe(150000); // 10hs * $15000
+    expect(itemMO.costoDirectoTotal).toBe(250000);
+    expect(resMOOnly.updatedGastosConfig[0].valor).toBe(18000); // No cambió
+    expect(resMOOnly.updatedCotizacionDolar).toBe(1200); // No cambió
+
+    // Caso 2: Actualizar TODAS las capas
+    const resAll = aplicarActualizacionPreciosPresupuesto({
+      items: [testItem],
+      gastosConfig: testGastos,
+      cotizacionDolar: 1200,
+      opciones: {
+        actualizarMateriales: true,
+        actualizarManoObra: true,
+        actualizarTareasTipo: false,
+        actualizarCostosIndirectos: true,
+        actualizarDolar: true
+      },
+      insumosMap: testInsumosMap,
+      manoObraMap: testMOMap,
+      costosIndirectosCatalog: testCostosIndirectos,
+      configDolarReferenciaValor: 1350
+    });
+
+    const itemAll = resAll.updatedItems[0];
+    expect(itemAll.costoInsumos).toBe(180000);
+    expect(itemAll.costoManoObra).toBe(150000);
+    expect(itemAll.costoDirectoTotal).toBe(330000);
+    expect(resAll.updatedGastosConfig[0].valor).toBe(25000);
+    expect(resAll.updatedCotizacionDolar).toBe(1350);
+    expect(resAll.resumen.materialesCount).toBe(1);
+    expect(resAll.resumen.manoObraCount).toBe(1);
+    expect(resAll.resumen.indirectosCount).toBe(1);
+    expect(resAll.resumen.dolarActualizado).toBe(true);
+  });
+});
+
 
 
 

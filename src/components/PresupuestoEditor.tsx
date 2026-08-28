@@ -50,6 +50,7 @@ import { GastoEditorModal } from './presupuesto/GastoEditorModal';
 import { GastoCatalogPickerModal } from './presupuesto/GastoCatalogPickerModal';
 import { ParametricGastoModal } from './presupuesto/ParametricGastoModal';
 import { ClienteCombobox } from './presupuesto/ClienteCombobox';
+import { ActualizarPreciosModal } from './presupuesto/ActualizarPreciosModal';
 import { usePresupuestoEditorViewModel } from '../viewmodels/usePresupuestoEditorViewModel';
 
 interface PresupuestoEditorProps {
@@ -165,6 +166,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     handleOpenMaterialsInCatalog,
     handleRecalcularConPreciosVigentes,
     handleSavePresupuesto,
+    showActualizarPreciosModal,
+    setShowActualizarPreciosModal,
+    analisisPreciosModal,
+    handleConfirmActualizarPrecios,
     estrategiaCuadrilla,
     setEstrategiaCuadrilla,
     aplicarOptimizacionCuadrilla,
@@ -1263,6 +1268,14 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         cliente={selectedCliente}
         config={config}
         onOpenInCatalog={onViewMaterialsInCatalog ? handleOpenMaterialsInCatalog : undefined}
+      />
+
+      {/* Modal de Actualización Integral de Precios y Tarifas */}
+      <ActualizarPreciosModal
+        isOpen={showActualizarPreciosModal}
+        onClose={() => setShowActualizarPreciosModal(false)}
+        analisis={analisisPreciosModal}
+        onConfirm={handleConfirmActualizarPrecios}
       />
     </div>
   );
