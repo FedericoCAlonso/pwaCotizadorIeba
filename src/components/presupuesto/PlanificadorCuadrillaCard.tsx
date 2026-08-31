@@ -4,112 +4,140 @@ import {
   HardHat,
   Clock,
   TrendingDown,
-  ShieldCheck,
-  AlertTriangle,
-  Zap,
-  CheckCircle2,
+  Calendar,
   Sparkles,
-  Truck
+  CheckCircle2
 } from 'lucide-react';
 import {
-  EstrategiaCuadrilla,
-  NivelConfianzaSinergia,
   ItemPresupuesto,
-  CostoIndirecto,
-  CostoIndirectoItemConfig,
-  CategoriaManoDeObra
+  CategoriaManoDeObra,
+  SinergiaManoObraResultado,
+  EstrategiaCuadrilla
 } from '../../core/types';
 import {
-  calcularOptimizacionCuadrilla,
+  calcularSinergiaManoObra,
   sonItemsCompatiblesParaSinergia,
   formatARS
 } from '../../core/calculations';
 
 interface PlanificadorCuadrillaCardProps {
   items: ItemPresupuesto[];
-  costosIndirectosCatalog?: CostoIndirecto[];
-  costosIndirectosConfig?: CostoIndirectoItemConfig[];
-  categoriasManoObra?: CategoriaManoDeObra[];
-  estrategiaSeleccionada: EstrategiaCuadrilla;
-  nivelConfianza?: NivelConfianzaSinergia;
+  operarios?: number;
+  horasEfectivasJornada?: number;
   aplicarOptimizacion: boolean;
-  onSelectEstrategia: (estrategia: EstrategiaCuadrilla) => void;
-  onSelectNivelConfianza?: (nivel: NivelConfianzaSinergia) => void;
+  onSelectOperarios?: (operarios: number) => void;
   onToggleAplicarOptimizacion: (aplicar: boolean) => void;
+  categoriasManoObra?: CategoriaManoDeObra[];
+
+  // Props de compatibilidad
+  margenRiesgoPct?: number;
+  nivelMargenRiesgo?: any;
+  onSelectMargenRiesgo?: (pct: number, nivel?: any) => void;
+  estrategiaSeleccionada?: EstrategiaCuadrilla;
+  onSelectEstrategia?: (estrategia: EstrategiaCuadrilla) => void;
+  costosIndirectosCatalog?: any[];
+  costosIndirectosConfig?: any[];
+  nivelConfianza?: any;
+  onSelectNivelConfianza?: (nivel: any) => void;
 }
 
 export const PlanificadorCuadrillaCard: React.FC<PlanificadorCuadrillaCardProps> = ({
   items,
-  costosIndirectosCatalog = [],
-  costosIndirectosConfig,
-  categoriasManoObra = [],
-  estrategiaSeleccionada,
-  nivelConfianza = 80,
+  operarios = 2,
+  horasEfectivasJornada = 7.0,
   aplicarOptimizacion,
-  onSelectEstrategia,
-  onSelectNivelConfianza,
-  onToggleAplicarOptimizacion
+  onSelectOperarios,
+  onToggleAplicarOptimizacion,
+  categoriasManoObra = [],
+  // Props de compatibilidad
+  estrategiaSeleccionada,
+  onSelectEstrategia
 }) => {
   if (!items || items.length === 0) return null;
 
+  const currentOperarios = operarios ?? (estrategiaSeleccionada === 'minima' ? 1 : (estrategiaSeleccionada === 'rapida' ? 4 : 2));
   const sonCompatibles = sonItemsCompatiblesParaSinergia(items);
 
-  const resultado = calcularOptimizacionCuadrilla({
+  const sinergia: SinergiaManoObraResultado = calcularSinergiaManoObra({
     items,
-    costosIndirectosCatalog,
-    costosIndirectosConfig,
-    categoriasManoObra,
-    estrategiaSeleccionada,
-    nivelConfianza,
-    aplicarOptimizacion: aplicarOptimizacion && sonCompatibles
+    operarios: currentOperarios,
+    horasEfectivasJornada,
+    categoriasManoObra
   });
 
-  const { opciones, opcionActiva, horasTeoricasTotal, horasSetupTotal, desvioEstandarTotal, coeficienteVariacionPct, costoDiarioMovilidad, planificacion } = resultado;
+  const handleOperariosChange = (n: number) => {
+    if (onSelectOperarios) {
+      onSelectOperarios(n);
+    }
+    if (onSelectEstrategia) {
+      const est: EstrategiaCuadrilla = n === 1 ? 'minima' : (n >= 4 ? 'rapida' : 'optima');
+      onSelectEstrategia(est);
+    }
+  };
 
-  const nivelesConfianza: { valor: NivelConfianzaSinergia; label: string; sub: string; z: string }[] = [
-    { valor: 50, label: '50% Competitivo', sub: 'Media pura (Z=0)', z: '0.00' },
-    { valor: 80, label: '80% Equilibrado', sub: 'Estándar obra (Z=0.84)', z: '0.84' },
-    { valor: 90, label: '90% Conservador', sub: 'Mayor cobertura (Z=1.28)', z: '1.28' },
-    { valor: 95, label: '95% Blindado', sub: 'Cero riesgo (Z=1.64)', z: '1.64' }
-  ];
+  const cuadrillasPreview = React.useMemo(() => {
+    return [1, 2, 3, 4].map((num) => {
+      const res = calcularSinergiaManoObra({
+        items,
+        operarios: num,
+        horasEfectivasJornada,
+        categoriasManoObra
+      });
+      return {
+        operarios: num,
+        jornadas: res.jornadasEstimadas,
+        diasEnteros: res.diasEnterosObra,
+        horasReloj: res.tiempoObraHorasReloj,
+        horasFinales: res.horasFinales,
+        composicionTexto: res.composicionCuadrillaTexto,
+        tarifaPonderada: res.tarifaPonderadaCuadrilla,
+        costoMOD: res.costoManoObraSinergico
+      };
+    });
+  }, [items, horasEfectivasJornada, categoriasManoObra]);
 
   return (
-    <div className="bg-surface-container-low border border-outline-variant/30 rounded-3xl p-4 sm:p-6 space-y-4 shadow-sm hover:shadow-md transition-shadow">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-outline-variant/20">
+    <div className="bg-surface-container-low border border-outline-variant/30 rounded-3xl p-4 sm:p-6 space-y-5 shadow-2xs hover:shadow-xs transition-shadow">
+      {/* ─── Header M3: Título, Roles y Switch ─── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-outline-variant/20">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-2xl bg-primary/10 text-primary shrink-0">
-            <HardHat className="w-5 h-5" />
+            <Users className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm sm:text-base font-bold text-on-surface">
-                Planificación de Cuadrilla & Sinergia Estocástica
+                Planificador de Cuadrilla & Plazos de Obra
               </h3>
               <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container">
-                {opcionActiva.operariosTotales} {opcionActiva.operariosTotales === 1 ? 'Operario' : 'Operarios'} · {opcionActiva.jornadasDias} Días
+                {currentOperarios} {currentOperarios === 1 ? 'Operario' : 'Operarios'}
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                Confianza: {nivelConfianza}% (Z={planificacion.zScore?.toFixed(2)})
+              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                {sinergia.composicionCuadrillaTexto}
               </span>
+              {sonCompatibles && (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-bold">
+                  -{Math.round((1 - sinergia.factorSinergia) * 100)}% ahorro MOD
+                </span>
+              )}
             </div>
             <p className="text-xs text-on-surface-variant mt-0.5">
-              Composición probabilística de mano de obra (PERT / T.C.L.) con reducción de setup compartido y tándem.
+              Optimización física de mano de obra en tándem, composición de roles y cálculo de jornadas de convenio.
             </p>
           </div>
         </div>
 
         {/* Switch Aplicar al Presupuesto */}
         <label
-          className={`flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border border-outline-variant/20 shrink-0 select-none ${
+          className={`flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border border-outline-variant/20 shrink-0 select-none transition-all ${
             sonCompatibles
-              ? 'cursor-pointer bg-surface-container'
+              ? 'cursor-pointer bg-surface-container hover:bg-surface-container-high'
               : 'opacity-60 cursor-not-allowed bg-surface-container/50'
           }`}
           title={
             sonCompatibles
-              ? 'Aplica el coeficiente de sinergia estocástica de cuadrilla a la mano de obra del presupuesto'
-              : 'La sinergia requiere al menos 2 ítems de obra compatibles en la cotización'
+              ? 'Aplica la reducción de horas por sinergia y cálculo de jornales al presupuesto'
+              : 'La sinergia requiere al menos 2 partidas con mano de obra real en la cotización'
           }
         >
           <input
@@ -120,208 +148,162 @@ export const PlanificadorCuadrillaCard: React.FC<PlanificadorCuadrillaCardProps>
             className="w-4 h-4 text-primary rounded border-outline bg-surface-container-highest focus:ring-primary disabled:opacity-50"
           />
           <span className="text-xs font-semibold text-on-surface">
-            {sonCompatibles ? 'Aplicar sinergia al precio' : 'Sinergia no aplicable (1 solo ítem)'}
+            {sonCompatibles ? 'Aplicar al presupuesto' : 'Sinergia no aplicable (1 ítem solo)'}
           </span>
         </label>
       </div>
 
-      {/* Probabilistic Confidence Level Selector */}
-      {sonCompatibles && onSelectNivelConfianza && (
-        <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/20 space-y-2">
-          <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
-            <span className="font-bold text-on-surface flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-primary" />
-              Nivel de Certeza / Confianza Probabilística:
+      {/* ─── Grid de Opciones de Cuadrilla (M3 Cards) ─── */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+            <HardHat className="w-4 h-4 text-primary" />
+            Selección de Cuadrilla de Obra:
+          </span>
+          {currentOperarios >= 2 ? (
+            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-emerald-500/20">
+              <Sparkles className="w-3 h-3" />
+              Bono tándem activo (-10% tiempo de tracción)
             </span>
-            <span className="text-[11px] text-on-surface-variant font-mono">
-              σ Total = ±{desvioEstandarTotal} hs (CV: {coeficienteVariacionPct}%)
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {nivelesConfianza.map((nc) => {
-              const isSelected = nivelConfianza === nc.valor;
-              return (
-                <button
-                  key={nc.valor}
-                  type="button"
-                  onClick={() => onSelectNivelConfianza(nc.valor)}
-                  className={`p-2 rounded-xl text-left border transition-all ${
-                    isSelected
-                      ? 'bg-primary/15 border-primary text-primary font-bold shadow-xs'
-                      : 'bg-surface-container-high border-outline-variant/20 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest'
-                  }`}
-                >
-                  <div className="text-xs">{nc.label}</div>
-                  <div className="text-[10px] opacity-80">{nc.sub}</div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* 3 Strategy Comparison Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-        {/* 1. Cuadrilla Mínima */}
-        <div
-          onClick={() => onSelectEstrategia('minima')}
-          className={`cursor-pointer rounded-2xl p-4 border transition-all space-y-3 relative ${
-            estrategiaSeleccionada === 'minima'
-              ? 'bg-surface-container-high border-primary ring-2 ring-primary/40 shadow-xs'
-              : 'bg-surface-container hover:bg-surface-container-high border-outline-variant/30 opacity-90 hover:opacity-100'
-          }`}
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="text-xs font-bold text-on-surface block">{opciones.minima.titulo}</span>
-              <span className="text-[11px] text-on-surface-variant">{opciones.minima.subtitulo}</span>
-            </div>
-            {estrategiaSeleccionada === 'minima' && (
-              <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-            )}
-          </div>
-
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between text-on-surface-variant">
-              <span>Días estimados:</span>
-              <strong className="text-on-surface font-mono">{opciones.minima.jornadasDias} días</strong>
-            </div>
-            <div className="flex justify-between text-on-surface-variant">
-              <span>Horas efectivas:</span>
-              <span className="font-mono">{opciones.minima.horasTotales} hs</span>
-            </div>
-            <div className="flex justify-between text-on-surface-variant">
-              <span>Costo ejecución:</span>
-              <span className="font-mono font-bold text-on-surface">{formatARS(opciones.minima.costoTotalEjecucionARS)}</span>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-outline-variant/15 flex items-center justify-between text-[10px]">
-            <span className="text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Riesgo Parate: Muy Bajo
-            </span>
-            <span className="text-on-surface-variant">100% horas base</span>
-          </div>
+          ) : (
+            <span className="text-[10px] text-on-surface-variant">Trabajo individual secuencial</span>
+          )}
         </div>
 
-        {/* 2. Cuadrilla Óptima (Recomendada) */}
-        <div
-          onClick={() => onSelectEstrategia('optima')}
-          className={`cursor-pointer rounded-2xl p-4 border transition-all space-y-3 relative ${
-            estrategiaSeleccionada === 'optima'
-              ? 'bg-primary-container/20 border-primary ring-2 ring-primary shadow-sm'
-              : 'bg-surface-container hover:bg-surface-container-high border-primary/40'
-          }`}
-        >
-          <div className="absolute -top-2.5 right-4 bg-primary text-on-primary text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs flex items-center gap-1 uppercase tracking-wider">
-            <Sparkles className="w-3 h-3" />
-            Recomendado
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {cuadrillasPreview.map((item) => {
+            const isSelected = currentOperarios === item.operarios;
+            return (
+              <button
+                key={item.operarios}
+                type="button"
+                onClick={() => handleOperariosChange(item.operarios)}
+                className={`p-3.5 rounded-2xl text-left border transition-all flex flex-col justify-between space-y-2.5 relative ${
+                  isSelected
+                    ? 'bg-primary/10 border-primary ring-2 ring-primary/30 shadow-xs'
+                    : 'bg-surface-container border-outline-variant/30 text-on-surface-variant hover:border-outline-variant/60 hover:bg-surface-container-high'
+                }`}
+              >
+                {/* Header de la tarjeta */}
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-xs sm:text-sm text-on-surface">
+                      {item.operarios} {item.operarios === 1 ? 'Operario' : 'Operarios'}
+                    </span>
+                  </div>
+                  {isSelected && (
+                    <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                  )}
+                </div>
 
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="text-xs font-bold text-primary block">{opciones.optima.titulo}</span>
-              <span className="text-[11px] text-on-surface-variant">{opciones.optima.subtitulo}</span>
-            </div>
-            {estrategiaSeleccionada === 'optima' && (
-              <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-            )}
-          </div>
+                {/* Plazo Destacado */}
+                <div className="space-y-0.5">
+                  <div className="text-base sm:text-lg font-black font-mono text-primary leading-tight">
+                    {item.diasEnteros} {item.diasEnteros === 1 ? 'Jornada' : 'Jornadas'}
+                  </div>
+                  <div className="text-[11px] text-on-surface-variant font-medium">
+                    {item.horasReloj} hs reloj en obra <span className="opacity-75">({item.jornadas} d)</span>
+                  </div>
+                </div>
 
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between text-on-surface-variant">
-              <span>Días estimados:</span>
-              <strong className="text-primary font-mono font-bold">{opciones.optima.jornadasDias} días</strong>
-            </div>
-            <div className="flex justify-between text-on-surface-variant">
-              <span>Horas optimizadas:</span>
-              <span className="font-mono font-bold text-on-surface">
-                {opciones.optima.horasTotales} hs <span className="text-emerald-600 text-[10px]">(-15%)</span>
-              </span>
-            </div>
-            <div className="flex justify-between text-on-surface-variant">
-              <span>Costo ejecución:</span>
-              <span className="font-mono font-bold text-primary">{formatARS(opciones.optima.costoTotalEjecucionARS)}</span>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-outline-variant/15 flex items-center justify-between text-[10px]">
-            <span className="text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Riesgo Parate: Bajo
-            </span>
-            {opciones.optima.ahorroRespectoBaseARS > 0 && (
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5 font-mono">
-                <TrendingDown className="w-3 h-3" />
-                Ahorro {formatARS(opciones.optima.ahorroRespectoBaseARS)}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* 3. Cuadrilla Rápida / Crash */}
-        <div
-          onClick={() => onSelectEstrategia('rapida')}
-          className={`cursor-pointer rounded-2xl p-4 border transition-all space-y-3 relative ${
-            estrategiaSeleccionada === 'rapida'
-              ? 'bg-surface-container-high border-amber-500 ring-2 ring-amber-500/40 shadow-xs'
-              : 'bg-surface-container hover:bg-surface-container-high border-outline-variant/30 opacity-90 hover:opacity-100'
-          }`}
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="text-xs font-bold text-on-surface block">{opciones.rapida.titulo}</span>
-              <span className="text-[11px] text-on-surface-variant">{opciones.rapida.subtitulo}</span>
-            </div>
-            {estrategiaSeleccionada === 'rapida' && (
-              <CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0" />
-            )}
-          </div>
-
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between text-on-surface-variant">
-              <span>Días estimados:</span>
-              <strong className="text-on-surface font-mono">{opciones.rapida.jornadasDias} días</strong>
-            </div>
-            <div className="flex justify-between text-on-surface-variant">
-              <span>Horas efectivas:</span>
-              <span className="font-mono">{opciones.rapida.horasTotales} hs</span>
-            </div>
-            <div className="flex justify-between text-on-surface-variant">
-              <span>Costo ejecución:</span>
-              <span className="font-mono font-bold text-on-surface">{formatARS(opciones.rapida.costoTotalEjecucionARS)}</span>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-outline-variant/15 flex items-center justify-between text-[10px]">
-            <span className="text-amber-700 dark:text-amber-300 font-bold flex items-center gap-1">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-              Riesgo Parate: Alto
-            </span>
-            <span className="text-on-surface-variant">1h parate = 4h salario</span>
-          </div>
+                {/* Composición y Costo de Nómina */}
+                <div className="pt-2 border-t border-outline-variant/20 space-y-0.5 w-full">
+                  <div className="text-[11px] font-semibold text-on-surface truncate">
+                    {item.composicionTexto}
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-on-surface-variant font-mono">
+                    <span>{formatARS(item.tarifaPonderada)}/h</span>
+                    <span className="font-bold text-on-surface">{formatARS(item.costoMOD)}</span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Strategic Insights Footer */}
-      <div className="bg-surface-container/70 p-3.5 rounded-2xl border border-outline-variant/20 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-on-surface-variant">
-            • Horas Teóricas Sumadas: <strong className="text-on-surface font-mono">{horasTeoricasTotal} hs</strong>
-          </span>
-          <span className="text-on-surface-variant">
-            • Setup Consolidado: <strong className="text-on-surface font-mono">{horasSetupTotal} hs</strong>
-          </span>
-          <span className="text-on-surface-variant">
-            • Logística Diaria: <strong className="text-on-surface font-mono">{formatARS(costoDiarioMovilidad)}/día</strong>
-          </span>
+      {/* ─── Banner Destacado M3: Resumen Ejecutivo de Obra ─── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-surface-container rounded-2xl border border-outline-variant/20 items-center">
+        {/* A. Plazo Físico */}
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
+            <Calendar className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xs text-on-surface-variant font-medium">
+              Plazo de Entrega:
+            </div>
+            <div className="text-xs sm:text-sm font-black text-primary font-mono">
+              {sinergia.diasEnterosObra} {sinergia.diasEnterosObra === 1 ? 'Jornada completa' : 'Jornadas completas'}
+            </div>
+            <div className="text-[11px] text-on-surface-variant flex items-center gap-1 mt-0.5">
+              <Clock className="w-3.5 h-3.5 text-primary" />
+              <span>{sinergia.tiempoObraHorasReloj} hs reloj en sitio ({sinergia.horasEfectivasJornada}h netas/día)</span>
+            </div>
+          </div>
         </div>
 
-        <div className="text-[11px] text-primary font-semibold flex items-center gap-1.5">
-          <Zap className="w-3.5 h-3.5" />
-          <span>{opcionActiva.descripcionRiesgo}</span>
+        {/* B. Composición & Tarifa */}
+        <div className="flex items-center gap-3 border-t md:border-t-0 md:border-l border-outline-variant/20 pt-2.5 md:pt-0 md:pl-4">
+          <div className="p-2.5 rounded-xl bg-secondary-container text-on-secondary-container shrink-0">
+            <Users className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xs text-on-surface-variant font-medium">
+              Nómina Asignada:
+            </div>
+            <div className="text-xs sm:text-sm font-bold text-on-surface">
+              {sinergia.composicionCuadrillaTexto}
+            </div>
+            <div className="text-[11px] text-on-surface-variant font-mono mt-0.5">
+              Tarifa Ponderada: <strong>{formatARS(sinergia.tarifaPonderadaCuadrilla)}/h</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* C. Consumo MOD & Ahorro */}
+        <div className="flex items-center justify-between md:justify-end gap-3 border-t md:border-t-0 md:border-l border-outline-variant/20 pt-2.5 md:pt-0 md:pl-4">
+          <div className="text-left md:text-right">
+            <div className="text-xs text-on-surface-variant font-medium">
+              Costo Nómina Presupuesto:
+            </div>
+            <div className="text-sm font-black text-on-surface font-mono">
+              {formatARS(sinergia.costoManoObraSinergico)}
+            </div>
+            <div className="text-[11px] text-on-surface-variant">
+              {sinergia.horasFinales} hs-hombre liquidables
+            </div>
+          </div>
+
+          {sonCompatibles && sinergia.ahorroManoObraARS > 0 && (
+            <div className="text-right shrink-0">
+              <div className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold flex items-center justify-end gap-1">
+                <TrendingDown className="w-3 h-3" />
+                Ahorro:
+              </div>
+              <div className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300">
+                {formatARS(sinergia.ahorroManoObraARS)}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ─── Footer de Métricas Sinérgicas M3 ─── */}
+      <div className="bg-surface-container/50 p-3 rounded-2xl border border-outline-variant/20 flex flex-wrap items-center justify-between gap-3 text-xs text-on-surface-variant">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span>
+            Setup consolidado: <strong className="text-on-surface font-mono">{sinergia.horasSetupConsolidado} hs</strong> (-{sinergia.ahorroSetupHs} hs)
+          </span>
+          {currentOperarios >= 2 && (
+            <span>
+              Bono tándem: <strong className="text-on-surface font-mono">-{sinergia.bonoTandemHs} hs</strong>
+            </span>
+          )}
+        </div>
+
+        <div className="text-[11px] italic text-on-surface-variant">
+          * Horas efectivas por jornada: {sinergia.horasEfectivasJornada} hs (absorbe apertura, limpieza y pausas diarias).
         </div>
       </div>
     </div>

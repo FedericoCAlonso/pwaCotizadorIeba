@@ -302,10 +302,13 @@ export interface SolicitudCotizacion {
 }
 
 // ─── 7. Mano de Obra y Costos Indirectos ───────────────────────────────────────
+export type RolCategoriaManoDeObra = 'oficial' | 'ayudante' | 'especialista' | 'independiente';
+
 export interface CategoriaManoDeObra {
   id: string;
   nombre: string;
   costoHora: number;
+  rol?: RolCategoriaManoDeObra; // Rol funcional en cuadrilla ('oficial', 'ayudante', 'especialista', 'independiente')
   fechaActualizacion: string;
   createdAt?: string;
   updatedAt?: string;
@@ -652,8 +655,34 @@ export interface Proyecto {
   deleted?: boolean;
 }
 
-export type EstrategiaCuadrilla = 'minima' | 'optima' | 'rapida' | 'personalizada';
+// ─── 10b. Sinergia Determinística de Tareas & Margen de Riesgo Global ─────────
+export type NivelMargenRiesgo = 'bajo' | 'medio' | 'alto' | 'personalizado';
 
+export interface SinergiaManoObraResultado {
+  operarios: number;
+  horasTeoricasTotal: number; // Horas-Hombre brutas sumadas
+  horasSetupAislado: number;
+  horasSetupConsolidado: number;
+  ahorroSetupHs: number;
+  bonoTandemHs: number;
+  horasFinales: number; // Horas-Hombre sinérgicas (consumo MOD)
+  horasEfectivasJornada: number; // Capacidad neta diaria por operario (ej: 7.0 hs)
+  tiempoObraHorasReloj: number; // Tiempo físico de obra en horas de reloj (horasFinales / operarios)
+  jornadasEstimadas: number; // Días / Jornadas fraccionales = horasFinales / (operarios * horasEfectivasJornada)
+  diasEnterosObra: number; // Jornadas enteras cerradas de convenio: Math.ceil(jornadasEstimadas)
+  horasDevengadasJornal: number; // Horas totales a pagar por convenio = diasEnterosObra * operarios * 8 hs
+  tarifaPonderadaCuadrilla: number; // Tarifa horaria ponderada según roles (Oficiales vs Ayudantes)
+  composicionCuadrillaTexto: string; // ej: "2 Oficiales + 1 Ayudante"
+  factorSinergia: number; // Factor multiplicador (ej: 0.82)
+  costoManoObraBase: number;
+  costoManoObraSinergico: number;
+  ahorroManoObraARS: number;
+  sonCompatibles: boolean;
+  explicacion: string;
+}
+
+// Compatibilidad retroactiva transitoria
+export type EstrategiaCuadrilla = 'minima' | 'optima' | 'rapida' | 'personalizada';
 export type NivelConfianzaSinergia = 50 | 80 | 90 | 95;
 
 export interface OpcionCuadrillaSimulada {
@@ -663,14 +692,14 @@ export interface OpcionCuadrillaSimulada {
   operariosOficiales: number;
   operariosAyudantes: number;
   operariosTotales: number;
-  factorSinergia: number; // e.g. 1.0, 0.85, 0.95
-  horasTotales: number;   // Horas finales tras sinergia
+  factorSinergia: number;
+  horasTotales: number;
   horasBaseTeoricas?: number;
   desvioEstandarHoras?: number;
-  jornadasDias: number;   // Días de obra (base 8h/jornada)
+  jornadasDias: number;
   costoManoObraARS: number;
-  costoLogisticaARS: number; // Movilidad / viáticos diarios
-  costoTotalEjecucionARS: number; // MOD + Logística
+  costoLogisticaARS: number;
+  costoTotalEjecucionARS: number;
   ahorroRespectoBaseARS: number;
   nivelRiesgo: 'muy_bajo' | 'bajo' | 'medio' | 'alto';
   descripcionRiesgo: string;
@@ -678,7 +707,7 @@ export interface OpcionCuadrillaSimulada {
 }
 
 export interface PlanificacionCuadrilla {
-  estrategia: EstrategiaCuadrilla;
+  estrategia?: EstrategiaCuadrilla;
   nivelConfianza?: NivelConfianzaSinergia;
   zScore?: number;
   desvioEstandarHoras?: number;
@@ -697,7 +726,7 @@ export interface PlanificacionCuadrilla {
   costoLogisticaEstimado: number;
   costoTotalEjecucion: number;
   ahorroEstimadoARS: number;
-  nivelRiesgoParate: 'muy_bajo' | 'bajo' | 'medio' | 'alto';
+  nivelRiesgoParate?: 'muy_bajo' | 'bajo' | 'medio' | 'alto';
   explicacionOptimizacion: string;
   aplicarOptimizacionAlPresupuesto: boolean;
 }
@@ -747,11 +776,19 @@ export interface Presupuesto {
   costosIndirectosConfig?: CostoIndirectoItemConfig[];
   costosIndirectosAplicados: CostoIndirectoSnapshot[];
 
-  // ─── Planificación de Sinergia de Obra & Cuadrilla ───
-  planificacionCuadrilla?: PlanificacionCuadrilla;
+  // ─── Sinergia de Tareas & Margen de Riesgo Global ───
+  operariosCuadrilla?: number; // Cantidad manual de operarios (default: 2)
+  margenRiesgoPorcentaje?: number; // % margen de riesgo sobre costo directo (ej: 20%)
+  nivelMargenRiesgo?: NivelMargenRiesgo; // 'bajo' (10%), 'medio' (20%), 'alto' (35%), 'personalizado'
+  montoMargenRiesgo?: number; // Monto en ARS del margen de riesgo
+  aplicarSinergiaManoObra?: boolean;
   factorSinergiaManoObra?: number;
+  tiempoObraHorasReloj?: number; // Tiempo de obra en horas de reloj en el sitio
+  jornadasEstimadas?: number; // Cantidad de jornadas / días de obra
+  sinergiaManoObra?: SinergiaManoObraResultado;
+  planificacionCuadrilla?: PlanificacionCuadrilla; // Compatibilidad retroactiva
 
-  // ─── Nuevo Motor de Cálculo: C → GG → B → S → Impuestos → Precio Final & K ───
+  // ─── Motor de Cálculo: C → GG → B → S → Impuestos → Precio Final & K ───
   costoGlobal?: number; // C = Σ(Insumos + Mano de Obra + Servicios)
   gastosGeneralesTotal?: number; // GG total = Σ(GG fijos) + Σ(GG% × C)
   beneficioPorcentaje?: number; // % beneficio aplicado sobre (C + GG)
@@ -852,6 +889,9 @@ export interface AppConfig {
   porcentajeIVAPorDefecto: number;
   porcentajeIIBBPorDefecto: number;
   margenPorDefectoPct: number;
+  margenRiesgoDefaultPct?: number; // Porcentaje de margen de riesgo global por defecto (ej: 20)
+  operariosCuadrillaDefault?: number; // Cantidad de operarios por defecto (ej: 2)
+  horasEfectivasJornadaDefault?: number; // Horas efectivas de producción neta por jornada (default: 7.0)
   validezDiasPorDefecto: number;
   prefijoPresupuesto: string;
   siguienteNumeroCorrelativo: number;

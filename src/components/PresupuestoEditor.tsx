@@ -175,7 +175,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     nivelConfianzaCuadrilla,
     setNivelConfianzaCuadrilla,
     aplicarOptimizacionCuadrilla,
-    setAplicarOptimizacionCuadrilla
+    setAplicarOptimizacionCuadrilla,
+    operariosCuadrilla,
+    setOperariosCuadrilla,
+    margenRiesgoPorcentaje,
+    setMargenRiesgoPorcentaje,
+    nivelMargenRiesgo,
+    setNivelMargenRiesgo
   } = usePresupuestoEditorViewModel({
     presupuestoId,
     initialClienteId,
@@ -1044,15 +1050,23 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           {items.length > 0 && (
             <PlanificadorCuadrillaCard
               items={items}
+              operarios={operariosCuadrilla}
+              margenRiesgoPct={margenRiesgoPorcentaje}
+              nivelMargenRiesgo={nivelMargenRiesgo}
+              aplicarOptimizacion={aplicarOptimizacionCuadrilla}
+              onSelectOperarios={setOperariosCuadrilla}
+              onSelectMargenRiesgo={(pct, nivel) => {
+                setMargenRiesgoPorcentaje(pct);
+                if (nivel) setNivelMargenRiesgo(nivel);
+              }}
+              onToggleAplicarOptimizacion={setAplicarOptimizacionCuadrilla}
               costosIndirectosCatalog={costosIndirectos}
               costosIndirectosConfig={costosIndirectosConfig}
               categoriasManoObra={manoObraList}
               estrategiaSeleccionada={estrategiaCuadrilla}
               nivelConfianza={nivelConfianzaCuadrilla}
-              aplicarOptimizacion={aplicarOptimizacionCuadrilla}
               onSelectEstrategia={setEstrategiaCuadrilla}
               onSelectNivelConfianza={setNivelConfianzaCuadrilla}
-              onToggleAplicarOptimizacion={setAplicarOptimizacionCuadrilla}
             />
           )}
 

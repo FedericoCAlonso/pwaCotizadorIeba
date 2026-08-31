@@ -5,6 +5,7 @@ import {
   Oferta,
   Insumo,
   CategoriaManoDeObra,
+  RolCategoriaManoDeObra,
   CostoIndirecto,
   TareaTipo,
   Cliente,
@@ -86,12 +87,24 @@ export const INITIAL_INSUMOS: Insumo[] = INITIAL_MATERIALES.map(m => {
   };
 });
 
-export const INITIAL_MANO_OBRA: CategoriaManoDeObra[] = (bdDefaultData.manoObra as Partial<CategoriaManoDeObra>[] || []).map((mo) => ({
-  id: mo.id || `mo-${crypto.randomUUID()}`,
-  nombre: mo.nombre || '',
-  costoHora: mo.costoHora || 0,
-  fechaActualizacion: now
-}));
+export const INITIAL_MANO_OBRA: CategoriaManoDeObra[] = (bdDefaultData.manoObra as Partial<CategoriaManoDeObra>[] || []).map((mo) => {
+  const nombreLower = (mo.nombre || '').toLowerCase();
+  let rol: RolCategoriaManoDeObra = 'oficial';
+  if (nombreLower.includes('ayudante') || nombreLower.includes('medio')) {
+    rol = 'ayudante';
+  } else if (nombreLower.includes('independiente') || nombreLower.includes('autonomo')) {
+    rol = 'independiente';
+  } else if (nombreLower.includes('ingeniero') || nombreLower.includes('especialista') || nombreLower.includes('protocolo')) {
+    rol = 'especialista';
+  }
+  return {
+    id: mo.id || `mo-${crypto.randomUUID()}`,
+    nombre: mo.nombre || '',
+    costoHora: mo.costoHora || 0,
+    rol: mo.rol || rol,
+    fechaActualizacion: now
+  };
+});
 
 export const INITIAL_COSTOS_INDIRECTOS: CostoIndirecto[] = (bdDefaultData.costosIndirectos || []) as CostoIndirecto[];
 

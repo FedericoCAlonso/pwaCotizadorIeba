@@ -15,6 +15,7 @@ import {
   Printer,
   Check,
   HardHat,
+  Clock,
   MessageSquare
 } from 'lucide-react';
 import { AppConfig, Presupuesto, EstadoPresupuesto, InsumoEnTarea, ManoObraEnTarea, MaterialFilterContext } from '../core/types';
@@ -524,20 +525,37 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
             })()}
           </div>
 
-          {/* Operational Crew Planning Banner */}
-          {presupuesto.planificacionCuadrilla && (
-            <div className="bg-primary/5 p-4 rounded-2xl border border-primary/20 text-left space-y-1.5">
+          {/* Sinergia de Tareas & Cuadrilla Banner */}
+          {(presupuesto.sinergiaManoObra || presupuesto.planificacionCuadrilla) && (
+            <div className="bg-primary/5 p-4 rounded-2xl border border-primary/20 text-left space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-bold text-primary flex items-center gap-1.5">
-                  <HardHat className="w-4 h-4 text-primary" />
-                  Estrategia de Ejecución: {presupuesto.planificacionCuadrilla.operariosTotales} {presupuesto.planificacionCuadrilla.operariosTotales === 1 ? 'Operario' : 'Operarios'} ({presupuesto.planificacionCuadrilla.jornadasEstimadas} Días)
-                </span>
-                <span className="text-[11px] font-mono font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">
-                  Sinergia: {Math.round(presupuesto.planificacionCuadrilla.factorSinergiaAplicado * 100)}%
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                    <HardHat className="w-4 h-4 text-primary" />
+                    Cuadrilla: {presupuesto.operariosCuadrilla ?? presupuesto.sinergiaManoObra?.operarios ?? presupuesto.planificacionCuadrilla?.operariosTotales ?? 2} {((presupuesto.operariosCuadrilla ?? presupuesto.sinergiaManoObra?.operarios ?? presupuesto.planificacionCuadrilla?.operariosTotales ?? 2) === 1) ? 'Operario' : 'Operarios'}
+                  </span>
+                  {(presupuesto.jornadasEstimadas || presupuesto.sinergiaManoObra?.jornadasEstimadas) ? (
+                    <span className="text-xs font-bold text-on-surface flex items-center gap-1 bg-surface-container px-2 py-0.5 rounded-lg border border-outline-variant/30">
+                      <Clock className="w-3.5 h-3.5 text-primary" />
+                      Plazo: {presupuesto.jornadasEstimadas ?? presupuesto.sinergiaManoObra?.jornadasEstimadas} {((presupuesto.jornadasEstimadas ?? presupuesto.sinergiaManoObra?.jornadasEstimadas) === 1) ? 'Jornada' : 'Jornadas'} ({presupuesto.tiempoObraHorasReloj ?? presupuesto.sinergiaManoObra?.tiempoObraHorasReloj} hs reloj)
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-2">
+                  {(presupuesto.factorSinergiaManoObra && presupuesto.factorSinergiaManoObra < 1.0) && (
+                    <span className="text-[11px] font-mono font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">
+                      Sinergia: {Math.round((1 - presupuesto.factorSinergiaManoObra) * 100)}% de ahorro MOD
+                    </span>
+                  )}
+                  {presupuesto.margenRiesgoPorcentaje ? (
+                    <span className="text-[11px] font-mono font-bold bg-secondary-container text-on-secondary-container px-2.5 py-0.5 rounded-full">
+                      Riesgo: +{presupuesto.margenRiesgoPorcentaje}%
+                    </span>
+                  ) : null}
+                </div>
               </div>
               <p className="text-[11px] text-on-surface-variant leading-relaxed">
-                {presupuesto.planificacionCuadrilla.explicacionOptimizacion}
+                {presupuesto.sinergiaManoObra?.explicacion || presupuesto.planificacionCuadrilla?.explicacionOptimizacion}
               </p>
             </div>
           )}
@@ -558,6 +576,12 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                   <div className="flex justify-between">
                     <span>1. Servicios Tercerizados:</span>
                     <span className="font-mono">{formatARS(presupuesto.subtotalServiciosTercerizados)}</span>
+                  </div>
+                ) : null}
+                {presupuesto.montoMargenRiesgo ? (
+                  <div className="flex justify-between text-slate-700 font-medium">
+                    <span>Margen de Riesgo (+{presupuesto.margenRiesgoPorcentaje}%):</span>
+                    <span className="font-mono">+{formatARS(presupuesto.montoMargenRiesgo)}</span>
                   </div>
                 ) : null}
                 <div className="flex justify-between font-semibold border-t border-slate-200 pt-1">

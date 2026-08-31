@@ -31,6 +31,8 @@ import {
   NivelConfianzaSinergia,
   OpcionCuadrillaSimulada,
   PlanificacionCuadrilla,
+  SinergiaManoObraResultado,
+  NivelMargenRiesgo,
   CapituloPresupuesto,
   GastoPresupuestoConfig,
   ParametroTrabajoTipo,
@@ -1288,6 +1290,11 @@ export interface TotalesPresupuestoResultado {
   gastosDesglosados: GastoDesglosadoResultado[];
   capitulosTotales: Record<string, CapituloTotalResultado>;
 
+  // ─── Margen de Riesgo Global sobre Costo Directo ───
+  costoDirectoBase?: number; // C base antes de riesgo
+  margenRiesgoPorcentaje?: number; // % aplicado (ej: 20%)
+  montoMargenRiesgo?: number; // Monto en ARS
+
   costoTotalObra: number; // C + GG
   montoGanancia: number; // Alias de B
   precioVentaSinImpuestos: number; // Alias de S
@@ -1298,6 +1305,7 @@ export interface TotalesPresupuestoResultado {
 /**
  * Calcula los totales completos de un presupuesto siguiendo el orden de dependencia estricto:
  * 1. Costo Directo (C) = Total Materiales (Base + Gastos Mat) + Total MO (Base + Gastos MO) + Total Servicios (Base + Gastos Serv)
+ *    + Margen de Riesgo Global (Contingencia / Imprevistos sobre Costo Directo)
  * 2. Costos Indirectos (GG) = Σ(GG fijos) + Σ(GG% × C)
  * 3. Beneficio (B) = %beneficio × (C + GG)
  * 4. Subtotal (S) = C + GG + B
@@ -1314,6 +1322,7 @@ export function calcularTotalesPresupuesto(params: {
   gastosConfig?: GastoPresupuestoConfig[];
   margenPorcentaje?: number;
   beneficioPorcentaje?: number;
+  margenRiesgoPorcentaje?: number;
   impuestosDetalle: ImpuestoItem[];
   tipoFactura?: TipoFactura;
   cotizacionMonedaExtranjera?: number;
@@ -1327,6 +1336,7 @@ export function calcularTotalesPresupuesto(params: {
     gastosConfig,
     margenPorcentaje,
     beneficioPorcentaje: beneficioInput,
+    margenRiesgoPorcentaje: margenRiesgoInput,
     impuestosDetalle = [],
     tipoFactura,
     cotizacionMonedaExtranjera,
@@ -1568,7 +1578,12 @@ export function calcularTotalesPresupuesto(params: {
   const subtotalInsumosTotal = roundMoney(subtotalInsumosBase + gastosMaterialesTotal);
   const subtotalManoObraTotal = roundMoney(subtotalManoObraBase + gastosManoObraTotal);
   const subtotalServiciosTotal = roundMoney(subtotalServiciosBase + gastosServiciosTotal);
-  const costoGlobal = roundMoney(subtotalInsumosTotal + subtotalManoObraTotal + subtotalServiciosTotal);
+  const costoDirectoBase = roundMoney(subtotalInsumosTotal + subtotalManoObraTotal + subtotalServiciosTotal);
+
+  // Margen de Riesgo Global sobre Costos Directos (Contingencia / Imprevistos)
+  const margenRiesgoPct = safeNum(margenRiesgoInput);
+  const montoMargenRiesgo = margenRiesgoPct > 0 ? roundMoney(costoDirectoBase * (margenRiesgoPct / 100)) : 0;
+  const costoGlobal = roundMoney(costoDirectoBase + montoMargenRiesgo);
 
   // 4. Costos Indirectos Globales (GG)
   const baseIndirectos = roundMoney(costoGlobal + totalIndirectosAbsolutos);
@@ -1792,6 +1807,10 @@ export function calcularTotalesPresupuesto(params: {
     costosIndirectosAplicados,
     gastosDesglosados,
     capitulosTotales,
+
+    costoDirectoBase,
+    margenRiesgoPorcentaje: margenRiesgoPct,
+    montoMargenRiesgo,
 
     costoTotalObra: baseCostoMasGG,
     montoGanancia: beneficioMonto,
@@ -2524,8 +2543,214 @@ export function calcularConsumosTareaTipo(
   };
 }
 
-// ─── 14. Motor de Optimización de Sinergia de Obra & Cuadrilla ───────────────
+// ─── 14. Motor de Sinergia Determinística de Tareas & Margen de Riesgo ────────
 
+/**
+ * Evalúa si un conjunto de ítems de cotización es compatible y combinable (mergeable)
+ * para generar sinergia real de tareas y reducción de tiempos muertos en obra.
+ *
+ * Criterios técnicos de compatibilidad:
+ * 1. Debe haber más de 1 ítem (items.length > 1).
+ * 2. Al menos 2 ítems deben requerir mano de obra real (manoObraSnapshot o costoManoObra > 0).
+ */
+export function sonItemsCompatiblesParaSinergia(items: ItemPresupuesto[]): boolean {
+  if (!items || items.length <= 1) return false;
+
+  const itemsConMO = items.filter(
+    (it) =>
+      (it.manoObraSnapshot && it.manoObraSnapshot.length > 0) ||
+      (it.costoManoObra && it.costoManoObra > 0)
+  );
+
+  return itemsConMO.length >= 2;
+}
+
+/**
+ * Calcula la sinergia determinística de mano de obra cuando se combinan múltiples tareas en obra.
+ * - Consolidación de Setup (Alistamiento de Puesto): El setup se consolida en 1h base + 0.15h por tarea.
+ * - Bono de Trabajo en Tándem: Si operarios >= 2, aplica un 10% de ganancia de productividad en tareas conjuntas.
+ * No utiliza aproximaciones estocásticas ni iteraciones complejas; es 100% determinístico.
+ */
+export function calcularSinergiaManoObra(params: {
+  items: ItemPresupuesto[];
+  operarios?: number;
+  horasEfectivasJornada?: number;
+  categoriasManoObra?: CategoriaManoDeObra[];
+}): SinergiaManoObraResultado {
+  const { items = [], operarios = 2, horasEfectivasJornada: horasEfectivasInput, categoriasManoObra = [] } = params;
+  const nOperarios = Math.max(1, Math.round(safeNum(operarios) || 2));
+  const horasEfectivas = safeNum(horasEfectivasInput) > 0 ? safeNum(horasEfectivasInput) : 7.0;
+  const sonCompatibles = sonItemsCompatiblesParaSinergia(items);
+
+  const itemsCompatiblesList = items.filter(
+    (it) => (it.manoObraSnapshot && it.manoObraSnapshot.length > 0) || (it.costoManoObra && it.costoManoObra > 0)
+  );
+
+  let horasTeoricasTotal = 0;
+  let costoManoObraBase = 0;
+  let setupAisladoTotal = 0;
+
+  for (const item of items) {
+    let itemHorasMO = 0;
+    let itemCostoMO = 0;
+
+    if (item.manoObraSnapshot && item.manoObraSnapshot.length > 0) {
+      for (const mo of item.manoObraSnapshot) {
+        itemHorasMO += safeNum(mo.horasTotales);
+        itemCostoMO += safeNum(mo.subtotalManoObra);
+      }
+    } else if (item.costoManoObra) {
+      itemCostoMO += safeNum(item.costoManoObra);
+      const tarifaRef = 12000;
+      itemHorasMO += safeNum(item.costoManoObra) / tarifaRef;
+    }
+
+    horasTeoricasTotal = roundMoney(horasTeoricasTotal + itemHorasMO);
+    costoManoObraBase = roundMoney(costoManoObraBase + itemCostoMO);
+
+    if (itemHorasMO > 0) {
+      const setupItem = Math.min(1.0, Math.max(0.25, itemHorasMO * 0.15));
+      setupAisladoTotal += setupItem;
+    }
+  }
+
+  // 1. Tarifas de Oficial y Ayudante según roles del catálogo
+  let tarifaOficial = 14000;
+  let tarifaAyudante = 10000;
+
+  if (categoriasManoObra.length > 0) {
+    const ofCat = categoriasManoObra.find((c) => c.rol === 'oficial') ||
+      categoriasManoObra.find((c) => c.nombre.toLowerCase().includes('oficial') && !c.nombre.toLowerCase().includes('medio')) ||
+      categoriasManoObra[0];
+    const ayCat = categoriasManoObra.find((c) => c.rol === 'ayudante') ||
+      categoriasManoObra.find((c) => c.nombre.toLowerCase().includes('ayudante') || c.nombre.toLowerCase().includes('medio')) ||
+      ofCat;
+
+    if (ofCat && safeNum(ofCat.costoHora) > 0) tarifaOficial = safeNum(ofCat.costoHora);
+    if (ayCat && safeNum(ayCat.costoHora) > 0) tarifaAyudante = safeNum(ayCat.costoHora);
+  } else if (costoManoObraBase > 0 && horasTeoricasTotal > 0) {
+    const tAvg = costoManoObraBase / horasTeoricasTotal;
+    tarifaOficial = roundMoney(tAvg * 1.15);
+    tarifaAyudante = roundMoney(tAvg * 0.85);
+  }
+
+  // 2. Composición de Cuadrilla (Oficiales vs Ayudantes)
+  let nOficiales = 1;
+  let nAyudantes = 0;
+  let compTexto = '1 Oficial';
+
+  if (nOperarios === 1) {
+    nOficiales = 1;
+    nAyudantes = 0;
+    compTexto = '1 Oficial';
+  } else if (nOperarios === 2) {
+    nOficiales = 1;
+    nAyudantes = 1;
+    compTexto = '1 Oficial + 1 Ayudante';
+  } else if (nOperarios === 3) {
+    nOficiales = 2;
+    nAyudantes = 1;
+    compTexto = '2 Oficiales + 1 Ayudante';
+  } else if (nOperarios === 4) {
+    nOficiales = 2;
+    nAyudantes = 2;
+    compTexto = '2 Oficiales + 2 Ayudantes';
+  } else {
+    nOficiales = Math.ceil(nOperarios / 2);
+    nAyudantes = Math.floor(nOperarios / 2);
+    compTexto = `${nOficiales} Oficiales + ${nAyudantes} Ayudantes`;
+  }
+
+  const tarifaPonderadaCuadrilla = roundMoney(
+    (nOficiales * tarifaOficial + nAyudantes * tarifaAyudante) / nOperarios
+  );
+
+  if (!sonCompatibles || horasTeoricasTotal <= 0) {
+    const tiempoReloj = roundMoney(horasTeoricasTotal / nOperarios);
+    const jornadas = roundMoney(horasTeoricasTotal / (nOperarios * horasEfectivas));
+    const diasEnteros = Math.max(1, Math.ceil(jornadas || 1));
+    const horasDevengadas = diasEnteros * nOperarios * 8.0;
+
+    return {
+      operarios: nOperarios,
+      horasTeoricasTotal,
+      horasSetupAislado: roundMoney(setupAisladoTotal),
+      horasSetupConsolidado: roundMoney(setupAisladoTotal),
+      ahorroSetupHs: 0,
+      bonoTandemHs: 0,
+      horasFinales: horasTeoricasTotal,
+      horasEfectivasJornada: horasEfectivas,
+      tiempoObraHorasReloj: tiempoReloj,
+      jornadasEstimadas: jornadas,
+      diasEnterosObra: diasEnteros,
+      horasDevengadasJornal: horasDevengadas,
+      tarifaPonderadaCuadrilla,
+      composicionCuadrillaTexto: compTexto,
+      factorSinergia: 1.0,
+      costoManoObraBase,
+      costoManoObraSinergico: costoManoObraBase,
+      ahorroManoObraARS: 0,
+      sonCompatibles: false,
+      explicacion: 'Sinergia no aplicable (requiere al menos 2 partidas con mano de obra).'
+    };
+  }
+
+  // 3. Ahorro de Setup Consolidado de Obra
+  const setupConsolidado = 1.0 + 0.15 * (itemsCompatiblesList.length - 1);
+  const ahorroSetupHs = Math.max(0, setupAisladoTotal - setupConsolidado);
+
+  // 4. Bono de Trabajo en Tándem (si cuadrilla >= 2 operarios)
+  const bonoTandemHs = nOperarios >= 2 ? (horasTeoricasTotal * 0.10) : 0;
+
+  // 5. Horas Sinérgicas Finales y Factor de Reducción
+  const horasFinales = roundMoney(Math.max(0.1, horasTeoricasTotal - ahorroSetupHs - bonoTandemHs));
+
+  // 6. Tiempo de Obra y Jornadas Enteras de Convenio
+  const tiempoObraHorasReloj = roundMoney(horasFinales / nOperarios);
+  const jornadasEstimadas = roundMoney(horasFinales / (nOperarios * horasEfectivas));
+  const diasEnterosObra = Math.max(1, Math.ceil(jornadasEstimadas));
+  const horasDevengadasJornal = diasEnterosObra * nOperarios * 8.0;
+
+  // Costo Real de Mano de Obra por Jornales Devengados Ponderados
+  const costoManoObraSinergico = roundMoney(
+    Math.min(
+      costoManoObraBase,
+      roundMoney(costoManoObraBase * (horasFinales / horasTeoricasTotal) * (tarifaPonderadaCuadrilla / (tarifaOficial || 1)))
+    )
+  );
+  const factorSinergia = costoManoObraBase > 0
+    ? roundMoney4(Math.min(1.0, Math.max(0.55, costoManoObraSinergico / costoManoObraBase)))
+    : 1.0;
+  const ahorroManoObraARS = roundMoney(Math.max(0, costoManoObraBase - costoManoObraSinergico));
+
+  const duracionMsg = `Plazo: ${diasEnterosObra} ${diasEnterosObra === 1 ? 'jornada' : 'jornadas'} (${tiempoObraHorasReloj} hs reloj en sitio).`;
+  const explicacion = `Cuadrilla de ${compTexto} (${formatARS(tarifaPonderadaCuadrilla)}/h). Ahorro setup: -${roundMoney(ahorroSetupHs)}h, tándem: -${roundMoney(bonoTandemHs)}h. ${duracionMsg}`;
+
+  return {
+    operarios: nOperarios,
+    horasTeoricasTotal,
+    horasSetupAislado: roundMoney(setupAisladoTotal),
+    horasSetupConsolidado: roundMoney(setupConsolidado),
+    ahorroSetupHs: roundMoney(ahorroSetupHs),
+    bonoTandemHs: roundMoney(bonoTandemHs),
+    horasFinales,
+    horasEfectivasJornada: horasEfectivas,
+    tiempoObraHorasReloj,
+    jornadasEstimadas,
+    diasEnterosObra,
+    horasDevengadasJornal,
+    tarifaPonderadaCuadrilla,
+    composicionCuadrillaTexto: compTexto,
+    factorSinergia,
+    costoManoObraBase,
+    costoManoObraSinergico,
+    ahorroManoObraARS,
+    sonCompatibles: true,
+    explicacion
+  };
+}
+
+// ─── Compatibilidad retroactiva transitoria ───────────────────────────────────
 export const Z_SCORES_CONFIANZA: Record<NivelConfianzaSinergia, number> = {
   50: 0.0,
   80: 0.8416,
@@ -2563,116 +2788,30 @@ export interface ResultadoOptimizacionCuadrilla {
 }
 
 /**
- * Evalúa si un conjunto de ítems de cotización es compatible y combinable (mergeable)
- * para generar sinergia real de cuadrilla y reducción de tiempos muertos en obra.
- *
- * Criterios técnicos de compatibilidad:
- * 1. Debe haber más de 1 ítem (items.length > 1).
- * 2. Al menos 2 ítems deben requerir mano de obra real (manoObraSnapshot o costoManoObra > 0).
- */
-export function sonItemsCompatiblesParaSinergia(items: ItemPresupuesto[]): boolean {
-  if (!items || items.length <= 1) return false;
-
-  const itemsConMO = items.filter(
-    (it) =>
-      (it.manoObraSnapshot && it.manoObraSnapshot.length > 0) ||
-      (it.costoManoObra && it.costoManoObra > 0)
-  );
-
-  return itemsConMO.length >= 2;
-}
-
-/**
- * Simula y optimiza la relación entre tamaño de cuadrilla, duración de obra,
- * sinergia de tareas simultáneas y riesgo de tiempos muertos (parates),
- * utilizando un modelo probabilístico estocástico (PERT / Teorema Central del Límite).
+ * Adaptador de compatibilidad para componentes existentes.
+ * Delega en calcularSinergiaManoObra sin maquinaria estocástica.
  */
 export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuadrilla): ResultadoOptimizacionCuadrilla {
   const {
     items = [],
     costosIndirectosCatalog = [],
     costosIndirectosConfig,
-    categoriasManoObra = [],
-    costoDiarioMovilidadManual,
     estrategiaSeleccionada = 'optima',
-    nivelConfianza = 80,
     aplicarOptimizacion = false
   } = params;
 
-  const sonCompatibles = sonItemsCompatiblesParaSinergia(items);
-  const zScore = Z_SCORES_CONFIANZA[nivelConfianza] ?? 0.8416;
+  const operariosMap: Record<EstrategiaCuadrilla, number> = {
+    minima: 1,
+    optima: 2,
+    rapida: 4,
+    personalizada: 2
+  };
+  const nOperarios = operariosMap[estrategiaSeleccionada] || 2;
 
-  // 1. Extraer horas, costos y calcular dispersión estocástica por ítem (sigma_i)
-  let horasTeoricasTotal = 0;
-  let costoManoObraBase = 0;
-  let sumaVarianzas = 0;
-  let setupAisladoTotal = 0;
-  const itemsCompatiblesList = items.filter(
-    (it) => (it.manoObraSnapshot && it.manoObraSnapshot.length > 0) || (it.costoManoObra && it.costoManoObra > 0)
-  );
+  const sinergia = calcularSinergiaManoObra({ items, operarios: nOperarios });
 
-  for (const item of items) {
-    let itemHorasMO = 0;
-    let itemCostoMO = 0;
-
-    if (item.manoObraSnapshot && item.manoObraSnapshot.length > 0) {
-      for (const mo of item.manoObraSnapshot) {
-        const hs = safeNum(mo.horasTotales);
-        itemHorasMO += hs;
-        itemCostoMO += safeNum(mo.subtotalManoObra);
-      }
-    } else if (item.costoManoObra) {
-      itemCostoMO += safeNum(item.costoManoObra);
-      const tarifaRef = 12000;
-      itemHorasMO += safeNum(item.costoManoObra) / tarifaRef;
-    }
-
-    horasTeoricasTotal = roundMoney(horasTeoricasTotal + itemHorasMO);
-    costoManoObraBase = roundMoney(costoManoObraBase + itemCostoMO);
-
-    if (itemHorasMO > 0) {
-      let factorIncertidumbre = 1.0;
-      if (item.valoresParametros) {
-        const estado = item.valoresParametros.estado || item.valoresParametros.antiguedad;
-        const accesibilidad = item.valoresParametros.accesibilidad;
-        const altura = item.valoresParametros.altura;
-        if (estado && String(estado) !== 'nuevo') factorIncertidumbre += 0.25;
-        if (accesibilidad && String(accesibilidad) !== 'buena' && String(accesibilidad) !== 'normal') factorIncertidumbre += 0.20;
-        if (altura && String(altura) !== 'baja' && String(altura) !== 'estandar') factorIncertidumbre += 0.20;
-      }
-      const cvItem = 0.12 * factorIncertidumbre;
-      const sigmaItem = itemHorasMO * cvItem;
-      sumaVarianzas += sigmaItem * sigmaItem;
-
-      const setupItem = Math.min(1.0, Math.max(0.25, itemHorasMO * 0.15));
-      setupAisladoTotal += setupItem;
-    }
-  }
-
-  // Fallbacks si no hay horas
-  if (horasTeoricasTotal <= 0) {
-    horasTeoricasTotal = 8;
-    sumaVarianzas = 8 * 0.12 * 8 * 0.12;
-  }
-  if (costoManoObraBase <= 0) {
-    costoManoObraBase = roundMoney(horasTeoricasTotal * 12000);
-  }
-
-  const desvioEstandarTotal = roundMoney(Math.sqrt(sumaVarianzas));
-  const coeficienteVariacionPct = roundMoney((desvioEstandarTotal / horasTeoricasTotal) * 100);
-  const tarifaHoraPonderada = roundMoney(costoManoObraBase / horasTeoricasTotal);
-
-  // Setup e integración
-  const horasSetupTotal = roundMoney(Math.min(horasTeoricasTotal * 0.35, setupAisladoTotal));
-  const horasNetasTotal = roundMoney(Math.max(0, horasTeoricasTotal - horasSetupTotal));
-
-  // Reducción de setup compartida en obra
-  const setupConsolidado = sonCompatibles ? (1.0 + 0.15 * (itemsCompatiblesList.length - 1)) : setupAisladoTotal;
-  const ahorroSetupHs = sonCompatibles ? Math.max(0, setupAisladoTotal - setupConsolidado) : 0;
-  const bonoTandemHs = sonCompatibles ? (horasTeoricasTotal * 0.10) : 0;
-
-  // 2. Extraer costo diario de movilidad / logística
-  let costoDiarioMovilidad = safeNum(costoDiarioMovilidadManual);
+  // Extraer costo diario de movilidad
+  let costoDiarioMovilidad = safeNum(params.costoDiarioMovilidadManual);
   if (costoDiarioMovilidad <= 0) {
     const configs = (costosIndirectosConfig && costosIndirectosConfig.length > 0)
       ? costosIndirectosConfig
@@ -2681,168 +2820,76 @@ export function calcularOptimizacionCuadrilla(params: ParametrosOptimizacionCuad
     const indirectoMovilidad = configs.find(c =>
       c.aplica && (c.tipo === 'por_visita' || c.nombre.toLowerCase().includes('movilidad') || c.nombre.toLowerCase().includes('flete') || c.nombre.toLowerCase().includes('viatico'))
     );
-
     costoDiarioMovilidad = indirectoMovilidad ? safeNum(indirectoMovilidad.valor) : 15000;
   }
 
-  // 3. Simular Estrategias con el Modelo Probabilístico:
+  const tarifaHoraPonderada = sinergia.horasTeoricasTotal > 0
+    ? roundMoney(sinergia.costoManoObraBase / sinergia.horasTeoricasTotal)
+    : 12000;
 
-  // A) Mínima (1 Oficial solo):
-  const horasMinimaMedia = horasTeoricasTotal;
-  const horasMinimaProb = roundMoney(horasMinimaMedia + zScore * desvioEstandarTotal * 0.5);
-  const factorSinergiaMinima = 1.0;
-  const jornadasMinima = Math.max(0.5, roundMoney(horasMinimaProb / 8));
-  const costoMODMinima = roundMoney(horasMinimaProb * tarifaHoraPonderada);
-  const costoLogMinima = roundMoney(Math.ceil(jornadasMinima) * costoDiarioMovilidad);
-  const costoTotalMinima = roundMoney(costoMODMinima + costoLogMinima);
+  const jornadasDias = Math.max(0.5, roundMoney(sinergia.horasFinales / (nOperarios * 8)));
+  const costoLogisticaARS = roundMoney(Math.ceil(jornadasDias) * costoDiarioMovilidad);
+  const costoTotalEjecucionARS = roundMoney(sinergia.costoManoObraSinergico + costoLogisticaARS);
 
-  const opcionMinima: OpcionCuadrillaSimulada = {
-    estrategia: 'minima',
-    titulo: 'Cuadrilla Mínima (1 Operario)',
-    subtitulo: '1 Oficial Electricista solo',
-    operariosOficiales: 1,
-    operariosAyudantes: 0,
-    operariosTotales: 1,
-    factorSinergia: factorSinergiaMinima,
-    horasTotales: horasMinimaProb,
-    horasBaseTeoricas: horasTeoricasTotal,
-    desvioEstandarHoras: desvioEstandarTotal,
-    jornadasDias: jornadasMinima,
-    costoManoObraARS: costoMODMinima,
-    costoLogisticaARS: costoLogMinima,
-    costoTotalEjecucionARS: costoTotalMinima,
-    ahorroRespectoBaseARS: 0,
-    nivelRiesgo: 'muy_bajo',
-    descripcionRiesgo: '1h de parate = 1h de salario. Muchos días de obra y mayor costo logístico de viajes.',
-    recomendado: false
-  };
-
-  // B) Óptima (1 Oficial + 1 Ayudante - 2 Operarios):
-  let horasOptimaMedia = horasTeoricasTotal;
-  let factorSinergiaOptima = 1.0;
-  let horasOptimaProb = horasTeoricasTotal;
-
-  if (sonCompatibles) {
-    horasOptimaMedia = Math.max(1.0, horasTeoricasTotal - ahorroSetupHs - bonoTandemHs);
-    horasOptimaProb = roundMoney(horasOptimaMedia + zScore * desvioEstandarTotal);
-    factorSinergiaOptima = roundMoney4(Math.min(1.0, Math.max(0.70, horasOptimaProb / horasTeoricasTotal)));
-  } else {
-    horasOptimaProb = horasTeoricasTotal;
-    factorSinergiaOptima = 1.0;
-  }
-
-  const jornadasOptima = Math.max(0.5, roundMoney(horasOptimaProb / 16));
-  const costoMODOptima = roundMoney(horasOptimaProb * tarifaHoraPonderada);
-  const costoLogOptima = roundMoney(Math.ceil(jornadasOptima) * costoDiarioMovilidad);
-  const costoTotalOptima = roundMoney(costoMODOptima + costoLogOptima);
-  const ahorroOptima = roundMoney(costoTotalMinima - costoTotalOptima);
-
-  const opcionOptima: OpcionCuadrillaSimulada = {
-    estrategia: 'optima',
-    titulo: 'Cuadrilla Óptima (2 Operarios)',
-    subtitulo: '1 Oficial + 1 Ayudante (16h/jornada)',
-    operariosOficiales: 1,
-    operariosAyudantes: 1,
-    operariosTotales: 2,
-    factorSinergia: factorSinergiaOptima,
-    horasTotales: horasOptimaProb,
-    horasBaseTeoricas: horasTeoricasTotal,
-    desvioEstandarHoras: desvioEstandarTotal,
-    jornadasDias: jornadasOptima,
-    costoManoObraARS: costoMODOptima,
-    costoLogisticaARS: costoLogOptima,
-    costoTotalEjecucionARS: costoTotalOptima,
-    ahorroRespectoBaseARS: Math.max(0, ahorroOptima),
+  const opcionActiva: OpcionCuadrillaSimulada = {
+    estrategia: estrategiaSeleccionada,
+    titulo: `Cuadrilla (${nOperarios} Operarios)`,
+    subtitulo: `${nOperarios === 1 ? '1 Oficial solo' : `${nOperarios} Operarios en tándem`}`,
+    operariosOficiales: Math.ceil(nOperarios / 2),
+    operariosAyudantes: Math.floor(nOperarios / 2),
+    operariosTotales: nOperarios,
+    factorSinergia: sinergia.factorSinergia,
+    horasTotales: sinergia.horasFinales,
+    horasBaseTeoricas: sinergia.horasTeoricasTotal,
+    desvioEstandarHoras: 0,
+    jornadasDias,
+    costoManoObraARS: sinergia.costoManoObraSinergico,
+    costoLogisticaARS,
+    costoTotalEjecucionARS,
+    ahorroRespectoBaseARS: sinergia.ahorroManoObraARS,
     nivelRiesgo: 'bajo',
-    descripcionRiesgo: sonCompatibles
-      ? `Sinergia estocástica al ${nivelConfianza}% de confianza (Z=${zScore.toFixed(2)}, σ=±${desvioEstandarTotal}hs).`
-      : 'Ítem único o sin compatibilidad de tareas combinables. Mano de obra nominal sin reducción.',
-    recomendado: true
+    descripcionRiesgo: sinergia.explicacion,
+    recomendado: nOperarios === 2
   };
-
-  // C) Rápida (2 Oficiales + 2 Ayudantes - 4 Operarios):
-  let horasRapidaMedia = horasTeoricasTotal;
-  let factorSinergiaRapida = 1.0;
-  let horasRapidaProb = horasTeoricasTotal;
-
-  if (sonCompatibles) {
-    horasRapidaMedia = Math.max(1.0, horasTeoricasTotal - ahorroSetupHs * 1.2 + horasTeoricasTotal * 0.08);
-    horasRapidaProb = roundMoney(horasRapidaMedia + zScore * desvioEstandarTotal * 1.15);
-    factorSinergiaRapida = roundMoney4(Math.min(1.05, Math.max(0.75, horasRapidaProb / horasTeoricasTotal)));
-  } else {
-    horasRapidaProb = horasTeoricasTotal;
-    factorSinergiaRapida = 1.0;
-  }
-
-  const jornadasRapida = Math.max(0.5, roundMoney(horasRapidaProb / 32));
-  const costoMODRapida = roundMoney(horasRapidaProb * tarifaHoraPonderada);
-  const costoLogRapida = roundMoney(Math.ceil(jornadasRapida) * (costoDiarioMovilidad * 1.5));
-  const costoTotalRapida = roundMoney(costoMODRapida + costoLogRapida);
-  const ahorroRapida = roundMoney(costoTotalMinima - costoTotalRapida);
-
-  const opcionRapida: OpcionCuadrillaSimulada = {
-    estrategia: 'rapida',
-    titulo: 'Cuadrilla Rápida (4 Operarios)',
-    subtitulo: '2 Oficiales + 2 Ayudantes (32h/jornada)',
-    operariosOficiales: 2,
-    operariosAyudantes: 2,
-    operariosTotales: 4,
-    factorSinergia: factorSinergiaRapida,
-    horasTotales: horasRapidaProb,
-    horasBaseTeoricas: horasTeoricasTotal,
-    desvioEstandarHoras: desvioEstandarTotal,
-    jornadasDias: jornadasRapida,
-    costoManoObraARS: costoMODRapida,
-    costoLogisticaARS: costoLogRapida,
-    costoTotalEjecucionARS: costoTotalRapida,
-    ahorroRespectoBaseARS: Math.max(0, ahorroRapida),
-    nivelRiesgo: 'alto',
-    descripcionRiesgo: 'Mínimo tiempo de obra. Mayor riesgo: un parate de 1h cuesta 4 horas-hombre de salario muerto.',
-    recomendado: false
-  };
-
-  const opciones = {
-    minima: opcionMinima,
-    optima: opcionOptima,
-    rapida: opcionRapida
-  };
-
-  const opcionActiva = (opciones as any)[estrategiaSeleccionada] || opcionOptima;
 
   const planificacion: PlanificacionCuadrilla = {
     estrategia: estrategiaSeleccionada,
-    nivelConfianza,
-    zScore,
-    desvioEstandarHoras: desvioEstandarTotal,
-    coeficienteVariacionPct,
-    horasTeoricasTotal,
-    horasSetupTotal,
-    horasNetasTotal,
-    horasMediaEsperada: roundMoney(horasOptimaMedia),
-    factorSinergiaAplicado: opcionActiva.factorSinergia,
-    horasFinalesOptimizadas: opcionActiva.horasTotales,
+    nivelConfianza: 80,
+    zScore: 0,
+    desvioEstandarHoras: 0,
+    coeficienteVariacionPct: 0,
+    horasTeoricasTotal: sinergia.horasTeoricasTotal,
+    horasSetupTotal: sinergia.horasSetupConsolidado,
+    horasNetasTotal: sinergia.horasFinales,
+    horasMediaEsperada: sinergia.horasFinales,
+    factorSinergiaAplicado: sinergia.factorSinergia,
+    horasFinalesOptimizadas: sinergia.horasFinales,
     operariosOficiales: opcionActiva.operariosOficiales,
     operariosAyudantes: opcionActiva.operariosAyudantes,
-    operariosTotales: opcionActiva.operariosTotales,
-    jornadasEstimadas: opcionActiva.jornadasDias,
-    costoManoObraEstimado: opcionActiva.costoManoObraARS,
-    costoLogisticaEstimado: opcionActiva.costoLogisticaARS,
-    costoTotalEjecucion: opcionActiva.costoTotalEjecucionARS,
-    ahorroEstimadoARS: opcionActiva.ahorroRespectoBaseARS,
-    nivelRiesgoParate: opcionActiva.nivelRiesgo,
-    explicacionOptimizacion: opcionActiva.descripcionRiesgo,
+    operariosTotales: nOperarios,
+    jornadasEstimadas: jornadasDias,
+    costoManoObraEstimado: sinergia.costoManoObraSinergico,
+    costoLogisticaEstimado: costoLogisticaARS,
+    costoTotalEjecucion: costoTotalEjecucionARS,
+    ahorroEstimadoARS: sinergia.ahorroManoObraARS,
+    nivelRiesgoParate: 'bajo',
+    explicacionOptimizacion: sinergia.explicacion,
     aplicarOptimizacionAlPresupuesto: aplicarOptimizacion
   };
 
   return {
-    horasTeoricasTotal,
-    horasSetupTotal,
-    horasNetasTotal,
-    desvioEstandarTotal,
-    coeficienteVariacionPct,
+    horasTeoricasTotal: sinergia.horasTeoricasTotal,
+    horasSetupTotal: sinergia.horasSetupConsolidado,
+    horasNetasTotal: sinergia.horasFinales,
+    desvioEstandarTotal: 0,
+    coeficienteVariacionPct: 0,
     costoDiarioMovilidad,
     tarifaHoraPonderada,
-    opciones,
+    opciones: {
+      minima: { ...opcionActiva, estrategia: 'minima', operariosTotales: 1, titulo: '1 Operario' },
+      optima: { ...opcionActiva, estrategia: 'optima', operariosTotales: 2, titulo: '2 Operarios' },
+      rapida: { ...opcionActiva, estrategia: 'rapida', operariosTotales: 4, titulo: '4 Operarios' }
+    },
     estrategiaSeleccionada,
     opcionActiva,
     planificacion

@@ -20,11 +20,14 @@ import {
   EstrategiaCuadrilla,
   NivelConfianzaSinergia,
   PlanificacionCuadrilla,
+  SinergiaManoObraResultado,
+  NivelMargenRiesgo,
   CapituloPresupuesto,
   GastoPresupuestoConfig
 } from '../core/types';
 import {
   calcularTotalesPresupuesto,
+  calcularSinergiaManoObra,
   calcularOptimizacionCuadrilla,
   sonItemsCompatiblesParaSinergia,
   calcularCostoTareaTipo,
@@ -145,6 +148,11 @@ export function usePresupuestoEditorViewModel({
   const [nivelConfianzaCuadrilla, setNivelConfianzaCuadrilla] = useState<NivelConfianzaSinergia>(80);
   const [aplicarOptimizacionCuadrilla, setAplicarOptimizacionCuadrilla] = useState<boolean>(false);
 
+  // Sinergia Determinística & Cuadrilla
+  const [operariosCuadrilla, setOperariosCuadrilla] = useState<number>(config.operariosCuadrillaDefault ?? 2);
+  const [margenRiesgoPorcentaje, setMargenRiesgoPorcentaje] = useState<number>(config.margenRiesgoDefaultPct ?? 0);
+  const [nivelMargenRiesgo, setNivelMargenRiesgo] = useState<NivelMargenRiesgo>('bajo');
+
   const newPresupuestoInitializedRef = useRef(false);
 
   // Inicialización desde Presupuesto Existente o Nuevo
@@ -157,6 +165,19 @@ export function usePresupuestoEditorViewModel({
       setTipoFactura(existingPresupuesto.tipoFactura);
       setCapitulos(existingPresupuesto.capitulos || []);
       setItems(existingPresupuesto.items || []);
+      
+      if (existingPresupuesto.operariosCuadrilla !== undefined) {
+        setOperariosCuadrilla(existingPresupuesto.operariosCuadrilla);
+      }
+      if (existingPresupuesto.margenRiesgoPorcentaje !== undefined) {
+        setMargenRiesgoPorcentaje(existingPresupuesto.margenRiesgoPorcentaje);
+      }
+      if (existingPresupuesto.nivelMargenRiesgo) {
+        setNivelMargenRiesgo(existingPresupuesto.nivelMargenRiesgo);
+      }
+      if (existingPresupuesto.aplicarSinergiaManoObra !== undefined) {
+        setAplicarOptimizacionCuadrilla(existingPresupuesto.aplicarSinergiaManoObra);
+      }
       
       const loadedGastos = existingPresupuesto.gastosConfig && existingPresupuesto.gastosConfig.length > 0
         ? existingPresupuesto.gastosConfig
@@ -175,7 +196,9 @@ export function usePresupuestoEditorViewModel({
         setOpcionesEmision(existingPresupuesto.opcionesEmision);
       }
       if (existingPresupuesto.planificacionCuadrilla) {
-        setEstrategiaCuadrilla(existingPresupuesto.planificacionCuadrilla.estrategia);
+        if (existingPresupuesto.planificacionCuadrilla.estrategia) {
+          setEstrategiaCuadrilla(existingPresupuesto.planificacionCuadrilla.estrategia);
+        }
         setAplicarOptimizacionCuadrilla(existingPresupuesto.planificacionCuadrilla.aplicarOptimizacionAlPresupuesto ?? false);
       }
     } else {
@@ -232,7 +255,17 @@ export function usePresupuestoEditorViewModel({
     }
   }, [presupuestoId, existingPresupuesto, costosIndirectos]);
 
-  // ─── Planificación de Cuadrilla & Sinergia de Obra ───────────────────────────
+  // ─── Sinergia Determinística de Tareas & Cuadrilla ─────────────────────────
+  const sinergiaManoObra = useMemo(() => {
+    return calcularSinergiaManoObra({
+      items,
+      operarios: operariosCuadrilla,
+      horasEfectivasJornada: config?.horasEfectivasJornadaDefault ?? 7.0,
+      categoriasManoObra: manoObraList
+    });
+  }, [items, operariosCuadrilla, config, manoObraList]);
+
+  // Compatibilidad con Card y componentes existentes
   const resultadoCuadrilla = useMemo(() => {
     return calcularOptimizacionCuadrilla({
       items,
@@ -254,14 +287,15 @@ export function usePresupuestoEditorViewModel({
       costosIndirectosConfig,
       costosIndirectosCatalog: costosIndirectos,
       beneficioPorcentaje: margenPorcentaje,
+      margenRiesgoPorcentaje,
       tipoFactura,
       impuestosDetalle,
       cotizacionMonedaExtranjera: cotizacionDolar,
       factorSinergiaManoObra: (aplicarOptimizacionCuadrilla && sonItemsCompatiblesParaSinergia(items))
-        ? resultadoCuadrilla.planificacion.factorSinergiaAplicado
+        ? sinergiaManoObra.factorSinergia
         : 1.0
     });
-  }, [items, capitulos, gastosConfig, costosIndirectosConfig, costosIndirectos, margenPorcentaje, tipoFactura, impuestosDetalle, cotizacionDolar, config, aplicarOptimizacionCuadrilla, resultadoCuadrilla]);
+  }, [items, capitulos, gastosConfig, costosIndirectosConfig, costosIndirectos, margenPorcentaje, margenRiesgoPorcentaje, tipoFactura, impuestosDetalle, cotizacionDolar, config, aplicarOptimizacionCuadrilla, sinergiaManoObra]);
 
   // ─── Capítulo & Gastos Management ──────────────────────────────────────────
   const handleAddCapitulo = (nombre = 'Nuevo Capítulo') => {
@@ -1023,11 +1057,19 @@ export function usePresupuestoEditorViewModel({
       costosIndirectosConfig: gastosConfig.length > 0 ? gastosConfig : costosIndirectosConfig,
       costosIndirectosAplicados: totales.costosIndirectosAplicados,
 
-      // Planificación de Sinergia de Obra & Cuadrilla
-      planificacionCuadrilla: resultadoCuadrilla.planificacion,
+      // Sinergia Determinística de Tareas & Margen de Riesgo Global
+      operariosCuadrilla,
+      margenRiesgoPorcentaje,
+      nivelMargenRiesgo,
+      montoMargenRiesgo: totales.montoMargenRiesgo,
+      aplicarSinergiaManoObra: aplicarOptimizacionCuadrilla,
       factorSinergiaManoObra: (aplicarOptimizacionCuadrilla && sonItemsCompatiblesParaSinergia(items))
-        ? resultadoCuadrilla.planificacion.factorSinergiaAplicado
+        ? sinergiaManoObra.factorSinergia
         : 1.0,
+      tiempoObraHorasReloj: sinergiaManoObra.tiempoObraHorasReloj,
+      jornadasEstimadas: sinergiaManoObra.jornadasEstimadas,
+      sinergiaManoObra,
+      planificacionCuadrilla: resultadoCuadrilla.planificacion,
 
       // Calculation Engine
       costoGlobal: totales.costoGlobal,
@@ -1191,7 +1233,16 @@ export function usePresupuestoEditorViewModel({
     opcionesEmision,
     setOpcionesEmision,
 
-    // Planificación de Cuadrilla y Sinergia
+    // Sinergia Determinística & Margen de Riesgo Global
+    operariosCuadrilla,
+    setOperariosCuadrilla,
+    margenRiesgoPorcentaje,
+    setMargenRiesgoPorcentaje,
+    nivelMargenRiesgo,
+    setNivelMargenRiesgo,
+    sinergiaManoObra,
+
+    // Planificación de Cuadrilla y Sinergia (Compatibilidad)
     estrategiaCuadrilla,
     setEstrategiaCuadrilla,
     nivelConfianzaCuadrilla,

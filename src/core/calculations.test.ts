@@ -21,6 +21,7 @@ import {
   calcularEstimacionParametricaMaterial,
   calcularConsumosTareaTipo,
   resolverMaterialPorFiltro,
+  calcularSinergiaManoObra,
   calcularOptimizacionCuadrilla,
   sonItemsCompatiblesParaSinergia,
   actualizarSnapshotsInsumosConCatalogo,
@@ -1720,67 +1721,97 @@ describe('14. Motor de Optimización de Sinergia de Obra & Cuadrilla', () => {
     }
   ];
 
-  it('calcula las 3 alternativas de cuadrilla con sinergia probabilística y costos logísticos', () => {
-    const res = calcularOptimizacionCuadrilla({
+  it('calcula la sinergia determinística de mano de obra (consolidación de setup y bono tándem)', () => {
+    // 1 Operario (sin bono tándem, solo setup consolidado)
+    const sinergia1Op = calcularSinergiaManoObra({
       items: mockItems,
-      costoDiarioMovilidadManual: 20000,
-      estrategiaSeleccionada: 'optima',
-      nivelConfianza: 80
+      operarios: 1,
+      horasEfectivasJornada: 7.0
     });
 
-    // Total horas teóricas = 6 + 6 + 5 = 17 hs
-    expect(res.horasTeoricasTotal).toBe(17);
-    expect(res.costoDiarioMovilidad).toBe(20000);
-    expect(res.desvioEstandarTotal).toBeGreaterThan(0);
-    expect(res.planificacion.zScore).toBe(0.8416);
+    expect(sinergia1Op.horasTeoricasTotal).toBe(17);
+    expect(sinergia1Op.operarios).toBe(1);
+    expect(sinergia1Op.bonoTandemHs).toBe(0);
+    expect(sinergia1Op.ahorroSetupHs).toBeGreaterThan(0);
+    expect(sinergia1Op.factorSinergia).toBeLessThan(1.0);
+    expect(sinergia1Op.tiempoObraHorasReloj).toBe(sinergia1Op.horasFinales);
+    expect(sinergia1Op.jornadasEstimadas).toBe(roundMoney(sinergia1Op.horasFinales / 7.0));
+    expect(sinergia1Op.sonCompatibles).toBe(true);
 
-    // 1. Mínima (1 Operario, sinergia 100%)
-    expect(res.opciones.minima.factorSinergia).toBe(1.0);
-    expect(res.opciones.minima.operariosTotales).toBe(1);
-    expect(res.opciones.minima.horasBaseTeoricas).toBe(17);
-    expect(res.opciones.minima.jornadasDias).toBeGreaterThanOrEqual(2);
-    expect(res.opciones.minima.nivelRiesgo).toBe('muy_bajo');
+    // 2 Operarios (setup consolidado + 10% bono tándem: 1 Oficial + 1 Ayudante)
+    const mockCatMO: CategoriaManoDeObra[] = [
+      { id: 'mo-of', nombre: 'Oficial Electricista', costoHora: 14000, rol: 'oficial', fechaActualizacion: '' },
+      { id: 'mo-ay', nombre: 'Ayudante Práctico', costoHora: 10000, rol: 'ayudante', fechaActualizacion: '' }
+    ];
 
-    // 2. Óptima (2 Operarios: 1 Ofic + 1 Ayud, sinergia estocástica)
-    expect(res.opciones.optima.factorSinergia).toBeLessThanOrEqual(0.95);
-    expect(res.opciones.optima.factorSinergia).toBeGreaterThanOrEqual(0.75);
-    expect(res.opciones.optima.operariosTotales).toBe(2);
-    expect(res.opciones.optima.horasTotales).toBeLessThan(17);
-    expect(res.opciones.optima.recomendado).toBe(true);
-    expect(res.opciones.optima.nivelRiesgo).toBe('bajo');
+    const sinergia2Ops = calcularSinergiaManoObra({
+      items: mockItems,
+      operarios: 2,
+      horasEfectivasJornada: 7.0,
+      categoriasManoObra: mockCatMO
+    });
 
-    // 3. Rápida (4 Operarios)
-    expect(res.opciones.rapida.operariosTotales).toBe(4);
-    expect(res.opciones.rapida.nivelRiesgo).toBe('alto');
+    expect(sinergia2Ops.horasTeoricasTotal).toBe(17);
+    expect(sinergia2Ops.operarios).toBe(2);
+    expect(sinergia2Ops.composicionCuadrillaTexto).toBe('1 Oficial + 1 Ayudante');
+    expect(sinergia2Ops.tarifaPonderadaCuadrilla).toBe(12000); // (14000 + 10000) / 2
+    expect(sinergia2Ops.bonoTandemHs).toBe(roundMoney(17 * 0.10));
+    expect(sinergia2Ops.horasFinales).toBeLessThan(sinergia1Op.horasFinales);
+    expect(sinergia2Ops.factorSinergia).toBeLessThan(1.0);
+    expect(sinergia2Ops.tiempoObraHorasReloj).toBe(roundMoney(sinergia2Ops.horasFinales / 2));
+    expect(sinergia2Ops.jornadasEstimadas).toBe(roundMoney(sinergia2Ops.horasFinales / 14.0));
+
+    // 3 Operarios: 2 Oficiales + 1 Ayudante
+    const sinergia3Ops = calcularSinergiaManoObra({
+      items: mockItems,
+      operarios: 3,
+      horasEfectivasJornada: 7.0,
+      categoriasManoObra: mockCatMO
+    });
+
+    expect(sinergia3Ops.operarios).toBe(3);
+    expect(sinergia3Ops.composicionCuadrillaTexto).toBe('2 Oficiales + 1 Ayudante');
+    expect(sinergia3Ops.tarifaPonderadaCuadrilla).toBe(roundMoney((2 * 14000 + 10000) / 3)); // 12666.67
+    expect(sinergia3Ops.jornadasEstimadas).toBeLessThan(sinergia2Ops.jornadasEstimadas);
+
+    // 4 Operarios (2 cuadrillas: 2 Oficiales + 2 Ayudantes)
+    const sinergia4Ops = calcularSinergiaManoObra({
+      items: mockItems,
+      operarios: 4,
+      horasEfectivasJornada: 7.0,
+      categoriasManoObra: mockCatMO
+    });
+
+    expect(sinergia4Ops.operarios).toBe(4);
+    expect(sinergia4Ops.composicionCuadrillaTexto).toBe('2 Oficiales + 2 Ayudantes');
+    expect(sinergia4Ops.tarifaPonderadaCuadrilla).toBe(12000);
+    expect(sinergia4Ops.tiempoObraHorasReloj).toBe(roundMoney(sinergia2Ops.tiempoObraHorasReloj / 2));
+    expect(sinergia4Ops.jornadasEstimadas).toBe(roundMoney(sinergia2Ops.jornadasEstimadas / 2));
   });
 
-  it('modula el factor de sinergia estocástica según el nivel de confianza seleccionado (50%, 80%, 95%)', () => {
-    const res50 = calcularOptimizacionCuadrilla({
+  it('aplica el Margen de Riesgo Global sobre el Costo Directo en calcularTotalesPresupuesto', () => {
+    const sinRiesgo = calcularTotalesPresupuesto({
       items: mockItems,
-      estrategiaSeleccionada: 'optima',
-      nivelConfianza: 50
+      margenPorcentaje: 30,
+      margenRiesgoPorcentaje: 0,
+      impuestosDetalle: [],
+      factorSinergiaManoObra: 1.0
     });
 
-    const res80 = calcularOptimizacionCuadrilla({
+    const conRiesgo20 = calcularTotalesPresupuesto({
       items: mockItems,
-      estrategiaSeleccionada: 'optima',
-      nivelConfianza: 80
+      margenPorcentaje: 30,
+      margenRiesgoPorcentaje: 20,
+      impuestosDetalle: [],
+      factorSinergiaManoObra: 1.0
     });
 
-    const res95 = calcularOptimizacionCuadrilla({
-      items: mockItems,
-      estrategiaSeleccionada: 'optima',
-      nivelConfianza: 95
-    });
-
-    expect(res50.planificacion.zScore).toBe(0.0);
-    expect(res80.planificacion.zScore).toBe(0.8416);
-    expect(res95.planificacion.zScore).toBe(1.6449);
-
-    // A mayor nivel de confianza (mayor aversión al riesgo), mayor es el colchón de horas presupuestadas
-    expect(res50.planificacion.horasFinalesOptimizadas).toBeLessThan(res80.planificacion.horasFinalesOptimizadas);
-    expect(res80.planificacion.horasFinalesOptimizadas).toBeLessThan(res95.planificacion.horasFinalesOptimizadas);
-    expect(res50.planificacion.factorSinergiaAplicado).toBeLessThanOrEqual(res80.planificacion.factorSinergiaAplicado);
+    // Costo directo base (C base) sin riesgo
+    const cBase = sinRiesgo.costoGlobal;
+    expect(conRiesgo20.costoDirectoBase).toBe(cBase);
+    expect(conRiesgo20.montoMargenRiesgo).toBe(roundMoney(cBase * 0.20));
+    expect(conRiesgo20.costoGlobal).toBe(roundMoney(cBase * 1.20));
+    expect(conRiesgo20.precioFinalGlobal).toBeGreaterThan(sinRiesgo.precioFinalGlobal);
   });
 
   it('integra factorSinergiaManoObra en calcularTotalesPresupuesto reduciendo el costo de MOD', () => {
@@ -1808,16 +1839,16 @@ describe('14. Motor de Optimización de Sinergia de Obra & Cuadrilla', () => {
     const singleItem = [mockItems[0]];
     expect(sonItemsCompatiblesParaSinergia(singleItem)).toBe(false);
 
-    const resSingle = calcularOptimizacionCuadrilla({
+    const resSingle = calcularSinergiaManoObra({
       items: singleItem,
-      costoDiarioMovilidadManual: 20000,
-      estrategiaSeleccionada: 'optima'
+      operarios: 2
     });
 
-    // Con 1 solo ítem, el factor de sinergia debe ser estrictamente 1.0 (sin reducción de mano de obra por sinergia)
-    expect(resSingle.opciones.optima.factorSinergia).toBe(1.0);
-    expect(resSingle.opciones.rapida.factorSinergia).toBe(1.0);
-    expect(resSingle.planificacion.factorSinergiaAplicado).toBe(1.0);
+    // Con 1 solo ítem, el factor de sinergia debe ser estrictamente 1.0
+    expect(resSingle.factorSinergia).toBe(1.0);
+    expect(resSingle.ahorroSetupHs).toBe(0);
+    expect(resSingle.bonoTandemHs).toBe(0);
+    expect(resSingle.sonCompatibles).toBe(false);
   });
 
   it('evalúa la tarea tipo por defecto de recableado con cuadrilla sincronizada e insumos condicionales', () => {

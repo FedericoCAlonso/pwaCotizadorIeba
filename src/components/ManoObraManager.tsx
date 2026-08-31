@@ -19,6 +19,7 @@ import {
 import { db, softDelete } from '../db/database';
 import {
   CategoriaManoDeObra,
+  RolCategoriaManoDeObra,
   CostoIndirecto,
   GastoPresupuestoConfig,
   DestinoGasto,
@@ -40,14 +41,21 @@ export const ManoObraManager: React.FC = () => {
   // Mano de Obra State
   const [editingMO, setEditingMO] = useState<CategoriaManoDeObra | null>(null);
   const [isCreatingMO, setIsCreatingMO] = useState(false);
-  const [moForm, setMOForm] = useState({ nombre: '', costoHora: 0 });
+  const [moForm, setMOForm] = useState<{ nombre: string; costoHora: number; rol: RolCategoriaManoDeObra }>({
+    nombre: '',
+    costoHora: 0,
+    rol: 'oficial'
+  });
 
   // Gastos (Catálogo Global) State
   const [showGastoModal, setShowGastoModal] = useState(false);
   const [editingGasto, setEditingGasto] = useState<GastoPresupuestoConfig | null>(null);
 
   useEffect(() => {
-    const handleNew = () => setIsCreatingMO(true);
+    const handleNew = () => {
+      setMOForm({ nombre: '', costoHora: 0, rol: 'oficial' });
+      setIsCreatingMO(true);
+    };
     window.addEventListener('app:shortcut-new', handleNew);
     return () => window.removeEventListener('app:shortcut-new', handleNew);
   }, []);
@@ -61,6 +69,7 @@ export const ManoObraManager: React.FC = () => {
         id: `mo-${crypto.randomUUID()}`,
         nombre: moForm.nombre.trim(),
         costoHora: moForm.costoHora,
+        rol: moForm.rol,
         fechaActualizacion: now,
         createdAt: now,
         updatedAt: now,
@@ -72,6 +81,7 @@ export const ManoObraManager: React.FC = () => {
       await db.manoObra.update(editingMO.id, {
         nombre: moForm.nombre.trim(),
         costoHora: moForm.costoHora,
+        rol: moForm.rol,
         fechaActualizacion: now,
         updatedAt: now
       });
@@ -173,6 +183,35 @@ export const ManoObraManager: React.FC = () => {
     );
   };
 
+  const getRolBadge = (rol?: RolCategoriaManoDeObra) => {
+    switch (rol) {
+      case 'ayudante':
+        return (
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+            <span>Ayudante / Asistencia</span>
+          </span>
+        );
+      case 'especialista':
+        return (
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300 px-2.5 py-0.5 rounded-full border border-purple-500/20">
+            <span>Especialista / Protocolos</span>
+          </span>
+        );
+      case 'independiente':
+        return (
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+            <span>Unipersonal / Individual</span>
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
+            <span>Oficial / Autónomo</span>
+          </span>
+        );
+    }
+  };
+
   const getDestinoBadge = (destino?: DestinoGasto) => {
     switch (destino) {
       case 'mano_obra':
@@ -251,7 +290,7 @@ export const ManoObraManager: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              setMOForm({ nombre: '', costoHora: 8000 });
+              setMOForm({ nombre: '', costoHora: 8000, rol: 'oficial' });
               setIsCreatingMO(true);
             }}
             className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-full text-xs sm:text-sm transition-all shadow-sm"
@@ -269,7 +308,10 @@ export const ManoObraManager: React.FC = () => {
             >
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="font-bold text-on-surface text-base">{mo.nombre}</h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-on-surface text-base">{mo.nombre}</h3>
+                    {getRolBadge(mo.rol)}
+                  </div>
                   <span className="text-xs text-on-surface-variant block mt-1">
                     Actualizado: {new Date(mo.fechaActualizacion).toLocaleDateString('es-AR')}
                   </span>
@@ -279,7 +321,7 @@ export const ManoObraManager: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setEditingMO(mo);
-                      setMOForm({ nombre: mo.nombre, costoHora: mo.costoHora });
+                      setMOForm({ nombre: mo.nombre, costoHora: mo.costoHora, rol: mo.rol || 'oficial' });
                     }}
                     className="p-2 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-variant transition-colors"
                     aria-label={`Editar ${mo.nombre}`}
@@ -470,6 +512,34 @@ export const ManoObraManager: React.FC = () => {
               placeholder="Ej: Oficial Electricista, Ayudante, Especialista"
               required
             />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-on-surface mb-1.5">Rol Funcional en Cuadrilla *</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { id: 'oficial', label: 'Oficial', sub: 'Autónomo / Conexiones' },
+                { id: 'ayudante', label: 'Ayudante', sub: 'Asistencia / Tándem' },
+                { id: 'especialista', label: 'Especialista', sub: 'Protocolos / Ensayos' },
+                { id: 'independiente', label: 'Unipersonal', sub: 'Trabajo Individual' }
+              ].map((r) => {
+                const isSelected = moForm.rol === r.id;
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setMOForm({ ...moForm, rol: r.id as RolCategoriaManoDeObra })}
+                    className={`p-2.5 rounded-xl border text-left transition-all text-xs ${
+                      isSelected
+                        ? 'bg-primary text-on-primary border-primary shadow-xs font-bold'
+                        : 'bg-surface-container-high border-outline-variant/20 text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    <div className="font-bold">{r.label}</div>
+                    <div className="text-[10px] opacity-80 mt-0.5">{r.sub}</div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div>
             <label className="block text-xs font-bold text-on-surface mb-1">Costo Hora Real (ARS) *</label>
