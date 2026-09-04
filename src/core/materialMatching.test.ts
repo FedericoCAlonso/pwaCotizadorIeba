@@ -309,5 +309,17 @@ describe('buildInsumosMap', () => {
     const map = buildInsumosMap([], materiales, prods, ofertas);
     // Debería usar la oferta del preferido (120), no la más barata (80)
     expect(map.get('mat-1')?.precioActual).toBe(120);
+    expect(map.get('mat-1')?.marca).toBe('Marca A');
+    expect(map.get('mat-1')?.productoId).toBe('prod-a');
+  });
+
+  test('asigna marca y productoId del preferido al material generado', () => {
+    const materiales = [makeMaterial('mat-2', 'Termomagnética')];
+    const prods = [
+      { ...makeProducto('prod-schneider', 'mat-2', 'Schneider'), esPreferido: true },
+    ];
+    const map = buildInsumosMap([], materiales, prods, []);
+    expect(map.get('mat-2')?.marca).toBe('Schneider');
+    expect(map.get('mat-2')?.productoId).toBe('prod-schneider');
   });
 });

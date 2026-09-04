@@ -47,6 +47,49 @@ import {
 import { useInsumosMap } from '../hooks/useInsumosMap';
 import { useToast } from '../contexts/ToastContext';
 import { TareaFormData } from '../components/tareasTipo/TareaEditorModal';
+function computeEditorStatePayload(state: {
+  items: any[];
+  clienteId: string;
+  capitulos: any[];
+  validezDias: number;
+  tipoFactura: string;
+  margenPorcentaje: number;
+  gastosConfig: any[];
+  costosIndirectosConfig: any[];
+  mostrarDolar: boolean;
+  nombreDolar: string;
+  cotizacionDolar: number;
+  condicionesPagoTexto: string;
+  impuestosDetalle: any[];
+  opcionesEmision: any;
+  operariosCuadrilla: number;
+  margenRiesgoPorcentaje: number;
+  nivelMargenRiesgo: string;
+  aplicarOptimizacionCuadrilla: boolean;
+  estrategiaCuadrilla: string;
+}): string {
+  return JSON.stringify({
+    items: state.items,
+    clienteId: state.clienteId,
+    capitulos: state.capitulos,
+    validezDias: state.validezDias,
+    tipoFactura: state.tipoFactura,
+    margenPorcentaje: state.margenPorcentaje,
+    gastosConfig: state.gastosConfig,
+    costosIndirectosConfig: state.costosIndirectosConfig,
+    mostrarDolar: state.mostrarDolar,
+    nombreDolar: state.nombreDolar,
+    cotizacionDolar: state.cotizacionDolar,
+    condicionesPagoTexto: state.condicionesPagoTexto,
+    impuestosDetalle: state.impuestosDetalle,
+    opcionesEmision: state.opcionesEmision,
+    operariosCuadrilla: state.operariosCuadrilla,
+    margenRiesgoPorcentaje: state.margenRiesgoPorcentaje,
+    nivelMargenRiesgo: state.nivelMargenRiesgo,
+    aplicarOptimizacionCuadrilla: state.aplicarOptimizacionCuadrilla,
+    estrategiaCuadrilla: state.estrategiaCuadrilla
+  });
+}
 
 export interface UsePresupuestoEditorViewModelProps {
   presupuestoId?: string;
@@ -162,6 +205,8 @@ export function usePresupuestoEditorViewModel({
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [lastAutoSaveTime, setLastAutoSaveTime] = useState<string | null>(null);
   const isInitializedRef = useRef<boolean>(false);
+  const loadedPresupuestoIdRef = useRef<string | null>(null);
+  const lastSavedPayloadRef = useRef<string | null>(null);
   const isDirtyRef = useRef<boolean>(false);
   const hasPersistedInitialRef = useRef<boolean>(Boolean(presupuestoId));
   const autoSaveTimerRef = useRef<any>(null);
@@ -170,12 +215,19 @@ export function usePresupuestoEditorViewModel({
     if (presupuestoId && draftIdRef.current !== presupuestoId) {
       draftIdRef.current = presupuestoId;
       hasPersistedInitialRef.current = true;
+      loadedPresupuestoIdRef.current = null;
     }
   }, [presupuestoId]);
 
   // Inicialización desde Presupuesto Existente o Nuevo
   useEffect(() => {
     if (existingPresupuesto) {
+      if (loadedPresupuestoIdRef.current === existingPresupuesto.id) {
+        // Ya fue cargado e inicializado este presupuesto.
+        // No sobreescribir los estados locales con las emisiones de useLiveQuery provocadas por autoguardados.
+        return;
+      }
+      loadedPresupuestoIdRef.current = existingPresupuesto.id;
       setClienteId(existingPresupuesto.clienteId);
       setNumero(existingPresupuesto.numero);
       setValidezDias(existingPresupuesto.validezDias);
@@ -222,16 +274,43 @@ export function usePresupuestoEditorViewModel({
 
       isInitializedRef.current = true;
       isDirtyRef.current = false;
+
+      // Registrar foto exacta del documento inicial para comparar cambios futuros
+      lastSavedPayloadRef.current = computeEditorStatePayload({
+        items: existingPresupuesto.items || [],
+        clienteId: existingPresupuesto.clienteId || '',
+        capitulos: existingPresupuesto.capitulos || [],
+        validezDias: existingPresupuesto.validezDias,
+        tipoFactura: existingPresupuesto.tipoFactura,
+        margenPorcentaje: existingPresupuesto.beneficioPorcentaje ?? existingPresupuesto.margenPorcentaje ?? 30,
+        gastosConfig: loadedGastos,
+        costosIndirectosConfig: loadedGastos,
+        mostrarDolar: existingPresupuesto.mostrarReferenciaMonedaExtranjera ?? false,
+        nombreDolar: existingPresupuesto.nombreMonedaExtranjera || 'Dólar Blue',
+        cotizacionDolar: existingPresupuesto.cotizacionMonedaExtranjera || 1200,
+        condicionesPagoTexto: existingPresupuesto.condicionesPagoTexto || '',
+        impuestosDetalle: existingPresupuesto.impuestosDetalle || [],
+        opcionesEmision: existingPresupuesto.opcionesEmision,
+        operariosCuadrilla: existingPresupuesto.operariosCuadrilla ?? (config.operariosCuadrillaDefault ?? 2),
+        margenRiesgoPorcentaje: existingPresupuesto.margenRiesgoPorcentaje ?? (config.margenRiesgoDefaultPct ?? 0),
+        nivelMargenRiesgo: existingPresupuesto.nivelMargenRiesgo || 'bajo',
+        aplicarOptimizacionCuadrilla: existingPresupuesto.planificacionCuadrilla?.aplicarOptimizacionAlPresupuesto ?? existingPresupuesto.aplicarSinergiaManoObra ?? false,
+        estrategiaCuadrilla: existingPresupuesto.planificacionCuadrilla?.estrategia || 'equilibrada'
+      });
     } else {
+      if (isInitializedRef.current) {
+        return;
+      }
       const year = new Date().getFullYear();
       const seq = config.siguienteNumeroCorrelativo || 1001;
       setNumero(`${config.prefijoPresupuesto || 'IEBA'}-${year}-${seq.toString().padStart(4, '0')}`);
       setCapitulos([]);
       
+      let defaultGastos: GastoPresupuestoConfig[] = [];
       // Si es un presupuesto nuevo y hay costos indirectos en el catálogo, cargar los que correspondan por defecto
       if (costosIndirectos.length > 0 && !newPresupuestoInitializedRef.current) {
         newPresupuestoInitializedRef.current = true;
-        const defaultGastos: GastoPresupuestoConfig[] = costosIndirectos
+        defaultGastos = costosIndirectos
           .filter(c => c.incluirPorDefecto !== false)
           .map(c => ({
             id: `gasto-${c.id}`,
@@ -252,6 +331,28 @@ export function usePresupuestoEditorViewModel({
 
       isInitializedRef.current = true;
       isDirtyRef.current = false;
+
+      lastSavedPayloadRef.current = computeEditorStatePayload({
+        items: [],
+        clienteId: '',
+        capitulos: [],
+        validezDias: 15,
+        tipoFactura: 'Presupuesto X (Sin Factura)',
+        margenPorcentaje: 30,
+        gastosConfig: defaultGastos,
+        costosIndirectosConfig: defaultGastos,
+        mostrarDolar: false,
+        nombreDolar: 'Dólar Blue',
+        cotizacionDolar: 1200,
+        condicionesPagoTexto: '',
+        impuestosDetalle: [],
+        opcionesEmision: undefined,
+        operariosCuadrilla: config.operariosCuadrillaDefault ?? 2,
+        margenRiesgoPorcentaje: config.margenRiesgoDefaultPct ?? 0,
+        nivelMargenRiesgo: 'bajo',
+        aplicarOptimizacionCuadrilla: false,
+        estrategiaCuadrilla: 'equilibrada'
+      });
     }
   }, [existingPresupuesto, config, costosIndirectos]);
 
@@ -326,6 +427,33 @@ export function usePresupuestoEditorViewModel({
     // Only auto-save if there's actual content (items, selected client, or chapters) or it was an existing quote
     const hasContent = items.length > 0 || Boolean(clienteId) || capitulos.length > 0 || Boolean(existingPresupuesto);
     if (!hasContent) {
+      return;
+    }
+
+    const currentPayload = computeEditorStatePayload({
+      items,
+      clienteId: clienteId || '',
+      capitulos,
+      validezDias,
+      tipoFactura,
+      margenPorcentaje,
+      gastosConfig,
+      costosIndirectosConfig,
+      mostrarDolar,
+      nombreDolar,
+      cotizacionDolar,
+      condicionesPagoTexto,
+      impuestosDetalle,
+      opcionesEmision,
+      operariosCuadrilla,
+      margenRiesgoPorcentaje,
+      nivelMargenRiesgo,
+      aplicarOptimizacionCuadrilla,
+      estrategiaCuadrilla
+    });
+
+    // Si el contenido es idéntico a lo que ya está guardado en disco, NO volver a guardar
+    if (lastSavedPayloadRef.current && lastSavedPayloadRef.current === currentPayload) {
       return;
     }
 
@@ -409,6 +537,8 @@ export function usePresupuestoEditorViewModel({
       };
 
       await db.presupuestos.put(finalPresupuesto);
+      lastSavedPayloadRef.current = currentPayload;
+      loadedPresupuestoIdRef.current = finalPresupuesto.id;
       isDirtyRef.current = false;
       setAutoSaveStatus('saved');
       const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -423,13 +553,44 @@ export function usePresupuestoEditorViewModel({
     gastosConfig, costosIndirectosConfig, totales, operariosCuadrilla, margenRiesgoPorcentaje,
     nivelMargenRiesgo, aplicarOptimizacionCuadrilla, sinergiaManoObra, resultadoCuadrilla,
     margenPorcentaje, opcionesEmision, mostrarDolar, nombreDolar, cotizacionDolar,
-    condicionesPagoTexto, onDraftAutoSaved
+    condicionesPagoTexto, onDraftAutoSaved, estrategiaCuadrilla
   ]);
+
+  const latestAutoSaveRef = useRef(executeAutoSave);
+  latestAutoSaveRef.current = executeAutoSave;
 
   useEffect(() => {
     if (!isInitializedRef.current) {
       return;
     }
+
+    const currentPayload = computeEditorStatePayload({
+      items,
+      clienteId: clienteId || '',
+      capitulos,
+      validezDias,
+      tipoFactura,
+      margenPorcentaje,
+      gastosConfig,
+      costosIndirectosConfig,
+      mostrarDolar,
+      nombreDolar,
+      cotizacionDolar,
+      condicionesPagoTexto,
+      impuestosDetalle,
+      opcionesEmision,
+      operariosCuadrilla,
+      margenRiesgoPorcentaje,
+      nivelMargenRiesgo,
+      aplicarOptimizacionCuadrilla,
+      estrategiaCuadrilla
+    });
+
+    // Si el contenido actual coincide con lo último guardado en disco, NO hacer nada ni marcar dirty
+    if (lastSavedPayloadRef.current && currentPayload === lastSavedPayloadRef.current) {
+      return;
+    }
+
     isDirtyRef.current = true;
     const hasContent = items.length > 0 || Boolean(clienteId) || capitulos.length > 0 || Boolean(existingPresupuesto);
     if (!hasContent) {
@@ -440,8 +601,8 @@ export function usePresupuestoEditorViewModel({
       clearTimeout(autoSaveTimerRef.current);
     }
     autoSaveTimerRef.current = setTimeout(() => {
-      executeAutoSave();
-    }, 1200);
+      latestAutoSaveRef.current();
+    }, 1500);
 
     return () => {
       if (autoSaveTimerRef.current) {
@@ -453,11 +614,8 @@ export function usePresupuestoEditorViewModel({
     gastosConfig, costosIndirectosConfig, mostrarDolar, nombreDolar, cotizacionDolar,
     condicionesPagoTexto, impuestosDetalle, opcionesEmision, operariosCuadrilla,
     margenRiesgoPorcentaje, nivelMargenRiesgo, aplicarOptimizacionCuadrilla,
-    estrategiaCuadrilla, executeAutoSave
+    estrategiaCuadrilla
   ]);
-
-  const latestAutoSaveRef = useRef(executeAutoSave);
-  latestAutoSaveRef.current = executeAutoSave;
 
   useEffect(() => {
     return () => {
@@ -472,9 +630,9 @@ export function usePresupuestoEditorViewModel({
       clearTimeout(autoSaveTimerRef.current);
     }
     if (isDirtyRef.current) {
-      await executeAutoSave();
+      await latestAutoSaveRef.current();
     }
-  }, [executeAutoSave]);
+  }, []);
 
   // ─── Capítulo & Gastos Management ──────────────────────────────────────────
   const handleAddCapitulo = (nombre = 'Nuevo Capítulo') => {
@@ -1348,8 +1506,32 @@ export function usePresupuestoEditorViewModel({
     };
 
     await db.presupuestos.put(finalPresupuesto);
+    lastSavedPayloadRef.current = computeEditorStatePayload({
+      items,
+      clienteId: clienteId || '',
+      capitulos,
+      validezDias,
+      tipoFactura,
+      margenPorcentaje,
+      gastosConfig,
+      costosIndirectosConfig,
+      mostrarDolar,
+      nombreDolar,
+      cotizacionDolar,
+      condicionesPagoTexto,
+      impuestosDetalle,
+      opcionesEmision: finalEmission,
+      operariosCuadrilla,
+      margenRiesgoPorcentaje,
+      nivelMargenRiesgo,
+      aplicarOptimizacionCuadrilla,
+      estrategiaCuadrilla
+    });
+    loadedPresupuestoIdRef.current = finalPresupuesto.id;
     isDirtyRef.current = false;
     setAutoSaveStatus('saved');
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setLastAutoSaveTime(timeStr);
     setShowEmitirModal(false);
     toast.success(targetEstado === 'enviado' ? '¡Presupuesto emitido con éxito!' : 'Presupuesto guardado en borrador');
     onSaved(finalPresupuesto.id);

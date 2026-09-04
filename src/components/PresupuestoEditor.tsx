@@ -54,6 +54,7 @@ import { GastoCatalogPickerModal } from './presupuesto/GastoCatalogPickerModal';
 import { ParametricGastoModal } from './presupuesto/ParametricGastoModal';
 import { ClienteCombobox } from './presupuesto/ClienteCombobox';
 import { ActualizarPreciosModal } from './presupuesto/ActualizarPreciosModal';
+import { MaterialBrandModal, ApplyBrandPayload } from './presupuesto/MaterialBrandModal';
 import { usePresupuestoEditorViewModel } from '../viewmodels/usePresupuestoEditorViewModel';
 
 interface PresupuestoEditorProps {
@@ -265,6 +266,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   ]);
 
   const [materialPickerItemIndex, setMaterialPickerItemIndex] = useState<number | null>(null);
+  const [brandModalTarget, setBrandModalTarget] = useState<{ itemIndex: number; materialIndex: number } | null>(null);
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [saveAsTemplateData, setSaveAsTemplateData] = useState<{
     nombre: string;
@@ -580,6 +582,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             insumoId: material.id,
             materialId: material.id,
             nombre: material.nombre,
+            marca: material.marca,
+            productoId: material.productoId,
             unidad: material.unidadVenta || material.unidad || 'u',
             cantidadTotal: cantidad,
             cantidadUnitaria: roundMoney(cantidad / (target.cantidad || 1)),
@@ -729,6 +733,71 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       return next;
     });
     toast.info('Material quitado de la partida');
+  };
+
+  const handleApplyMaterialBrand = (payload: ApplyBrandPayload) => {
+    if (!brandModalTarget) return;
+    const { itemIndex, materialIndex } = brandModalTarget;
+
+    setItems((prev) => {
+      const next = [...prev];
+      const target = next[itemIndex];
+      if (!target || !target.insumosSnapshot) return prev;
+
+      const snapshots = [...target.insumosSnapshot];
+      const snap = snapshots[materialIndex];
+      if (!snap) return prev;
+
+      const newPrice = roundMoney(payload.precioUnitario > 0 ? payload.precioUnitario : snap.precioUnitarioCongelado);
+      const ali = snap.alicuotaIVA ?? config.alicuotaIVAPorDefecto ?? 21;
+      const newPriceFinal = roundMoney(newPrice * (1 + ali / 100));
+
+      snapshots[materialIndex] = {
+        ...snap,
+        marca: payload.marca || undefined,
+        productoId: payload.productoId,
+        ofertaId: payload.ofertaId,
+        precioUnitarioCongelado: newPrice,
+        precioFinalUnitarioCongelado: newPriceFinal,
+        subtotalInsumo: roundMoney(newPrice * snap.cantidadTotal),
+        subtotalInsumoFinal: roundMoney(newPriceFinal * snap.cantidadTotal)
+      };
+
+      const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
+      const costoInsumos = isFacturaC_or_X
+        ? roundMoney(
+            snapshots.reduce(
+              (acc, i) =>
+                acc +
+                (i.subtotalInsumoFinal ??
+                  roundMoney(i.precioUnitarioCongelado * (1 + (i.alicuotaIVA ?? 21) / 100) * i.cantidadTotal)),
+              0
+            )
+          )
+        : roundMoney(snapshots.reduce((acc, i) => acc + i.subtotalInsumo, 0));
+
+      const costoDirectoTotal = roundMoney(
+        costoInsumos + safeNum(target.costoManoObra) + safeNum(target.costoServiciosTercerizados)
+      );
+      const targetQty = target.cantidad || 1;
+
+      next[itemIndex] = {
+        ...target,
+        insumosSnapshot: snapshots,
+        costoInsumos,
+        costoDirectoTotal,
+        costoUnitario: roundMoney(costoDirectoTotal / targetQty),
+        costoTotal: costoDirectoTotal
+      };
+      return next;
+    });
+
+    toast.success(
+      payload.marca
+        ? `Marca "${payload.marca}" asignada al material`
+        : 'Material actualizado a genérico / sin marca'
+    );
+    setBrandModalTarget(null);
   };
 
   const handleUpdateItemManoObraCost = (index: number, moCost: number) => {
@@ -1090,6 +1159,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                       onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
                       onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
                       onOpenMaterialPicker={(itemIdx) => setMaterialPickerItemIndex(itemIdx)}
+                      onOpenMaterialBrandModal={(itemIdx, matIdx) => setBrandModalTarget({ itemIndex: itemIdx, materialIndex: matIdx })}
                       onUpdateItemMaterialQuantity={handleUpdateItemMaterialQuantity}
                       onRemoveItemMaterial={handleRemoveItemMaterial}
                       onUpdateItemManoObraCost={handleUpdateItemManoObraCost}
@@ -1178,6 +1248,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                                 onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
                                 onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
                                 onOpenMaterialPicker={(itemIdx) => setMaterialPickerItemIndex(itemIdx)}
+                                onOpenMaterialBrandModal={(itemIdx, matIdx) => setBrandModalTarget({ itemIndex: itemIdx, materialIndex: matIdx })}
                                 onUpdateItemMaterialQuantity={handleUpdateItemMaterialQuantity}
                                 onRemoveItemMaterial={handleRemoveItemMaterial}
                                 onUpdateItemManoObraCost={handleUpdateItemManoObraCost}
@@ -1252,6 +1323,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                               onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
                               onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
                               onOpenMaterialPicker={(itemIdx) => setMaterialPickerItemIndex(itemIdx)}
+                              onOpenMaterialBrandModal={(itemIdx, matIdx) => setBrandModalTarget({ itemIndex: itemIdx, materialIndex: matIdx })}
                               onUpdateItemMaterialQuantity={handleUpdateItemMaterialQuantity}
                               onRemoveItemMaterial={handleRemoveItemMaterial}
                               onUpdateItemManoObraCost={handleUpdateItemManoObraCost}
@@ -1465,6 +1537,18 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           }}
         />
       )}
+
+      {/* Selector de Marca / Modelo para Material en Partida */}
+      {brandModalTarget !== null &&
+        items[brandModalTarget.itemIndex]?.insumosSnapshot?.[brandModalTarget.materialIndex] && (
+          <MaterialBrandModal
+            isOpen={brandModalTarget !== null}
+            onClose={() => setBrandModalTarget(null)}
+            materialSnapshot={items[brandModalTarget.itemIndex].insumosSnapshot[brandModalTarget.materialIndex]}
+            itemDescription={items[brandModalTarget.itemIndex]?.descripcion || 'Partida'}
+            onApplyBrand={handleApplyMaterialBrand}
+          />
+        )}
 
       {/* Gasto & Modificadores Modal */}
       <GastoEditorModal

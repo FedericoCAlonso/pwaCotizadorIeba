@@ -150,6 +150,8 @@ export type Insumo = Material & {
   fechaActualizacion?: string;
   historialPrecios?: { fecha: string; precio: number; fuente: string; alicuotaIVA?: number }[];
   ofertas?: Oferta[];
+  marca?: string;
+  productoId?: string;
 };
 
 // ─── 3. Producto (Implementación de marca de un Material) ──────────────────────

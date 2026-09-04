@@ -12,7 +12,9 @@ import {
   Tag,
   CheckCircle2,
   CheckSquare,
-  Square
+  Square,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { db } from '../../db/database';
 import { Insumo, CategoriaMaterial } from '../../core/types';
@@ -63,6 +65,7 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
+  const [isCategoriesExpanded, setIsCategoriesExpanded] = useState<boolean>(false);
   // Map of materialId -> staged entry for staged multi-add
   const [stagedQuantities, setStagedQuantities] = useState<Map<string, StagedEntry>>(new Map());
   // Set of materialId for batch checkbox selection
@@ -75,6 +78,7 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
     if (isOpen) {
       setSearchTerm('');
       setSelectedCategory('todas');
+      setIsCategoriesExpanded(false);
       setStagedQuantities(new Map());
       setSelectedIds(new Set());
       setBatchQuantity(1);
@@ -88,28 +92,13 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
     return Array.from(insumosMap.values());
   }, [insumosMap]);
 
-  // Extract available unique category IDs in current catalog
-  const availableCategoryIds = useMemo(() => {
-    const ids = new Set<string>();
-    allInsumos.forEach((ins) => {
-      if (ins.categoriaId || ins.categoria) {
-        ids.add(ins.categoriaId || ins.categoria || '');
-      }
-    });
-    return Array.from(ids);
-  }, [allInsumos]);
-
-  // Filtered materials
-  const filteredInsumos = useMemo(() => {
+  // Search-matched materials (independent of category filter)
+  const searchMatchedInsumos = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
+    if (!term) return allInsumos;
     return allInsumos.filter((ins) => {
       const catId = ins.categoriaId || ins.categoria || '';
       const catName = (categoriasMap.get(catId) || catId).toLowerCase();
-      const matchesCategory = selectedCategory === 'todas' || catId === selectedCategory;
-
-      if (!matchesCategory) return false;
-      if (!term) return true;
-
       const matchesName = ins.nombre.toLowerCase().includes(term);
       const matchesCatName = catName.includes(term);
       const matchesAttr = ins.atributos?.some(
@@ -119,7 +108,39 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
 
       return matchesName || matchesCatName || matchesAttr || matchesCode;
     });
-  }, [allInsumos, searchTerm, selectedCategory, categoriasMap]);
+  }, [allInsumos, searchTerm, categoriasMap]);
+
+  // Dynamic category counts based on current search matches
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const ins of searchMatchedInsumos) {
+      const catId = ins.categoriaId || ins.categoria || 'sin_categoria';
+      counts.set(catId, (counts.get(catId) || 0) + 1);
+    }
+    return counts;
+  }, [searchMatchedInsumos]);
+
+  // Extract available unique category IDs that have at least 1 match in search
+  const availableCategoryIds = useMemo(() => {
+    return Array.from(categoryCounts.keys());
+  }, [categoryCounts]);
+
+  // Auto-reset selected category to 'todas' if the active filter no longer has any matches under current search
+  useEffect(() => {
+    if (selectedCategory !== 'todas' && !categoryCounts.has(selectedCategory)) {
+      setSelectedCategory('todas');
+    }
+  }, [categoryCounts, selectedCategory]);
+
+  // Final filtered materials (by search and active category)
+  const filteredInsumos = useMemo(() => {
+    if (selectedCategory === 'todas') {
+      return searchMatchedInsumos;
+    }
+    return searchMatchedInsumos.filter(
+      (ins) => (ins.categoriaId || ins.categoria || 'sin_categoria') === selectedCategory
+    );
+  }, [searchMatchedInsumos, selectedCategory]);
 
   // Checkbox toggle for multi-select
   const toggleSelectId = (id: string) => {
@@ -334,42 +355,79 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
             )}
           </div>
 
-          {/* Category Filter Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-1 touch-pan-x overscroll-contain">
-            <button
-              type="button"
-              onClick={() => setSelectedCategory('todas')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-                selectedCategory === 'todas'
-                  ? 'bg-secondary-container text-on-secondary-container shadow-xs'
-                  : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant'
-              }`}
-            >
-              <span>Todas</span>
-              <span className="text-[10px] opacity-75 font-mono">({allInsumos.length})</span>
-            </button>
-
-            {availableCategoryIds.map((catId) => {
-              const catName = categoriasMap.get(catId) || catId || 'Sin Categoría';
-              const count = allInsumos.filter((i) => (i.categoriaId || i.categoria) === catId).length;
-              const isSelected = selectedCategory === catId;
-
-              return (
+          {/* Category Filter Chips Toolbar */}
+          <div className="space-y-1.5">
+            {availableCategoryIds.length > 3 && (
+              <div className="flex items-center justify-between text-xs text-on-surface-variant px-0.5">
+                <span className="font-semibold text-[11px] uppercase tracking-wider text-on-surface-variant/75">
+                  Categorías ({availableCategoryIds.length})
+                </span>
                 <button
-                  key={catId}
                   type="button"
-                  onClick={() => setSelectedCategory(catId)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-                    isSelected
-                      ? 'bg-primary-container text-on-primary-container border border-primary/30 shadow-xs'
+                  onClick={() => setIsCategoriesExpanded((prev) => !prev)}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors py-0.5 px-1.5 rounded-lg hover:bg-primary/10"
+                  aria-expanded={isCategoriesExpanded}
+                  title={isCategoriesExpanded ? 'Mostrar en una sola fila desplazable' : 'Desplegar todas las categorías en cuadrícula'}
+                >
+                  <span>{isCategoriesExpanded ? 'Colapsar fila' : `Ver todas (${availableCategoryIds.length})`}</span>
+                  {isCategoriesExpanded ? (
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            )}
+
+            <div className="relative">
+              <div
+                className={`transition-all duration-200 ${
+                  isCategoriesExpanded
+                    ? 'flex flex-wrap items-center gap-1.5 max-h-36 overflow-y-auto no-scrollbar p-0.5'
+                    : 'flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-1 pr-6 touch-pan-x overscroll-contain'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory('todas')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 shrink-0 ${
+                    selectedCategory === 'todas'
+                      ? 'bg-secondary-container text-on-secondary-container shadow-xs'
                       : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant'
                   }`}
                 >
-                  <span>{catName}</span>
-                  <span className="text-[10px] opacity-75 font-mono">({count})</span>
+                  <span>Todas</span>
+                  <span className="text-[10px] opacity-75 font-mono">({searchMatchedInsumos.length})</span>
                 </button>
-              );
-            })}
+
+                {availableCategoryIds.map((catId) => {
+                  const catName = categoriasMap.get(catId) || (catId === 'sin_categoria' ? 'Sin Categoría' : catId);
+                  const count = categoryCounts.get(catId) || 0;
+                  const isSelected = selectedCategory === catId;
+
+                  return (
+                    <button
+                      key={catId}
+                      type="button"
+                      onClick={() => setSelectedCategory(catId)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 shrink-0 ${
+                        isSelected
+                          ? 'bg-primary-container text-on-primary-container border border-primary/30 shadow-xs'
+                          : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant'
+                      }`}
+                    >
+                      <span>{catName}</span>
+                      <span className="text-[10px] opacity-75 font-mono">({count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Indicador sutil de scroll lateral derecho cuando está colapsado y hay más de 3 categorías */}
+              {!isCategoriesExpanded && availableCategoryIds.length > 3 && (
+                <div className="pointer-events-none absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-surface-container-low to-transparent" />
+              )}
+            </div>
           </div>
         </div>
 

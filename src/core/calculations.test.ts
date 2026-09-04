@@ -2345,6 +2345,45 @@ describe('15. Estructura de Gastos Directos vs Indirectos, Fórmulas Paramétric
     expect(resAuto.valoresVariables['stot_relevamiento']).toBe(120000); // (1*2 + 5/5) * 40000 * 1 = 3 * 40000 = 120000
   });
 
+  it('debe propagar la marca y productoId del insumosMap hacia insumosSnapshot al calcular consumos de TareaTipo', () => {
+    const tarea: TareaTipo = {
+      id: 'tarea-test-marca',
+      nombre: 'Instalación Térmica',
+      unidad: 'u',
+      categoria: 'Tableros',
+      insumos: [
+        {
+          materialId: 'mat-termica-20',
+          formulaCantidad: '1'
+        }
+      ],
+      manoObra: []
+    };
+
+    const mapInsumosConMarca = new Map<string, Insumo>([
+      [
+        'mat-termica-20',
+        {
+          id: 'mat-termica-20',
+          categoriaId: 'cat-termicas',
+          nombre: 'Termomagnética 1x20A C',
+          unidadVenta: 'u',
+          atributos: [],
+          activo: true,
+          precioActual: 8500,
+          historialPrecios: [],
+          marca: 'Schneider Electric',
+          productoId: 'prod-schneider-act9'
+        }
+      ]
+    ]);
+
+    const res = calcularConsumosTareaTipo(tarea, {}, mapInsumosConMarca, new Map());
+    expect(res.insumosSnapshot).toHaveLength(1);
+    expect(res.insumosSnapshot[0].marca).toBe('Schneider Electric');
+    expect(res.insumosSnapshot[0].productoId).toBe('prod-schneider-act9');
+  });
+
   it('debe prorratear gastos directos focalizados estrictamente dentro de los ítems de su propio capítulo sin afectar a otros capítulos', () => {
     const capitulos: CapituloPresupuesto[] = [
       { id: 'cap-1', nombre: 'Capítulo 1: Tableros' },

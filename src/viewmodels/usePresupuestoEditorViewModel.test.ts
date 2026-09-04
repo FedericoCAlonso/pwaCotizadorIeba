@@ -259,5 +259,25 @@ describe('usePresupuestoEditorViewModel', () => {
     expect(db.presupuestos.put).toHaveBeenCalled();
     expect(mockOnSaved).toHaveBeenCalled();
   });
+
+  it('no ejecuta auto-guardado si no hubo cambios reales', async () => {
+    (db.presupuestos.put as any).mockClear();
+    const mockDraftAutoSaved = vi.fn();
+    const { result } = renderHook(() =>
+      usePresupuestoEditorViewModel({
+        config: DEFAULT_APP_CONFIG,
+        onSaved: mockOnSaved,
+        onDraftAutoSaved: mockDraftAutoSaved
+      })
+    );
+
+    // Sin cambios, flushAutoSave no debe guardar nada
+    await act(async () => {
+      await result.current.flushAutoSave();
+    });
+
+    expect(db.presupuestos.put).not.toHaveBeenCalled();
+    expect(mockDraftAutoSaved).not.toHaveBeenCalled();
+  });
 });
 

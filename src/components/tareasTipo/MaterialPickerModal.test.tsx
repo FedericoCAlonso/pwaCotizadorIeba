@@ -119,4 +119,84 @@ describe('MaterialPickerModal - Selección por Lote con Cantidad Compartida', ()
 
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('filtra dinámicamente los chips de categoría y sus conteos al escribir en la búsqueda', () => {
+    render(
+      <MaterialPickerModal
+        isOpen={true}
+        onClose={vi.fn()}
+        insumosMap={insumosMap}
+        onAddMaterial={vi.fn()}
+      />
+    );
+
+    // Inicialmente: 4 insumos en total (3 en cat1, 1 en cat2)
+    expect(screen.getByText(/Todas/i)).toBeDefined();
+    expect(screen.getByText('(4)')).toBeDefined();
+    expect(screen.getByText('(3)')).toBeDefined(); // cat1
+    expect(screen.getByText('(1)')).toBeDefined(); // cat2
+
+    // Buscar "corrugado"
+    const searchInput = screen.getByPlaceholderText(/Buscar por nombre/i);
+    fireEvent.change(searchInput, { target: { value: 'corrugado' } });
+
+    // Ahora sólo debe figurar la categoría cat2 con (1), y "Todas" con (1). cat1 ya no tiene coincidencias y se oculta.
+    expect(screen.getAllByText('(1)')).toHaveLength(2);
+    expect(screen.queryByText('(3)')).toBeNull();
+
+    // Limpiar búsqueda
+    fireEvent.change(searchInput, { target: { value: '' } });
+    expect(screen.getByText('(4)')).toBeDefined();
+    expect(screen.getByText('(3)')).toBeDefined();
+  });
+
+  it('permite alternar entre colapsar y expandir cuando hay más de 3 categorías', () => {
+    const manyCategoriesInsumos: Insumo[] = [
+      ...mockInsumos,
+      {
+        id: 'termica-20a',
+        nombre: 'Termomagnética 20A',
+        categoriaId: 'cat3',
+        unidad: 'u',
+        unidadVenta: 'u',
+        precioActual: 12000,
+        atributos: [],
+        activo: true
+      },
+      {
+        id: 'disyuntor-25a',
+        nombre: 'Disyuntor Diferencial 25A',
+        categoriaId: 'cat4',
+        unidad: 'u',
+        unidadVenta: 'u',
+        precioActual: 24000,
+        atributos: [],
+        activo: true
+      }
+    ];
+
+    const largeMap = new Map<string, Insumo>(manyCategoriesInsumos.map(i => [i.id, i]));
+
+    render(
+      <MaterialPickerModal
+        isOpen={true}
+        onClose={vi.fn()}
+        insumosMap={largeMap}
+        onAddMaterial={vi.fn()}
+      />
+    );
+
+    // Debe mostrar el botón "Ver todas (4)"
+    const toggleBtn = screen.getByRole('button', { name: /Ver todas \(4\)/i });
+    expect(toggleBtn).toBeDefined();
+
+    // Clic para expandir
+    fireEvent.click(toggleBtn);
+    expect(screen.getByRole('button', { name: /Colapsar fila/i })).toBeDefined();
+
+    // Clic para colapsar
+    fireEvent.click(screen.getByRole('button', { name: /Colapsar fila/i }));
+    expect(screen.getByRole('button', { name: /Ver todas \(4\)/i })).toBeDefined();
+  });
 });
+

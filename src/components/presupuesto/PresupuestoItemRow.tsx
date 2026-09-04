@@ -14,7 +14,8 @@ import {
   GraduationCap,
   Truck,
   Package,
-  Plus
+  Plus,
+  Tag
 } from 'lucide-react';
 import { ItemPresupuesto } from '../../core/types';
 import { formatARS, roundMoney } from '../../core/calculations';
@@ -39,6 +40,7 @@ interface PresupuestoItemRowProps {
   onOpenMaterialModal?: (index: number) => void;
   onOpenInSituEditor?: (index: number) => void;
   onOpenMaterialPicker?: (index: number) => void;
+  onOpenMaterialBrandModal?: (itemIndex: number, materialIndex: number) => void;
   onUpdateItemMaterialQuantity?: (itemIndex: number, materialIndex: number, newQty: number) => void;
   onRemoveItemMaterial?: (itemIndex: number, materialIndex: number) => void;
   onUpdateItemManoObraCost?: (index: number, moCost: number) => void;
@@ -65,6 +67,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
   onOpenMaterialModal,
   onOpenInSituEditor,
   onOpenMaterialPicker,
+  onOpenMaterialBrandModal,
   onUpdateItemMaterialQuantity,
   onRemoveItemMaterial,
   onUpdateItemManoObraCost,
@@ -573,9 +576,38 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                   <div className="space-y-1 divide-y divide-outline-variant/10">
                     {item.insumosSnapshot.map((ins, iIdx) => (
                       <div key={iIdx} className="pt-1.5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 text-on-surface-variant text-[11px]">
-                        <div className="flex items-center gap-1.5 truncate flex-1 min-w-[120px]">
-                          <span className="truncate font-medium text-on-surface">{ins.nombre}</span>
-                          <OnlinePriceButton tipo="material" customNombre={ins.nombre} size="xs" variant="icon" />
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 truncate flex-1 min-w-[120px]">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <span className="truncate font-medium text-on-surface">{ins.nombre}</span>
+                            <OnlinePriceButton tipo="material" customNombre={ins.nombre} size="xs" variant="icon" />
+                          </div>
+
+                          {/* Selector / Badge de Marca & Modelo */}
+                          {onOpenMaterialBrandModal ? (
+                            <button
+                              type="button"
+                              onClick={() => onOpenMaterialBrandModal(index, iIdx)}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-all shrink-0 max-w-fit ${
+                                ins.marca
+                                  ? 'bg-primary/10 text-primary border-primary/25 hover:bg-primary/20'
+                                  : 'bg-surface-variant/50 text-on-surface-variant/80 border-outline-variant/30 hover:bg-surface-variant hover:text-on-surface'
+                              }`}
+                              title="Asignar o cambiar marca y modelo de este material en la cotización"
+                            >
+                              <Tag className="w-2.5 h-2.5 shrink-0" />
+                              <span className="truncate max-w-[130px] sm:max-w-[170px]">
+                                {ins.marca || 'Asignar marca...'}
+                              </span>
+                              <ChevronDown className="w-2.5 h-2.5 shrink-0 opacity-60" />
+                            </button>
+                          ) : (
+                            ins.marca && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary border border-primary/25 shrink-0 max-w-fit">
+                                <Tag className="w-2.5 h-2.5 shrink-0" />
+                                <span className="truncate max-w-[130px] sm:max-w-[170px]">{ins.marca}</span>
+                              </span>
+                            )
+                          )}
                         </div>
                         <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 font-mono shrink-0 w-full sm:w-auto text-[10px] sm:text-[11px]">
                           {onUpdateItemMaterialQuantity ? (

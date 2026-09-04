@@ -212,9 +212,8 @@ export function buildInsumosMap(
 
   // 2. Sobrescribir/agregar materiales del catálogo normalizado con precio resuelto
   materiales.forEach(m => {
-    // Buscar marca preferida
     const matProds = productos.filter(p => p.materialId === m.id);
-    const preferido = matProds.find(p => p.esPreferido);
+    const preferido = matProds.find(p => p.esPreferido) || (matProds.length > 0 ? matProds[0] : undefined);
     let oferta: Oferta | undefined;
 
     if (preferido) {
@@ -226,10 +225,16 @@ export function buildInsumosMap(
       oferta = sortedOfertas.filter(o => o.materialId === m.id).pop();
     }
 
+    const marcaResolved = preferido
+      ? `${preferido.marca}${preferido.modelo ? ` ${preferido.modelo}` : ''}`.trim()
+      : ((m as any).marca || undefined);
+
     map.set(m.id, {
       ...m,
       id: m.id,
       nombre: m.nombre,
+      marca: marcaResolved,
+      productoId: preferido?.id,
       unidad: m.unidadVenta || 'u',
       categoria: m.categoriaId,
       precioActual: oferta ? oferta.precio : (m as any).precioActual || 0,
