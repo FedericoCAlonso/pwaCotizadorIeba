@@ -1,7 +1,7 @@
-import React from 'react';
 import {
   FileText,
   Sliders,
+  Calculator,
   Package,
   Clock,
   ShieldAlert
@@ -20,7 +20,8 @@ import {
   TareaEditorTab
 } from '../../viewmodels/useTareaEditorModalViewModel';
 import { GeneralTab } from './editor/GeneralTab';
-import { ParametrosVariablesTab } from './editor/ParametrosVariablesTab';
+import { ParametrosTab } from './editor/ParametrosTab';
+import { VariablesTab } from './editor/VariablesTab';
 import { MaterialesTab } from './editor/MaterialesTab';
 import { ManoObraTab } from './editor/ManoObraTab';
 import { ClausulasTab } from './editor/ClausulasTab';
@@ -108,9 +109,15 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
     { id: 'general', label: 'General', icon: FileText },
     {
       id: 'parametros',
-      label: 'Parámetros y Variables',
+      label: 'Parámetros',
       icon: Sliders,
-      badge: parametrosCount + variablesCount > 0 ? `${parametrosCount}p • ${variablesCount}v` : undefined
+      badge: parametrosCount > 0 ? parametrosCount : undefined
+    },
+    {
+      id: 'variables',
+      label: 'Cálculos',
+      icon: Calculator,
+      badge: variablesCount > 0 ? variablesCount : undefined
     },
     {
       id: 'materiales',
@@ -183,15 +190,22 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
             )}
 
             {activeTab === 'parametros' && (
-              <ParametrosVariablesTab
-                formData={formData}
-                currentScope={currentScope}
+              <ParametrosTab
+                parametros={formData.parametros}
                 addParametro={addParametro}
                 updateParametro={updateParametro}
                 removeParametro={removeParametro}
                 moveParametro={moveParametro}
                 canMoveParametro={canMoveParametro}
                 setParametroDependency={setParametroDependency}
+              />
+            )}
+
+            {activeTab === 'variables' && (
+              <VariablesTab
+                variables={formData.variables}
+                parametros={formData.parametros}
+                currentScope={currentScope}
                 addVariable={addVariable}
                 updateVariable={updateVariable}
                 removeVariable={removeVariable}

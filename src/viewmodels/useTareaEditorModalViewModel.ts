@@ -37,7 +37,7 @@ export interface TareaFormData {
   manoObra: ManoObraEnTarea[];
 }
 
-export type TareaEditorTab = 'general' | 'parametros' | 'materiales' | 'mano_obra' | 'clausulas';
+export type TareaEditorTab = 'general' | 'parametros' | 'variables' | 'materiales' | 'mano_obra' | 'clausulas';
 
 export interface UseTareaEditorModalViewModelProps {
   isOpen: boolean;
