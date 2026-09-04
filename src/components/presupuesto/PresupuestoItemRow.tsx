@@ -15,9 +15,10 @@ import {
   Truck,
   Package,
   Plus,
-  Tag
+  Tag,
+  Clock
 } from 'lucide-react';
-import { ItemPresupuesto } from '../../core/types';
+import { ItemPresupuesto, CategoriaManoDeObra } from '../../core/types';
 import { formatARS, roundMoney } from '../../core/calculations';
 import { OnlinePriceButton } from '../OnlinePriceButton';
 import { MathInput } from '../common/MathInput';
@@ -44,6 +45,10 @@ interface PresupuestoItemRowProps {
   onUpdateItemMaterialQuantity?: (itemIndex: number, materialIndex: number, newQty: number) => void;
   onRemoveItemMaterial?: (itemIndex: number, materialIndex: number) => void;
   onUpdateItemManoObraCost?: (index: number, moCost: number) => void;
+  onAddLaborRole?: (itemIndex: number, categoriaId: string, horas: number) => void;
+  onUpdateItemLaborHours?: (itemIndex: number, laborIndex: number, newHours: number) => void;
+  onRemoveItemLabor?: (itemIndex: number, laborIndex: number) => void;
+  categoriasManoObra?: CategoriaManoDeObra[];
   condicionesTrabajo: Array<{ value: string; label: string }>;
   titleInputRef?: (el: HTMLInputElement | null) => void;
   onEnterAtEnd?: () => void;
@@ -71,11 +76,18 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
   onUpdateItemMaterialQuantity,
   onRemoveItemMaterial,
   onUpdateItemManoObraCost,
+  onAddLaborRole,
+  onUpdateItemLaborHours,
+  onRemoveItemLabor,
+  categoriasManoObra,
   condicionesTrabajo,
   titleInputRef,
   onEnterAtEnd
 }) => {
   const [showItemMenu, setShowItemMenu] = useState(false);
+  const [showAddLaborInline, setShowAddLaborInline] = useState(false);
+  const [newLaborCatId, setNewLaborCatId] = useState<string>('');
+  const [newLaborHours, setNewLaborHours] = useState<number>(4);
 
   const hasSnapshots =
     (item.insumosSnapshot && item.insumosSnapshot.length > 0) ||
@@ -123,10 +135,10 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
               <Truck className="w-3 h-3" />
               <span>Servicio Tercerizado</span>
             </span>
-          ) : isCustom ? (
+          ) : isItemLibre ? (
             <span className="hidden sm:inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 items-center gap-1">
               <FileText className="w-3 h-3" />
-              <span>Directo</span>
+              <span>{hasSnapshots ? 'Desglosado' : 'Directo'}</span>
             </span>
           ) : (
             <span className="hidden sm:inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 items-center gap-1">
@@ -229,6 +241,20 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                     <Sparkles className="w-4 h-4" />
                     <span>Guardar en Catálogo</span>
                   </button>
+
+                  {isItemLibre && !hasSnapshots && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onToggleExpand(item.id);
+                        setShowItemMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-surface-container-highest transition-colors text-left font-medium"
+                    >
+                      <Layers className="w-4 h-4" />
+                      <span>Desglosar Costos (Materiales / MO)</span>
+                    </button>
+                  )}
 
                   {onOpenMaterialPicker && (
                     <button
@@ -421,26 +447,32 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
           <div className="flex items-center justify-between gap-2 flex-wrap">
             {/* Costo Directo Unitario */}
             <div className="text-xs">
-              {isCustom ? (
-                item.insumosSnapshot && item.insumosSnapshot.length > 0 ? (
+              {isItemLibre ? (
+                hasSnapshots ? (
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-1.5 text-on-surface-variant font-mono text-[11px]">
                       <span className="opacity-70 text-[10px] uppercase font-bold">Insumos:</span>
-                      <span className="font-bold text-primary">{formatARS(calcItem.costoInsumos || item.costoInsumos)}</span>
+                      <span className="font-bold text-primary">{formatARS(calcItem.costoInsumos || item.costoInsumos || 0)}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-[10px] uppercase font-bold text-on-surface-variant opacity-70">M. Obra:</span>
-                      <div className="w-20 sm:w-24" title="Mano de obra o adicionales directos para esta partida">
-                        <MathInput
-                          value={item.costoManoObra || 0}
-                          onChange={(val) => onUpdateItemManoObraCost ? onUpdateItemManoObraCost(index, val) : onUpdateItemUnitDirectCost(index, val)}
-                          prefix="$"
-                          size="sm"
-                          min={0}
-                          step={100}
-                          placeholder="0"
-                        />
-                      </div>
+                      {item.manoObraSnapshot && item.manoObraSnapshot.length > 0 ? (
+                        <span className="font-bold text-primary font-mono text-[11px]" title="Calculado por horas en el desglose de roles">
+                          {formatARS(item.costoManoObra || 0)}
+                        </span>
+                      ) : (
+                        <div className="w-20 sm:w-24" title="Mano de obra o adicionales directos para esta partida">
+                          <MathInput
+                            value={item.costoManoObra || 0}
+                            onChange={(val) => onUpdateItemManoObraCost ? onUpdateItemManoObraCost(index, val) : onUpdateItemUnitDirectCost(index, val)}
+                            prefix="$"
+                            size="sm"
+                            min={0}
+                            step={100}
+                            placeholder="0"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -487,7 +519,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
       </div>
 
       {/* 4. Acordeón de Desglose Técnico (Progressive Disclosure) */}
-      {hasSnapshots && (
+      {(hasSnapshots || isExpanded) && (
         <div className="pt-1 border-t border-outline-variant/15">
           <button
             type="button"
@@ -660,26 +692,130 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                 </div>
               )}
 
-              {/* Mano de Obra Snapshot */}
-              {item.manoObraSnapshot && item.manoObraSnapshot.length > 0 && (
+              {/* Mano de Obra Snapshot & Inline Adder */}
+              {(isItemLibre || (item.manoObraSnapshot && item.manoObraSnapshot.length > 0)) && (
                 <div className="space-y-1.5 pt-2 border-t border-outline-variant/20">
                   <div className="flex justify-between items-center text-[10px] uppercase font-bold text-primary tracking-wider">
-                    <span>Mano de Obra ({item.manoObraSnapshot.length})</span>
-                    <span className="font-mono">{formatARS(item.costoManoObra)}</span>
+                    <span>Mano de Obra ({item.manoObraSnapshot?.length || 0})</span>
+                    <span className="font-mono">{formatARS(item.costoManoObra || 0)}</span>
                   </div>
-                  <div className="space-y-1 divide-y divide-outline-variant/10">
-                    {item.manoObraSnapshot.map((mo, mIdx) => (
-                      <div key={mIdx} className="pt-1 flex flex-wrap sm:flex-nowrap items-center justify-between gap-1 text-on-surface-variant text-[11px]">
-                        <span className="truncate flex-1 min-w-[120px]">{mo.nombreCategoria}</span>
-                        <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 font-mono shrink-0 w-full sm:w-auto text-[10px] sm:text-[11px]">
-                          <span>
-                            {mo.horasTotales} hs × {formatARS(mo.costoHoraCongelado)}/h
-                          </span>
-                          <strong className="text-on-surface font-semibold">{formatARS(mo.subtotalManoObra)}</strong>
+
+                  {item.manoObraSnapshot && item.manoObraSnapshot.length > 0 ? (
+                    <div className="space-y-1 divide-y divide-outline-variant/10">
+                      {item.manoObraSnapshot.map((mo, mIdx) => (
+                        <div key={mIdx} className="pt-1.5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 text-on-surface-variant text-[11px]">
+                          <span className="truncate flex-1 min-w-[120px] font-medium text-on-surface">{mo.nombreCategoria}</span>
+                          <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 font-mono shrink-0 w-full sm:w-auto text-[10px] sm:text-[11px]">
+                            {onUpdateItemLaborHours ? (
+                              <div className="flex items-center gap-1">
+                                <div className="w-16 sm:w-20">
+                                  <MathInput
+                                    value={mo.horasTotales}
+                                    onChange={(val) => onUpdateItemLaborHours(index, mIdx, val)}
+                                    size="sm"
+                                    min={0.1}
+                                    step={0.5}
+                                    suffix="hs"
+                                  />
+                                </div>
+                                <span className="text-[10px] text-on-surface-variant">× {formatARS(mo.costoHoraCongelado)}/h</span>
+                              </div>
+                            ) : (
+                              <span>
+                                {mo.horasTotales} hs × {formatARS(mo.costoHoraCongelado)}/h
+                              </span>
+                            )}
+                            <strong className="text-on-surface font-semibold">{formatARS(mo.subtotalManoObra)}</strong>
+
+                            {onRemoveItemLabor && (
+                              <button
+                                type="button"
+                                onClick={() => onRemoveItemLabor(index, mIdx)}
+                                className="p-1 text-on-surface-variant hover:text-error rounded transition"
+                                title="Quitar rol"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-on-surface-variant/70 italic py-1">
+                      Sin roles de mano de obra asignados por horas.
+                    </p>
+                  )}
+
+                  {/* Inline Labor Adder */}
+                  {isItemLibre && onAddLaborRole && categoriasManoObra && categoriasManoObra.length > 0 && (
+                    <div className="pt-2">
+                      {showAddLaborInline ? (
+                        <div className="p-2.5 bg-surface-container rounded-2xl border border-outline-variant/30 flex flex-wrap items-center gap-2 animate-in fade-in-50 duration-150">
+                          <select
+                            value={newLaborCatId || categoriasManoObra[0]?.id || ''}
+                            onChange={(e) => setNewLaborCatId(e.target.value)}
+                            className="bg-surface-container-highest border border-outline-variant/30 rounded-xl px-2.5 py-1 text-xs font-semibold text-on-surface focus:outline-none flex-1 min-w-[140px]"
+                          >
+                            {categoriasManoObra.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.nombre} ({formatARS(c.costoHora)}/h)
+                              </option>
+                            ))}
+                          </select>
+
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-on-surface-variant font-mono">Horas:</span>
+                            <div className="w-16">
+                              <MathInput
+                                value={newLaborHours}
+                                onChange={(val) => setNewLaborHours(Math.max(0.1, val))}
+                                size="sm"
+                                min={0.1}
+                                step={0.5}
+                                suffix="hs"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 ml-auto">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const targetCatId = newLaborCatId || categoriasManoObra[0]?.id;
+                                if (targetCatId) {
+                                  onAddLaborRole(index, targetCatId, newLaborHours);
+                                  setShowAddLaborInline(false);
+                                }
+                              }}
+                              className="px-3 py-1 bg-primary text-on-primary rounded-xl text-xs font-bold hover:bg-primary/90 transition shadow-2xs"
+                            >
+                              Asignar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowAddLaborInline(false)}
+                              className="px-2 py-1 text-xs text-on-surface-variant hover:text-on-surface rounded-xl transition"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewLaborCatId(categoriasManoObra[0]?.id || '');
+                            setShowAddLaborInline(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 rounded-xl transition"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>+ Asignar rol de mano de obra</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -821,6 +821,189 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     });
   };
 
+  const handleAddLaborToItem = (itemIndex: number, categoriaId: string, horas: number) => {
+    const catMO = manoObraMap.get(categoriaId);
+    if (!catMO) return;
+
+    const safeHoras = Math.max(0.1, safeNum(horas) || 1);
+    const costoHora = roundMoney(safeNum(catMO.costoHora));
+
+    setItems((prev) => {
+      const next = [...prev];
+      const target = next[itemIndex];
+      if (!target) return prev;
+
+      const mult = obtenerMultiplicadorCondicion(target.condicionTrabajo || 'normal', {
+        multiplicadorCondicionNormal: config.multiplicadorCondicionNormal,
+        multiplicadorCondicionDificultosa: config.multiplicadorCondicionDificultosa,
+        multiplicadorCondicionFavorable: config.multiplicadorCondicionFavorable
+      });
+
+      const existingSnapshots = [...(target.manoObraSnapshot || [])];
+      const existingIdx = existingSnapshots.findIndex((s) => s.categoriaId === categoriaId);
+
+      if (existingIdx >= 0) {
+        const cur = existingSnapshots[existingIdx];
+        const newHoras = roundMoney(cur.horasTotales + safeHoras);
+        existingSnapshots[existingIdx] = {
+          ...cur,
+          horasTotales: newHoras,
+          horasUnitarias: roundMoney(newHoras / (target.cantidad || 1)),
+          subtotalManoObra: roundMoney(cur.costoHoraCongelado * (newHoras * mult))
+        };
+      } else {
+        existingSnapshots.push({
+          categoriaId: catMO.id,
+          nombreCategoria: catMO.nombre,
+          horasUnitarias: roundMoney(safeHoras / (target.cantidad || 1)),
+          horasTotales: safeHoras,
+          costoHoraCongelado: costoHora,
+          subtotalManoObra: roundMoney(costoHora * (safeHoras * mult))
+        });
+      }
+
+      const costoManoObra = roundMoney(existingSnapshots.reduce((acc, m) => acc + m.subtotalManoObra, 0));
+      const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
+      const insumosSnap = target.insumosSnapshot || [];
+      const costoInsumos = insumosSnap.length > 0
+        ? (isFacturaC_or_X
+            ? roundMoney(
+                insumosSnap.reduce(
+                  (acc, i) =>
+                    acc +
+                    (i.subtotalInsumoFinal ??
+                      roundMoney(i.precioUnitarioCongelado * (1 + (i.alicuotaIVA ?? 21) / 100) * i.cantidadTotal)),
+                  0
+                )
+              )
+            : roundMoney(insumosSnap.reduce((acc, i) => acc + i.subtotalInsumo, 0)))
+        : safeNum(target.costoInsumos);
+
+      const costoServicios = safeNum(target.costoServiciosTercerizados);
+      const costoDirectoTotal = roundMoney(costoInsumos + costoManoObra + costoServicios);
+      const safeQty = target.cantidad || 1;
+
+      next[itemIndex] = {
+        ...target,
+        manoObraSnapshot: existingSnapshots,
+        costoManoObra,
+        costoDirectoTotal,
+        costoUnitario: roundMoney(costoDirectoTotal / safeQty),
+        costoTotal: costoDirectoTotal
+      };
+
+      return next;
+    });
+
+    toast.success(`Mano de obra "${catMO.nombre}" agregada a la partida`);
+  };
+
+  const handleUpdateItemLaborHours = (itemIndex: number, laborIndex: number, newHours: number) => {
+    const safeHours = Math.max(0, safeNum(newHours));
+    if (safeHours === 0) {
+      handleRemoveItemLabor(itemIndex, laborIndex);
+      return;
+    }
+
+    setItems((prev) => {
+      const next = [...prev];
+      const target = next[itemIndex];
+      if (!target || !target.manoObraSnapshot) return prev;
+
+      const mult = obtenerMultiplicadorCondicion(target.condicionTrabajo || 'normal', {
+        multiplicadorCondicionNormal: config.multiplicadorCondicionNormal,
+        multiplicadorCondicionDificultosa: config.multiplicadorCondicionDificultosa,
+        multiplicadorCondicionFavorable: config.multiplicadorCondicionFavorable
+      });
+
+      const snapshots = [...target.manoObraSnapshot];
+      const snap = snapshots[laborIndex];
+      if (!snap) return prev;
+
+      snapshots[laborIndex] = {
+        ...snap,
+        horasTotales: safeHours,
+        horasUnitarias: roundMoney(safeHours / (target.cantidad || 1)),
+        subtotalManoObra: roundMoney(snap.costoHoraCongelado * (safeHours * mult))
+      };
+
+      const costoManoObra = roundMoney(snapshots.reduce((acc, m) => acc + m.subtotalManoObra, 0));
+      const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
+      const insumosSnap = target.insumosSnapshot || [];
+      const costoInsumos = insumosSnap.length > 0
+        ? (isFacturaC_or_X
+            ? roundMoney(
+                insumosSnap.reduce(
+                  (acc, i) =>
+                    acc +
+                    (i.subtotalInsumoFinal ??
+                      roundMoney(i.precioUnitarioCongelado * (1 + (i.alicuotaIVA ?? 21) / 100) * i.cantidadTotal)),
+                  0
+                )
+              )
+            : roundMoney(insumosSnap.reduce((acc, i) => acc + i.subtotalInsumo, 0)))
+        : safeNum(target.costoInsumos);
+
+      const costoServicios = safeNum(target.costoServiciosTercerizados);
+      const costoDirectoTotal = roundMoney(costoInsumos + costoManoObra + costoServicios);
+      const targetQty = target.cantidad || 1;
+
+      next[itemIndex] = {
+        ...target,
+        manoObraSnapshot: snapshots,
+        costoManoObra,
+        costoDirectoTotal,
+        costoUnitario: roundMoney(costoDirectoTotal / targetQty),
+        costoTotal: costoDirectoTotal
+      };
+
+      return next;
+    });
+  };
+
+  const handleRemoveItemLabor = (itemIndex: number, laborIndex: number) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const target = next[itemIndex];
+      if (!target || !target.manoObraSnapshot) return prev;
+
+      const snapshots = target.manoObraSnapshot.filter((_, idx) => idx !== laborIndex);
+      const costoManoObra = roundMoney(snapshots.reduce((acc, m) => acc + m.subtotalManoObra, 0));
+      const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
+      const insumosSnap = target.insumosSnapshot || [];
+      const costoInsumos = insumosSnap.length > 0
+        ? (isFacturaC_or_X
+            ? roundMoney(
+                insumosSnap.reduce(
+                  (acc, i) =>
+                    acc +
+                    (i.subtotalInsumoFinal ??
+                      roundMoney(i.precioUnitarioCongelado * (1 + (i.alicuotaIVA ?? 21) / 100) * i.cantidadTotal)),
+                  0
+                )
+              )
+            : roundMoney(insumosSnap.reduce((acc, i) => acc + i.subtotalInsumo, 0)))
+        : safeNum(target.costoInsumos);
+
+      const costoServicios = safeNum(target.costoServiciosTercerizados);
+      const costoDirectoTotal = roundMoney(costoInsumos + costoManoObra + costoServicios);
+      const targetQty = target.cantidad || 1;
+
+      next[itemIndex] = {
+        ...target,
+        manoObraSnapshot: snapshots,
+        costoManoObra,
+        costoDirectoTotal,
+        costoUnitario: roundMoney(costoDirectoTotal / targetQty),
+        costoTotal: costoDirectoTotal
+      };
+
+      return next;
+    });
+
+    toast.info('Rol de mano de obra quitado de la partida');
+  };
+
 
 
 
@@ -1163,6 +1346,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                       onUpdateItemMaterialQuantity={handleUpdateItemMaterialQuantity}
                       onRemoveItemMaterial={handleRemoveItemMaterial}
                       onUpdateItemManoObraCost={handleUpdateItemManoObraCost}
+                      onAddLaborRole={handleAddLaborToItem}
+                      onUpdateItemLaborHours={handleUpdateItemLaborHours}
+                      onRemoveItemLabor={handleRemoveItemLabor}
+                      categoriasManoObra={manoObraList}
                       condicionesTrabajo={condicionesTrabajo}
                     />
                   );
@@ -1252,6 +1439,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                                 onUpdateItemMaterialQuantity={handleUpdateItemMaterialQuantity}
                                 onRemoveItemMaterial={handleRemoveItemMaterial}
                                 onUpdateItemManoObraCost={handleUpdateItemManoObraCost}
+                                onAddLaborRole={handleAddLaborToItem}
+                                onUpdateItemLaborHours={handleUpdateItemLaborHours}
+                                onRemoveItemLabor={handleRemoveItemLabor}
+                                categoriasManoObra={manoObraList}
                                 condicionesTrabajo={condicionesTrabajo}
                               />
                             );
@@ -1327,6 +1518,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                               onUpdateItemMaterialQuantity={handleUpdateItemMaterialQuantity}
                               onRemoveItemMaterial={handleRemoveItemMaterial}
                               onUpdateItemManoObraCost={handleUpdateItemManoObraCost}
+                              onAddLaborRole={handleAddLaborToItem}
+                              onUpdateItemLaborHours={handleUpdateItemLaborHours}
+                              onRemoveItemLabor={handleRemoveItemLabor}
+                              categoriasManoObra={manoObraList}
                               condicionesTrabajo={condicionesTrabajo}
                             />
                           );
