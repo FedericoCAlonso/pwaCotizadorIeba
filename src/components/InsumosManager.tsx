@@ -20,7 +20,8 @@ import {
   FileText,
   Check,
   ArrowLeft,
-  X
+  X,
+  ChevronDown
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
 import { CategoriaMaterial, Material, Producto, Oferta, Contacto, MaterialFilterContext } from '../core/types';
@@ -869,61 +870,70 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
               <div className="pt-3 border-t border-outline-variant/20 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in duration-150">
                 <div>
                   <label className="block text-[11px] font-semibold text-on-surface-variant mb-1">Familia / Categoría</label>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface focus:outline-none"
-                  >
-                    <option value="todas">Todas las Categorías ({materiales.length})</option>
-                    {(() => {
-                      const groups = categorias.reduce((acc, c) => {
-                        const superName = c.supercategoriaNombre || 'General / Otros';
-                        if (!acc[superName]) acc[superName] = [];
-                        acc[superName].push(c);
-                        return acc;
-                      }, {} as Record<string, typeof categorias>);
+                  <div className="relative">
+                    <select
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      className="w-full pl-3 pr-8 py-2 sm:py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 appearance-none has-custom-icon min-h-[40px] sm:min-h-[36px] cursor-pointer"
+                    >
+                      <option value="todas">Todas las Categorías ({materiales.length})</option>
+                      {(() => {
+                        const groups = categorias.reduce((acc, c) => {
+                          const superName = c.supercategoriaNombre || 'General / Otros';
+                          if (!acc[superName]) acc[superName] = [];
+                          acc[superName].push(c);
+                          return acc;
+                        }, {} as Record<string, typeof categorias>);
 
-                      return Object.entries(groups).map(([supercat, cats]) => (
-                        <optgroup key={supercat} label={supercat}>
-                          {cats.map((c) => {
-                            const count = materiales.filter((m) => m.categoriaId === c.id).length;
-                            return (
-                              <option key={c.id} value={c.id}>
-                                {c.nombre} ({count})
-                              </option>
-                            );
-                          })}
-                        </optgroup>
-                      ));
-                    })()}
-                  </select>
+                        return Object.entries(groups).map(([supercat, cats]) => (
+                          <optgroup key={supercat} label={supercat}>
+                            {cats.map((c) => {
+                              const count = materiales.filter((m) => m.categoriaId === c.id).length;
+                              return (
+                                <option key={c.id} value={c.id}>
+                                  {c.nombre} ({count})
+                                </option>
+                              );
+                            })}
+                          </optgroup>
+                        ));
+                      })()}
+                    </select>
+                    <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-semibold text-on-surface-variant mb-1">Vigencia del Precio</label>
-                  <select
-                    value={selectedVencimiento}
-                    onChange={(e) => setSelectedVencimiento(e.target.value as any)}
-                    className="w-full px-3 py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface focus:outline-none"
-                  >
-                    <option value="todos">Todos los Estados</option>
-                    <option value="verde">🟢 Vigente (&le; 30 días)</option>
-                    <option value="amarillo">🟡 Por Vencer (31 - 60 días)</option>
-                    <option value="rojo">🔴 Vencido / Sin Precio (&gt; 60 días)</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={selectedVencimiento}
+                      onChange={(e) => setSelectedVencimiento(e.target.value as any)}
+                      className="w-full pl-3 pr-8 py-2 sm:py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 appearance-none has-custom-icon min-h-[40px] sm:min-h-[36px] cursor-pointer"
+                    >
+                      <option value="todos">Todos los Estados</option>
+                      <option value="verde">🟢 Vigente (&le; 30 días)</option>
+                      <option value="amarillo">🟡 Por Vencer (31 - 60 días)</option>
+                      <option value="rojo">🔴 Vencido / Sin Precio (&gt; 60 días)</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-semibold text-on-surface-variant mb-1">Estado de Ficha Técnica</label>
-                  <select
-                    value={selectedFichaStatus}
-                    onChange={(e) => setSelectedFichaStatus(e.target.value as any)}
-                    className="w-full px-3 py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface focus:outline-none"
-                  >
-                    <option value="todas">Todas las Fichas</option>
-                    <option value="completas">Fichas Técnicas Completas</option>
-                    <option value="incompletas">⚠️ Fichas Pendientes / Alta Rápida</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={selectedFichaStatus}
+                      onChange={(e) => setSelectedFichaStatus(e.target.value as any)}
+                      className="w-full pl-3 pr-8 py-2 sm:py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 appearance-none has-custom-icon min-h-[40px] sm:min-h-[36px] cursor-pointer"
+                    >
+                      <option value="todas">Todas las Fichas</option>
+                      <option value="completas">Fichas Técnicas Completas</option>
+                      <option value="incompletas">⚠️ Fichas Pendientes / Alta Rápida</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+                  </div>
                 </div>
               </div>
             )}

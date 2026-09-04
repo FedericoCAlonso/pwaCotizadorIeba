@@ -521,7 +521,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
               <select
                 value={selectedFamiliaFilter}
                 onChange={(e) => setSelectedFamiliaFilter(e.target.value)}
-                className="w-full px-3.5 py-2.5 pr-8 text-xs font-semibold rounded-2xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] cursor-pointer appearance-none"
+                className="w-full px-3.5 py-2.5 pr-8 text-xs sm:text-sm font-medium rounded-2xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[42px] cursor-pointer appearance-none has-custom-icon"
                 aria-label="Filtrar por Familia de Materiales"
               >
                 <option value="todas">

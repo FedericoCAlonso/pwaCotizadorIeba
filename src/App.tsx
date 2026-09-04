@@ -200,6 +200,7 @@ export function App() {
                   config={config}
                   onBack={() => setViewMode('list')}
                   onSaved={handleSavedPresupuesto}
+                  onDraftAutoSaved={(id) => setSelectedPresupuestoId(id)}
                   onViewMaterialsInCatalog={handleViewMaterialsInCatalog}
                 />
               )}

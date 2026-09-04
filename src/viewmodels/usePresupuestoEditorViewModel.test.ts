@@ -3,6 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 import { usePresupuestoEditorViewModel } from './usePresupuestoEditorViewModel';
 import { DEFAULT_APP_CONFIG } from '../core/sampleData';
 import { TareaTipo } from '../core/types';
+import { db } from '../db/database';
 
 vi.mock('../contexts/ToastContext', () => ({
   useToast: () => ({
@@ -147,6 +148,116 @@ describe('usePresupuestoEditorViewModel', () => {
     });
 
     expect(result.current.items[0].insumosSnapshot.length).toBe(2);
+  });
+
+  it('preserva fórmulas y materiales al editar un ítem libre in-situ', () => {
+    const { result } = renderHook(() =>
+      usePresupuestoEditorViewModel({
+        config: DEFAULT_APP_CONFIG,
+        onSaved: mockOnSaved
+      })
+    );
+
+    act(() => {
+      result.current.handleAddDirectItem();
+    });
+
+    expect(result.current.items.length).toBe(1);
+
+    act(() => {
+      result.current.handleOpenInSituEditorForExistingItem(0);
+    });
+    expect(result.current.showInSituEditorModal).toBe(true);
+
+    // Guardar configuración in-situ con fórmulas personalizadas
+    const customData = {
+      nombre: 'Instalación Tablero Especial',
+      categoria: 'Tableros',
+      unidad: 'gl',
+      notasTecnicas: 'Detalle de conexiones y térmicas',
+      parametros: [{ id: 'circuitos', nombre: 'Cantidad de Circuitos', tipo: 'numero' as const, valorDefault: 6 }],
+      variables: [{ id: 'factor', nombre: 'Factor', formula: 'circuitos * 1.5' }],
+      insumos: [
+        {
+          insumoId: 'mat-cable-2.5-marron',
+          cantidad: 1,
+          formula: 'circuitos * 10'
+        }
+      ],
+      manoObra: [
+        {
+          categoriaId: 'mo-oficial',
+          horas: 1,
+          formula: 'circuitos * 2'
+        }
+      ]
+    };
+
+    act(() => {
+      result.current.handleSaveInSituItem(customData);
+    });
+
+    // Verificar que la partida guardó tareaTipoConfig con fórmulas
+    expect(result.current.items[0].tareaTipoConfig).toBeDefined();
+    expect(result.current.items[0].tareaTipoConfig?.insumos[0].formula).toBe('circuitos * 10');
+    expect(result.current.items[0].tareaTipoConfig?.manoObra[0].formula).toBe('circuitos * 2');
+
+    // Reabrir editor in-situ y comprobar que restaura fórmulas intactas
+    act(() => {
+      result.current.handleOpenInSituEditorForExistingItem(0);
+    });
+
+    expect(result.current.showInSituEditorModal).toBe(true);
+    expect(result.current.editingTareaForInSituModal).toBeDefined();
+    expect(result.current.editingTareaForInSituModal?.insumos[0].formula).toBe('circuitos * 10');
+    expect(result.current.editingTareaForInSituModal?.manoObra[0].formula).toBe('circuitos * 2');
+  });
+
+  it('guarda automáticamente en borrador y ejecuta flushAutoSave', async () => {
+    const mockDraftAutoSaved = vi.fn();
+    const { result } = renderHook(() =>
+      usePresupuestoEditorViewModel({
+        config: DEFAULT_APP_CONFIG,
+        onSaved: mockOnSaved,
+        onDraftAutoSaved: mockDraftAutoSaved
+      })
+    );
+
+    act(() => {
+      result.current.handleAddDirectItem();
+    });
+
+    expect(result.current.items.length).toBe(1);
+
+    await act(async () => {
+      await result.current.flushAutoSave();
+    });
+
+    expect(db.presupuestos.put).toHaveBeenCalled();
+    const savedPresupuesto = (db.presupuestos.put as any).mock.calls.at(-1)[0];
+    expect(savedPresupuesto.estado).toBe('borrador');
+    expect(savedPresupuesto.items.length).toBe(1);
+    expect(mockDraftAutoSaved).toHaveBeenCalledWith(savedPresupuesto.id);
+  });
+
+  it('permite guardar un borrador aun sin cliente asignado', async () => {
+    const { result } = renderHook(() =>
+      usePresupuestoEditorViewModel({
+        config: DEFAULT_APP_CONFIG,
+        onSaved: mockOnSaved
+      })
+    );
+
+    act(() => {
+      result.current.handleAddDirectItem();
+    });
+
+    await act(async () => {
+      await result.current.handleSavePresupuesto('borrador');
+    });
+
+    expect(db.presupuestos.put).toHaveBeenCalled();
+    expect(mockOnSaved).toHaveBeenCalled();
   });
 });
 

@@ -66,6 +66,7 @@ export const Header: React.FC<HeaderProps> = ({
     lastSyncTime,
     lastResult,
     activeProvider,
+    hasPendingChanges,
     setActiveProvider,
     logout,
     triggerSync,
@@ -103,43 +104,37 @@ export const Header: React.FC<HeaderProps> = ({
   }, [showMobileDrawer]);
 
   const handleExportJSON = async () => {
-    const json = await exportDatabaseJSON();
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `IEBA-Cotizador-Backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setShowExportSuccess(true);
-    setShowUtilsMenu(false);
-    setTimeout(() => setShowExportSuccess(false), 3000);
+    try {
+      await exportDatabaseJSON();
+      setShowExportSuccess(true);
+      setTimeout(() => setShowExportSuccess(false), 3000);
+    } catch (error) {
+      console.error('Error al exportar base de datos:', error);
+    }
   };
 
-  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportJSON = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const content = ev.target?.result as string;
-      if (content) {
-        await importDatabaseJSON(content);
-        setShowUtilsMenu(false);
-        window.location.reload();
-      }
-    };
-    reader.readAsText(file);
+
+    try {
+      const text = await file.text();
+      await importDatabaseJSON(text);
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Error al importar base de datos:', error);
+      alert(error.message || 'Error al restaurar archivo');
+    }
   };
 
   const navItems = [
-    { id: 'presupuestos', label: 'Presupuestos', icon: FileText },
-    { id: 'insumos', label: 'Materiales & Precios', icon: Package },
-    { id: 'contactos', label: 'Contactos', icon: Users },
-    { id: 'registroTrabajo', label: 'Registro Obra', icon: HardHat },
-    { id: 'tareasTipo', label: 'Laboratorio Tareas', icon: Layers },
-    { id: 'manoObra', label: 'Mano de Obra & Gastos', icon: Clock },
-    { id: 'rfq', label: 'Solicitudes RFQ', icon: Send },
-    { id: 'logistica', label: 'Logística', icon: ShoppingCart }
+    { id: 'presupuestos' as const, label: 'Cotizaciones', icon: FileText },
+    { id: 'contactos' as const, label: 'Contactos', icon: Users },
+    { id: 'insumos' as const, label: 'Catálogo', icon: Package },
+    { id: 'manoObra' as const, label: 'Tarifas MO', icon: HardHat },
+    { id: 'costosIndirectos' as const, label: 'Logística', icon: Truck },
+    { id: 'tareasTipo' as const, label: 'Tareas Tipo', icon: Layers },
+    { id: 'registroTrabajo' as const, label: 'Historial Obra', icon: Clock },
   ];
 
   const cycleTheme = () => {
@@ -160,35 +155,58 @@ export const Header: React.FC<HeaderProps> = ({
     return 'Tema Automático / Sistema (Clic para cambiar a Oscuro)';
   };
 
+  const formatTimeAgo = (date: Date | null): string => {
+    if (!date) return '';
+    const now = Date.now();
+    const diffMin = Math.floor((now - date.getTime()) / 60000);
+    if (diffMin < 1) return 'ahora';
+    if (diffMin === 1) return 'hace 1m';
+    if (diffMin < 60) return `hace ${diffMin}m`;
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   const renderSyncBadge = () => {
     if (syncState === 'syncing') {
       return (
-        <span className="flex items-center gap-1.5 text-xs text-primary font-medium">
-          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+        <span className="flex items-center gap-1.5 text-xs text-primary font-semibold" title="Sincronizando con la nube o archivo maestro...">
+          <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
           <span className="hidden sm:inline">Sincronizando...</span>
+          <span className="sm:hidden">Sync...</span>
         </span>
       );
     }
     if (syncState === 'error') {
       return (
-        <span className="flex items-center gap-1.5 text-xs text-rose-500 font-medium">
+        <span className="flex items-center gap-1.5 text-xs text-rose-500 font-semibold" title={syncErrorMessage || 'Error de sincronización. Clic para reintentar.'}>
           <AlertCircle className="w-3.5 h-3.5 shrink-0" />
           <span className="hidden sm:inline">Error Sync</span>
+          <span className="sm:hidden">Error</span>
         </span>
       );
     }
-    if (syncState === 'synced') {
+    if (syncState === 'pending') {
       return (
-        <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+        <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-semibold" title="Hay modificaciones locales pendientes de subir a la nube">
+          <Cloud className="w-3.5 h-3.5 shrink-0 text-amber-500 animate-pulse" />
+          <span className="hidden sm:inline">Cambios pendientes</span>
+          <span className="sm:hidden">Pendiente</span>
+        </span>
+      );
+    }
+    if (syncState === 'synced' && lastSyncTime) {
+      return (
+        <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium" title={`Última sincronización verificada: ${lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}>
           <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
-          <span className="hidden sm:inline">Al día</span>
+          <span className="hidden sm:inline">Sincronizado {formatTimeAgo(lastSyncTime)}</span>
+          <span className="sm:hidden">{lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
         </span>
       );
     }
     return (
-      <span className="flex items-center gap-1.5 text-xs text-on-surface-variant font-medium">
+      <span className="flex items-center gap-1.5 text-xs text-on-surface-variant font-medium" title="Trabajando en modo local (Offline-First)">
         <Cloud className="w-3.5 h-3.5 shrink-0" />
-        <span className="hidden sm:inline">Local-First</span>
+        <span className="hidden sm:inline">Modo Local</span>
+        <span className="sm:hidden">Local</span>
       </span>
     );
   };
@@ -706,11 +724,15 @@ export const Header: React.FC<HeaderProps> = ({
             className={`p-4 rounded-2xl border flex items-start gap-3 ${
               syncState === 'error'
                 ? 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200'
+                : syncState === 'pending'
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
                 : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
             }`}
           >
             {syncState === 'error' ? (
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-500" />
+            ) : syncState === 'pending' ? (
+              <Cloud className="w-5 h-5 shrink-0 mt-0.5 text-amber-500 animate-pulse" />
             ) : (
               <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-emerald-500" />
             )}
@@ -721,12 +743,16 @@ export const Header: React.FC<HeaderProps> = ({
                   ? 'Atención al Sincronizar'
                   : syncState === 'syncing'
                   ? 'Sincronizando registros...'
-                  : 'Almacenamiento Local-First Activo'}
+                  : syncState === 'pending'
+                  ? 'Cambios locales pendientes de subir'
+                  : 'Almacenamiento Sincronizado'}
               </h4>
 
               <p className="leading-relaxed">
                 {syncState === 'error'
                   ? (syncErrorMessage || 'Ocurrió un inconveniente al conectar con el proveedor seleccionado.')
+                  : syncState === 'pending'
+                  ? 'Tienes modificaciones guardadas localmente en este dispositivo que aún no se han subido a la nube. Se enviarán automáticamente o puedes sincronizar ahora.'
                   : activeProvider === 'local_file'
                   ? 'Los cambios se fusionan automáticamente (Last-Write-Wins) con el archivo maestro en tu disco local o carpeta sincronizada (Dropbox, OneDrive, Google Drive Sync).'
                   : activeProvider === 'google_drive'

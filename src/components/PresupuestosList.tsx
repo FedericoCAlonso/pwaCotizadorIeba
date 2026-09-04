@@ -199,7 +199,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                       <div className="bg-surface-variant p-1.5 rounded-full flex-shrink-0">
                         <User className="w-3.5 h-3.5 text-on-surface-variant" />
                       </div>
-                      <span className="truncate">{cliente ? cliente.nombre : 'Cliente General'}</span>
+                      <span className="truncate">{cliente ? cliente.nombre : (p.estado === 'borrador' ? 'Borrador sin cliente asignado' : 'Cliente General')}</span>
                     </div>
                     <div className="text-xs text-on-surface-variant pl-8">
                       {p.items.length} partidas · Validez {p.validezDias} días
@@ -223,14 +223,25 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                     </div>
                   </div>
                                 <div className="flex items-center gap-1.5 pt-2 border-t border-outline-variant/10">
-                    <button
-                      type="button"
-                      onClick={() => onSelect(p.id)}
-                      className="flex-1 min-h-[42px] flex items-center justify-center gap-2 px-3 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-xl text-xs sm:text-sm font-bold transition-colors shadow-2xs"
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span>Ver Detalle</span>
-                    </button>
+                    {p.estado === 'borrador' ? (
+                      <button
+                        type="button"
+                        onClick={() => onEdit(p.id)}
+                        className="flex-1 min-h-[42px] flex items-center justify-center gap-2 px-3 py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl text-xs sm:text-sm font-bold transition-colors shadow-2xs"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                        <span>Continuar Editando</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onSelect(p.id)}
+                        className="flex-1 min-h-[42px] flex items-center justify-center gap-2 px-3 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-xl text-xs sm:text-sm font-bold transition-colors shadow-2xs"
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span>Ver Detalle</span>
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -259,14 +270,25 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                       <MessageSquare className="w-4 h-4" />
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => onEdit(p.id)}
-                      className="min-w-[42px] min-h-[42px] flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors shrink-0 border border-outline-variant/20"
-                      title="Editar presupuesto"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
+                    {p.estado === 'borrador' ? (
+                      <button
+                        type="button"
+                        onClick={() => onSelect(p.id)}
+                        className="min-w-[42px] min-h-[42px] flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors shrink-0 border border-outline-variant/20"
+                        title="Ver resumen y detalle del borrador"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onEdit(p.id)}
+                        className="min-w-[42px] min-h-[42px] flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors shrink-0 border border-outline-variant/20"
+                        title="Editar presupuesto"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
 
                     <button
                       type="button"

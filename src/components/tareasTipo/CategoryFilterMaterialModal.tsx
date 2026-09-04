@@ -11,7 +11,8 @@ import {
   Sparkles,
   Search,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  ChevronDown
 } from 'lucide-react';
 import { db } from '../../db/database';
 import {
@@ -312,21 +313,24 @@ export const CategoryFilterMaterialModal: React.FC<CategoryFilterMaterialModalPr
             <label className="text-[11px] font-bold text-on-surface uppercase tracking-wider block">
               1. Categoría de Materiales
             </label>
-            <select
-              value={selectedCategoriaId}
-              onChange={(e) => handleSelectCategoria(e.target.value)}
-              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2.5 text-xs font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]"
-            >
-              {supercategoriasDisponibles.map((superCat) => (
-                <optgroup key={superCat.id} label={superCat.nombre}>
-                  {superCat.categorias.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.nombre}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={selectedCategoriaId}
+                onChange={(e) => handleSelectCategoria(e.target.value)}
+                className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl pl-3.5 pr-8 py-2 text-xs font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[40px] appearance-none has-custom-icon cursor-pointer"
+              >
+                {supercategoriasDisponibles.map((superCat) => (
+                  <optgroup key={superCat.id} label={superCat.nombre}>
+                    {superCat.categorias.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.nombre}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+            </div>
           </div>
 
           {/* 2. Nombre del Slot / Insumo */}

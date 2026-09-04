@@ -69,7 +69,14 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
     (item.manoObraSnapshot && item.manoObraSnapshot.length > 0) ||
     (item.costoServicios !== undefined && item.costoServicios > 0);
   const isCustom = !item.tareaTipoId && !hasSnapshots;
-  const isParametric = Boolean(item.valoresVariables || item.parametrosTrabajoTipo || item.tareaTipoId);
+  const isItemLibre = item.tipoItem === 'item_libre' || (!item.tareaTipoId && !item.materialId && !item.ofertaId);
+  const hasParametrosValores = Boolean(
+    (item.valoresVariables && Object.keys(item.valoresVariables).length > 0) ||
+    item.parametrosTrabajoTipo ||
+    item.tareaTipoId ||
+    (item.tareaTipoConfig?.parametros && item.tareaTipoConfig.parametros.length > 0)
+  );
+  const isParametric = hasParametrosValores;
   const hasMaterialCalc = Boolean(item.parametrosEstimacionMaterial);
 
   return (
@@ -115,28 +122,57 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
             </span>
           )}
 
-          {/* Primary contextual action (Parámetros / Desglosar) */}
-          {isParametric && onOpenParametricModal ? (
-            <button
-              type="button"
-              onClick={() => onOpenParametricModal(index)}
-              className="flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs"
-              title="Configurar parámetros y variables de la tarea"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Parámetros</span>
-            </button>
-          ) : onOpenInSituEditor ? (
-            <button
-              type="button"
-              onClick={() => onOpenInSituEditor(index)}
-              className="flex items-center gap-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs"
-              title="Componer o editar insumos y horas para esta partida"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{hasSnapshots ? 'Desglose' : 'Desglosar'}</span>
-            </button>
-          ) : null}
+          {/* Primary contextual action (Parámetros / Fórmulas y Materiales / Desglosar) */}
+          {isItemLibre ? (
+            <>
+              {onOpenInSituEditor && (
+                <button
+                  type="button"
+                  onClick={() => onOpenInSituEditor(index)}
+                  className="flex items-center gap-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs"
+                  title="Editar fórmulas, materiales y mano de obra para este ítem libre"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{hasSnapshots ? 'Fórmulas y Materiales' : 'Desglosar'}</span>
+                </button>
+              )}
+              {isParametric && onOpenParametricModal && (
+                <button
+                  type="button"
+                  onClick={() => onOpenParametricModal(index)}
+                  className="flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs"
+                  title="Ajustar valores de los parámetros"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Parámetros</span>
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              {isParametric && onOpenParametricModal ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenParametricModal(index)}
+                  className="flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs"
+                  title="Configurar parámetros y variables de la tarea"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Parámetros</span>
+                </button>
+              ) : onOpenInSituEditor ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenInSituEditor(index)}
+                  className="flex items-center gap-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs"
+                  title="Componer o editar insumos y horas para esta partida"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{hasSnapshots ? 'Desglose' : 'Desglosar'}</span>
+                </button>
+              ) : null}
+            </>
+          )}
 
           {/* Secondary Actions Menu Dropdown */}
           <div className="relative">
@@ -156,7 +192,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                   className="fixed inset-0 z-20"
                   onClick={() => setShowItemMenu(false)}
                 />
-                <div className="absolute right-0 top-full mt-1.5 z-30 bg-surface-container-high rounded-2xl shadow-xl py-1.5 min-w-[190px] border border-outline-variant/30 text-on-surface animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute right-0 top-full mt-1.5 z-30 bg-surface-container-high rounded-2xl shadow-xl py-1.5 min-w-[210px] border border-outline-variant/30 text-on-surface animate-in fade-in zoom-in-95 duration-150">
                   <button
                     type="button"
                     onClick={() => {
@@ -168,6 +204,20 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                     <Sparkles className="w-4 h-4" />
                     <span>Guardar en Catálogo</span>
                   </button>
+
+                  {onOpenInSituEditor && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenInSituEditor(index);
+                        setShowItemMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-surface-container-highest transition-colors text-left font-medium"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                      <span>Editar Fórmulas y Materiales</span>
+                    </button>
+                  )}
 
                   {isParametric && onOpenParametricModal && (
                     <button
@@ -404,6 +454,38 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
 
           {isExpanded && (
             <div className="mt-2 bg-surface-container-lowest p-3.5 rounded-2xl border border-outline-variant/25 space-y-3 text-xs animate-in fade-in-50 duration-150">
+              {/* Barra de Acceso Rápido a Edición Técnica */}
+              {onOpenInSituEditor && (
+                <div className="flex items-center justify-between pb-2 border-b border-outline-variant/15 flex-wrap gap-2">
+                  <span className="text-[11px] font-semibold text-on-surface-variant flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-primary" />
+                    <span>{isItemLibre ? 'Estructura técnica de partida libre' : 'Estructura técnica de partida'}</span>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onOpenInSituEditor(index)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 rounded-xl transition shadow-2xs"
+                      title="Editar fórmulas matemáticas, lista de materiales y categorías de mano de obra"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Editar Fórmulas y Materiales</span>
+                    </button>
+                    {isParametric && onOpenParametricModal && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenParametricModal(index)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 rounded-xl transition shadow-2xs"
+                        title="Reajustar parámetros de cómputo"
+                      >
+                        <Sliders className="w-3.5 h-3.5" />
+                        <span>Parámetros</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Honorarios Snapshot */}
               {item.costoServicios !== undefined && item.costoServicios > 0 && (
                 <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20 space-y-1">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
 import {
@@ -54,6 +54,7 @@ export interface UsePresupuestoEditorViewModelProps {
   config: AppConfig;
   onSaved: (id: string) => void;
   onViewMaterialsInCatalog?: (ctx: MaterialFilterContext) => void;
+  onDraftAutoSaved?: (id: string) => void;
 }
 
 export function usePresupuestoEditorViewModel({
@@ -61,7 +62,8 @@ export function usePresupuestoEditorViewModel({
   initialClienteId,
   config,
   onSaved,
-  onViewMaterialsInCatalog
+  onViewMaterialsInCatalog,
+  onDraftAutoSaved
 }: UsePresupuestoEditorViewModelProps) {
   const { toast } = useToast();
 
@@ -155,6 +157,22 @@ export function usePresupuestoEditorViewModel({
 
   const newPresupuestoInitializedRef = useRef(false);
 
+  // ─── Auto-Save State & Tracking ───────────────────────────────────────────
+  const draftIdRef = useRef<string>(presupuestoId || `pres-${crypto.randomUUID()}`);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastAutoSaveTime, setLastAutoSaveTime] = useState<string | null>(null);
+  const isInitializedRef = useRef<boolean>(false);
+  const isDirtyRef = useRef<boolean>(false);
+  const hasPersistedInitialRef = useRef<boolean>(Boolean(presupuestoId));
+  const autoSaveTimerRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (presupuestoId && draftIdRef.current !== presupuestoId) {
+      draftIdRef.current = presupuestoId;
+      hasPersistedInitialRef.current = true;
+    }
+  }, [presupuestoId]);
+
   // Inicialización desde Presupuesto Existente o Nuevo
   useEffect(() => {
     if (existingPresupuesto) {
@@ -201,6 +219,9 @@ export function usePresupuestoEditorViewModel({
         }
         setAplicarOptimizacionCuadrilla(existingPresupuesto.planificacionCuadrilla.aplicarOptimizacionAlPresupuesto ?? false);
       }
+
+      isInitializedRef.current = true;
+      isDirtyRef.current = false;
     } else {
       const year = new Date().getFullYear();
       const seq = config.siguienteNumeroCorrelativo || 1001;
@@ -228,6 +249,9 @@ export function usePresupuestoEditorViewModel({
         setGastosConfig(defaultGastos);
         setCostosIndirectosConfig(defaultGastos);
       }
+
+      isInitializedRef.current = true;
+      isDirtyRef.current = false;
     }
   }, [existingPresupuesto, config, costosIndirectos]);
 
@@ -296,6 +320,161 @@ export function usePresupuestoEditorViewModel({
         : 1.0
     });
   }, [items, capitulos, gastosConfig, costosIndirectosConfig, costosIndirectos, margenPorcentaje, margenRiesgoPorcentaje, tipoFactura, impuestosDetalle, cotizacionDolar, config, aplicarOptimizacionCuadrilla, sinergiaManoObra]);
+
+  // ─── Auto-Save Engine (Gmail-style Draft Persistence) ─────────────────────
+  const executeAutoSave = useCallback(async () => {
+    // Only auto-save if there's actual content (items, selected client, or chapters) or it was an existing quote
+    const hasContent = items.length > 0 || Boolean(clienteId) || capitulos.length > 0 || Boolean(existingPresupuesto);
+    if (!hasContent) {
+      return;
+    }
+
+    try {
+      setAutoSaveStatus('saving');
+      const now = new Date().toISOString();
+      let numeroStr = numero;
+
+      if (!hasPersistedInitialRef.current && !existingPresupuesto) {
+        hasPersistedInitialRef.current = true;
+        const year = new Date().getFullYear();
+        const seq = config.siguienteNumeroCorrelativo || 1001;
+        numeroStr = `${config.prefijoPresupuesto || 'IEBA'}-${year}-${seq.toString().padStart(4, '0')}`;
+        setNumero(numeroStr);
+        await db.config.update(config.id, { siguienteNumeroCorrelativo: seq + 1 });
+      }
+
+      const finalEmission = opcionesEmision;
+
+      const finalPresupuesto: Presupuesto = {
+        id: existingPresupuesto?.id || draftIdRef.current,
+        numero: numeroStr,
+        clienteId: clienteId || '',
+        fechaEmision: existingPresupuesto?.fechaEmision || now,
+        validezDias,
+        tipoFactura,
+        capitulos,
+        items: totales.itemsCalculados.length > 0 ? totales.itemsCalculados : items,
+        gastosConfig,
+        costosIndirectosConfig: gastosConfig.length > 0 ? gastosConfig : costosIndirectosConfig,
+        costosIndirectosAplicados: totales.costosIndirectosAplicados,
+
+        // Sinergia Determinística de Tareas & Margen de Riesgo Global
+        operariosCuadrilla,
+        margenRiesgoPorcentaje,
+        nivelMargenRiesgo,
+        montoMargenRiesgo: totales.montoMargenRiesgo,
+        aplicarSinergiaManoObra: aplicarOptimizacionCuadrilla,
+        factorSinergiaManoObra: (aplicarOptimizacionCuadrilla && sonItemsCompatiblesParaSinergia(items))
+          ? sinergiaManoObra.factorSinergia
+          : 1.0,
+        tiempoObraHorasReloj: sinergiaManoObra.tiempoObraHorasReloj,
+        jornadasEstimadas: sinergiaManoObra.jornadasEstimadas,
+        sinergiaManoObra,
+        planificacionCuadrilla: resultadoCuadrilla.planificacion,
+
+        // Calculation Engine
+        costoGlobal: totales.costoGlobal,
+        gastosGeneralesTotal: totales.gastosGeneralesTotal,
+        beneficioPorcentaje: margenPorcentaje,
+        beneficioMonto: totales.beneficioMonto,
+        subtotalSinImpuestos: totales.subtotalSinImpuestos,
+        montoImpuestosTotal: totales.montoImpuestosTotal,
+        precioFinalGlobal: totales.precioFinalGlobal,
+        coeficienteK: totales.coeficienteK,
+        opcionesEmision: finalEmission,
+
+        // Compatibility fields
+        subtotalInsumos: totales.subtotalInsumos,
+        subtotalManoObra: totales.subtotalManoObra,
+        subtotalServiciosTercerizados: totales.subtotalServiciosTercerizados,
+        subtotalCostosDirectos: totales.costoGlobal,
+        subtotalCostosIndirectos: totales.gastosGeneralesTotal,
+        costoTotalObra: totales.costoTotalObra,
+        margenPorcentaje,
+        montoGanancia: totales.beneficioMonto,
+        impuestosDetalle: totales.impuestosCalculados,
+        impuestosPorcentaje: totales.impuestosPorcentajeTotal,
+        montoImpuestos: totales.montoImpuestosTotal,
+        totalARS: totales.precioFinalGlobal,
+        mostrarReferenciaMonedaExtranjera: mostrarDolar,
+        nombreMonedaExtranjera: nombreDolar,
+        cotizacionMonedaExtranjera: cotizacionDolar,
+        totalMonedaExtranjera: totales.totalMonedaExtranjera,
+        condicionesPagoTexto: finalEmission.condicionesComerciales || condicionesPagoTexto,
+        estado: existingPresupuesto?.estado || 'borrador',
+        fechaModificacion: now,
+        createdAt: existingPresupuesto?.createdAt || now,
+        updatedAt: now,
+        deleted: false
+      };
+
+      await db.presupuestos.put(finalPresupuesto);
+      isDirtyRef.current = false;
+      setAutoSaveStatus('saved');
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setLastAutoSaveTime(timeStr);
+      onDraftAutoSaved?.(finalPresupuesto.id);
+    } catch (err) {
+      console.error('Error auto-saving draft:', err);
+      setAutoSaveStatus('error');
+    }
+  }, [
+    items, clienteId, capitulos, existingPresupuesto, numero, config, validezDias, tipoFactura,
+    gastosConfig, costosIndirectosConfig, totales, operariosCuadrilla, margenRiesgoPorcentaje,
+    nivelMargenRiesgo, aplicarOptimizacionCuadrilla, sinergiaManoObra, resultadoCuadrilla,
+    margenPorcentaje, opcionesEmision, mostrarDolar, nombreDolar, cotizacionDolar,
+    condicionesPagoTexto, onDraftAutoSaved
+  ]);
+
+  useEffect(() => {
+    if (!isInitializedRef.current) {
+      return;
+    }
+    isDirtyRef.current = true;
+    const hasContent = items.length > 0 || Boolean(clienteId) || capitulos.length > 0 || Boolean(existingPresupuesto);
+    if (!hasContent) {
+      return;
+    }
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+    autoSaveTimerRef.current = setTimeout(() => {
+      executeAutoSave();
+    }, 1200);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [
+    items, clienteId, capitulos, validezDias, tipoFactura, margenPorcentaje,
+    gastosConfig, costosIndirectosConfig, mostrarDolar, nombreDolar, cotizacionDolar,
+    condicionesPagoTexto, impuestosDetalle, opcionesEmision, operariosCuadrilla,
+    margenRiesgoPorcentaje, nivelMargenRiesgo, aplicarOptimizacionCuadrilla,
+    estrategiaCuadrilla, executeAutoSave
+  ]);
+
+  const latestAutoSaveRef = useRef(executeAutoSave);
+  latestAutoSaveRef.current = executeAutoSave;
+
+  useEffect(() => {
+    return () => {
+      if (isDirtyRef.current) {
+        latestAutoSaveRef.current();
+      }
+    };
+  }, []);
+
+  const flushAutoSave = useCallback(async () => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+    if (isDirtyRef.current) {
+      await executeAutoSave();
+    }
+  }, [executeAutoSave]);
 
   // ─── Capítulo & Gastos Management ──────────────────────────────────────────
   const handleAddCapitulo = (nombre = 'Nuevo Capítulo') => {
@@ -546,7 +725,7 @@ export function usePresupuestoEditorViewModel({
     const item = items[index];
     if (!item) return;
 
-    let tarea = item.tareaTipoId ? tareasTipo.find(t => t.id === item.tareaTipoId) : undefined;
+    let tarea = item.tareaTipoConfig || (item.tareaTipoId ? tareasTipo.find(t => t.id === item.tareaTipoId) : undefined);
     if (!tarea) {
       tarea = {
         id: item.tareaTipoId || `tt-custom-${index}`,
@@ -597,6 +776,7 @@ export function usePresupuestoEditorViewModel({
           ...item,
           cantidad: cant,
           unidad: unit,
+          tareaTipoConfig: item.tareaTipoConfig || tarea,
           naturaleza: tarea.naturaleza || item.naturaleza || 'instalacion',
           costoUnitario: costoUnitarioDirecto,
           costoInsumos: roundMoney(calculos.costoInsumosTotal * cant),
@@ -819,8 +999,46 @@ export function usePresupuestoEditorViewModel({
     const item = items[index];
     if (!item) return;
 
+    if (item.tareaTipoConfig) {
+      setEditingItemIndexForInSituModal(index);
+      setEditingTareaForInSituModal({
+        ...item.tareaTipoConfig,
+        nombre: item.descripcion || item.tareaTipoConfig.nombre,
+        unidad: item.unidad || item.tareaTipoConfig.unidad,
+        notasTecnicas: item.notasTecnicas ?? item.tareaTipoConfig.notasTecnicas ?? '',
+        clausulaExclusiones: item.clausulaExclusiones ?? item.tareaTipoConfig.clausulaExclusiones ?? '',
+        costoFijoOperativo: item.costoFijoOperativo ?? item.tareaTipoConfig.costoFijoOperativo ?? 0,
+        descripcionCostoFijo: item.descripcionCostoFijo ?? item.tareaTipoConfig.descripcionCostoFijo ?? '',
+        parametros: (item.tareaTipoConfig.parametros || []).map(p => ({
+          ...p,
+          valorDefault: item.valoresParametros?.[p.id] ?? p.valorDefault
+        }))
+      });
+      setShowInSituEditorModal(true);
+      return;
+    }
+
     const matchedTarea = item.tareaTipoId ? tareasTipo.find(t => t.id === item.tareaTipoId) : undefined;
-    const parametros = matchedTarea?.parametros || (
+    if (matchedTarea) {
+      setEditingItemIndexForInSituModal(index);
+      setEditingTareaForInSituModal({
+        ...matchedTarea,
+        nombre: item.descripcion || matchedTarea.nombre,
+        unidad: item.unidad || matchedTarea.unidad,
+        notasTecnicas: item.notasTecnicas ?? matchedTarea.notasTecnicas ?? '',
+        clausulaExclusiones: item.clausulaExclusiones ?? matchedTarea.clausulaExclusiones ?? '',
+        costoFijoOperativo: item.costoFijoOperativo ?? matchedTarea.costoFijoOperativo ?? 0,
+        descripcionCostoFijo: item.descripcionCostoFijo ?? matchedTarea.descripcionCostoFijo ?? '',
+        parametros: (matchedTarea.parametros || []).map(p => ({
+          ...p,
+          valorDefault: item.valoresParametros?.[p.id] ?? p.valorDefault
+        }))
+      });
+      setShowInSituEditorModal(true);
+      return;
+    }
+
+    const parametros = (
       item.valoresParametros && Object.keys(item.valoresParametros).length > 0
         ? Object.entries(item.valoresParametros).map(([k, v]) => ({
             id: k,
@@ -837,7 +1055,7 @@ export function usePresupuestoEditorViewModel({
             }
           ]
     );
-    const variables = matchedTarea?.variables || [];
+    const variables: TareaTipo['variables'] = [];
 
     // Convert ItemPresupuesto into a TareaTipo format for TareaEditorModal
     const tempTarea: TareaTipo = {
@@ -881,18 +1099,24 @@ export function usePresupuestoEditorViewModel({
     // Build the default scope from parameters and variables
     const scope: Record<string, number> = {};
     data.parametros.forEach((p) => {
-      scope[p.id] = p.valorDefault ?? 1;
+      scope[p.id] = currentItem.valoresParametros?.[p.id] ?? p.valorDefault ?? 1;
     });
 
     const tempTarea: TareaTipo = {
-      id: currentItem.tareaTipoId || `insitu-${currentItem.id}`,
+      id: currentItem.tareaTipoConfig?.id || currentItem.tareaTipoId || `insitu-${currentItem.id}`,
       nombre: data.nombre,
-      categoria: data.categoria,
-      unidad: data.unidad,
+      categoria: data.categoria || 'Partidas In-Situ',
+      unidad: data.unidad || 'gl',
+      naturaleza: data.naturaleza,
+      honorarioBase: data.honorarioBase,
+      formulaHonorarios: data.formulaHonorarios,
+      costoServicioDirecto: data.costoServicioDirecto,
       notasTecnicas: data.notasTecnicas,
       clausulaExclusiones: data.clausulaExclusiones,
       costoFijoOperativo: data.costoFijoOperativo,
       descripcionCostoFijo: data.descripcionCostoFijo,
+      horasSetupTotal: data.horasSetupTotal,
+      cuadrillaRecomendada: data.cuadrillaRecomendada,
       parametros: data.parametros,
       variables: data.variables,
       insumos: data.insumos,
@@ -911,12 +1135,17 @@ export function usePresupuestoEditorViewModel({
         ...next[targetIdx],
         descripcion: data.nombre || next[targetIdx].descripcion,
         unidad: data.unidad || next[targetIdx].unidad,
+        naturaleza: data.naturaleza || next[targetIdx].naturaleza,
+        formulaHonorarios: data.formulaHonorarios,
+        costoServicios: evaluacion.costoServiciosTotal,
         notasTecnicas: data.notasTecnicas,
         clausulaExclusiones: data.clausulaExclusiones,
         costoFijoOperativo: data.costoFijoOperativo,
         descripcionCostoFijo: data.descripcionCostoFijo,
         cantidad: cant,
-        valoresVariables: evaluacion.valoresVariables,
+        tareaTipoConfig: tempTarea,
+        valoresParametros: scope,
+        valoresVariables: Object.keys(evaluacion.valoresVariables || {}).length > 0 ? evaluacion.valoresVariables : undefined,
         insumosSnapshot: evaluacion.insumosSnapshot,
         manoObraSnapshot: evaluacion.manoObraSnapshot,
         costoInsumos: evaluacion.costoInsumosTotal,
@@ -1015,7 +1244,7 @@ export function usePresupuestoEditorViewModel({
       quantities: matQtyMap,
       returnTab: 'presupuestos',
       returnViewMode: 'editor',
-      returnPresupuestoId: presupuestoId
+      returnPresupuestoId: presupuestoId || draftIdRef.current
     });
   };
 
@@ -1023,36 +1252,47 @@ export function usePresupuestoEditorViewModel({
     targetEstado: EstadoPresupuesto = 'borrador',
     emissionOptionsOverride?: OpcionesEmisionPresupuesto
   ) => {
-    if (!clienteId) {
-      toast.warning('Por favor, selecciona un cliente solicitante.');
+    if (targetEstado === 'enviado' || targetEstado === 'aprobado') {
+      if (!clienteId) {
+        toast.warning('Por favor, selecciona un cliente solicitante.');
+        return;
+      }
+      if (items.length === 0) {
+        toast.warning('Agrega al menos una partida o tarea a la cotización.');
+        return;
+      }
+    } else if (items.length === 0 && !clienteId && capitulos.length === 0) {
+      toast.warning('Agrega al menos una partida o selecciona un cliente para guardar el borrador.');
       return;
     }
-    if (items.length === 0) {
-      toast.warning('Agrega al menos una partida o tarea a la cotización.');
-      return;
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
     }
 
     const now = new Date().toISOString();
     let numeroStr = numero;
 
-    if (!existingPresupuesto) {
+    if (!existingPresupuesto && !hasPersistedInitialRef.current) {
+      hasPersistedInitialRef.current = true;
       const year = new Date().getFullYear();
       const seq = config.siguienteNumeroCorrelativo || 1001;
       numeroStr = `${config.prefijoPresupuesto || 'IEBA'}-${year}-${seq.toString().padStart(4, '0')}`;
+      setNumero(numeroStr);
       await db.config.update(config.id, { siguienteNumeroCorrelativo: seq + 1 });
     }
 
     const finalEmission = emissionOptionsOverride || opcionesEmision;
 
     const finalPresupuesto: Presupuesto = {
-      id: existingPresupuesto?.id || `pres-${crypto.randomUUID()}`,
+      id: existingPresupuesto?.id || draftIdRef.current,
       numero: numeroStr,
-      clienteId,
+      clienteId: clienteId || '',
       fechaEmision: existingPresupuesto?.fechaEmision || now,
       validezDias,
       tipoFactura,
       capitulos,
-      items: totales.itemsCalculados,
+      items: totales.itemsCalculados.length > 0 ? totales.itemsCalculados : items,
       gastosConfig,
       costosIndirectosConfig: gastosConfig.length > 0 ? gastosConfig : costosIndirectosConfig,
       costosIndirectosAplicados: totales.costosIndirectosAplicados,
@@ -1108,6 +1348,8 @@ export function usePresupuestoEditorViewModel({
     };
 
     await db.presupuestos.put(finalPresupuesto);
+    isDirtyRef.current = false;
+    setAutoSaveStatus('saved');
     setShowEmitirModal(false);
     toast.success(targetEstado === 'enviado' ? '¡Presupuesto emitido con éxito!' : 'Presupuesto guardado en borrador');
     onSaved(finalPresupuesto.id);
@@ -1314,6 +1556,11 @@ export function usePresupuestoEditorViewModel({
     handleOpenActualizarPreciosModal,
     handleConfirmActualizarPrecios,
     handleRecalcularConPreciosVigentes,
-    handleSavePresupuesto
+    handleSavePresupuesto,
+
+    // Auto-Save States & Actions
+    autoSaveStatus,
+    lastAutoSaveTime,
+    flushAutoSave
   };
 }

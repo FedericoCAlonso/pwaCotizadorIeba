@@ -6,18 +6,39 @@ import { mergeLastWriteWins, getLocalMasterPayload } from './mergeEngine';
 import { SyncProviderType } from '../core/types';
 import { db } from '../db/database';
 
+export interface SyncSubscriptionState {
+  isSyncing: boolean;
+  hasPendingChanges: boolean;
+  lastResult?: SyncExecutionResult;
+}
+
+let isPerformingSyncMerge = false;
+
+export function getIsPerformingSyncMerge(): boolean {
+  return isPerformingSyncMerge;
+}
+
+export function setIsPerformingSyncMerge(value: boolean): void {
+  isPerformingSyncMerge = value;
+}
+
 class DecentralizedSyncEngine {
   private localFsProvider = new LocalFileSystemProvider();
   private gdriveProvider = new GoogleDriveProvider();
   private manualProvider = new ManualJsonProvider();
   private activeProviderType: SyncProviderType = 'local_file';
   private isSyncing = false;
+  private hasPendingChanges = false;
   private autoSyncTimer: any = null;
-  private listeners: ((state: { isSyncing: boolean; lastResult?: SyncExecutionResult }) => void)[] = [];
+  private debouncedSyncTimer: any = null;
+  private boundEventListeners: { [key: string]: any } = {};
+  private listeners: ((state: SyncSubscriptionState) => void)[] = [];
   private lastResult?: SyncExecutionResult;
 
   constructor() {
     this.initProviderFromStorage();
+    this.initPendingChangesFromStorage();
+    this.initDexieMutationHooks();
   }
 
   private initProviderFromStorage(): void {
@@ -29,6 +50,74 @@ class DecentralizedSyncEngine {
     } catch {
       this.activeProviderType = 'local_file';
     }
+  }
+
+  private initPendingChangesFromStorage(): void {
+    try {
+      this.hasPendingChanges = localStorage.getItem('ieba_sync_pending_changes') === 'true';
+    } catch {
+      this.hasPendingChanges = false;
+    }
+  }
+
+  private initDexieMutationHooks(): void {
+    const TABLES_TO_WATCH = [
+      'categoriasMaterial',
+      'materiales',
+      'productos',
+      'ofertas',
+      'solicitudesCotizacion',
+      'insumos',
+      'manoObra',
+      'costosIndirectos',
+      'tareasTipo',
+      'contactos',
+      'clientes',
+      'proveedores',
+      'proyectos',
+      'presupuestos',
+      'registrosTrabajo',
+      'config'
+    ] as const;
+
+    TABLES_TO_WATCH.forEach((tableName) => {
+      const table = (db as any)[tableName];
+      if (!table || table._syncEngineHookAttached) return;
+
+      table.hook('creating', (_primKey: any, obj: any) => {
+        if (!isPerformingSyncMerge) {
+          if (obj) {
+            obj.updatedAt = obj.updatedAt || new Date().toISOString();
+            obj._updatedAt = Date.now();
+          }
+          queueMicrotask(() => {
+            this.notifyLocalMutation();
+          });
+        }
+      });
+
+      table.hook('updating', (modifications: any, _primKey: any) => {
+        if (!isPerformingSyncMerge) {
+          if (modifications) {
+            modifications.updatedAt = modifications.updatedAt || new Date().toISOString();
+            modifications._updatedAt = Date.now();
+          }
+          queueMicrotask(() => {
+            this.notifyLocalMutation();
+          });
+        }
+      });
+
+      table.hook('deleting', () => {
+        if (!isPerformingSyncMerge) {
+          queueMicrotask(() => {
+            this.notifyLocalMutation();
+          });
+        }
+      });
+
+      table._syncEngineHookAttached = true;
+    });
   }
 
   getActiveProviderType(): SyncProviderType {
@@ -61,16 +150,63 @@ class DecentralizedSyncEngine {
     return this.localFsProvider;
   }
 
-  subscribe(callback: (state: { isSyncing: boolean; lastResult?: SyncExecutionResult }) => void): () => void {
+  getHasPendingChanges(): boolean {
+    return this.hasPendingChanges;
+  }
+
+  notifyLocalMutation(): void {
+    if (isPerformingSyncMerge) return;
+    this.hasPendingChanges = true;
+    try {
+      localStorage.setItem('ieba_sync_pending_changes', 'true');
+    } catch {}
+    this.notifyListeners();
+    this.scheduleDebouncedSync(2000);
+  }
+
+  scheduleDebouncedSync(delayMs = 2000): void {
+    if (this.debouncedSyncTimer) {
+      clearTimeout(this.debouncedSyncTimer);
+      this.debouncedSyncTimer = null;
+    }
+
+    // No auto-sync para respaldo puramente manual
+    if (this.activeProviderType === 'manual_json') {
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return;
+    }
+
+    this.debouncedSyncTimer = setTimeout(() => {
+      this.debouncedSyncTimer = null;
+      if (typeof navigator !== 'undefined' && navigator.onLine && !this.isSyncing && this.hasPendingChanges) {
+        this.executeSync().catch((err) => {
+          console.warn('[DecentralizedSync] Auto-sync programado tras guardado falló:', err);
+        });
+      }
+    }, delayMs);
+  }
+
+  subscribe(callback: (state: SyncSubscriptionState) => void): () => void {
     this.listeners.push(callback);
-    callback({ isSyncing: this.isSyncing, lastResult: this.lastResult });
+    callback({
+      isSyncing: this.isSyncing,
+      hasPendingChanges: this.hasPendingChanges,
+      lastResult: this.lastResult
+    });
     return () => {
       this.listeners = this.listeners.filter(l => l !== callback);
     };
   }
 
   private notifyListeners(): void {
-    this.listeners.forEach(l => l({ isSyncing: this.isSyncing, lastResult: this.lastResult }));
+    this.listeners.forEach(l => l({
+      isSyncing: this.isSyncing,
+      hasPendingChanges: this.hasPendingChanges,
+      lastResult: this.lastResult
+    }));
   }
 
   /**
@@ -90,6 +226,8 @@ class DecentralizedSyncEngine {
     const timestamp = new Date().toISOString();
 
     try {
+      isPerformingSyncMerge = true;
+
       // 1. PULL del archivo maestro desde el proveedor
       const remotePayload = await provider.readMasterPayload();
 
@@ -99,8 +237,13 @@ class DecentralizedSyncEngine {
       // 3. PUSH de la versión consolidada al proveedor
       await provider.writeMasterPayload(mergedPayload);
 
-      // 4. Actualizar timestamp de última sincronización
+      // 4. Actualizar timestamp de última sincronización y resetear pendientes
       localStorage.setItem('ieba_last_sync_time', timestamp);
+      this.hasPendingChanges = false;
+      try {
+        localStorage.setItem('ieba_sync_pending_changes', 'false');
+      } catch {}
+
       const configs = await db.config.toArray();
       if (configs.length > 0) {
         await db.config.update(configs[0].id, {
@@ -141,6 +284,7 @@ class DecentralizedSyncEngine {
       };
       throw err;
     } finally {
+      isPerformingSyncMerge = false;
       this.isSyncing = false;
       this.notifyListeners();
     }
@@ -165,6 +309,7 @@ class DecentralizedSyncEngine {
     const timestamp = new Date().toISOString();
 
     try {
+      isPerformingSyncMerge = true;
       // 1. Leer estado remoto
       let remotePayload: MasterDatabasePayload | null = null;
       try {
@@ -391,6 +536,7 @@ class DecentralizedSyncEngine {
       this.lastResult = result;
       throw err;
     } finally {
+      isPerformingSyncMerge = false;
       this.isSyncing = false;
       this.notifyListeners();
     }
@@ -404,23 +550,67 @@ class DecentralizedSyncEngine {
   }
 
   /**
-   * Inicia el temporizador de sincronización en segundo plano
+   * Inicia la sincronización automática en segundo plano y reactiva por eventos:
+   * - Temporizador por intervalo
+   * - Al abrir o cambiar a la pestaña (visibilitychange / focus) para hacer pull de novedades
+   * - Al recuperar conexión a internet (online)
+   * - Al iniciar la app (pull inicial automático)
    */
   startAutoSync(intervalMinutes = 5): void {
     this.stopAutoSync();
     const ms = Math.max(1, intervalMinutes) * 60 * 1000;
     this.autoSyncTimer = setInterval(() => {
-      if (navigator.onLine && !this.isSyncing) {
+      if (typeof navigator !== 'undefined' && navigator.onLine && !this.isSyncing && this.activeProviderType !== 'manual_json') {
         this.executeSync().catch(() => {});
       }
     }, ms);
 
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden' && navigator.onLine && !this.isSyncing) {
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const handleVisibilityChange = () => {
+        if (!navigator.onLine || this.isSyncing || this.activeProviderType === 'manual_json') return;
+        if (document.visibilityState === 'visible') {
+          const lastSyncStr = localStorage.getItem('ieba_last_sync_time');
+          const lastSync = lastSyncStr ? new Date(lastSyncStr).getTime() : 0;
+          // Si pasaron más de 15 segundos desde la última sincronización o hay pendientes locales
+          if (Date.now() - lastSync > 15000 || this.hasPendingChanges) {
+            this.executeSync().catch(() => {});
+          }
+        } else if (document.visibilityState === 'hidden' && this.hasPendingChanges) {
           this.executeSync().catch(() => {});
         }
-      });
+      };
+
+      const handleOnline = () => {
+        if (!this.isSyncing && this.activeProviderType !== 'manual_json') {
+          this.executeSync().catch(() => {});
+        }
+      };
+
+      const handleWindowFocus = () => {
+        if (!navigator.onLine || this.isSyncing || this.activeProviderType === 'manual_json') return;
+        const lastSyncStr = localStorage.getItem('ieba_last_sync_time');
+        const lastSync = lastSyncStr ? new Date(lastSyncStr).getTime() : 0;
+        if (Date.now() - lastSync > 20000 || this.hasPendingChanges) {
+          this.executeSync().catch(() => {});
+        }
+      };
+
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('focus', handleWindowFocus);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      this.boundEventListeners = {
+        online: handleOnline,
+        focus: handleWindowFocus,
+        visibility: handleVisibilityChange
+      };
+
+      // Pull inicial silencioso a los 1.5s de cargar la app si está online
+      setTimeout(() => {
+        if (navigator.onLine && !this.isSyncing && this.activeProviderType !== 'manual_json') {
+          this.executeSync().catch(() => {});
+        }
+      }, 1500);
     }
   }
 
@@ -428,6 +618,18 @@ class DecentralizedSyncEngine {
     if (this.autoSyncTimer) {
       clearInterval(this.autoSyncTimer);
       this.autoSyncTimer = null;
+    }
+    if (this.debouncedSyncTimer) {
+      clearTimeout(this.debouncedSyncTimer);
+      this.debouncedSyncTimer = null;
+    }
+    if (typeof window !== 'undefined' && this.boundEventListeners) {
+      if (this.boundEventListeners.online) window.removeEventListener('online', this.boundEventListeners.online);
+      if (this.boundEventListeners.focus) window.removeEventListener('focus', this.boundEventListeners.focus);
+      if (this.boundEventListeners.visibility && typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', this.boundEventListeners.visibility);
+      }
+      this.boundEventListeners = {};
     }
   }
 }

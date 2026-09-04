@@ -14,7 +14,7 @@ import { syncEngine } from '../services/syncEngine';
 import { SyncProviderType } from '../core/types';
 import { SyncExecutionResult } from '../services/syncTypes';
 
-export type SyncStatusState = 'idle' | 'syncing' | 'synced' | 'error';
+export type SyncStatusState = 'idle' | 'syncing' | 'pending' | 'synced' | 'error';
 
 interface AuthContextType {
   user: User | null;
@@ -25,6 +25,7 @@ interface AuthContextType {
   lastSyncTime: Date | null;
   lastResult?: SyncExecutionResult;
   activeProvider: SyncProviderType;
+  hasPendingChanges: boolean;
   setActiveProvider: (type: SyncProviderType) => void;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (e: string, p: string) => Promise<void>;
@@ -40,7 +41,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [syncState, setSyncState] = useState<SyncStatusState>('idle');
+  const [hasPendingChanges, setHasPendingChanges] = useState<boolean>(() => syncEngine.getHasPendingChanges());
+  const [syncState, setSyncState] = useState<SyncStatusState>(() => {
+    if (syncEngine.getHasPendingChanges()) return 'pending';
+    const saved = localStorage.getItem('ieba_last_sync_time');
+    return saved ? 'synced' : 'idle';
+  });
   const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(() => {
     try {
@@ -60,24 +66,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
-    const unsubscribeSync = syncEngine.subscribe(({ isSyncing, lastResult }) => {
+    // Iniciar temporizador y listeners reactivos de sincronización en segundo plano
+    syncEngine.startAutoSync(5);
+
+    const unsubscribeSync = syncEngine.subscribe(({ isSyncing, hasPendingChanges: pending, lastResult }) => {
+      setHasPendingChanges(pending);
       if (isSyncing) {
         setSyncState('syncing');
-      } else if (lastResult) {
-        setSyncState(lastResult.success ? 'synced' : 'error');
-        setLastResult(lastResult);
-        if (lastResult.success) {
-          setLastSyncTime(new Date(lastResult.timestamp));
-          setSyncErrorMessage(null);
-        } else {
-          setSyncErrorMessage(lastResult.message || lastResult.error || 'Error al sincronizar');
-        }
+      } else if (lastResult && !lastResult.success) {
+        setSyncState('error');
+        setSyncErrorMessage(lastResult.message || lastResult.error || 'Error al sincronizar');
+      } else if (pending) {
+        setSyncState('pending');
+        setSyncErrorMessage(null);
+      } else if (lastResult?.success) {
+        setSyncState('synced');
+        setLastSyncTime(new Date(lastResult.timestamp));
+        setSyncErrorMessage(null);
+      } else if (localStorage.getItem('ieba_last_sync_time')) {
+        setSyncState('synced');
+        setSyncErrorMessage(null);
+      } else {
+        setSyncState('idle');
       }
     });
 
     if (!auth) {
       setLoading(false);
-      return unsubscribeSync;
+      return () => {
+        syncEngine.stopAutoSync();
+        unsubscribeSync();
+      };
     }
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
@@ -86,6 +105,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     return () => {
+      syncEngine.stopAutoSync();
       unsubscribeSync();
       unsubscribeAuth();
     };
@@ -166,6 +186,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         user,
         loading,
         isConfigured,
+        hasPendingChanges,
         syncState,
         syncErrorMessage,
         lastSyncTime,

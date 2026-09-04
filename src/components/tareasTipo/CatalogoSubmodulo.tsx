@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Copy, Edit2, Trash2, Sliders, Package, ShieldAlert, GraduationCap, Truck } from 'lucide-react';
+import { Search, Copy, Edit2, Trash2, Sliders, Package, ShieldAlert, GraduationCap, Truck, ChevronDown } from 'lucide-react';
 import { TareaTipo, Insumo, CategoriaManoDeObra, AppConfig, MaterialFilterContext } from '../../core/types';
 import { calcularCostoTareaTipo, formatARS, auditarRentabilidadTareaTipo } from '../../core/calculations';
 
@@ -61,18 +61,21 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
           />
         </div>
 
-        <select
-          value={selectedCategoryFilter}
-          onChange={(e) => onCategoryFilterChange(e.target.value)}
-          className={`${inputCls} sm:w-auto capitalize`}
-        >
-          <option value="todas">Todas las categorías</option>
-          {categoriasList.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+        <div className="relative w-full sm:w-auto">
+          <select
+            value={selectedCategoryFilter}
+            onChange={(e) => onCategoryFilterChange(e.target.value)}
+            className="w-full sm:w-auto pl-3.5 pr-8 py-2 text-xs sm:text-sm bg-surface-container-highest border border-outline-variant/30 rounded-xl text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[40px] appearance-none has-custom-icon cursor-pointer capitalize font-medium"
+          >
+            <option value="todas">Todas las categorías</option>
+            {categoriasList.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+        </div>
       </div>
 
       {/* Empty State */}

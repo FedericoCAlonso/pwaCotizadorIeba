@@ -586,6 +586,7 @@ export interface ItemPresupuesto {
   clausulaTecnica?: string;
   notasTecnicas?: string;
   esAdHoc?: boolean;
+  tareaTipoConfig?: TareaTipo;
 
   // Campos de Análisis de Precios Unitarios (APU) y Prorrateo de GG Absolutos
   incidencia?: number; // Incidencia = Costo_item / Costo_Total_Global

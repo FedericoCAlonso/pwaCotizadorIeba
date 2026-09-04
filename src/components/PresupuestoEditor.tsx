@@ -14,7 +14,9 @@ import {
   Truck,
   Trash2,
   RefreshCw,
-  MessageSquare
+  MessageSquare,
+  Check,
+  Clock
 } from 'lucide-react';
 import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
 import { TareaEditorModal } from './tareasTipo/TareaEditorModal';
@@ -60,6 +62,7 @@ interface PresupuestoEditorProps {
   onBack: () => void;
   onSaved: (id: string) => void;
   onViewMaterialsInCatalog?: (ctx: MaterialFilterContext) => void;
+  onDraftAutoSaved?: (id: string) => void;
 }
 
 export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
@@ -68,7 +71,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   config,
   onBack,
   onSaved,
-  onViewMaterialsInCatalog
+  onViewMaterialsInCatalog,
+  onDraftAutoSaved
 }) => {
   const { tiposFactura, condicionesTrabajo, categoriasTarea } = useAppOptions();
   const { toast } = useToast();
@@ -181,13 +185,17 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     margenRiesgoPorcentaje,
     setMargenRiesgoPorcentaje,
     nivelMargenRiesgo,
-    setNivelMargenRiesgo
+    setNivelMargenRiesgo,
+    autoSaveStatus,
+    lastAutoSaveTime,
+    flushAutoSave
   } = usePresupuestoEditorViewModel({
     presupuestoId,
     initialClienteId,
     config,
     onSaved,
-    onViewMaterialsInCatalog
+    onViewMaterialsInCatalog,
+    onDraftAutoSaved
   });
 
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
@@ -278,6 +286,48 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     manoObra: [],
     unidad: 'u'
   });
+
+  const handleSaveAsTemplateAction = (targetItem: ItemPresupuesto) => {
+    if (targetItem.tareaTipoConfig) {
+      setSaveAsTemplateData({
+        ...targetItem.tareaTipoConfig,
+        nombre: targetItem.descripcion || targetItem.tareaTipoConfig.nombre,
+        unidad: targetItem.unidad || targetItem.tareaTipoConfig.unidad,
+        notasTecnicas: targetItem.notasTecnicas || targetItem.tareaTipoConfig.notasTecnicas || '',
+        clausulaExclusiones: targetItem.clausulaExclusiones || targetItem.tareaTipoConfig.clausulaExclusiones || '',
+        costoFijoOperativo: targetItem.costoFijoOperativo ?? targetItem.tareaTipoConfig.costoFijoOperativo ?? 0,
+        descripcionCostoFijo: targetItem.descripcionCostoFijo ?? targetItem.tareaTipoConfig.descripcionCostoFijo ?? ''
+      });
+      setShowSaveAsTemplateModal(true);
+      return;
+    }
+
+    const itemInsumos = (targetItem.insumosSnapshot || []).map((ins) => ({
+      insumoId: ins.materialId || ins.insumoId,
+      materialId: ins.materialId || ins.insumoId,
+      productoId: ins.productoId,
+      cantidad: ins.cantidadTotal
+    }));
+    const itemManoObra = (targetItem.manoObraSnapshot || []).map((mo) => ({
+      categoriaId: mo.categoriaId,
+      horas: mo.horasTotales
+    }));
+    setSaveAsTemplateData({
+      nombre: targetItem.descripcion || 'Nueva Tarea Tipo',
+      notasTecnicas: targetItem.notasTecnicas || targetItem.clausulaTecnica || '',
+      naturaleza: targetItem.naturaleza || (targetItem.formulaHonorarios ? 'servicio_profesional' : 'instalacion'),
+      honorarioBase: targetItem.costoServicios || 0,
+      formulaHonorarios: targetItem.formulaHonorarios || '',
+      costoServicioDirecto: targetItem.costoServicios || 0,
+      costoFijoOperativo: targetItem.costoFijoOperativo || 0,
+      descripcionCostoFijo: targetItem.descripcionCostoFijo || '',
+      clausulaExclusiones: targetItem.clausulaExclusiones || '',
+      unidad: targetItem.unidad || 'u',
+      insumos: itemInsumos,
+      manoObra: itemManoObra
+    });
+    setShowSaveAsTemplateModal(true);
+  };
 
   // Keyboard shortcut & auto-focus management
   const itemTitleRefs = useRef<Map<string, HTMLInputElement>>(new Map());
@@ -516,8 +566,12 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         <div className="flex items-center gap-4">
           <button
             type="button"
-            onClick={onBack}
+            onClick={async () => {
+              await flushAutoSave();
+              onBack();
+            }}
             className="p-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-full transition-colors"
+            title="Volver (guarda el borrador automáticamente)"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -532,10 +586,30 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               <p className="text-xs text-on-surface-variant">
                 Cálculo de costos en capas (materiales, mano de obra, indirectos, margen, impuestos).
               </p>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                Autoguardado local activo
-              </span>
+              {autoSaveStatus === 'saving' && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-xs animate-pulse">
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  Guardando borrador...
+                </span>
+              )}
+              {autoSaveStatus === 'saved' && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
+                  <Check className="w-3 h-3 text-emerald-500" />
+                  Borrador guardado {lastAutoSaveTime ? `a las ${lastAutoSaveTime}` : 'automáticamente'}
+                </span>
+              )}
+              {autoSaveStatus === 'error' && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-error/10 text-error border border-error/20 shadow-xs">
+                  <AlertCircle className="w-3 h-3" />
+                  Error al autoguardar
+                </span>
+              )}
+              {autoSaveStatus === 'idle' && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface-container-highest text-on-surface-variant border border-outline-variant/30 shadow-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary/70"></span>
+                  Autoguardado de borrador activo
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -801,32 +875,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                       onUpdateItemDescription={handleUpdateItemDescription}
                       onUpdateItemNotasTecnicas={handleUpdateItemNotasTecnicas}
                       onRemoveItem={handleRemoveItem}
-                      onSaveAsTemplate={(targetItem) => {
-                        const itemInsumos = (targetItem.insumosSnapshot || []).map((ins) => ({
-                          materialId: ins.materialId || ins.insumoId,
-                          productoId: ins.productoId,
-                          cantidad: ins.cantidadTotal
-                        }));
-                        const itemManoObra = (targetItem.manoObraSnapshot || []).map((mo) => ({
-                          categoriaId: mo.categoriaId,
-                          horas: mo.horasTotales
-                        }));
-                        setSaveAsTemplateData({
-                          nombre: targetItem.descripcion || 'Nueva Tarea Tipo',
-                          notasTecnicas: targetItem.notasTecnicas || targetItem.clausulaTecnica || '',
-                          naturaleza: targetItem.naturaleza || (targetItem.formulaHonorarios ? 'servicio_profesional' : 'instalacion'),
-                          honorarioBase: targetItem.costoServicios || 0,
-                          formulaHonorarios: targetItem.formulaHonorarios || '',
-                          costoServicioDirecto: targetItem.costoServicios || 0,
-                          costoFijoOperativo: targetItem.costoFijoOperativo || 0,
-                          descripcionCostoFijo: targetItem.descripcionCostoFijo || '',
-                          clausulaExclusiones: targetItem.clausulaExclusiones || '',
-                          unidad: targetItem.unidad || 'u',
-                          insumos: itemInsumos,
-                          manoObra: itemManoObra
-                        });
-                        setShowSaveAsTemplateModal(true);
-                      }}
+                      onSaveAsTemplate={handleSaveAsTemplateAction}
                       onOpenParametricModal={handleOpenParametricModalForExistingItem}
                       onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
                       onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
@@ -910,32 +959,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                                 onUpdateItemDescription={handleUpdateItemDescription}
                                 onUpdateItemNotasTecnicas={handleUpdateItemNotasTecnicas}
                                 onRemoveItem={handleRemoveItem}
-                                onSaveAsTemplate={(targetItem) => {
-                                  const itemInsumos = (targetItem.insumosSnapshot || []).map((ins) => ({
-                                    materialId: ins.materialId || ins.insumoId,
-                                    productoId: ins.productoId,
-                                    cantidad: ins.cantidadTotal
-                                  }));
-                                  const itemManoObra = (targetItem.manoObraSnapshot || []).map((mo) => ({
-                                    categoriaId: mo.categoriaId,
-                                    horas: mo.horasTotales
-                                  }));
-                                  setSaveAsTemplateData({
-                                    nombre: targetItem.descripcion || 'Nueva Tarea Tipo',
-                                    notasTecnicas: targetItem.notasTecnicas || targetItem.clausulaTecnica || '',
-                                    naturaleza: targetItem.naturaleza || (targetItem.formulaHonorarios ? 'servicio_profesional' : 'instalacion'),
-                                    honorarioBase: targetItem.costoServicios || 0,
-                                    formulaHonorarios: targetItem.formulaHonorarios || '',
-                                    costoServicioDirecto: targetItem.costoServicios || 0,
-                                    costoFijoOperativo: targetItem.costoFijoOperativo || 0,
-                                    descripcionCostoFijo: targetItem.descripcionCostoFijo || '',
-                                    clausulaExclusiones: targetItem.clausulaExclusiones || '',
-                                    unidad: targetItem.unidad || 'u',
-                                    insumos: itemInsumos,
-                                    manoObra: itemManoObra
-                                  });
-                                  setShowSaveAsTemplateModal(true);
-                                }}
+                                onSaveAsTemplate={handleSaveAsTemplateAction}
                                 onOpenParametricModal={handleOpenParametricModalForExistingItem}
                                 onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
                                 onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
@@ -1005,32 +1029,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                               onUpdateItemDescription={handleUpdateItemDescription}
                               onUpdateItemNotasTecnicas={handleUpdateItemNotasTecnicas}
                               onRemoveItem={handleRemoveItem}
-                              onSaveAsTemplate={(targetItem) => {
-                                const itemInsumos = (targetItem.insumosSnapshot || []).map((ins) => ({
-                                  materialId: ins.materialId || ins.insumoId,
-                                  productoId: ins.productoId,
-                                  cantidad: ins.cantidadTotal
-                                }));
-                                const itemManoObra = (targetItem.manoObraSnapshot || []).map((mo) => ({
-                                  categoriaId: mo.categoriaId,
-                                  horas: mo.horasTotales
-                                }));
-                                setSaveAsTemplateData({
-                                  nombre: targetItem.descripcion || 'Nueva Tarea Tipo',
-                                  notasTecnicas: targetItem.notasTecnicas || targetItem.clausulaTecnica || '',
-                                  naturaleza: targetItem.naturaleza || (targetItem.formulaHonorarios ? 'servicio_profesional' : 'instalacion'),
-                                  honorarioBase: targetItem.costoServicios || 0,
-                                  formulaHonorarios: targetItem.formulaHonorarios || '',
-                                  costoServicioDirecto: targetItem.costoServicios || 0,
-                                  costoFijoOperativo: targetItem.costoFijoOperativo || 0,
-                                  descripcionCostoFijo: targetItem.descripcionCostoFijo || '',
-                                  clausulaExclusiones: targetItem.clausulaExclusiones || '',
-                                  unidad: targetItem.unidad || 'u',
-                                  insumos: itemInsumos,
-                                  manoObra: itemManoObra
-                                });
-                                setShowSaveAsTemplateModal(true);
-                              }}
+                              onSaveAsTemplate={handleSaveAsTemplateAction}
                               onOpenParametricModal={handleOpenParametricModalForExistingItem}
                               onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
                               onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
