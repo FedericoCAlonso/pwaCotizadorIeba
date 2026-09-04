@@ -12,7 +12,9 @@ import {
   MoreVertical,
   Edit3,
   GraduationCap,
-  Truck
+  Truck,
+  Package,
+  Plus
 } from 'lucide-react';
 import { ItemPresupuesto } from '../../core/types';
 import { formatARS, roundMoney } from '../../core/calculations';
@@ -36,6 +38,10 @@ interface PresupuestoItemRowProps {
   onOpenParametricModal?: (index: number) => void;
   onOpenMaterialModal?: (index: number) => void;
   onOpenInSituEditor?: (index: number) => void;
+  onOpenMaterialPicker?: (index: number) => void;
+  onUpdateItemMaterialQuantity?: (itemIndex: number, materialIndex: number, newQty: number) => void;
+  onRemoveItemMaterial?: (itemIndex: number, materialIndex: number) => void;
+  onUpdateItemManoObraCost?: (index: number, moCost: number) => void;
   condicionesTrabajo: Array<{ value: string; label: string }>;
   titleInputRef?: (el: HTMLInputElement | null) => void;
   onEnterAtEnd?: () => void;
@@ -58,6 +64,10 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
   onOpenParametricModal,
   onOpenMaterialModal,
   onOpenInSituEditor,
+  onOpenMaterialPicker,
+  onUpdateItemMaterialQuantity,
+  onRemoveItemMaterial,
+  onUpdateItemManoObraCost,
   condicionesTrabajo,
   titleInputRef,
   onEnterAtEnd
@@ -123,6 +133,18 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
           )}
 
           {/* Primary contextual action (Parámetros / Fórmulas y Materiales / Desglosar) */}
+          {(isItemLibre || isCustom) && onOpenMaterialPicker && (
+            <button
+              type="button"
+              onClick={() => onOpenMaterialPicker(index)}
+              className="flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs"
+              title="Seleccionar y agregar materiales desde el catálogo para esta partida"
+            >
+              <Package className="w-3.5 h-3.5" />
+              <span>+ Materiales</span>
+            </button>
+          )}
+
           {isItemLibre ? (
             <>
               {onOpenInSituEditor && (
@@ -204,6 +226,20 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                     <Sparkles className="w-4 h-4" />
                     <span>Guardar en Catálogo</span>
                   </button>
+
+                  {onOpenMaterialPicker && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenMaterialPicker(index);
+                        setShowItemMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-primary hover:bg-primary/10 transition-colors text-left font-medium"
+                    >
+                      <Package className="w-4 h-4" />
+                      <span>Agregar Materiales del Catálogo</span>
+                    </button>
+                  )}
 
                   {onOpenInSituEditor && (
                     <button
@@ -383,26 +419,49 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
             {/* Costo Directo Unitario */}
             <div className="text-xs">
               {isCustom ? (
-                <div className="w-24 sm:w-28">
-                  <MathInput
-                    value={
-                      item.costoUnitario !== undefined
-                        ? item.costoUnitario
-                        : roundMoney((item.costoDirectoTotal || 0) / (item.cantidad || 1))
-                    }
-                    onChange={(val) => onUpdateItemUnitDirectCost(index, val)}
-                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                      if (e.key === 'Enter' && onEnterAtEnd) {
-                        e.preventDefault();
-                        onEnterAtEnd();
+                item.insumosSnapshot && item.insumosSnapshot.length > 0 ? (
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-on-surface-variant font-mono text-[11px]">
+                      <span className="opacity-70 text-[10px] uppercase font-bold">Insumos:</span>
+                      <span className="font-bold text-primary">{formatARS(calcItem.costoInsumos || item.costoInsumos)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] uppercase font-bold text-on-surface-variant opacity-70">M. Obra:</span>
+                      <div className="w-20 sm:w-24" title="Mano de obra o adicionales directos para esta partida">
+                        <MathInput
+                          value={item.costoManoObra || 0}
+                          onChange={(val) => onUpdateItemManoObraCost ? onUpdateItemManoObraCost(index, val) : onUpdateItemUnitDirectCost(index, val)}
+                          prefix="$"
+                          size="sm"
+                          min={0}
+                          step={100}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-24 sm:w-28">
+                    <MathInput
+                      value={
+                        item.costoUnitario !== undefined
+                          ? item.costoUnitario
+                          : roundMoney((item.costoDirectoTotal || 0) / (item.cantidad || 1))
                       }
-                    }}
-                    prefix="$"
-                    size="sm"
-                    min={0}
-                    step={1}
-                  />
-                </div>
+                      onChange={(val) => onUpdateItemUnitDirectCost(index, val)}
+                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                        if (e.key === 'Enter' && onEnterAtEnd) {
+                          e.preventDefault();
+                          onEnterAtEnd();
+                        }
+                      }}
+                      prefix="$"
+                      size="sm"
+                      min={0}
+                      step={1}
+                    />
+                  </div>
+                )
               ) : (
                 <div className="font-mono text-xs font-medium text-on-surface-variant">
                   <span className="text-[10px] block opacity-70">Directo:</span>
@@ -513,20 +572,59 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                   </div>
                   <div className="space-y-1 divide-y divide-outline-variant/10">
                     {item.insumosSnapshot.map((ins, iIdx) => (
-                      <div key={iIdx} className="pt-1 flex flex-wrap sm:flex-nowrap items-center justify-between gap-1 text-on-surface-variant text-[11px]">
+                      <div key={iIdx} className="pt-1.5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 text-on-surface-variant text-[11px]">
                         <div className="flex items-center gap-1.5 truncate flex-1 min-w-[120px]">
-                          <span className="truncate">{ins.nombre}</span>
+                          <span className="truncate font-medium text-on-surface">{ins.nombre}</span>
                           <OnlinePriceButton tipo="material" customNombre={ins.nombre} size="xs" variant="icon" />
                         </div>
                         <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 font-mono shrink-0 w-full sm:w-auto text-[10px] sm:text-[11px]">
-                          <span>
-                            {ins.cantidadTotal} {ins.unidad} × {formatARS(ins.precioUnitarioCongelado)}
-                          </span>
+                          {onUpdateItemMaterialQuantity ? (
+                            <div className="flex items-center gap-1">
+                              <div className="w-16 sm:w-20">
+                                <MathInput
+                                  value={ins.cantidadTotal}
+                                  onChange={(val) => onUpdateItemMaterialQuantity(index, iIdx, val)}
+                                  size="sm"
+                                  min={0.01}
+                                  step={0.5}
+                                />
+                              </div>
+                              <span className="text-[10px] text-on-surface-variant min-w-[16px]">{ins.unidad}</span>
+                              <span className="text-on-surface-variant opacity-70">× {formatARS(ins.precioUnitarioCongelado)}</span>
+                            </div>
+                          ) : (
+                            <span>
+                              {ins.cantidadTotal} {ins.unidad} × {formatARS(ins.precioUnitarioCongelado)}
+                            </span>
+                          )}
                           <strong className="text-on-surface font-semibold">{formatARS(ins.subtotalInsumo)}</strong>
+                          {onRemoveItemMaterial && (
+                            <button
+                              type="button"
+                              onClick={() => onRemoveItemMaterial(index, iIdx)}
+                              className="p-1 text-on-surface-variant/60 hover:text-error hover:bg-error-container/20 rounded-lg transition shrink-0"
+                              title="Quitar este material de la partida"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
+
+                  {onOpenMaterialPicker && (
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => onOpenMaterialPicker(index)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 rounded-xl transition"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Agregar más materiales</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 

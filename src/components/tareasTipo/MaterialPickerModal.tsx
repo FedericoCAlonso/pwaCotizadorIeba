@@ -11,10 +11,12 @@ import {
   Sparkles,
   Tag,
   CheckCircle2,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { db } from '../../db/database';
 import { Insumo, CategoriaMaterial } from '../../core/types';
-import { formatARS } from '../../core/calculations';
+import { formatARS, safeNum } from '../../core/calculations';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useToast } from '../../contexts/ToastContext';
 import { MathInput } from '../common/MathInput';
@@ -32,6 +34,8 @@ interface MaterialPickerModalProps {
   alreadySelectedIds?: string[];
   onAddMaterial: (material: Insumo, cantidad: number, formula?: string) => void;
   onAddMultipleMaterials?: (items: StagedItemPayload[]) => void;
+  titleOverride?: string;
+  subtitleOverride?: string;
 }
 
 interface StagedEntry {
@@ -46,6 +50,8 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
   alreadySelectedIds = [],
   onAddMaterial,
   onAddMultipleMaterials,
+  titleOverride,
+  subtitleOverride,
 }) => {
   useEscapeKey(isOpen, onClose);
   const { toast } = useToast();
@@ -59,6 +65,10 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
   // Map of materialId -> staged entry for staged multi-add
   const [stagedQuantities, setStagedQuantities] = useState<Map<string, StagedEntry>>(new Map());
+  // Set of materialId for batch checkbox selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Shared batch quantity for checked materials
+  const [batchQuantity, setBatchQuantity] = useState<number>(1);
 
   // Focus search input when modal opens
   useEffect(() => {
@@ -66,6 +76,8 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
       setSearchTerm('');
       setSelectedCategory('todas');
       setStagedQuantities(new Map());
+      setSelectedIds(new Set());
+      setBatchQuantity(1);
       setTimeout(() => {
         searchInputRef.current?.focus();
       }, 100);
@@ -109,6 +121,60 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
     });
   }, [allInsumos, searchTerm, selectedCategory, categoriasMap]);
 
+  // Checkbox toggle for multi-select
+  const toggleSelectId = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllVisible = () => {
+    setSelectedIds(new Set(filteredInsumos.map((i) => i.id)));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleApplyBatchQuantity = () => {
+    const qty = Math.max(0.01, safeNum(batchQuantity) || 1);
+    setStagedQuantities((prev) => {
+      const next = new Map(prev);
+      selectedIds.forEach((id) => {
+        next.set(id, { cantidad: qty });
+      });
+      return next;
+    });
+    toast.success(`Se asignó cantidad ${qty} a ${selectedIds.size} materiales seleccionados.`);
+  };
+
+  const handleApplyAndIncorporateBatch = () => {
+    if (selectedIds.size === 0) return;
+    const qty = Math.max(0.01, safeNum(batchQuantity) || 1);
+    const itemsToAdd: StagedItemPayload[] = [];
+    selectedIds.forEach((id) => {
+      const mat = insumosMap.get(id);
+      if (mat) {
+        itemsToAdd.push({ material: mat, cantidad: qty });
+      }
+    });
+
+    if (onAddMultipleMaterials) {
+      onAddMultipleMaterials(itemsToAdd);
+    } else {
+      itemsToAdd.forEach((item) => onAddMaterial(item.material, item.cantidad, item.formula));
+    }
+
+    toast.success(`Se incorporaron ${itemsToAdd.length} materiales con cantidad ${qty}.`);
+    onClose();
+  };
+
   // Handler for single add (1-tap)
   const handleQuickAdd = (insumo: Insumo, qty: number = 1, formula?: string) => {
     const quantity = qty > 0 ? qty : 1;
@@ -145,10 +211,20 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
 
   // Handle adding all staged materials
   const handleApplyStaged = () => {
-    if (stagedQuantities.size === 0) return;
+    const combined = new Map(stagedQuantities);
+    if (selectedIds.size > 0) {
+      const qty = Math.max(0.01, safeNum(batchQuantity) || 1);
+      selectedIds.forEach((id) => {
+        if (!combined.has(id) || (combined.get(id)?.cantidad || 0) === 0) {
+          combined.set(id, { cantidad: qty });
+        }
+      });
+    }
+
+    if (combined.size === 0) return;
 
     const itemsToAdd: StagedItemPayload[] = [];
-    stagedQuantities.forEach((entry, id) => {
+    combined.forEach((entry, id) => {
       const mat = insumosMap.get(id);
       if (mat && entry.cantidad > 0) {
         itemsToAdd.push({ material: mat, cantidad: entry.cantidad, formula: entry.formula });
@@ -161,7 +237,7 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
       itemsToAdd.forEach((item) => onAddMaterial(item.material, item.cantidad, item.formula));
     }
 
-    toast.success(`Se agregaron ${itemsToAdd.length} materiales a la Tarea Tipo.`);
+    toast.success(`Se agregaron ${itemsToAdd.length} materiales.`);
     onClose();
   };
 
@@ -186,10 +262,10 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-on-surface text-base sm:text-lg">
-                Catálogo de Materiales & Insumos
+                {titleOverride || 'Catálogo de Materiales & Insumos'}
               </h3>
               <p className="text-xs text-on-surface-variant">
-                Selecciona los materiales que componen esta Tarea Tipo
+                {subtitleOverride || 'Selecciona los materiales que componen esta Tarea Tipo'}
               </p>
             </div>
           </div>
@@ -205,28 +281,55 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
 
         {/* Search & Category Filter Chips Toolbar */}
         <div className="p-3 sm:p-4 border-b border-outline-variant/20 bg-surface-container-low space-y-3 shrink-0">
-          {/* Search Box M3 */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Buscar por nombre, norma (ej: IRAM 2178), sección, marca..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-full pl-10 pr-8 py-2.5 text-xs sm:text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all min-h-[42px]"
-            />
-            {searchTerm && (
+          {/* Search Box M3 & Bulk select toggle */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Buscar por nombre, norma (ej: IRAM 2178), sección, marca..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-full pl-10 pr-8 py-2.5 text-xs sm:text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all min-h-[42px]"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm('');
+                    searchInputRef.current?.focus();
+                  }}
+                  className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface p-0.5"
+                  aria-label="Limpiar búsqueda"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {filteredInsumos.length > 0 && (
               <button
                 type="button"
-                onClick={() => {
-                  setSearchTerm('');
-                  searchInputRef.current?.focus();
-                }}
-                className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface p-0.5"
-                aria-label="Limpiar búsqueda"
+                onClick={
+                  selectedIds.size === filteredInsumos.length && filteredInsumos.length > 0
+                    ? handleClearSelection
+                    : handleSelectAllVisible
+                }
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-semibold bg-surface-container-highest hover:bg-surface-variant text-on-surface border border-outline-variant/30 transition shrink-0 min-h-[42px]"
+                title="Seleccionar o deseleccionar todos los materiales mostrados"
               >
-                <X className="w-4 h-4" />
+                {selectedIds.size === filteredInsumos.length && filteredInsumos.length > 0 ? (
+                  <>
+                    <Square className="w-3.5 h-3.5" />
+                    <span>Deseleccionar ({filteredInsumos.length})</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckSquare className="w-3.5 h-3.5 text-primary" />
+                    <span>Marcar todos ({filteredInsumos.length})</span>
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -270,6 +373,55 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
           </div>
         </div>
 
+        {/* Batch Action Toolbar when 1+ materials are checked */}
+        {selectedIds.size > 0 && (
+          <div className="mx-3 sm:mx-4 my-2.5 p-3 bg-primary/10 border border-primary/30 rounded-2xl flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-150 shadow-xs shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                <CheckSquare className="w-4 h-4" />
+                <span>{selectedIds.size} {selectedIds.size === 1 ? 'material seleccionado' : 'materiales seleccionados'}</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleClearSelection}
+                className="text-[11px] text-on-surface-variant hover:text-on-surface underline ml-1"
+              >
+                Limpiar
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap ml-auto">
+              <span className="text-xs font-medium text-on-surface-variant">Cantidad para lote:</span>
+              <div className="w-20">
+                <MathInput
+                  value={batchQuantity}
+                  onChange={(v) => setBatchQuantity(Math.max(0.01, v || 1))}
+                  size="sm"
+                  min={0.01}
+                  step={0.5}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleApplyBatchQuantity}
+                className="px-2.5 py-1.5 text-xs font-semibold bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface rounded-xl border border-outline-variant/40 transition"
+                title="Asigna esta cantidad a los seleccionados en la lista"
+              >
+                Asignar
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyAndIncorporateBatch}
+                className="px-3.5 py-1.5 text-xs font-bold bg-primary hover:bg-primary/90 text-on-primary rounded-xl shadow-xs transition flex items-center gap-1.5 active:scale-95"
+                title="Incorpora los seleccionados directamente con esta cantidad y cierra el selector"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Incorporar ({selectedIds.size})</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Materials List / Cards Container */}
         <div className="p-3 sm:p-5 overflow-y-auto space-y-2.5 flex-1 no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {filteredInsumos.length === 0 ? (
@@ -283,6 +435,7 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
           ) : (
             filteredInsumos.map((ins) => {
               const isAlreadyInTarea = alreadySelectedIds.includes(ins.id);
+              const isChecked = selectedIds.has(ins.id);
               const stagedEntry = stagedQuantities.get(ins.id);
               const stagedQty = stagedEntry?.cantidad || 0;
               const stagedFormula = stagedEntry?.formula;
@@ -293,47 +446,69 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
                 <div
                   key={ins.id}
                   className={`p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
-                    stagedQty > 0
-                      ? 'bg-secondary-container/30 border-primary/50 shadow-xs'
+                    isChecked
+                      ? 'bg-primary/10 border-primary/50 shadow-xs'
+                      : stagedQty > 0
+                      ? 'bg-secondary-container/30 border-primary/40 shadow-xs'
                       : isAlreadyInTarea
                       ? 'bg-surface-container-low/60 border-outline-variant/30'
                       : 'bg-surface-container-low hover:bg-surface-container border-outline-variant/20'
                   }`}
                 >
-                  {/* Left: Material Info */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                      {catName && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant uppercase tracking-wider">
-                          {catName}
-                        </span>
+                  {/* Left: Checkbox & Material Info */}
+                  <div className="min-w-0 flex-1 flex items-start gap-2.5">
+                    {/* Checkbox for batch selection */}
+                    <button
+                      type="button"
+                      onClick={() => toggleSelectId(ins.id)}
+                      className="p-1 text-on-surface-variant hover:text-primary transition-colors shrink-0 mt-0.5"
+                      title={isChecked ? 'Deseleccionar' : 'Seleccionar para lote'}
+                      aria-label={`Seleccionar ${ins.nombre}`}
+                    >
+                      {isChecked ? (
+                        <CheckSquare className="w-5 h-5 text-primary" />
+                      ) : (
+                        <Square className="w-5 h-5 text-outline-variant hover:text-outline" />
                       )}
-                      {ins.unidadVenta && (
-                        <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                          /{ins.unidadVenta}
-                        </span>
-                      )}
-                      {isAlreadyInTarea && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> En la Tarea
-                        </span>
-                      )}
-                    </div>
+                    </button>
 
-                    <h4 className="text-xs sm:text-sm font-bold text-on-surface leading-snug">
-                      {ins.nombre}
-                    </h4>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                        {catName && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant uppercase tracking-wider">
+                            {catName}
+                          </span>
+                        )}
+                        {ins.unidadVenta && (
+                          <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                            /{ins.unidadVenta}
+                          </span>
+                        )}
+                        {isAlreadyInTarea && (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> En la Partida
+                          </span>
+                        )}
+                      </div>
 
-                    {/* Attributes preview / Price */}
-                    <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-on-surface-variant">
-                      <span className="font-mono font-bold text-primary text-xs">
-                        {ins.precioActual ? formatARS(ins.precioActual) : 'Sin precio cargado'}
-                      </span>
-                      {ins.atributos && ins.atributos.length > 0 && (
-                        <span className="text-[11px] text-on-surface-variant/80 truncate">
-                          • {ins.atributos.slice(0, 3).map((a) => `${a.clave}: ${a.valor}`).join(', ')}
+                      <h4
+                        onClick={() => toggleSelectId(ins.id)}
+                        className="text-xs sm:text-sm font-bold text-on-surface leading-snug cursor-pointer hover:text-primary transition-colors"
+                      >
+                        {ins.nombre}
+                      </h4>
+
+                      {/* Attributes preview / Price */}
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-on-surface-variant">
+                        <span className="font-mono font-bold text-primary text-xs">
+                          {ins.precioActual ? formatARS(ins.precioActual) : 'Sin precio cargado'}
                         </span>
-                      )}
+                        {ins.atributos && ins.atributos.length > 0 && (
+                          <span className="text-[11px] text-on-surface-variant/80 truncate">
+                            • {ins.atributos.slice(0, 3).map((a) => `${a.clave}: ${a.valor}`).join(', ')}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 

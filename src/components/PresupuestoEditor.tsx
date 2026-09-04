@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
 import { TareaEditorModal } from './tareasTipo/TareaEditorModal';
+import { MaterialPickerModal, StagedItemPayload } from './tareasTipo/MaterialPickerModal';
 import {
   AppConfig,
   ItemPresupuesto,
@@ -263,6 +264,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     opcionesEmision
   ]);
 
+  const [materialPickerItemIndex, setMaterialPickerItemIndex] = useState<number | null>(null);
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [saveAsTemplateData, setSaveAsTemplateData] = useState<{
     nombre: string;
@@ -538,6 +540,214 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     setItems((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], unidad: unit };
+      return next;
+    });
+  };
+
+  const handleAddMaterialsToItem = (itemIndex: number, stagedItems: StagedItemPayload[]) => {
+    if (!stagedItems || stagedItems.length === 0) return;
+
+    setItems((prev) => {
+      const next = [...prev];
+      const target = next[itemIndex];
+      if (!target) return prev;
+
+      const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
+      const existingSnapshots = [...(target.insumosSnapshot || [])];
+
+      for (const staged of stagedItems) {
+        const { material, cantidad } = staged;
+        const ali = material.alicuotaIVA ?? config.alicuotaIVAPorDefecto ?? 21;
+        const precioNeto = roundMoney(safeNum(material.precioActual));
+        const precioFinal = roundMoney(precioNeto * (1 + ali / 100));
+
+        const existingIdx = existingSnapshots.findIndex(
+          (s) => s.insumoId === material.id || s.materialId === material.id
+        );
+
+        if (existingIdx >= 0) {
+          const cur = existingSnapshots[existingIdx];
+          const newQty = roundMoney(cur.cantidadTotal + cantidad);
+          existingSnapshots[existingIdx] = {
+            ...cur,
+            cantidadTotal: newQty,
+            cantidadUnitaria: roundMoney(newQty / (target.cantidad || 1)),
+            subtotalInsumo: roundMoney(cur.precioUnitarioCongelado * newQty),
+            subtotalInsumoFinal: roundMoney((cur.precioFinalUnitarioCongelado || precioFinal) * newQty)
+          };
+        } else {
+          existingSnapshots.push({
+            insumoId: material.id,
+            materialId: material.id,
+            nombre: material.nombre,
+            unidad: material.unidadVenta || material.unidad || 'u',
+            cantidadTotal: cantidad,
+            cantidadUnitaria: roundMoney(cantidad / (target.cantidad || 1)),
+            precioUnitarioCongelado: precioNeto,
+            alicuotaIVA: ali,
+            precioFinalUnitarioCongelado: precioFinal,
+            subtotalInsumo: roundMoney(precioNeto * cantidad),
+            subtotalInsumoFinal: roundMoney(precioFinal * cantidad)
+          });
+        }
+      }
+
+      const costoInsumos = isFacturaC_or_X
+        ? roundMoney(
+            existingSnapshots.reduce(
+              (acc, i) =>
+                acc +
+                (i.subtotalInsumoFinal ??
+                  roundMoney(i.precioUnitarioCongelado * (1 + (i.alicuotaIVA ?? 21) / 100) * i.cantidadTotal)),
+              0
+            )
+          )
+        : roundMoney(existingSnapshots.reduce((acc, i) => acc + i.subtotalInsumo, 0));
+
+      let costoManoObra = safeNum(target.costoManoObra);
+      if (
+        costoManoObra === 0 &&
+        (!target.insumosSnapshot || target.insumosSnapshot.length === 0) &&
+        safeNum(target.costoDirectoTotal) > 0
+      ) {
+        costoManoObra = safeNum(target.costoDirectoTotal);
+      }
+
+      const costoServicios = safeNum(target.costoServiciosTercerizados);
+      const costoDirectoTotal = roundMoney(costoInsumos + costoManoObra + costoServicios);
+      const safeQty = target.cantidad || 1;
+
+      next[itemIndex] = {
+        ...target,
+        insumosSnapshot: existingSnapshots,
+        costoInsumos,
+        costoManoObra,
+        costoDirectoTotal,
+        costoUnitario: roundMoney(costoDirectoTotal / safeQty),
+        costoTotal: costoDirectoTotal
+      };
+
+      return next;
+    });
+
+    toast.success(
+      stagedItems.length === 1
+        ? `Material "${stagedItems[0].material.nombre}" incorporado a la partida`
+        : `${stagedItems.length} materiales incorporados a la partida`
+    );
+  };
+
+  const handleUpdateItemMaterialQuantity = (itemIndex: number, materialIndex: number, newQty: number) => {
+    const safeQty = Math.max(0, safeNum(newQty));
+    if (safeQty === 0) {
+      handleRemoveItemMaterial(itemIndex, materialIndex);
+      return;
+    }
+
+    setItems((prev) => {
+      const next = [...prev];
+      const target = next[itemIndex];
+      if (!target || !target.insumosSnapshot) return prev;
+
+      const snapshots = [...target.insumosSnapshot];
+      const snap = snapshots[materialIndex];
+      if (!snap) return prev;
+
+      snapshots[materialIndex] = {
+        ...snap,
+        cantidadTotal: safeQty,
+        cantidadUnitaria: roundMoney(safeQty / (target.cantidad || 1)),
+        subtotalInsumo: roundMoney(snap.precioUnitarioCongelado * safeQty),
+        subtotalInsumoFinal: roundMoney(
+          (snap.precioFinalUnitarioCongelado || snap.precioUnitarioCongelado * 1.21) * safeQty
+        )
+      };
+
+      const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
+      const costoInsumos = isFacturaC_or_X
+        ? roundMoney(
+            snapshots.reduce(
+              (acc, i) =>
+                acc +
+                (i.subtotalInsumoFinal ??
+                  roundMoney(i.precioUnitarioCongelado * (1 + (i.alicuotaIVA ?? 21) / 100) * i.cantidadTotal)),
+              0
+            )
+          )
+        : roundMoney(snapshots.reduce((acc, i) => acc + i.subtotalInsumo, 0));
+
+      const costoDirectoTotal = roundMoney(
+        costoInsumos + safeNum(target.costoManoObra) + safeNum(target.costoServiciosTercerizados)
+      );
+      const targetQty = target.cantidad || 1;
+
+      next[itemIndex] = {
+        ...target,
+        insumosSnapshot: snapshots,
+        costoInsumos,
+        costoDirectoTotal,
+        costoUnitario: roundMoney(costoDirectoTotal / targetQty),
+        costoTotal: costoDirectoTotal
+      };
+      return next;
+    });
+  };
+
+  const handleRemoveItemMaterial = (itemIndex: number, materialIndex: number) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const target = next[itemIndex];
+      if (!target || !target.insumosSnapshot) return prev;
+
+      const snapshots = target.insumosSnapshot.filter((_, idx) => idx !== materialIndex);
+      const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
+      const costoInsumos = isFacturaC_or_X
+        ? roundMoney(
+            snapshots.reduce(
+              (acc, i) =>
+                acc +
+                (i.subtotalInsumoFinal ??
+                  roundMoney(i.precioUnitarioCongelado * (1 + (i.alicuotaIVA ?? 21) / 100) * i.cantidadTotal)),
+              0
+            )
+          )
+        : roundMoney(snapshots.reduce((acc, i) => acc + i.subtotalInsumo, 0));
+
+      const costoDirectoTotal = roundMoney(
+        costoInsumos + safeNum(target.costoManoObra) + safeNum(target.costoServiciosTercerizados)
+      );
+      const targetQty = target.cantidad || 1;
+
+      next[itemIndex] = {
+        ...target,
+        insumosSnapshot: snapshots,
+        costoInsumos,
+        costoDirectoTotal,
+        costoUnitario: roundMoney(costoDirectoTotal / targetQty),
+        costoTotal: costoDirectoTotal
+      };
+      return next;
+    });
+    toast.info('Material quitado de la partida');
+  };
+
+  const handleUpdateItemManoObraCost = (index: number, moCost: number) => {
+    const safeMOCost = Math.max(0, safeNum(moCost));
+    setItems((prev) => {
+      const next = [...prev];
+      const target = next[index];
+      const costoInsumos = safeNum(target.costoInsumos);
+      const costoServicios = safeNum(target.costoServiciosTercerizados);
+      const costoDirectoTotal = roundMoney(costoInsumos + safeMOCost + costoServicios);
+      const qty = target.cantidad || 1;
+
+      next[index] = {
+        ...target,
+        costoManoObra: safeMOCost,
+        costoDirectoTotal,
+        costoUnitario: roundMoney(costoDirectoTotal / qty),
+        costoTotal: costoDirectoTotal
+      };
       return next;
     });
   };
@@ -879,6 +1089,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                       onOpenParametricModal={handleOpenParametricModalForExistingItem}
                       onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
                       onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
+                      onOpenMaterialPicker={(itemIdx) => setMaterialPickerItemIndex(itemIdx)}
+                      onUpdateItemMaterialQuantity={handleUpdateItemMaterialQuantity}
+                      onRemoveItemMaterial={handleRemoveItemMaterial}
+                      onUpdateItemManoObraCost={handleUpdateItemManoObraCost}
                       condicionesTrabajo={condicionesTrabajo}
                     />
                   );
@@ -963,6 +1177,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                                 onOpenParametricModal={handleOpenParametricModalForExistingItem}
                                 onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
                                 onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
+                                onOpenMaterialPicker={(itemIdx) => setMaterialPickerItemIndex(itemIdx)}
+                                onUpdateItemMaterialQuantity={handleUpdateItemMaterialQuantity}
+                                onRemoveItemMaterial={handleRemoveItemMaterial}
+                                onUpdateItemManoObraCost={handleUpdateItemManoObraCost}
                                 condicionesTrabajo={condicionesTrabajo}
                               />
                             );
@@ -1033,6 +1251,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                               onOpenParametricModal={handleOpenParametricModalForExistingItem}
                               onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
                               onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
+                              onOpenMaterialPicker={(itemIdx) => setMaterialPickerItemIndex(itemIdx)}
+                              onUpdateItemMaterialQuantity={handleUpdateItemMaterialQuantity}
+                              onRemoveItemMaterial={handleRemoveItemMaterial}
+                              onUpdateItemManoObraCost={handleUpdateItemManoObraCost}
                               condicionesTrabajo={condicionesTrabajo}
                             />
                           );
@@ -1221,6 +1443,26 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           onSave={handleSaveInSituItem}
           titleOverride="Componer Partida para esta Cotización (In-Situ)"
           submitButtonText="Aplicar a la Cotización"
+        />
+      )}
+
+      {/* Selector de Materiales del Catálogo para Partidas Libres / Directas */}
+      {materialPickerItemIndex !== null && items[materialPickerItemIndex] && (
+        <MaterialPickerModal
+          isOpen={materialPickerItemIndex !== null}
+          onClose={() => setMaterialPickerItemIndex(null)}
+          insumosMap={insumosMap}
+          alreadySelectedIds={(items[materialPickerItemIndex]?.insumosSnapshot || [])
+            .map((i) => i.insumoId || i.materialId || '')
+            .filter(Boolean)}
+          titleOverride={`Materiales para "${items[materialPickerItemIndex]?.descripcion || 'Partida'}"`}
+          subtitleOverride="Selecciona los insumos del catálogo que componen este trabajo"
+          onAddMaterial={(mat, qty, formula) => {
+            handleAddMaterialsToItem(materialPickerItemIndex, [{ material: mat, cantidad: qty, formula }]);
+          }}
+          onAddMultipleMaterials={(stagedItems) => {
+            handleAddMaterialsToItem(materialPickerItemIndex, stagedItems);
+          }}
         />
       )}
 
