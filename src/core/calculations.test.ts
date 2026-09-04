@@ -2354,7 +2354,7 @@ describe('15. Estructura de Gastos Directos vs Indirectos, Fórmulas Paramétric
       insumos: [
         {
           materialId: 'mat-termica-20',
-          formulaCantidad: '1'
+          cantidad: 1
         }
       ],
       manoObra: []
