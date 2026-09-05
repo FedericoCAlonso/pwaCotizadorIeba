@@ -644,13 +644,14 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                         <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 font-mono shrink-0 w-full sm:w-auto text-[10px] sm:text-[11px]">
                           {onUpdateItemMaterialQuantity ? (
                             <div className="flex items-center gap-1">
-                              <div className="w-16 sm:w-20">
+                              <div className="w-20 sm:w-24">
                                 <MathInput
                                   value={ins.cantidadTotal}
                                   onChange={(val) => onUpdateItemMaterialQuantity(index, iIdx, val)}
                                   size="sm"
                                   min={0.01}
                                   step={0.5}
+                                  inputMode="decimal"
                                 />
                               </div>
                               <span className="text-[10px] text-on-surface-variant min-w-[16px]">{ins.unidad}</span>
@@ -708,7 +709,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                           <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 font-mono shrink-0 w-full sm:w-auto text-[10px] sm:text-[11px]">
                             {onUpdateItemLaborHours ? (
                               <div className="flex items-center gap-1">
-                                <div className="w-16 sm:w-20">
+                                <div className="w-20 sm:w-24">
                                   <MathInput
                                     value={mo.horasTotales}
                                     onChange={(val) => onUpdateItemLaborHours(index, mIdx, val)}
@@ -716,6 +717,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                                     min={0.1}
                                     step={0.5}
                                     suffix="hs"
+                                    inputMode="decimal"
                                   />
                                 </div>
                                 <span className="text-[10px] text-on-surface-variant">× {formatARS(mo.costoHoraCongelado)}/h</span>
@@ -766,7 +768,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
 
                           <div className="flex items-center gap-1">
                             <span className="text-[10px] text-on-surface-variant font-mono">Horas:</span>
-                            <div className="w-16">
+                            <div className="w-20 sm:w-24">
                               <MathInput
                                 value={newLaborHours}
                                 onChange={(val) => setNewLaborHours(Math.max(0.1, val))}
@@ -774,6 +776,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                                 min={0.1}
                                 step={0.5}
                                 suffix="hs"
+                                inputMode="decimal"
                               />
                             </div>
                           </div>

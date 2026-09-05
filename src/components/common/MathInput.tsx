@@ -19,6 +19,7 @@ export interface MathInputProps {
   ariaLabel?: string;
   id?: string;
   size?: 'sm' | 'md' | 'lg';
+  inputMode?: 'text' | 'decimal' | 'numeric';
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }
 
@@ -39,6 +40,7 @@ export const MathInput: React.FC<MathInputProps> = ({
   ariaLabel,
   id,
   size = 'md',
+  inputMode = 'decimal',
   onKeyDown,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -47,14 +49,24 @@ export const MathInput: React.FC<MathInputProps> = ({
   });
   const [lastSavedFormula, setLastSavedFormula] = useState<string | undefined>(formula);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevPropValueRef = useRef(value);
+  const prevPropFormulaRef = useRef(formula);
 
-  // Synchronize when external value or formula changes while not editing
+  // Synchronize ONLY when external prop value or formula actually changes from parent
   useEffect(() => {
-    if (!isFocused) {
-      if (formula) {
-        setLastSavedFormula(formula);
+    if (formula !== prevPropFormulaRef.current) {
+      prevPropFormulaRef.current = formula;
+      setLastSavedFormula(formula);
+      if (!isFocused && formula) {
+        setCurrentText(formula);
       }
-      setCurrentText(value !== undefined && value !== null ? String(value) : '');
+    }
+
+    if (value !== prevPropValueRef.current) {
+      prevPropValueRef.current = value;
+      if (!isFocused) {
+        setCurrentText(value !== undefined && value !== null ? String(value) : '');
+      }
     }
   }, [value, formula, isFocused]);
 
@@ -63,7 +75,7 @@ export const MathInput: React.FC<MathInputProps> = ({
     ? evaluateMathExpression(currentText)
     : null;
 
-  const handleFocus = () => {
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     if (disabled) return;
     setIsFocused(true);
     // If a formula was previously recorded, display the formula for easy re-editing
@@ -72,11 +84,40 @@ export const MathInput: React.FC<MathInputProps> = ({
     } else {
       setCurrentText(value !== undefined && value !== null ? String(value) : '');
     }
+    // Auto-select text on focus so user can immediately type a new number
+    try {
+      e.target.select();
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    setCurrentText(raw);
+
+    const trimmed = raw.trim().replace(',', '.');
+    if (!trimmed) return;
+
+    // If it's a simple number (not an in-progress math formula), sync immediately with parent
+    if (!isFormulaString(trimmed)) {
+      const num = Number(trimmed);
+      if (!isNaN(num)) {
+        let finalVal = num;
+        if (min !== undefined) finalVal = Math.max(min, finalVal);
+        if (max !== undefined) finalVal = Math.min(max, finalVal);
+        if (decimals !== undefined) {
+          finalVal = Number(finalVal.toFixed(decimals));
+        }
+        setLastSavedFormula(undefined);
+        onChange(finalVal, undefined);
+      }
+    }
   };
 
   const handleCommit = () => {
     setIsFocused(false);
-    const trimmed = currentText.trim();
+    const trimmed = currentText.trim().replace(',', '.');
 
     if (!trimmed) {
       const fallback = min !== undefined ? min : 0;
@@ -130,10 +171,19 @@ export const MathInput: React.FC<MathInputProps> = ({
   const hasFormula = Boolean(lastSavedFormula);
 
   const sizeClasses = {
-    sm: 'text-xs py-1 px-2 min-h-[32px]',
+    sm: 'text-xs py-1 px-2 min-h-[34px]',
     md: 'text-xs sm:text-sm py-1.5 px-3 min-h-[40px]',
     lg: 'text-sm sm:text-base py-2.5 px-3.5 min-h-[46px]',
   }[size];
+
+  const rightPaddingClass = (() => {
+    if (hasFormula && suffix) return 'pr-11';
+    if (hasFormula) return 'pr-8';
+    if (suffix) {
+      return suffix.length <= 2 ? 'pr-6' : 'pr-8';
+    }
+    return 'pr-2';
+  })();
 
   return (
     <div className="relative inline-flex items-center w-full group">
@@ -147,9 +197,9 @@ export const MathInput: React.FC<MathInputProps> = ({
         ref={inputRef}
         id={id}
         type="text"
-        inputMode="text"
-        value={isFocused ? currentText : (value !== undefined && value !== null ? String(value) : '')}
-        onChange={(e) => setCurrentText(e.target.value)}
+        inputMode={inputMode}
+        value={currentText}
+        onChange={handleTextChange}
         onFocus={handleFocus}
         onBlur={handleCommit}
         onKeyDown={handleKeyDown}
@@ -162,7 +212,7 @@ export const MathInput: React.FC<MathInputProps> = ({
           hasFormula
             ? 'border-primary/40 bg-primary-container/10'
             : 'border-outline-variant/30 hover:border-outline-variant/50'
-        } ${prefix ? 'pl-7' : ''} ${suffix || hasFormula ? 'pr-14' : ''} ${className}`}
+        } ${prefix ? 'pl-7' : ''} ${rightPaddingClass} ${className}`}
       />
 
       {/* Right Indicator: Formula Badge & Suffix */}
