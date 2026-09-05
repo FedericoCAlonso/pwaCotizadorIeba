@@ -338,6 +338,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   const itemTitleRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const prevItemsLength = useRef(items.length);
   const [isTotalsCardVisible, setIsTotalsCardVisible] = useState(false);
+  const [targetCapituloIdForModal, setTargetCapituloIdForModal] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const el = document.getElementById('presupuesto-totales-card');
@@ -376,24 +377,28 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         showEmitirModal ||
         showParametricModal ||
         showParametricMaterialModal ||
-        showInSituEditorModal
+        showInSituEditorModal ||
+        brandModalTarget !== null ||
+        materialPickerItemIndex !== null
       ) {
         return;
       }
 
-      // Alt + N / Alt + I -> Add Direct Item
+      // Alt + N / Alt + I -> Open unified item picker
       if (e.altKey && (e.key === 'n' || e.key === 'N' || e.key === 'i' || e.key === 'I')) {
         e.preventDefault();
-        handleAddDirectItem();
+        setTargetCapituloIdForModal(undefined);
+        setShowItemPickerModal(true);
         return;
       }
 
-      // Alt + C / Alt + T / Ctrl + K -> Open Catalog Picker
+      // Alt + C / Alt + T / Ctrl + K -> Open unified item picker
       if (
         (e.altKey && (e.key === 'c' || e.key === 'C' || e.key === 't' || e.key === 'T')) ||
         ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K'))
       ) {
         e.preventDefault();
+        setTargetCapituloIdForModal(undefined);
         setShowItemPickerModal(true);
         return;
       }
@@ -1251,44 +1256,29 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 )}
               </div>
 
-              {/* M3 Actions Toolbar */}
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              {/* Unified Action Toolbar */}
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowItemPickerModal(true)}
-                  className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl sm:rounded-full text-xs sm:text-sm font-bold transition-all min-h-[36px]"
-                  title="Seleccionar tarea tipificada del catálogo (Alt + C)"
+                  onClick={() => {
+                    setTargetCapituloIdForModal(undefined);
+                    setShowItemPickerModal(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl sm:rounded-full text-xs sm:text-sm font-bold transition-all shadow-xs min-h-[38px] active:scale-95"
+                  title="Agregar partida desde catálogo o como ítem libre (Alt + N)"
                 >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Trabajo Tipo</span>
-                  <span className="text-xs opacity-60 font-mono hidden md:inline">Alt+C</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddCustomItem()}
-                  className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl sm:rounded-full text-xs sm:text-sm font-bold transition-all shadow-xs min-h-[36px]"
-                  title="Agregar un renglón o partida directa para esta cotización (Alt + N)"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Ítem Libre</span>
+                  <Plus className="w-4 h-4" />
+                  <span>Agregar Partida</span>
                   <span className="text-xs opacity-75 font-mono hidden md:inline">Alt+N</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddServicioDirecto()}
-                  className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold transition-all min-h-[36px]"
-                  title="Agregar Alquiler de Equipo / Servicio Tercerizado"
-                >
-                  <Truck className="w-3.5 h-3.5" />
-                  <span>Servicio</span>
-                </button>
+
                 <button
                   type="button"
                   onClick={() => handleAddCapitulo()}
-                  className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface rounded-xl sm:rounded-full text-xs sm:text-sm font-bold transition-all border border-outline-variant/30 min-h-[36px]"
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface rounded-xl sm:rounded-full text-xs sm:text-sm font-semibold transition-all border border-outline-variant/30 min-h-[38px]"
                   title="Crear un nuevo capítulo o ambiente de obra"
                 >
-                  <FolderPlus className="w-3.5 h-3.5 text-primary" />
+                  <FolderPlus className="w-4 h-4 text-primary" />
                   <span>Nuevo Capítulo</span>
                 </button>
               </div>
@@ -1318,12 +1308,28 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
             {/* Items Rendering (With or Without Chapters) */}
             {items.length === 0 ? (
-              <div className="text-center py-16 border-2 border-dashed border-outline-variant/50 rounded-2xl bg-surface-container">
-                <Layers className="w-10 h-10 text-outline mx-auto mb-3" />
-                <p className="text-base font-medium text-on-surface">Aún no agregaste partidas a esta cotización.</p>
-                <p className="text-sm text-on-surface-variant mt-2 max-w-md mx-auto">
-                  Presiona <strong>"Ítem Libre"</strong> (Alt+N), <strong>"Trabajo Tipo"</strong> (Alt+C) o <strong>"Servicio"</strong> para comenzar.
-                </p>
+              <div className="text-center py-14 px-4 border-2 border-dashed border-outline-variant/40 rounded-3xl bg-surface-container-low space-y-3">
+                <Layers className="w-10 h-10 text-primary/60 mx-auto" />
+                <div className="space-y-1">
+                  <p className="text-base font-bold text-on-surface">Aún no agregaste partidas a esta cotización.</p>
+                  <p className="text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto">
+                    Buscá una tarea en tu catálogo con sus rendimientos o creá un ítem libre para cotizar.
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTargetCapituloIdForModal(undefined);
+                      setShowItemPickerModal(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary rounded-full text-xs sm:text-sm font-bold shadow-xs transition-all active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Agregar Primera Partida</span>
+                    <span className="text-xs opacity-75 font-mono hidden md:inline">Alt+N</span>
+                  </button>
+                </div>
               </div>
             ) : capitulos.length === 0 ? (
               <div className="space-y-3">
@@ -1471,11 +1477,14 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                       <div className="pt-2 border-t border-outline-variant/15 flex items-center justify-end">
                         <button
                           type="button"
-                          onClick={() => handleAddCustomItem(cap.id)}
-                          className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                          onClick={() => {
+                            setTargetCapituloIdForModal(cap.id);
+                            setShowItemPickerModal(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition-colors shadow-2xs"
                         >
                           <Plus className="w-3.5 h-3.5" />
-                          <span>+ Partida en este Capítulo</span>
+                          <span>+ Partida en {cap.nombre || 'este Capítulo'}</span>
                         </button>
                       </div>
                     </div>
@@ -1687,8 +1696,9 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         tareasTipo={tareasTipo}
         insumosMap={insumosMap}
         manoObraMap={manoObraMap}
-        onSelectTarea={handleAddTareaTipoItem}
-        onConfigureParametricTarea={handleOpenParametricModalForNewTask}
+        onSelectTarea={(tarea) => handleAddTareaTipoItem(tarea, 1, targetCapituloIdForModal)}
+        onConfigureParametricTarea={(tarea) => handleOpenParametricModalForNewTask(tarea, targetCapituloIdForModal)}
+        onAddCustomItem={(desc) => handleAddDirectItem(targetCapituloIdForModal, desc)}
       />
 
       {/* Parametric Job Dynamic Variables & Formulas Modal */}

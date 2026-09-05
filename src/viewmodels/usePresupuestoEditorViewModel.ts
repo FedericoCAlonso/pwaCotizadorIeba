@@ -170,6 +170,7 @@ export function usePresupuestoEditorViewModel({
   const [showParametricModal, setShowParametricModal] = useState(false);
   const [selectedTareaForParametricModal, setSelectedTareaForParametricModal] = useState<TareaTipo | null>(null);
   const [editingItemIndexForParametricModal, setEditingItemIndexForParametricModal] = useState<number | null>(null);
+  const [targetCapituloForNewParametric, setTargetCapituloForNewParametric] = useState<string | undefined>(undefined);
 
   // Modal de Cómputo Paramétrico de Materiales (Superficie, Trazado, Error)
   const [showParametricMaterialModal, setShowParametricMaterialModal] = useState(false);
@@ -819,14 +820,14 @@ export function usePresupuestoEditorViewModel({
   };
 
   // ─── Actions / Commands ───────────────────────────────────────────────────────
-  const handleAddTareaTipoItem = (tarea: TareaTipo, cantidad = 1) => {
+  const handleAddTareaTipoItem = (tarea: TareaTipo, cantidad = 1, capituloId?: string) => {
     // Si la tarea tiene parámetros, variables o fórmula de honorarios, abrir inmediatamente el asistente paramétrico
     if (
       (tarea.parametros && tarea.parametros.length > 0) ||
       (tarea.variables && tarea.variables.length > 0) ||
       Boolean(tarea.formulaHonorarios)
     ) {
-      handleOpenParametricModalForNewTask(tarea);
+      handleOpenParametricModalForNewTask(tarea, capituloId);
       return;
     }
 
@@ -842,6 +843,7 @@ export function usePresupuestoEditorViewModel({
 
     const newItem: ItemPresupuesto = {
       id: `item-${crypto.randomUUID()}`,
+      capituloId,
       tareaTipoId: tarea.id,
       descripcion: tarea.nombre,
       cantidad,
@@ -873,7 +875,8 @@ export function usePresupuestoEditorViewModel({
     toast.success(`Tarea "${tarea.nombre}" agregada`);
   };
 
-  const handleOpenParametricModalForNewTask = (tarea: TareaTipo) => {
+  const handleOpenParametricModalForNewTask = (tarea: TareaTipo, capituloId?: string) => {
+    setTargetCapituloForNewParametric(capituloId);
     setSelectedTareaForParametricModal(tarea);
     setEditingItemIndexForParametricModal(null);
     setShowParametricModal(true);
@@ -976,6 +979,7 @@ export function usePresupuestoEditorViewModel({
       const cant = 1;
       const newItem: ItemPresupuesto = {
         id: `item-${crypto.randomUUID()}`,
+        capituloId: targetCapituloForNewParametric,
         tareaTipoId: tarea.id,
         descripcion: tarea.nombre,
         cantidad: cant,
@@ -1118,12 +1122,12 @@ export function usePresupuestoEditorViewModel({
     toast.success(`Material "${insumo.nombre}" agregado`);
   };
 
-  const handleAddDirectItem = (capituloId?: string) => {
+  const handleAddDirectItem = (capituloId?: string, descripcion = '') => {
     const newItem: ItemPresupuesto = {
       id: `item-${crypto.randomUUID()}`,
       capituloId,
       tipoItem: 'item_libre',
-      descripcion: '',
+      descripcion: descripcion || '',
       notasTecnicas: '',
       cantidad: 1,
       unidad: 'gl',
@@ -1140,6 +1144,9 @@ export function usePresupuestoEditorViewModel({
       manoObraSnapshot: []
     };
     setItems(prev => [...prev, newItem]);
+    if (descripcion) {
+      toast.success(`Ítem libre "${descripcion}" agregado`);
+    }
   };
 
   // Alias for backward compatibility
