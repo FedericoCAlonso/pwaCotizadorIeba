@@ -214,7 +214,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="bg-surface sticky top-0 z-30 transition-colors shadow-sm border-b border-outline-variant/20">
       {/* Top App Bar area */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Brand */}
         <div className="flex items-center gap-3 font-bold text-primary tracking-wider shrink-0">
           <div className="bg-primary-container p-2 rounded-full">

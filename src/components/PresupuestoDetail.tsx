@@ -124,7 +124,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
   return (
     <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto pb-12">
       {/* Top Action Bar (Mobile-First M3 Layout) */}
-      <div className="no-print bg-surface-container rounded-3xl p-4 sm:p-5 shadow-sm border border-outline-variant/20 space-y-4">
+      <div className="no-print bg-surface-container rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-sm border border-outline-variant/20 space-y-3.5">
         {/* Main Header Row */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -353,7 +353,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
       </div>
 
       {/* Printable Sheet (Standard A4 document styling) */}
-      <div className="printable-document bg-white text-slate-900 rounded-2xl shadow-xl p-6 sm:p-12 border border-slate-200 space-y-6 sm:space-y-8 font-sans">
+      <div className="printable-document bg-white text-slate-900 rounded-xl sm:rounded-2xl shadow-xl p-3.5 sm:p-12 border border-slate-200 space-y-5 sm:space-y-8 font-sans">
         {/* Document Header */}
         <div className="flex justify-between items-start border-b border-slate-300 pb-6 flex-wrap gap-4">
           <div>

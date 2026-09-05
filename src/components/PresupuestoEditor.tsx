@@ -1022,24 +1022,24 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   }, [clienteId, existingPresupuesto, totales, margenPorcentaje, validezDias, tipoFactura, costosIndirectosConfig, opcionesEmision, config]);
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto pb-12">
+    <div className="space-y-4 sm:space-y-5 max-w-7xl mx-auto pb-12">
       {/* Top Action Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container p-5 rounded-3xl shadow-sm border border-outline-variant/20">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3.5 sm:gap-4 bg-surface-container p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-outline-variant/20">
+        <div className="flex items-center gap-3 sm:gap-4">
           <button
             type="button"
             onClick={async () => {
               await flushAutoSave();
               onBack();
             }}
-            className="p-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-full transition-colors"
+            className="p-2 sm:p-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-full transition-colors shrink-0"
             title="Volver (guarda el borrador automáticamente)"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="text-xl font-bold text-on-surface flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary" />
+            <h2 className="text-lg sm:text-xl font-bold text-on-surface flex items-center gap-2">
+              <FileText className="w-5 h-5 text-primary shrink-0" />
               <span>
                 {existingPresupuesto ? `Editar Cotización ${existingPresupuesto.numero}` : 'Nueva Cotización Eléctrica'}
               </span>
@@ -1076,12 +1076,12 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto flex-wrap">
           {items.length > 0 && (
             <button
               type="button"
               onClick={handleRecalcularConPreciosVigentes}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-surface-variant hover:bg-surface-container-highest text-on-surface font-semibold rounded-full text-xs transition-colors flex items-center justify-center gap-1.5 shadow-xs"
+              className="flex-1 sm:flex-none px-3.5 sm:px-4 py-2 sm:py-2.5 bg-surface-variant hover:bg-surface-container-highest text-on-surface font-semibold rounded-full text-xs sm:text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs min-h-[38px]"
               title="Actualiza los precios de todos los insumos congelados de la cotización con los valores vigentes del catálogo"
             >
               <RefreshCw className="w-4 h-4 text-primary" />
@@ -1092,7 +1092,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             <button
               type="button"
               onClick={() => setShowListaMaterialesModal(true)}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-semibold rounded-full text-xs transition-colors flex items-center justify-center gap-1.5 shadow-xs"
+              className="flex-1 sm:flex-none px-3.5 sm:px-4 py-2 sm:py-2.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-semibold rounded-full text-xs sm:text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs min-h-[38px]"
               title="Ver la lista consolidada de materiales (BOM), abrir en catálogo, exportar a Excel o enviar por WhatsApp"
             >
               <Package className="w-4 h-4 text-primary" />
@@ -1102,7 +1102,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           <button
             type="button"
             onClick={() => handleSavePresupuesto('borrador')}
-            className="flex-1 sm:flex-none px-5 py-2.5 bg-surface-variant hover:bg-surface-container-highest text-on-surface font-semibold rounded-full text-xs transition-colors"
+            className="flex-1 sm:flex-none px-4 sm:px-5 py-2 sm:py-2.5 bg-surface-variant hover:bg-surface-container-highest text-on-surface font-semibold rounded-full text-xs sm:text-sm transition-colors min-h-[38px]"
           >
             Guardar Borrador
           </button>
@@ -1110,7 +1110,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             <button
               type="button"
               onClick={() => setShowWhatsAppModal(true)}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-semibold rounded-full text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all"
+              className="flex-1 sm:flex-none px-3.5 sm:px-4 py-2 sm:py-2.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-semibold rounded-full text-xs sm:text-sm shadow-sm flex items-center justify-center gap-1.5 transition-all min-h-[38px]"
               title="Compartir cotización por WhatsApp (formato directo o plataformas como Vaitty)"
             >
               <MessageSquare className="w-4 h-4" />
@@ -1120,7 +1120,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           <button
             type="button"
             onClick={() => setShowEmitirModal(true)}
-            className="flex-1 sm:flex-none px-6 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95"
+            className="flex-1 sm:flex-none px-5 sm:px-6 py-2 sm:py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95 min-h-[38px]"
           >
             <Lock className="w-4 h-4" />
             <span>Emitir Presupuesto</span>
@@ -1128,12 +1128,12 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
         {/* Left Column: Header Info & Items List (2 Cols) */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-5 sm:space-y-6">
           {/* Header Metadata Card */}
-          <div className="bg-surface-container-low rounded-3xl p-6 space-y-5 border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow">
-            <h3 className="text-sm font-bold text-primary uppercase tracking-wide">
+          <div className="bg-surface-container-low rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 space-y-4 sm:space-y-5 border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow">
+            <h3 className="text-xs sm:text-sm font-bold text-primary uppercase tracking-wide">
               Datos Generales & Tipo de Comprobante
             </h3>
 
@@ -1220,26 +1220,26 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </div>
 
           {/* Items / Partidas Section */}
-          <div className="bg-surface-container-low rounded-3xl p-5 sm:p-6 space-y-5 border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow">
+          <div className="bg-surface-container-low rounded-2xl sm:rounded-3xl p-3 sm:p-6 space-y-4 sm:space-y-5 border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
               <div>
-                <h3 className="text-sm font-bold text-primary uppercase tracking-wide flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-primary" />
+                <h3 className="text-xs sm:text-sm font-bold text-primary uppercase tracking-wide flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-primary shrink-0" />
                   <span>Partidas de la Cotización ({items.length})</span>
                 </h3>
                 {capitulos.length > 0 && (
-                  <span className="text-[11px] text-on-surface-variant">
+                  <span className="text-xs text-on-surface-variant">
                     {capitulos.length} {capitulos.length === 1 ? 'capítulo organizado' : 'capítulos organizados'}
                   </span>
                 )}
               </div>
 
               {/* M3 Actions Toolbar */}
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => setShowItemPickerModal(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-full text-xs font-bold transition-all"
+                  className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl sm:rounded-full text-xs sm:text-sm font-bold transition-all min-h-[36px]"
                   title="Seleccionar tarea tipificada del catálogo (Alt + C)"
                 >
                   <Layers className="w-3.5 h-3.5" />
@@ -1249,7 +1249,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => handleAddCustomItem()}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-primary hover:bg-primary/90 text-on-primary rounded-full text-xs font-bold transition-all shadow-xs"
+                  className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl sm:rounded-full text-xs sm:text-sm font-bold transition-all shadow-xs min-h-[36px]"
                   title="Agregar un renglón o partida directa para esta cotización (Alt + N)"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1259,7 +1259,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => handleAddServicioDirecto()}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 rounded-full text-xs font-bold transition-all"
+                  className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold transition-all min-h-[36px]"
                   title="Agregar Alquiler de Equipo / Servicio Tercerizado"
                 >
                   <Truck className="w-3.5 h-3.5" />
@@ -1268,7 +1268,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => handleAddCapitulo()}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface rounded-full text-xs font-bold transition-all border border-outline-variant/30"
+                  className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface rounded-xl sm:rounded-full text-xs sm:text-sm font-bold transition-all border border-outline-variant/30 min-h-[36px]"
                   title="Crear un nuevo capítulo o ambiente de obra"
                 >
                   <FolderPlus className="w-3.5 h-3.5 text-primary" />
@@ -1366,7 +1366,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                   return (
                     <div
                       key={cap.id}
-                      className="bg-surface-container/50 border border-outline-variant/30 rounded-3xl p-4 sm:p-5 space-y-3.5"
+                      className="bg-surface-container/50 border border-outline-variant/30 rounded-2xl sm:rounded-3xl p-3 sm:p-5 space-y-3"
                     >
                       {/* Chapter Header */}
                       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/20 pb-3">
@@ -1559,8 +1559,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           )}
 
           {/* Payment Conditions */}
-          <div className="bg-surface-container-low border border-outline-variant/10 rounded-3xl p-6 space-y-3 shadow-sm">
-            <h3 className="text-sm font-bold text-primary uppercase tracking-wide">
+          <div className="bg-surface-container-low border border-outline-variant/10 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 space-y-3 shadow-sm">
+            <h3 className="text-xs sm:text-sm font-bold text-primary uppercase tracking-wide">
               Condiciones de Pago & Esquema de Cobro
             </h3>
 
@@ -1569,7 +1569,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 value={condicionesPagoTexto}
                 onChange={(e) => setCondicionesPagoTexto(e.target.value)}
                 rows={3}
-                className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-2xl p-4 text-xs text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y shadow-2xs"
+                className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-xl sm:rounded-2xl p-3 sm:p-4 text-xs sm:text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y shadow-2xs"
                 placeholder="Ingresa las condiciones comerciales y plazos de pago acordados con el cliente..."
               />
             </div>

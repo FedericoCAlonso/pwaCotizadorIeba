@@ -117,13 +117,13 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
               placeholder="Buscar por número o cliente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-full pl-9 pr-8 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-full pl-9 pr-8 py-2.5 text-xs sm:text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all min-h-[40px]"
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface p-0.5"
+                className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface p-1"
                 aria-label="Limpiar búsqueda"
               >
                 <X className="w-3.5 h-3.5" />
@@ -138,7 +138,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                 type="button"
                 key={st}
                 onClick={() => setSelectedEstado(st)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors capitalize whitespace-nowrap border ${
+                className={`px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-semibold transition-colors capitalize whitespace-nowrap border min-h-[34px] ${
                   selectedEstado === st
                     ? 'bg-secondary-container text-on-secondary-container border-transparent shadow-xs'
                     : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant border-outline-variant/30'
@@ -180,12 +180,12 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
             return (
               <div
                 key={p.id}
-                className="bg-surface-container-low rounded-3xl p-5 hover:bg-surface-container hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-4 border border-outline-variant/10"
+                className="bg-surface-container-low rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 hover:bg-surface-container hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-3.5 border border-outline-variant/10"
               >
                 <div>
                   <div className="flex justify-between items-start">
                     <div>
-                      <span className="font-mono font-bold text-primary text-base">{p.numero}</span>
+                      <span className="font-mono font-bold text-primary text-base sm:text-lg">{p.numero}</span>
                       <span className="text-xs text-on-surface-variant block mt-0.5">
                         {new Date(p.fechaEmision).toLocaleDateString('es-AR')}
                       </span>
@@ -194,25 +194,25 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                     <EstadoBadge estado={p.estado} />
                   </div>
 
-                  <div className="mt-4 space-y-1">
-                    <div className="flex items-center gap-2 text-on-surface text-sm font-medium truncate">
+                  <div className="mt-3.5 space-y-1">
+                    <div className="flex items-center gap-2 text-on-surface text-sm sm:text-base font-semibold truncate">
                       <div className="bg-surface-variant p-1.5 rounded-full flex-shrink-0">
                         <User className="w-3.5 h-3.5 text-on-surface-variant" />
                       </div>
                       <span className="truncate">{cliente ? cliente.nombre : (p.estado === 'borrador' ? 'Borrador sin cliente asignado' : 'Cliente General')}</span>
                     </div>
-                    <div className="text-xs text-on-surface-variant pl-8">
+                    <div className="text-xs sm:text-sm text-on-surface-variant pl-8">
                       {p.items.length} partidas · Validez {p.validezDias} días
                     </div>
                   </div>
                 </div>
 
                 {/* Total & Action Buttons */}
-                <div className="pt-4 border-t border-outline-variant/30 space-y-4">
+                <div className="pt-3.5 border-t border-outline-variant/30 space-y-3.5">
                   <div className="flex justify-between items-baseline px-1">
-                    <span className="text-sm font-medium text-on-surface-variant">Total</span>
+                    <span className="text-xs sm:text-sm font-medium text-on-surface-variant">Total</span>
                     <div className="text-right">
-                      <div className="font-mono text-lg font-bold text-on-surface">
+                      <div className="font-mono text-xl sm:text-2xl font-black text-on-surface">
                         {formatARS(p.totalARS)}
                       </div>
                       {p.mostrarReferenciaMonedaExtranjera && p.totalMonedaExtranjera && (

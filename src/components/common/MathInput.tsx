@@ -171,7 +171,7 @@ export const MathInput: React.FC<MathInputProps> = ({
   const hasFormula = Boolean(lastSavedFormula);
 
   const sizeClasses = {
-    sm: 'text-xs py-1 px-2 min-h-[34px]',
+    sm: 'text-xs py-1 px-2.5 min-h-[36px]',
     md: 'text-xs sm:text-sm py-1.5 px-3 min-h-[40px]',
     lg: 'text-sm sm:text-base py-2.5 px-3.5 min-h-[46px]',
   }[size];
