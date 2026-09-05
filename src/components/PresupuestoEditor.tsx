@@ -185,6 +185,12 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     setAplicarOptimizacionCuadrilla,
     operariosCuadrilla,
     setOperariosCuadrilla,
+    horasJornadaCuadrilla,
+    setHorasJornadaCuadrilla,
+    modoPlanificacionCuadrilla,
+    setModoPlanificacionCuadrilla,
+    diasObjetivoObra,
+    setDiasObjetivoObra,
     margenRiesgoPorcentaje,
     setMargenRiesgoPorcentaje,
     nivelMargenRiesgo,
@@ -1565,6 +1571,12 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             <PlanificadorCuadrillaCard
               items={items}
               operarios={operariosCuadrilla}
+              horasEfectivasJornada={horasJornadaCuadrilla}
+              onSelectHorasEfectivasJornada={setHorasJornadaCuadrilla}
+              modoPlanificacion={modoPlanificacionCuadrilla}
+              onSelectModoPlanificacion={setModoPlanificacionCuadrilla}
+              diasObjetivo={diasObjetivoObra}
+              onSelectDiasObjetivo={setDiasObjetivoObra}
               margenRiesgoPct={margenRiesgoPorcentaje}
               nivelMargenRiesgo={nivelMargenRiesgo}
               aplicarOptimizacion={aplicarOptimizacionCuadrilla}

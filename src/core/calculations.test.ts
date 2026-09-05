@@ -22,6 +22,7 @@ import {
   calcularConsumosTareaTipo,
   resolverMaterialPorFiltro,
   calcularSinergiaManoObra,
+  estimarCuadrillaPorPlazo,
   calcularOptimizacionCuadrilla,
   sonItemsCompatiblesParaSinergia,
   actualizarSnapshotsInsumosConCatalogo,
@@ -2678,6 +2679,101 @@ describe('22. Motor de Actualización Integral de Precios y Tarifas', () => {
     expect(resAll.resumen.manoObraCount).toBe(1);
     expect(resAll.resumen.indirectosCount).toBe(1);
     expect(resAll.resumen.dolarActualizado).toBe(true);
+  });
+
+  describe('estimarCuadrillaPorPlazo', () => {
+    const testItems: ItemPresupuesto[] = [
+      {
+        id: 'it-1',
+        tipoItem: 'tarea_tipo',
+        descripcion: 'Bocas de Iluminación',
+        unidad: 'u',
+        cantidad: 10,
+        insumosSnapshot: [],
+        costoInsumos: 50000,
+        costoManoObra: 100000,
+        costoDirectoTotal: 150000,
+        precioVentaUnitario: 15000,
+        precioVentaTotal: 150000,
+        manoObraSnapshot: [
+          { categoriaId: 'oficial', nombreCategoria: 'Oficial', horasTotales: 20, costoHoraCongelado: 5000, subtotalManoObra: 100000 }
+        ]
+      },
+      {
+        id: 'it-2',
+        tipoItem: 'tarea_tipo',
+        descripcion: 'Tomacorrientes',
+        unidad: 'u',
+        cantidad: 5,
+        insumosSnapshot: [],
+        costoInsumos: 25000,
+        costoManoObra: 40000,
+        costoDirectoTotal: 65000,
+        precioVentaUnitario: 13000,
+        precioVentaTotal: 65000,
+        manoObraSnapshot: [
+          { categoriaId: 'oficial', nombreCategoria: 'Oficial', horasTotales: 7.5, costoHoraCongelado: 5000, subtotalManoObra: 40000 }
+        ]
+      }
+    ];
+
+    it('estima adecuadamente la cuadrilla cuando el plazo es holgado', () => {
+      // Total horas brutas = 27.5 hs. Con 8h/día y 5 días de plazo (capacidad = 40 hs/op), 1 operario alcanza.
+      const res = estimarCuadrillaPorPlazo({
+        items: testItems,
+        diasObjetivo: 5,
+        horasEfectivasJornada: 8.0
+      });
+
+      expect(res.esFactible).toBe(true);
+      expect(res.operariosSugeridos).toBe(1);
+      expect(res.sinergiaSugerida.diasEnterosObra).toBeLessThanOrEqual(5);
+    });
+
+    it('sugiere cuadrilla mayor cuando el plazo es acotado', () => {
+      // Con 1 día de plazo a 8h/día, 1 operario necesita ~26 hs de trabajo -> no llega en 1 día.
+      // 2 operarios hacen ~12h reloj -> no llegan en 1 día a 8h/día.
+      // Se requieren más operarios para entrar en 1 día.
+      const res = estimarCuadrillaPorPlazo({
+        items: testItems,
+        diasObjetivo: 1,
+        horasEfectivasJornada: 8.0
+      });
+
+      expect(res.operariosSugeridos).toBeGreaterThanOrEqual(3);
+      expect(res.sinergiaSugerida.diasEnterosObra).toBeLessThanOrEqual(2);
+    });
+
+    it('ajusta la estimación según la ventana horaria (consorcio 4h vs normal 8h)', () => {
+      // 3 días de obra:
+      // A 8h/día -> capacidad 24 hs por operario -> 2 operarios alcanzan holgadamente
+      const res8h = estimarCuadrillaPorPlazo({
+        items: testItems,
+        diasObjetivo: 3,
+        horasEfectivasJornada: 8.0
+      });
+
+      // A 4h/día -> capacidad 12 hs por operario -> necesita más operarios para terminar en 3 días
+      const res4h = estimarCuadrillaPorPlazo({
+        items: testItems,
+        diasObjetivo: 3,
+        horasEfectivasJornada: 4.0
+      });
+
+      expect(res4h.operariosSugeridos).toBeGreaterThanOrEqual(res8h.operariosSugeridos);
+    });
+
+    it('maneja listas sin mano de obra sin lanzar excepciones', () => {
+      const res = estimarCuadrillaPorPlazo({
+        items: [],
+        diasObjetivo: 3,
+        horasEfectivasJornada: 8.0
+      });
+
+      expect(res.operariosSugeridos).toBe(1);
+      expect(res.esFactible).toBe(true);
+      expect(res.mensaje).toContain('No hay partidas');
+    });
   });
 });
 

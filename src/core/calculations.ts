@@ -32,6 +32,8 @@ import {
   OpcionCuadrillaSimulada,
   PlanificacionCuadrilla,
   SinergiaManoObraResultado,
+  ModoPlanificacionCuadrilla,
+  EstimacionCuadrillaPorPlazoResultado,
   NivelMargenRiesgo,
   CapituloPresupuesto,
   GastoPresupuestoConfig,
@@ -2748,6 +2750,90 @@ export function calcularSinergiaManoObra(params: {
     ahorroManoObraARS,
     sonCompatibles: true,
     explicacion
+  };
+}
+
+/**
+ * Estima la cuadrilla de operarios necesaria a partir de un plazo objetivo en días
+ * y las horas efectivas disponibles por jornada (modo "El plazo manda").
+ */
+export function estimarCuadrillaPorPlazo(params: {
+  items: ItemPresupuesto[];
+  diasObjetivo: number;
+  horasEfectivasJornada?: number;
+  categoriasManoObra?: CategoriaManoDeObra[];
+  maxOperarios?: number;
+}): EstimacionCuadrillaPorPlazoResultado {
+  const {
+    items = [],
+    diasObjetivo: diasInput,
+    horasEfectivasJornada: horasEfectivasInput,
+    categoriasManoObra = [],
+    maxOperarios = 6
+  } = params;
+
+  const diasObjetivo = Math.max(0.5, safeNum(diasInput) || 1);
+  const horasEfectivas = safeNum(horasEfectivasInput) > 0 ? safeNum(horasEfectivasInput) : 8.0;
+
+  // Calculamos opciones para cuadrillas de 1 a maxOperarios
+  const opciones: SinergiaManoObraResultado[] = [];
+  for (let n = 1; n <= maxOperarios; n++) {
+    opciones.push(
+      calcularSinergiaManoObra({
+        items,
+        operarios: n,
+        horasEfectivasJornada: horasEfectivas,
+        categoriasManoObra
+      })
+    );
+  }
+
+  // Si no hay horas de MO en absoluto
+  const primeraOpcion = opciones[0];
+  if (!primeraOpcion || primeraOpcion.horasTeoricasTotal <= 0) {
+    return {
+      diasObjetivo,
+      horasEfectivasJornada: horasEfectivas,
+      operariosSugeridos: 1,
+      sinergiaSugerida: primeraOpcion || calcularSinergiaManoObra({ items: [], operarios: 1, horasEfectivasJornada: horasEfectivas }),
+      opciones,
+      esFactible: true,
+      cuadrillaExactaFraccional: 0,
+      mensaje: 'No hay partidas con mano de obra suficiente para planificar.'
+    };
+  }
+
+  // Buscamos la menor cuadrilla donde diasEnterosObra <= ceil(diasObjetivo)
+  let opcionElegida = opciones.find((op) => op.diasEnterosObra <= Math.ceil(diasObjetivo));
+  if (!opcionElegida) {
+    // Si ninguna cumple en días enteros, verificamos si alguna fraccional lo cumple
+    opcionElegida = opciones.find((op) => op.jornadasEstimadas <= diasObjetivo);
+  }
+
+  const esFactible = Boolean(opcionElegida);
+  const sinergiaSugerida = opcionElegida || opciones[opciones.length - 1];
+  const operariosSugeridos = sinergiaSugerida.operarios;
+
+  const horasBase = sinergiaSugerida.horasFinales;
+  const capacidadJornadaPorOp = diasObjetivo * horasEfectivas;
+  const cuadrillaExactaFraccional = roundMoney(horasBase / (capacidadJornadaPorOp || 1));
+
+  let mensaje = '';
+  if (esFactible) {
+    mensaje = `Para entregar en ${diasObjetivo} ${diasObjetivo === 1 ? 'día' : 'días'} (${horasEfectivas}h/día), se requiere una cuadrilla de ${operariosSugeridos} ${operariosSugeridos === 1 ? 'operario' : 'operarios'} (${sinergiaSugerida.composicionCuadrillaTexto}).`;
+  } else {
+    mensaje = `Plazo muy exigente: incluso con ${maxOperarios} operarios se requieren al menos ${sinergiaSugerida.diasEnterosObra} días a ${horasEfectivas}h/día.`;
+  }
+
+  return {
+    diasObjetivo,
+    horasEfectivasJornada: horasEfectivas,
+    operariosSugeridos,
+    sinergiaSugerida,
+    opciones,
+    esFactible,
+    cuadrillaExactaFraccional,
+    mensaje
   };
 }
 

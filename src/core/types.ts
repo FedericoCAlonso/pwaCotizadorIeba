@@ -684,6 +684,19 @@ export interface SinergiaManoObraResultado {
   explicacion: string;
 }
 
+export type ModoPlanificacionCuadrilla = 'equipo' | 'plazo';
+
+export interface EstimacionCuadrillaPorPlazoResultado {
+  diasObjetivo: number;
+  horasEfectivasJornada: number;
+  operariosSugeridos: number;
+  sinergiaSugerida: SinergiaManoObraResultado;
+  opciones: SinergiaManoObraResultado[];
+  esFactible: boolean;
+  cuadrillaExactaFraccional: number;
+  mensaje: string;
+}
+
 // Compatibilidad retroactiva transitoria
 export type EstrategiaCuadrilla = 'minima' | 'optima' | 'rapida' | 'personalizada';
 export type NivelConfianzaSinergia = 50 | 80 | 90 | 95;
@@ -781,6 +794,9 @@ export interface Presupuesto {
 
   // ─── Sinergia de Tareas & Margen de Riesgo Global ───
   operariosCuadrilla?: number; // Cantidad manual de operarios (default: 2)
+  horasJornadaCuadrilla?: number; // Horas de trabajo disponibles por jornada (ej: 4, 8, 9)
+  modoPlanificacionCuadrilla?: ModoPlanificacionCuadrilla; // 'equipo' | 'plazo'
+  diasObjetivoObra?: number; // Plazo objetivo en días de obra
   margenRiesgoPorcentaje?: number; // % margen de riesgo sobre costo directo (ej: 20%)
   nivelMargenRiesgo?: NivelMargenRiesgo; // 'bajo' (10%), 'medio' (20%), 'alto' (35%), 'personalizado'
   montoMargenRiesgo?: number; // Monto en ARS del margen de riesgo

@@ -21,6 +21,8 @@ import {
   NivelConfianzaSinergia,
   PlanificacionCuadrilla,
   SinergiaManoObraResultado,
+  ModoPlanificacionCuadrilla,
+  EstimacionCuadrillaPorPlazoResultado,
   NivelMargenRiesgo,
   CapituloPresupuesto,
   GastoPresupuestoConfig
@@ -28,6 +30,7 @@ import {
 import {
   calcularTotalesPresupuesto,
   calcularSinergiaManoObra,
+  estimarCuadrillaPorPlazo,
   calcularOptimizacionCuadrilla,
   sonItemsCompatiblesParaSinergia,
   calcularCostoTareaTipo,
@@ -63,6 +66,9 @@ function computeEditorStatePayload(state: {
   impuestosDetalle: any[];
   opcionesEmision: any;
   operariosCuadrilla: number;
+  horasJornadaCuadrilla: number;
+  modoPlanificacionCuadrilla: string;
+  diasObjetivoObra: number;
   margenRiesgoPorcentaje: number;
   nivelMargenRiesgo: string;
   aplicarOptimizacionCuadrilla: boolean;
@@ -84,6 +90,9 @@ function computeEditorStatePayload(state: {
     impuestosDetalle: state.impuestosDetalle,
     opcionesEmision: state.opcionesEmision,
     operariosCuadrilla: state.operariosCuadrilla,
+    horasJornadaCuadrilla: state.horasJornadaCuadrilla,
+    modoPlanificacionCuadrilla: state.modoPlanificacionCuadrilla,
+    diasObjetivoObra: state.diasObjetivoObra,
     margenRiesgoPorcentaje: state.margenRiesgoPorcentaje,
     nivelMargenRiesgo: state.nivelMargenRiesgo,
     aplicarOptimizacionCuadrilla: state.aplicarOptimizacionCuadrilla,
@@ -196,6 +205,9 @@ export function usePresupuestoEditorViewModel({
 
   // Sinergia Determinística & Cuadrilla
   const [operariosCuadrilla, setOperariosCuadrilla] = useState<number>(config.operariosCuadrillaDefault ?? 2);
+  const [horasJornadaCuadrilla, setHorasJornadaCuadrilla] = useState<number>(config.horasEfectivasJornadaDefault ?? 8.0);
+  const [modoPlanificacionCuadrilla, setModoPlanificacionCuadrilla] = useState<ModoPlanificacionCuadrilla>('equipo');
+  const [diasObjetivoObra, setDiasObjetivoObra] = useState<number>(3);
   const [margenRiesgoPorcentaje, setMargenRiesgoPorcentaje] = useState<number>(config.margenRiesgoDefaultPct ?? 0);
   const [nivelMargenRiesgo, setNivelMargenRiesgo] = useState<NivelMargenRiesgo>('bajo');
 
@@ -239,6 +251,15 @@ export function usePresupuestoEditorViewModel({
       
       if (existingPresupuesto.operariosCuadrilla !== undefined) {
         setOperariosCuadrilla(existingPresupuesto.operariosCuadrilla);
+      }
+      if (existingPresupuesto.horasJornadaCuadrilla !== undefined) {
+        setHorasJornadaCuadrilla(existingPresupuesto.horasJornadaCuadrilla);
+      }
+      if (existingPresupuesto.modoPlanificacionCuadrilla !== undefined) {
+        setModoPlanificacionCuadrilla(existingPresupuesto.modoPlanificacionCuadrilla);
+      }
+      if (existingPresupuesto.diasObjetivoObra !== undefined) {
+        setDiasObjetivoObra(existingPresupuesto.diasObjetivoObra);
       }
       if (existingPresupuesto.margenRiesgoPorcentaje !== undefined) {
         setMargenRiesgoPorcentaje(existingPresupuesto.margenRiesgoPorcentaje);
@@ -293,6 +314,9 @@ export function usePresupuestoEditorViewModel({
         impuestosDetalle: existingPresupuesto.impuestosDetalle || [],
         opcionesEmision: existingPresupuesto.opcionesEmision,
         operariosCuadrilla: existingPresupuesto.operariosCuadrilla ?? (config.operariosCuadrillaDefault ?? 2),
+        horasJornadaCuadrilla: existingPresupuesto.horasJornadaCuadrilla ?? (config.horasEfectivasJornadaDefault ?? 8.0),
+        modoPlanificacionCuadrilla: existingPresupuesto.modoPlanificacionCuadrilla || 'equipo',
+        diasObjetivoObra: existingPresupuesto.diasObjetivoObra ?? 3,
         margenRiesgoPorcentaje: existingPresupuesto.margenRiesgoPorcentaje ?? (config.margenRiesgoDefaultPct ?? 0),
         nivelMargenRiesgo: existingPresupuesto.nivelMargenRiesgo || 'bajo',
         aplicarOptimizacionCuadrilla: existingPresupuesto.planificacionCuadrilla?.aplicarOptimizacionAlPresupuesto ?? existingPresupuesto.aplicarSinergiaManoObra ?? false,
@@ -349,6 +373,9 @@ export function usePresupuestoEditorViewModel({
         impuestosDetalle: [],
         opcionesEmision: undefined,
         operariosCuadrilla: config.operariosCuadrillaDefault ?? 2,
+        horasJornadaCuadrilla: config.horasEfectivasJornadaDefault ?? 8.0,
+        modoPlanificacionCuadrilla: 'equipo',
+        diasObjetivoObra: 3,
         margenRiesgoPorcentaje: config.margenRiesgoDefaultPct ?? 0,
         nivelMargenRiesgo: 'bajo',
         aplicarOptimizacionCuadrilla: false,
@@ -386,10 +413,19 @@ export function usePresupuestoEditorViewModel({
     return calcularSinergiaManoObra({
       items,
       operarios: operariosCuadrilla,
-      horasEfectivasJornada: config?.horasEfectivasJornadaDefault ?? 7.0,
+      horasEfectivasJornada: horasJornadaCuadrilla,
       categoriasManoObra: manoObraList
     });
-  }, [items, operariosCuadrilla, config, manoObraList]);
+  }, [items, operariosCuadrilla, horasJornadaCuadrilla, manoObraList]);
+
+  const estimacionPorPlazo = useMemo(() => {
+    return estimarCuadrillaPorPlazo({
+      items,
+      diasObjetivo: diasObjetivoObra,
+      horasEfectivasJornada: horasJornadaCuadrilla,
+      categoriasManoObra: manoObraList
+    });
+  }, [items, diasObjetivoObra, horasJornadaCuadrilla, manoObraList]);
 
   // Compatibilidad con Card y componentes existentes
   const resultadoCuadrilla = useMemo(() => {
@@ -447,6 +483,9 @@ export function usePresupuestoEditorViewModel({
       impuestosDetalle,
       opcionesEmision,
       operariosCuadrilla,
+      horasJornadaCuadrilla,
+      modoPlanificacionCuadrilla,
+      diasObjetivoObra,
       margenRiesgoPorcentaje,
       nivelMargenRiesgo,
       aplicarOptimizacionCuadrilla,
@@ -489,6 +528,9 @@ export function usePresupuestoEditorViewModel({
 
         // Sinergia Determinística de Tareas & Margen de Riesgo Global
         operariosCuadrilla,
+        horasJornadaCuadrilla,
+        modoPlanificacionCuadrilla,
+        diasObjetivoObra,
         margenRiesgoPorcentaje,
         nivelMargenRiesgo,
         montoMargenRiesgo: totales.montoMargenRiesgo,
@@ -551,7 +593,8 @@ export function usePresupuestoEditorViewModel({
     }
   }, [
     items, clienteId, capitulos, existingPresupuesto, numero, config, validezDias, tipoFactura,
-    gastosConfig, costosIndirectosConfig, totales, operariosCuadrilla, margenRiesgoPorcentaje,
+    gastosConfig, costosIndirectosConfig, totales, operariosCuadrilla, horasJornadaCuadrilla,
+    modoPlanificacionCuadrilla, diasObjetivoObra, margenRiesgoPorcentaje,
     nivelMargenRiesgo, aplicarOptimizacionCuadrilla, sinergiaManoObra, resultadoCuadrilla,
     margenPorcentaje, opcionesEmision, mostrarDolar, nombreDolar, cotizacionDolar,
     condicionesPagoTexto, onDraftAutoSaved, estrategiaCuadrilla
@@ -581,6 +624,9 @@ export function usePresupuestoEditorViewModel({
       impuestosDetalle,
       opcionesEmision,
       operariosCuadrilla,
+      horasJornadaCuadrilla,
+      modoPlanificacionCuadrilla,
+      diasObjetivoObra,
       margenRiesgoPorcentaje,
       nivelMargenRiesgo,
       aplicarOptimizacionCuadrilla,
@@ -614,6 +660,7 @@ export function usePresupuestoEditorViewModel({
     items, clienteId, capitulos, validezDias, tipoFactura, margenPorcentaje,
     gastosConfig, costosIndirectosConfig, mostrarDolar, nombreDolar, cotizacionDolar,
     condicionesPagoTexto, impuestosDetalle, opcionesEmision, operariosCuadrilla,
+    horasJornadaCuadrilla, modoPlanificacionCuadrilla, diasObjetivoObra,
     margenRiesgoPorcentaje, nivelMargenRiesgo, aplicarOptimizacionCuadrilla,
     estrategiaCuadrilla
   ]);
@@ -1464,6 +1511,9 @@ export function usePresupuestoEditorViewModel({
 
       // Sinergia Determinística de Tareas & Margen de Riesgo Global
       operariosCuadrilla,
+      horasJornadaCuadrilla,
+      modoPlanificacionCuadrilla,
+      diasObjetivoObra,
       margenRiesgoPorcentaje,
       nivelMargenRiesgo,
       montoMargenRiesgo: totales.montoMargenRiesgo,
@@ -1529,6 +1579,9 @@ export function usePresupuestoEditorViewModel({
       impuestosDetalle,
       opcionesEmision: finalEmission,
       operariosCuadrilla,
+      horasJornadaCuadrilla,
+      modoPlanificacionCuadrilla,
+      diasObjetivoObra,
       margenRiesgoPorcentaje,
       nivelMargenRiesgo,
       aplicarOptimizacionCuadrilla,
@@ -1667,11 +1720,18 @@ export function usePresupuestoEditorViewModel({
     // Sinergia Determinística & Margen de Riesgo Global
     operariosCuadrilla,
     setOperariosCuadrilla,
+    horasJornadaCuadrilla,
+    setHorasJornadaCuadrilla,
+    modoPlanificacionCuadrilla,
+    setModoPlanificacionCuadrilla,
+    diasObjetivoObra,
+    setDiasObjetivoObra,
     margenRiesgoPorcentaje,
     setMargenRiesgoPorcentaje,
     nivelMargenRiesgo,
     setNivelMargenRiesgo,
     sinergiaManoObra,
+    estimacionPorPlazo,
 
     // Planificación de Cuadrilla y Sinergia (Compatibilidad)
     estrategiaCuadrilla,
