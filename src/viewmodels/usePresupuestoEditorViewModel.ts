@@ -56,7 +56,7 @@ function computeEditorStatePayload(state: {
   capitulos: any[];
   validezDias: number;
   tipoFactura: string;
-  margenPorcentaje: number;
+  margenPorcentaje: number | null;
   gastosConfig: any[];
   costosIndirectosConfig: any[];
   mostrarDolar: boolean;
@@ -149,7 +149,7 @@ export function usePresupuestoEditorViewModel({
   const [clienteId, setClienteId] = useState<string>(initialClienteId || '');
   const [numero, setNumero] = useState<string>('');
   const [validezDias, setValidezDias] = useState<number>(config.validezDiasPorDefecto || 15);
-  const [margenPorcentaje, setMargenPorcentaje] = useState<number>(config.margenPorDefectoPct || 30);
+  const [margenPorcentaje, setMargenPorcentaje] = useState<number | null>(config.margenPorDefectoPct || 30);
   const [tipoFactura, setTipoFactura] = useState<TipoFactura>(config.tipoFacturaPorDefecto || 'Factura C');
   const [items, setItems] = useState<ItemPresupuesto[]>([]);
   const [capitulos, setCapitulos] = useState<CapituloPresupuesto[]>([]);
@@ -448,7 +448,7 @@ export function usePresupuestoEditorViewModel({
       gastosConfig,
       costosIndirectosConfig,
       costosIndirectosCatalog: costosIndirectos,
-      beneficioPorcentaje: margenPorcentaje,
+      beneficioPorcentaje: safeNum(margenPorcentaje),
       margenRiesgoPorcentaje,
       tipoFactura,
       impuestosDetalle,
@@ -513,15 +513,22 @@ export function usePresupuestoEditorViewModel({
 
       const finalEmission = opcionesEmision;
 
+      const itemsToSave = (totales.itemsCalculados.length > 0 ? totales.itemsCalculados : items).map(it => ({
+        ...it,
+        cantidad: safeNum(it.cantidad) || 1,
+        precioManual: it.precioManual !== undefined ? safeNum(it.precioManual) : undefined,
+        costoUnitario: it.costoUnitario !== undefined ? safeNum(it.costoUnitario) : undefined
+      }));
+
       const finalPresupuesto: Presupuesto = {
         id: existingPresupuesto?.id || draftIdRef.current,
         numero: numeroStr,
         clienteId: clienteId || '',
         fechaEmision: existingPresupuesto?.fechaEmision || now,
-        validezDias,
+        validezDias: safeNum(validezDias) > 0 ? safeNum(validezDias) : (config.validezDiasPorDefecto || 15),
         tipoFactura,
         capitulos,
-        items: totales.itemsCalculados.length > 0 ? totales.itemsCalculados : items,
+        items: itemsToSave,
         gastosConfig,
         costosIndirectosConfig: gastosConfig.length > 0 ? gastosConfig : costosIndirectosConfig,
         costosIndirectosAplicados: totales.costosIndirectosAplicados,
@@ -546,7 +553,7 @@ export function usePresupuestoEditorViewModel({
         // Calculation Engine
         costoGlobal: totales.costoGlobal,
         gastosGeneralesTotal: totales.gastosGeneralesTotal,
-        beneficioPorcentaje: margenPorcentaje,
+        beneficioPorcentaje: safeNum(margenPorcentaje),
         beneficioMonto: totales.beneficioMonto,
         subtotalSinImpuestos: totales.subtotalSinImpuestos,
         montoImpuestosTotal: totales.montoImpuestosTotal,
@@ -561,7 +568,7 @@ export function usePresupuestoEditorViewModel({
         subtotalCostosDirectos: totales.costoGlobal,
         subtotalCostosIndirectos: totales.gastosGeneralesTotal,
         costoTotalObra: totales.costoTotalObra,
-        margenPorcentaje,
+        margenPorcentaje: safeNum(margenPorcentaje),
         montoGanancia: totales.beneficioMonto,
         impuestosDetalle: totales.impuestosCalculados,
         impuestosPorcentaje: totales.impuestosPorcentajeTotal,
@@ -569,7 +576,7 @@ export function usePresupuestoEditorViewModel({
         totalARS: totales.precioFinalGlobal,
         mostrarReferenciaMonedaExtranjera: mostrarDolar,
         nombreMonedaExtranjera: nombreDolar,
-        cotizacionMonedaExtranjera: cotizacionDolar,
+        cotizacionMonedaExtranjera: safeNum(cotizacionDolar) > 0 ? safeNum(cotizacionDolar) : (config.dolarReferenciaValor || 1200),
         totalMonedaExtranjera: totales.totalMonedaExtranjera,
         condicionesPagoTexto: finalEmission.condicionesComerciales || condicionesPagoTexto,
         estado: existingPresupuesto?.estado || 'borrador',
@@ -1496,15 +1503,22 @@ export function usePresupuestoEditorViewModel({
 
     const finalEmission = emissionOptionsOverride || opcionesEmision;
 
+    const itemsToSave = (totales.itemsCalculados.length > 0 ? totales.itemsCalculados : items).map(it => ({
+      ...it,
+      cantidad: safeNum(it.cantidad) || 1,
+      precioManual: it.precioManual !== undefined ? safeNum(it.precioManual) : undefined,
+      costoUnitario: it.costoUnitario !== undefined ? safeNum(it.costoUnitario) : undefined
+    }));
+
     const finalPresupuesto: Presupuesto = {
       id: existingPresupuesto?.id || draftIdRef.current,
       numero: numeroStr,
       clienteId: clienteId || '',
       fechaEmision: existingPresupuesto?.fechaEmision || now,
-      validezDias,
+      validezDias: safeNum(validezDias) > 0 ? safeNum(validezDias) : (config.validezDiasPorDefecto || 15),
       tipoFactura,
       capitulos,
-      items: totales.itemsCalculados.length > 0 ? totales.itemsCalculados : items,
+      items: itemsToSave,
       gastosConfig,
       costosIndirectosConfig: gastosConfig.length > 0 ? gastosConfig : costosIndirectosConfig,
       costosIndirectosAplicados: totales.costosIndirectosAplicados,
@@ -1529,7 +1543,7 @@ export function usePresupuestoEditorViewModel({
       // Calculation Engine
       costoGlobal: totales.costoGlobal,
       gastosGeneralesTotal: totales.gastosGeneralesTotal,
-      beneficioPorcentaje: margenPorcentaje,
+      beneficioPorcentaje: safeNum(margenPorcentaje),
       beneficioMonto: totales.beneficioMonto,
       subtotalSinImpuestos: totales.subtotalSinImpuestos,
       montoImpuestosTotal: totales.montoImpuestosTotal,
@@ -1544,7 +1558,7 @@ export function usePresupuestoEditorViewModel({
       subtotalCostosDirectos: totales.costoGlobal,
       subtotalCostosIndirectos: totales.gastosGeneralesTotal,
       costoTotalObra: totales.costoTotalObra,
-      margenPorcentaje,
+      margenPorcentaje: safeNum(margenPorcentaje),
       montoGanancia: totales.beneficioMonto,
       impuestosDetalle: totales.impuestosCalculados,
       impuestosPorcentaje: totales.impuestosPorcentajeTotal,
@@ -1552,7 +1566,7 @@ export function usePresupuestoEditorViewModel({
       totalARS: totales.precioFinalGlobal,
       mostrarReferenciaMonedaExtranjera: mostrarDolar,
       nombreMonedaExtranjera: nombreDolar,
-      cotizacionMonedaExtranjera: cotizacionDolar,
+      cotizacionMonedaExtranjera: safeNum(cotizacionDolar) > 0 ? safeNum(cotizacionDolar) : (config.dolarReferenciaValor || 1200),
       totalMonedaExtranjera: totales.totalMonedaExtranjera,
       condicionesPagoTexto: finalEmission.condicionesComerciales || condicionesPagoTexto,
       estado: targetEstado,

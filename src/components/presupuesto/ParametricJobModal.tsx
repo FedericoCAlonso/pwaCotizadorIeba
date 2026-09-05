@@ -22,7 +22,8 @@ import {
   formatARS,
   calcularConsumosTareaTipo,
   ConsumosCalculadosResultado,
-  DEFAULT_CLAUSULA_OBRA_EXISTENTE
+  DEFAULT_CLAUSULA_OBRA_EXISTENTE,
+  safeNum
 } from '../../core/calculations';
 import { evaluateCondition } from '../../core/mathEvaluator';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
@@ -85,7 +86,7 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
   }, [isOpen, tarea, initialParametros, initialVariables, initialClausula, initialIncluirClausula]);
 
   // Actualizar valores de parámetro
-  const handleParametroChange = (paramId: string, value: number) => {
+  const handleParametroChange = (paramId: string, value: any) => {
     setParametrosValues(prev => ({
       ...prev,
       [paramId]: value
@@ -108,7 +109,7 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
       }
 
       const rawVal = parametrosValues[p.id] !== undefined
-        ? parametrosValues[p.id]
+        ? safeNum(parametrosValues[p.id])
         : (p.valorDefault ?? 1);
 
       const effectiveVal = isVisible ? rawVal : 0;
@@ -173,14 +174,14 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
           isVisible = evaluateCondition(p.condicion, evalScope);
         }
         const rawVal = parametrosValues[p.id] !== undefined
-          ? parametrosValues[p.id]
+          ? safeNum(parametrosValues[p.id])
           : (p.valorDefault ?? 1);
         const val = isVisible ? rawVal : 0;
         sanitizedParams[p.id] = val;
         evalScope[p.id] = val;
       });
     } else {
-      sanitizedParams['cantidad'] = parametrosValues['cantidad'] ?? 1;
+      sanitizedParams['cantidad'] = safeNum(parametrosValues['cantidad']) || 1;
     }
 
     onConfirm({
@@ -305,13 +306,13 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
           </label>
         </div>
         {parametro.descripcion && (
-          <p className="text-[10px] text-on-surface-variant mb-1">{parametro.descripcion}</p>
+          <p className="text-xs text-on-surface-variant mb-1">{parametro.descripcion}</p>
         )}
         <input
           type="number"
           step="any"
-          value={currentValue}
-          onChange={(e) => handleParametroChange(parametro.id, parseFloat(e.target.value) || 0)}
+          value={currentValue ?? ''}
+          onChange={(e) => handleParametroChange(parametro.id, e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
           className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
         />
       </div>
@@ -386,15 +387,15 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
 
             {(!tarea.parametros || tarea.parametros.length === 0) ? (
               <div>
-                <label className="text-[11px] text-on-surface-variant block mb-1 font-medium">
+                <label className="text-xs text-on-surface-variant block mb-1 font-medium">
                   Cantidad de {tarea.unidad || 'Unidades'}:
                 </label>
                 <input
                   type="number"
                   min={0.1}
                   step={1}
-                  value={parametrosValues['cantidad'] ?? 1}
-                  onChange={(e) => handleParametroChange('cantidad', parseFloat(e.target.value) || 1)}
+                  value={parametrosValues['cantidad'] ?? ''}
+                  onChange={(e) => handleParametroChange('cantidad', e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
                   className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none"
                 />
               </div>

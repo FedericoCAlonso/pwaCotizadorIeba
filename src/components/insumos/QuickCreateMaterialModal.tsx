@@ -4,6 +4,7 @@ import { Contacto } from '../../core/types';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useModalKeyboardNavigation } from '../../hooks/useModalKeyboardNavigation';
 import { MathInput } from '../common/MathInput';
+import { safeNum } from '../../core/calculations';
 
 interface QuickCreateMaterialModalProps {
   isOpen: boolean;
@@ -11,7 +12,7 @@ interface QuickCreateMaterialModalProps {
   formDataQuickMat: {
     nombre: string;
     unidadVenta: string;
-    precio: number;
+    precio: number | null;
     alicuotaIVA?: number;
     modoPrecio?: 'con_iva' | 'neto';
     proveedorId: string;
@@ -20,7 +21,7 @@ interface QuickCreateMaterialModalProps {
     React.SetStateAction<{
       nombre: string;
       unidadVenta: string;
-      precio: number;
+      precio: number | null;
       alicuotaIVA?: number;
       modoPrecio?: 'con_iva' | 'neto';
       proveedorId: string;
@@ -64,7 +65,7 @@ export const QuickCreateMaterialModal: React.FC<QuickCreateMaterialModalProps> =
             </div>
             <div>
               <h3 className="text-base font-semibold text-on-surface">Alta Rápida de Material</h3>
-              <p className="text-[11px] text-on-surface-variant">
+              <p className="text-xs text-on-surface-variant">
                 Crea insumos en segundos desde la obra. Luego completas la ficha técnica.
               </p>
             </div>
@@ -113,7 +114,7 @@ export const QuickCreateMaterialModal: React.FC<QuickCreateMaterialModalProps> =
                 <label className="block text-xs font-semibold text-on-surface-variant">
                   Precio Referencia
                 </label>
-                <div className="flex items-center gap-1 text-[10px]">
+                <div className="flex items-center gap-1 text-xs">
                   <button
                     type="button"
                     onClick={() => setFormDataQuickMat({ ...formDataQuickMat, modoPrecio: 'con_iva' })}
@@ -169,7 +170,7 @@ export const QuickCreateMaterialModal: React.FC<QuickCreateMaterialModalProps> =
             </div>
           </div>
 
-          {proveedores.length > 0 && formDataQuickMat.precio > 0 && (
+          {proveedores.length > 0 && safeNum(formDataQuickMat.precio) > 0 && (
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1">
                 Proveedor de Referencia

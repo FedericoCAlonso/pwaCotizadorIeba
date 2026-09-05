@@ -58,26 +58,26 @@ export const ManoObraTab: React.FC<ManoObraTabProps> = ({
             type="number"
             step="0.1"
             min="0"
-            value={formData.horasSetupTotal ?? 1.0}
-            onChange={(e) => setFormData({ ...formData, horasSetupTotal: parseFloat(e.target.value) || 0 })}
+            value={formData.horasSetupTotal ?? ''}
+            onChange={(e) => setFormData({ ...formData, horasSetupTotal: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0 })}
             className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-on-surface focus:ring-2 focus:ring-primary/50"
             placeholder="ej: 1.0"
           />
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">
             Cuadrilla: Oficiales
           </label>
           <input
             type="number"
             step="1"
             min="0"
-            value={formData.cuadrillaRecomendada?.oficiales ?? 1}
+            value={formData.cuadrillaRecomendada?.oficiales ?? ''}
             onChange={(e) =>
               setFormData({
                 ...formData,
                 cuadrillaRecomendada: {
-                  oficiales: parseInt(e.target.value) || 0,
+                  oficiales: e.target.value === '' ? ('' as any) : parseInt(e.target.value) || 0,
                   ayudantes: formData.cuadrillaRecomendada?.ayudantes ?? 1
                 }
               })
@@ -86,20 +86,20 @@ export const ManoObraTab: React.FC<ManoObraTabProps> = ({
           />
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">
             Cuadrilla: Ayudantes
           </label>
           <input
             type="number"
             step="1"
             min="0"
-            value={formData.cuadrillaRecomendada?.ayudantes ?? 1}
+            value={formData.cuadrillaRecomendada?.ayudantes ?? ''}
             onChange={(e) =>
               setFormData({
                 ...formData,
                 cuadrillaRecomendada: {
                   oficiales: formData.cuadrillaRecomendada?.oficiales ?? 1,
-                  ayudantes: parseInt(e.target.value) || 0
+                  ayudantes: e.target.value === '' ? ('' as any) : parseInt(e.target.value) || 0
                 }
               })
             }

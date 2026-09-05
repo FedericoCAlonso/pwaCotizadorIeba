@@ -25,7 +25,7 @@ import {
   DestinoGasto,
   ModalidadGasto
 } from '../core/types';
-import { formatARS } from '../core/calculations';
+import { formatARS, safeNum } from '../core/calculations';
 import { ModalContainer } from './ModalContainer';
 import { GastoEditorModal } from './presupuesto/GastoEditorModal';
 import { useToast } from '../contexts/ToastContext';
@@ -41,9 +41,9 @@ export const ManoObraManager: React.FC = () => {
   // Mano de Obra State
   const [editingMO, setEditingMO] = useState<CategoriaManoDeObra | null>(null);
   const [isCreatingMO, setIsCreatingMO] = useState(false);
-  const [moForm, setMOForm] = useState<{ nombre: string; costoHora: number; rol: RolCategoriaManoDeObra }>({
+  const [moForm, setMOForm] = useState<{ nombre: string; costoHora: number | string; rol: RolCategoriaManoDeObra }>({
     nombre: '',
-    costoHora: 0,
+    costoHora: '',
     rol: 'oficial'
   });
 
@@ -53,7 +53,7 @@ export const ManoObraManager: React.FC = () => {
 
   useEffect(() => {
     const handleNew = () => {
-      setMOForm({ nombre: '', costoHora: 0, rol: 'oficial' });
+      setMOForm({ nombre: '', costoHora: '', rol: 'oficial' });
       setIsCreatingMO(true);
     };
     window.addEventListener('app:shortcut-new', handleNew);
@@ -64,11 +64,12 @@ export const ManoObraManager: React.FC = () => {
   const handleSaveMO = async (e: React.FormEvent) => {
     e.preventDefault();
     const now = new Date().toISOString();
+    const safeCosto = safeNum(moForm.costoHora);
     if (isCreatingMO) {
       await db.manoObra.add({
         id: `mo-${crypto.randomUUID()}`,
         nombre: moForm.nombre.trim(),
-        costoHora: moForm.costoHora,
+        costoHora: safeCosto,
         rol: moForm.rol,
         fechaActualizacion: now,
         createdAt: now,
@@ -80,7 +81,7 @@ export const ManoObraManager: React.FC = () => {
     } else if (editingMO) {
       await db.manoObra.update(editingMO.id, {
         nombre: moForm.nombre.trim(),
-        costoHora: moForm.costoHora,
+        costoHora: safeCosto,
         rol: moForm.rol,
         fechaActualizacion: now,
         updatedAt: now
@@ -549,8 +550,8 @@ export const ManoObraManager: React.FC = () => {
                 type="number"
                 step="0.01"
                 min="0"
-                value={moForm.costoHora || ''}
-                onChange={(e) => setMOForm({ ...moForm, costoHora: parseFloat(e.target.value) || 0 })}
+                value={moForm.costoHora ?? ''}
+                onChange={(e) => setMOForm({ ...moForm, costoHora: e.target.value === '' ? '' : parseFloat(e.target.value) || 0 })}
                 className={`${inputCls} pl-8 font-mono text-primary font-bold`}
                 placeholder="0.00"
                 required

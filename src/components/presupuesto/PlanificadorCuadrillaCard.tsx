@@ -20,6 +20,7 @@ import {
   sonItemsCompatiblesParaSinergia,
   formatARS
 } from '../../core/calculations';
+import { NumericInput } from '../common/NumericInput';
 
 interface PlanificadorCuadrillaCardProps {
   items: ItemPresupuesto[];
@@ -324,18 +325,22 @@ export const PlanificadorCuadrillaCard: React.FC<PlanificadorCuadrillaCardProps>
             })}
 
             {/* Input para horas personalizadas */}
-            <div className="flex items-center px-2 py-1 bg-surface-container rounded-lg border border-outline-variant/20">
-              <input
-                type="number"
-                min={1}
-                max={16}
-                step={0.5}
+            <div className="w-16">
+              <NumericInput
                 value={currentHoras}
-                onChange={(e) => handleHorasChange(parseFloat(e.target.value) || 1)}
-                className="w-8 bg-transparent text-xs font-mono font-bold text-on-surface text-center focus:outline-none"
+                onChange={(val) => {
+                  if (val !== null && val >= 1 && val <= 24) {
+                    handleHorasChange(val);
+                  }
+                }}
+                fallbackOnBlur={8}
+                min={1}
+                max={24}
+                decimals={1}
+                suffix="h"
+                className="w-full bg-surface-container rounded-lg border border-outline-variant/20 px-1 py-1 text-xs font-mono font-bold text-on-surface text-center focus:outline-none"
                 title="Horas personalizadas por jornada"
               />
-              <span className="text-xs text-on-surface-variant ml-0.5">h</span>
             </div>
           </div>
         </div>

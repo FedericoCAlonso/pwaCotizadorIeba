@@ -75,4 +75,47 @@ describe('MathInput - Mobile Usability & Live Typing', () => {
     expect(onChange).toHaveBeenCalledWith(7, '2 * 3.5');
     expect(input.value).toBe('7');
   });
+
+  it('permite borrar completamente el campo emitiendo null sin bloquear el tipeo ni clamplear prematuramente', () => {
+    const onChange = vi.fn();
+    render(
+      <MathInput
+        value={10}
+        onChange={onChange}
+        min={1}
+        size="sm"
+      />
+    );
+
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '' } });
+
+    expect(input.value).toBe('');
+    expect(onChange).toHaveBeenCalledWith(null, undefined);
+
+    // Escribir 0.5: no debe clamplear a min=1 durante el tipeo
+    fireEvent.change(input, { target: { value: '0.5' } });
+    expect(input.value).toBe('0.5');
+    expect(onChange).toHaveBeenCalledWith(0.5, undefined);
+  });
+
+  it('aplica fallbackOnBlur al perder foco solo si quedó vacío', () => {
+    const onChange = vi.fn();
+    render(
+      <MathInput
+        value={null}
+        onChange={onChange}
+        fallbackOnBlur={1}
+        size="sm"
+      />
+    );
+
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+    fireEvent.focus(input);
+    fireEvent.blur(input);
+
+    expect(onChange).toHaveBeenCalledWith(1, undefined);
+    expect(input.value).toBe('1');
+  });
 });

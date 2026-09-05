@@ -6,7 +6,8 @@ import {
   calcularPrecioFinal,
   calcularPrecioUnitarioDesdePresentacion,
   obtenerPresentacionesSugeridas,
-  formatARS
+  formatARS,
+  safeNum
 } from '../../core/calculations';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { MathInput } from '../common/MathInput';
@@ -57,7 +58,7 @@ export const BlockPriceModal: React.FC<BlockPriceModalProps> = ({
   const [alicuotaIVA, setAlicuotaIVA] = useState<number>(21);
   const [presentacionSeleccionada, setPresentacionSeleccionada] = useState<string>('');
   const [factorEmpaque, setFactorEmpaque] = useState<number>(1);
-  const [precioBultoDisplay, setPrecioBultoDisplay] = useState<number>(0);
+  const [precioBultoDisplay, setPrecioBultoDisplay] = useState<number | null>(0);
   const [proveedorId, setProveedorId] = useState<string>('');
   const [showMaterialsList, setShowMaterialsList] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,13 +79,14 @@ export const BlockPriceModal: React.FC<BlockPriceModalProps> = ({
   }, [isOpen, sugerenciasEmpaque]);
 
   // Cálculos reactivos
+  const rawBulto = safeNum(precioBultoDisplay);
   const bultoNeto = modoPrecio === 'con_iva'
-    ? calcularPrecioNeto(precioBultoDisplay, alicuotaIVA)
-    : precioBultoDisplay;
+    ? calcularPrecioNeto(rawBulto, alicuotaIVA)
+    : rawBulto;
 
   const bultoFinal = modoPrecio === 'con_iva'
-    ? precioBultoDisplay
-    : calcularPrecioFinal(precioBultoDisplay, alicuotaIVA);
+    ? rawBulto
+    : calcularPrecioFinal(rawBulto, alicuotaIVA);
 
   const unitarioNeto = calcularPrecioUnitarioDesdePresentacion(bultoNeto, factorEmpaque);
   const unitarioFinal = calcularPrecioUnitarioDesdePresentacion(bultoFinal, factorEmpaque);
@@ -112,7 +114,7 @@ export const BlockPriceModal: React.FC<BlockPriceModalProps> = ({
         proveedorNombre: provObj ? (provObj.razonSocial || provObj.nombre) : undefined,
         presentacionCompra: presentacionSeleccionada,
         cantidadPorPresentacion: factorEmpaque,
-        precioPresentacion: modoPrecio === 'con_iva' ? bultoNeto : precioBultoDisplay
+        precioPresentacion: modoPrecio === 'con_iva' ? bultoNeto : rawBulto
       });
       onClose();
     } finally {
@@ -210,13 +212,16 @@ export const BlockPriceModal: React.FC<BlockPriceModalProps> = ({
               </select>
 
               <div className="flex items-center gap-1.5 bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-1.5">
-                <span className="text-[11px] text-on-surface-variant font-medium shrink-0">Cant. por bulto:</span>
+                <span className="text-xs text-on-surface-variant font-medium shrink-0">Cant. por bulto:</span>
                 <input
                   type="number"
                   min="1"
                   step="any"
-                  value={factorEmpaque}
-                  onChange={(e) => setFactorEmpaque(Math.max(1, parseFloat(e.target.value) || 1))}
+                  value={factorEmpaque ?? ''}
+                  onChange={(e) => setFactorEmpaque(e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
+                  onBlur={() => {
+                    if (!factorEmpaque || factorEmpaque < 1) setFactorEmpaque(1);
+                  }}
                   className="w-full bg-transparent text-xs font-mono font-bold text-on-surface focus:outline-none text-right"
                 />
                 <span className="text-xs font-bold text-primary shrink-0">{primaryUnidad}</span>
@@ -236,7 +241,7 @@ export const BlockPriceModal: React.FC<BlockPriceModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setModoPrecio('con_iva')}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
                     modoPrecio === 'con_iva'
                       ? 'bg-primary text-on-primary shadow-xs'
                       : 'text-on-surface-variant hover:text-on-surface'
@@ -247,7 +252,7 @@ export const BlockPriceModal: React.FC<BlockPriceModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setModoPrecio('neto')}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
                     modoPrecio === 'neto'
                       ? 'bg-primary text-on-primary shadow-xs'
                       : 'text-on-surface-variant hover:text-on-surface'

@@ -19,7 +19,7 @@ import {
   Clock
 } from 'lucide-react';
 import { ItemPresupuesto, CategoriaManoDeObra } from '../../core/types';
-import { formatARS, roundMoney } from '../../core/calculations';
+import { formatARS, roundMoney, safeNum } from '../../core/calculations';
 import { OnlinePriceButton } from '../OnlinePriceButton';
 import { MathInput } from '../common/MathInput';
 
@@ -30,9 +30,9 @@ interface PresupuestoItemRowProps {
   isExpanded: boolean;
   onToggleExpand: (id: string) => void;
   onUpdateItemCondicion: (index: number, condicion: 'normal' | 'dificultosa' | 'favorable') => void;
-  onUpdateItemQuantity: (index: number, qty: number, formula?: string) => void;
+  onUpdateItemQuantity: (index: number, qty: number | null, formula?: string) => void;
   onUpdateItemUnit: (index: number, unit: string) => void;
-  onUpdateItemUnitDirectCost: (index: number, cost: number) => void;
+  onUpdateItemUnitDirectCost: (index: number, cost: number | null) => void;
   onUpdateItemDescription: (index: number, desc: string) => void;
   onUpdateItemNotasTecnicas?: (index: number, notas: string) => void;
   onRemoveItem: (index: number) => void;
@@ -42,11 +42,11 @@ interface PresupuestoItemRowProps {
   onOpenInSituEditor?: (index: number) => void;
   onOpenMaterialPicker?: (index: number) => void;
   onOpenMaterialBrandModal?: (itemIndex: number, materialIndex: number) => void;
-  onUpdateItemMaterialQuantity?: (itemIndex: number, materialIndex: number, newQty: number) => void;
+  onUpdateItemMaterialQuantity?: (itemIndex: number, materialIndex: number, newQty: number | null) => void;
   onRemoveItemMaterial?: (itemIndex: number, materialIndex: number) => void;
-  onUpdateItemManoObraCost?: (index: number, moCost: number) => void;
+  onUpdateItemManoObraCost?: (index: number, moCost: number | null) => void;
   onAddLaborRole?: (itemIndex: number, categoriaId: string, horas: number) => void;
-  onUpdateItemLaborHours?: (itemIndex: number, laborIndex: number, newHours: number) => void;
+  onUpdateItemLaborHours?: (itemIndex: number, laborIndex: number, newHours: number | null) => void;
   onRemoveItemLabor?: (itemIndex: number, laborIndex: number) => void;
   categoriasManoObra?: CategoriaManoDeObra[];
   condicionesTrabajo: Array<{ value: string; label: string }>;
@@ -87,7 +87,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
   const [showItemMenu, setShowItemMenu] = useState(false);
   const [showAddLaborInline, setShowAddLaborInline] = useState(false);
   const [newLaborCatId, setNewLaborCatId] = useState<string>('');
-  const [newLaborHours, setNewLaborHours] = useState<number>(4);
+  const [newLaborHours, setNewLaborHours] = useState<number | null>(4);
 
   const hasSnapshots =
     (item.insumosSnapshot && item.insumosSnapshot.length > 0) ||
@@ -424,6 +424,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
               onChange={(val, form) => onUpdateItemQuantity(index, val, form)}
               suffix={item.unidad}
               size="sm"
+              fallbackOnBlur={1}
               min={0.01}
               step={0.1}
             />
@@ -480,7 +481,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                     ) : (
                       <div className="w-24 sm:w-28" title="Mano de obra o adicionales directos para esta partida">
                         <MathInput
-                          value={item.costoManoObra || 0}
+                          value={item.costoManoObra}
                           onChange={(val) => onUpdateItemManoObraCost ? onUpdateItemManoObraCost(index, val) : onUpdateItemUnitDirectCost(index, val)}
                           prefix="$"
                           size="sm"
@@ -788,7 +789,8 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                             <div className="w-20 sm:w-24">
                               <MathInput
                                 value={newLaborHours}
-                                onChange={(val) => setNewLaborHours(Math.max(0.1, val))}
+                                onChange={(val) => setNewLaborHours(val)}
+                                fallbackOnBlur={4}
                                 size="sm"
                                 min={0.1}
                                 step={0.5}
@@ -804,7 +806,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                               onClick={() => {
                                 const targetCatId = newLaborCatId || categoriasManoObra[0]?.id;
                                 if (targetCatId) {
-                                  onAddLaborRole(index, targetCatId, newLaborHours);
+                                  onAddLaborRole(index, targetCatId, safeNum(newLaborHours) || 4);
                                   setShowAddLaborInline(false);
                                 }
                               }}

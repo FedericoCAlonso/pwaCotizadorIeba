@@ -248,7 +248,7 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[11px] text-on-surface-variant block mb-1 font-medium">
+                  <label className="text-xs text-on-surface-variant block mb-1 font-medium">
                     Superficie de la Propiedad / Sector (m²):
                   </label>
                   <div className="flex items-center gap-2">
@@ -256,8 +256,8 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
                       type="number"
                       min={1}
                       step={5}
-                      value={superficieM2}
-                      onChange={(e) => setSuperficieM2(parseFloat(e.target.value) || 0)}
+                      value={superficieM2 ?? ''}
+                      onChange={(e) => setSuperficieM2(e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
                       className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
                     />
                     <span className="text-xs font-bold text-on-surface-variant">m²</span>
@@ -265,7 +265,7 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
                 </div>
 
                 <div>
-                  <label className="text-[11px] text-on-surface-variant block mb-1 font-medium">
+                  <label className="text-xs text-on-surface-variant block mb-1 font-medium">
                     Densidad de Material ({unidad}/m²):
                   </label>
                   <div className="flex items-center gap-2">
@@ -273,8 +273,8 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
                       type="number"
                       min={0.1}
                       step={0.5}
-                      value={factorDensidadM2}
-                      onChange={(e) => setFactorDensidadM2(parseFloat(e.target.value) || 0)}
+                      value={factorDensidadM2 ?? ''}
+                      onChange={(e) => setFactorDensidadM2(e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
                       className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
                     />
                     <span className="text-xs font-bold text-on-surface-variant">{unidad}/m²</span>
@@ -339,20 +339,20 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[11px] text-on-surface-variant block mb-1 font-medium">
+                  <label className="text-xs text-on-surface-variant block mb-1 font-medium">
                     Metros de Canalización:
                   </label>
                   <input
                     type="number"
                     min={1}
-                    value={longitudCaneriaM}
-                    onChange={(e) => setLongitudCaneriaM(parseFloat(e.target.value) || 0)}
+                    value={longitudCaneriaM ?? ''}
+                    onChange={(e) => setLongitudCaneriaM(e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
                     className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] text-on-surface-variant block mb-1 font-medium">
+                  <label className="text-xs text-on-surface-variant block mb-1 font-medium">
                     Conductores por Tubo:
                   </label>
                   <select
@@ -369,7 +369,7 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
                 </div>
 
                 <div>
-                  <label className="text-[11px] text-on-surface-variant block mb-1 font-medium">
+                  <label className="text-xs text-on-surface-variant block mb-1 font-medium">
                     Bajadas a Llaves/Tomas:
                   </label>
                   <div className="flex items-center gap-1.5">
@@ -377,8 +377,8 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
                       type="number"
                       min={0}
                       max={50}
-                      value={adicionalBajadasPct}
-                      onChange={(e) => setAdicionalBajadasPct(parseFloat(e.target.value) || 0)}
+                      value={adicionalBajadasPct ?? ''}
+                      onChange={(e) => setAdicionalBajadasPct(e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
                       className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none"
                     />
                     <span className="text-xs font-bold text-on-surface-variant">%</span>
@@ -396,34 +396,34 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[11px] text-on-surface-variant block mb-1 font-medium">
+                  <label className="text-xs text-on-surface-variant block mb-1 font-medium">
                     Cantidad de Bocas:
                   </label>
                   <input
                     type="number"
                     min={1}
-                    value={cantidadBocas}
-                    onChange={(e) => setCantidadBocas(parseFloat(e.target.value) || 0)}
+                    value={cantidadBocas ?? ''}
+                    onChange={(e) => setCantidadBocas(e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
                     className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] text-on-surface-variant block mb-1 font-medium">
+                  <label className="text-xs text-on-surface-variant block mb-1 font-medium">
                     Distancia Media entre Bocas:
                   </label>
                   <input
                     type="number"
                     min={1}
                     step={0.5}
-                    value={distanciaPromedioBocasM}
-                    onChange={(e) => setDistanciaPromedioBocasM(parseFloat(e.target.value) || 0)}
+                    value={distanciaPromedioBocasM ?? ''}
+                    onChange={(e) => setDistanciaPromedioBocasM(e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
                     className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] text-on-surface-variant block mb-1 font-medium">
+                  <label className="text-xs text-on-surface-variant block mb-1 font-medium">
                     Hilos por Tramo:
                   </label>
                   <select
@@ -448,14 +448,14 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
               </span>
 
               <div>
-                <label className="text-[11px] text-on-surface-variant block mb-1 font-medium">
+                <label className="text-xs text-on-surface-variant block mb-1 font-medium">
                   Cantidad Neta Exacta ({unidad}):
                 </label>
                 <input
                   type="number"
                   min={0.1}
-                  value={cantidadBaseDirecta}
-                  onChange={(e) => setCantidadBaseDirecta(parseFloat(e.target.value) || 0)}
+                  value={cantidadBaseDirecta ?? ''}
+                  onChange={(e) => setCantidadBaseDirecta(e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
                   className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none"
                 />
               </div>

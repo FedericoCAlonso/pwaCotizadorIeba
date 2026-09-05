@@ -10,8 +10,10 @@ import {
   INITIAL_MANO_OBRA,
   INITIAL_COSTOS_INDIRECTOS,
   INITIAL_TAREAS_TIPO,
-  BASE_TAREA_CATEGORIES
+  BASE_TAREA_CATEGORIES,
+  DEFAULT_APP_CONFIG
 } from '../core/sampleData';
+import { safeNum } from '../core/calculations';
 import { isFirebaseConfigured, getFirebaseConfig, clearCustomFirebaseConfig } from '../config/firebase';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -68,7 +70,19 @@ export function useConfigViewModel({
 
   const handleSaveConfig = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    await db.config.put(formData);
+    const sanitized: AppConfig = {
+      ...formData,
+      dolarReferenciaValor: safeNum(formData.dolarReferenciaValor) || DEFAULT_APP_CONFIG.dolarReferenciaValor || 1200,
+      porcentajeIIBBPorDefecto: safeNum(formData.porcentajeIIBBPorDefecto) || DEFAULT_APP_CONFIG.porcentajeIIBBPorDefecto || 3.5,
+      margenPorDefectoPct: safeNum(formData.margenPorDefectoPct) || DEFAULT_APP_CONFIG.margenPorDefectoPct || 30,
+      umbralMargenMinimoAdvertencia: safeNum(formData.umbralMargenMinimoAdvertencia) || DEFAULT_APP_CONFIG.umbralMargenMinimoAdvertencia || 20,
+      validezDiasPorDefecto: safeNum(formData.validezDiasPorDefecto) || DEFAULT_APP_CONFIG.validezDiasPorDefecto || 15,
+      alphaEmaManoObra: safeNum(formData.alphaEmaManoObra) || DEFAULT_APP_CONFIG.alphaEmaManoObra,
+      diasVencimientoPrecioVerde: safeNum(formData.diasVencimientoPrecioVerde) || DEFAULT_APP_CONFIG.diasVencimientoPrecioVerde,
+      diasVencimientoPrecioAmarillo: safeNum(formData.diasVencimientoPrecioAmarillo) || DEFAULT_APP_CONFIG.diasVencimientoPrecioAmarillo,
+      syncIntervalMinutes: safeNum(formData.syncIntervalMinutes) || DEFAULT_APP_CONFIG.syncIntervalMinutes || 5,
+    };
+    await db.config.put(sanitized);
     toast.success('Configuración guardada exitosamente');
     onSave();
     onClose();

@@ -3,8 +3,8 @@ import { Calculator, Sparkles } from 'lucide-react';
 import { evaluateMathExpression, isFormulaString } from '../../core/mathEvaluator';
 
 export interface MathInputProps {
-  value: number;
-  onChange: (val: number, formula?: string) => void;
+  value: number | null | undefined;
+  onChange: (val: number | null, formula?: string) => void;
   formula?: string;
   placeholder?: string;
   min?: number;
@@ -21,6 +21,7 @@ export interface MathInputProps {
   size?: 'sm' | 'md' | 'lg';
   inputMode?: 'text' | 'decimal' | 'numeric';
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  fallbackOnBlur?: number | null;
 }
 
 export const MathInput: React.FC<MathInputProps> = ({
@@ -42,6 +43,7 @@ export const MathInput: React.FC<MathInputProps> = ({
   size = 'md',
   inputMode = 'decimal',
   onKeyDown,
+  fallbackOnBlur,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [currentText, setCurrentText] = useState<string>(() => {
@@ -97,20 +99,21 @@ export const MathInput: React.FC<MathInputProps> = ({
     setCurrentText(raw);
 
     const trimmed = raw.trim().replace(',', '.');
-    if (!trimmed) return;
+    if (!trimmed) {
+      setLastSavedFormula(undefined);
+      onChange(null, undefined);
+      return;
+    }
 
     // If it's a simple number (not an in-progress math formula), sync immediately with parent
     if (!isFormulaString(trimmed)) {
       const num = Number(trimmed);
       if (!isNaN(num)) {
-        let finalVal = num;
-        if (min !== undefined) finalVal = Math.max(min, finalVal);
-        if (max !== undefined) finalVal = Math.min(max, finalVal);
-        if (decimals !== undefined) {
-          finalVal = Number(finalVal.toFixed(decimals));
-        }
+        // NOTE: We deliberately DO NOT clamp with `min` or round `decimals` during live typing.
+        // E.g., if min=1, typing "0.5" begins with "0", which would get clamped to 1!
+        // Clamping min/max and formatting decimals is safely handled upon commit (blur / Enter).
         setLastSavedFormula(undefined);
-        onChange(finalVal, undefined);
+        onChange(num, undefined);
       }
     }
   };
@@ -120,9 +123,9 @@ export const MathInput: React.FC<MathInputProps> = ({
     const trimmed = currentText.trim().replace(',', '.');
 
     if (!trimmed) {
-      const fallback = min !== undefined ? min : 0;
+      const fallback = fallbackOnBlur !== undefined ? fallbackOnBlur : null;
       setLastSavedFormula(undefined);
-      setCurrentText(String(fallback));
+      setCurrentText(fallback !== null && fallback !== undefined ? String(fallback) : '');
       onChange(fallback, undefined);
       return;
     }
@@ -146,8 +149,8 @@ export const MathInput: React.FC<MathInputProps> = ({
       }
       setCurrentText(String(finalVal));
     } else {
-      // If formula was broken, keep previous safe value
-      setCurrentText(value !== undefined ? String(value) : '0');
+      // If formula was broken, keep previous safe value or empty
+      setCurrentText(value !== undefined && value !== null ? String(value) : '');
     }
   };
 
@@ -220,7 +223,7 @@ export const MathInput: React.FC<MathInputProps> = ({
         {/* Has formula indicator pill */}
         {!isFocused && hasFormula && (
           <span
-            className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-primary/15 text-primary border border-primary/30 flex items-center gap-0.5"
+            className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-primary/15 text-primary border border-primary/30 flex items-center gap-0.5"
             title={`Calculado por fórmula: ${lastSavedFormula}`}
           >
             <span className="italic font-serif font-bold">fx</span>
@@ -229,7 +232,7 @@ export const MathInput: React.FC<MathInputProps> = ({
 
         {/* Suffix (e.g. mts, un, hs) */}
         {suffix && (
-          <span className="text-[10px] sm:text-xs text-on-surface-variant font-mono font-medium">
+          <span className="text-xs text-on-surface-variant font-mono font-medium">
             {suffix}
           </span>
         )}
@@ -240,7 +243,7 @@ export const MathInput: React.FC<MathInputProps> = ({
         <div className="absolute left-0 bottom-full mb-1 z-30 px-2.5 py-1 bg-surface-container-highest border border-primary/40 text-primary shadow-lg rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-100">
           <Sparkles className="w-3 h-3 text-primary" />
           <span>= {evalResult.value}</span>
-          {suffix && <span className="text-[10px] opacity-80">{suffix}</span>}
+          {suffix && <span className="text-xs opacity-80">{suffix}</span>}
         </div>
       )}
     </div>

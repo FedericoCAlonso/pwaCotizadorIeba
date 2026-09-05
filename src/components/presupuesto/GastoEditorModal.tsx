@@ -607,8 +607,8 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                 type="number"
                 step="0.1"
                 min="0"
-                value={valor || ''}
-                onChange={(e) => setValor(parseFloat(e.target.value) || 0)}
+                value={valor !== null && valor !== undefined ? valor : ''}
+                onChange={(e) => setValor(e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
                 placeholder="ej: 45 para 45%"
                 className="w-full pl-3.5 pr-10 py-2.5 bg-surface-container border border-outline-variant/50 focus:border-primary rounded-xl text-xs text-on-surface font-mono outline-none"
               />
@@ -628,8 +628,8 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                 type="number"
                 step="100"
                 min="0"
-                value={valor || ''}
-                onChange={(e) => setValor(parseFloat(e.target.value) || 0)}
+                value={valor !== null && valor !== undefined ? valor : ''}
+                onChange={(e) => setValor(e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
                 placeholder="ej: 25000"
                 className="w-full pl-8 pr-3.5 py-2.5 bg-surface-container border border-outline-variant/50 focus:border-primary rounded-xl text-xs text-on-surface font-mono outline-none"
               />
@@ -759,12 +759,12 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-on-surface mb-1">Valor por Defecto</label>
+                      <label className="block text-xs font-bold text-on-surface mb-1">Valor por Defecto</label>
                       <input
                         type="number"
                         step="any"
-                        value={newParamForm.valorDefault}
-                        onChange={(e) => setNewParamForm({ ...newParamForm, valorDefault: parseFloat(e.target.value) || 0 })}
+                        value={newParamForm.valorDefault ?? ''}
+                        onChange={(e) => setNewParamForm({ ...newParamForm, valorDefault: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0 })}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && newParamForm.id.trim() && newParamForm.nombre.trim()) {
                             e.preventDefault();
@@ -992,8 +992,8 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                         ) : (
                           <input
                             type="number"
-                            value={currentVal}
-                            onChange={(e) => setTestParamValues({ ...testParamValues, [p.id]: parseFloat(e.target.value) || 0 })}
+                            value={currentVal ?? ''}
+                            onChange={(e) => setTestParamValues({ ...testParamValues, [p.id]: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0 })}
                             className="w-full px-2 py-1 bg-surface-container border border-outline-variant/40 rounded text-xs font-mono"
                           />
                         )}

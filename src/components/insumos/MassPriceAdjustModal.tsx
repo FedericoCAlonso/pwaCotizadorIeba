@@ -58,8 +58,8 @@ export const MassPriceAdjustModal: React.FC<MassPriceAdjustModalProps> = ({
             <input
               type="number"
               step="0.1"
-              value={massPercentage}
-              onChange={(e) => setMassPercentage(parseFloat(e.target.value) || 0)}
+              value={massPercentage ?? ''}
+              onChange={(e) => setMassPercentage(e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
               className={`${inputCls} font-mono`}
             />
           </div>

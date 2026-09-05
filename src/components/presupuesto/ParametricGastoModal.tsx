@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Sliders, X, Check, Calculator, Sparkles, HelpCircle, CornerDownRight } from 'lucide-react';
 import { GastoPresupuestoConfig, ParametroTrabajoTipo } from '../../core/types';
-import { formatARS, roundMoney } from '../../core/calculations';
+import { formatARS, roundMoney, safeNum } from '../../core/calculations';
 import { evaluateMathExpression, evaluateCondition } from '../../core/mathEvaluator';
 import { ModalContainer } from '../ModalContainer';
 
@@ -148,7 +148,7 @@ export const ParametricGastoModal: React.FC<ParametricGastoModalProps> = ({
     }
   }
 
-  const handleValueChange = (paramId: string, val: number) => {
+  const handleValueChange = (paramId: string, val: any) => {
     setValores((prev) => ({
       ...prev,
       [paramId]: val
@@ -171,7 +171,7 @@ export const ParametricGastoModal: React.FC<ParametricGastoModalProps> = ({
       if (p.condicion && p.condicion.trim()) {
         isVisible = evaluateCondition(p.condicion, evalScope);
       }
-      const rawVal = valores[p.id] !== undefined ? valores[p.id] : p.valorDefault;
+      const rawVal = valores[p.id] !== undefined ? safeNum(valores[p.id]) : p.valorDefault;
       const val = isVisible ? rawVal : 0;
       sanitizedValores[p.id] = val;
       evalScope[p.id] = val;
@@ -261,8 +261,8 @@ export const ParametricGastoModal: React.FC<ParametricGastoModalProps> = ({
             <input
               type="number"
               step="any"
-              value={currentVal}
-              onChange={(e) => handleValueChange(p.id, parseFloat(e.target.value) || 0)}
+              value={currentVal ?? ''}
+              onChange={(e) => handleValueChange(p.id, e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
               className="w-full px-3.5 py-2 bg-surface-container border border-outline-variant/50 focus:border-primary rounded-xl text-xs font-mono font-bold text-primary outline-none"
             />
             {p.unidad && (

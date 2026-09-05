@@ -38,7 +38,7 @@ export const ParametrosTab: React.FC<ParametrosTabProps> = ({
               <Sliders className="w-4 h-4" />
               <span>Parámetros de Entrada (Inputs del Usuario al Cotizar)</span>
             </h4>
-            <p className="text-[11px] text-on-surface-variant">
+            <p className="text-xs text-on-surface-variant">
               Define los datos que se le solicitarán al usuario al cotizar en el presupuesto (en el modal paramétrico). Las usarás por su identificador (<code className="font-mono text-primary font-bold">bocas</code>, <code className="font-mono text-primary font-bold">circuitos</code>, etc.) en los cálculos y fórmulas.
             </p>
           </div>
@@ -61,7 +61,7 @@ export const ParametrosTab: React.FC<ParametrosTabProps> = ({
             <p className="text-xs text-on-surface-variant font-medium">
               No hay parámetros de entrada definidos para esta tarea.
             </p>
-            <p className="text-[11px] text-on-surface-variant/70">
+            <p className="text-xs text-on-surface-variant/70">
               Si esta tarea tiene consumo fijo o por unidad simple, no requiere parámetros. Si depende de preguntas al usuario (ej: bocas, altura, circuitos), agrega uno.
             </p>
             <button
@@ -114,13 +114,13 @@ export const ParametrosTab: React.FC<ParametrosTabProps> = ({
                     </span>
 
                     {/* Badge de ID en fórmulas */}
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
                       ${parametro.id || 'id_variable'}
                     </span>
 
                     {/* Badge de Condición si tiene */}
                     {parametro.condicion && (
-                      <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                      <span className="text-xs font-mono font-medium px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
                         Condición: {parametro.condicion}
                       </span>
                     )}
@@ -132,7 +132,7 @@ export const ParametrosTab: React.FC<ParametrosTabProps> = ({
                       <button
                         type="button"
                         onClick={() => updateParametro(idx, { condicion: `${parametros[idx - 1].id} > 0` })}
-                        className="text-[10px] text-amber-700 dark:text-amber-300 hover:underline px-1.5 py-0.5 rounded font-medium"
+                        className="text-xs text-amber-700 dark:text-amber-300 hover:underline px-1.5 py-0.5 rounded font-medium"
                         title="Hacer que este parámetro aparezca sólo si se cumple una condición"
                       >
                         + Condición
@@ -153,7 +153,7 @@ export const ParametrosTab: React.FC<ParametrosTabProps> = ({
                 {/* Campos Principales del Parámetro */}
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
                   <div className="sm:col-span-3">
-                    <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
+                    <label className="text-xs font-bold text-on-surface-variant block uppercase mb-0.5">
                       Identificador
                     </label>
                     <input
@@ -170,7 +170,7 @@ export const ParametrosTab: React.FC<ParametrosTabProps> = ({
                   </div>
 
                   <div className="sm:col-span-3">
-                    <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
+                    <label className="text-xs font-bold text-on-surface-variant block uppercase mb-0.5">
                       Etiqueta / Pregunta
                     </label>
                     <input
@@ -183,7 +183,7 @@ export const ParametrosTab: React.FC<ParametrosTabProps> = ({
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
+                    <label className="text-xs font-bold text-on-surface-variant block uppercase mb-0.5">
                       Unidad
                     </label>
                     <input
@@ -197,7 +197,7 @@ export const ParametrosTab: React.FC<ParametrosTabProps> = ({
 
                   <div className="grid grid-cols-2 sm:col-span-4 gap-2">
                     <div>
-                      <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
+                      <label className="text-xs font-bold text-on-surface-variant block uppercase mb-0.5">
                         Tipo
                       </label>
                       <select
@@ -223,15 +223,17 @@ export const ParametrosTab: React.FC<ParametrosTabProps> = ({
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
+                      <label className="text-xs font-bold text-on-surface-variant block uppercase mb-0.5">
                         Default
                       </label>
                       <input
                         type="number"
                         step="any"
-                        value={parametro.valorDefault}
+                        value={parametro.valorDefault ?? ''}
                         onChange={(e) =>
-                          updateParametro(idx, { valorDefault: parseFloat(e.target.value) || 0 })
+                          updateParametro(idx, {
+                            valorDefault: e.target.value === '' ? ('' as any) : (parseFloat(e.target.value) || 0)
+                          })
                         }
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
@@ -249,17 +251,17 @@ export const ParametrosTab: React.FC<ParametrosTabProps> = ({
                 {parametro.condicion !== undefined && idx > 0 && (
                   <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/25 space-y-2">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                      <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wide flex items-center gap-1">
+                      <span className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wide flex items-center gap-1">
                         <span>↳ Regla de Visibilidad / Activación</span>
                       </span>
-                      <span className="text-[10px] text-on-surface-variant">
+                      <span className="text-xs text-on-surface-variant">
                         Este parámetro solo se mostrará si la condición es verdadera (&gt; 0)
                       </span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                       <div className="sm:col-span-4">
-                        <label className="text-[9px] font-bold text-on-surface-variant uppercase block mb-0.5">
+                        <label className="text-xs font-bold text-on-surface-variant uppercase block mb-0.5">
                           Depende de:
                         </label>
                         <select
@@ -279,7 +281,7 @@ export const ParametrosTab: React.FC<ParametrosTabProps> = ({
                       </div>
 
                       <div className="sm:col-span-8">
-                        <label className="text-[9px] font-bold text-on-surface-variant uppercase block mb-0.5">
+                        <label className="text-xs font-bold text-on-surface-variant uppercase block mb-0.5">
                           Fórmula de Condición (ej: <code>req_unifilar == 1</code>, <code>bocas &gt; 5</code>)
                         </label>
                         <div className="flex items-center gap-1">
@@ -308,7 +310,7 @@ export const ParametrosTab: React.FC<ParametrosTabProps> = ({
                 {parametro.tipo === 'select' && (
                   <div className="p-2.5 bg-surface-container rounded-xl border border-outline-variant/20 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-on-surface-variant uppercase">
+                      <span className="text-xs font-bold text-on-surface-variant uppercase">
                         Opciones y Multiplicadores de "{parametro.nombre}":
                       </span>
                       <button
@@ -322,7 +324,7 @@ export const ParametrosTab: React.FC<ParametrosTabProps> = ({
                             ]
                           });
                         }}
-                        className="text-[10px] text-primary font-bold hover:underline"
+                        className="text-xs text-primary font-bold hover:underline"
                       >
                         + Agregar Opción
                       </button>
@@ -348,10 +350,13 @@ export const ParametrosTab: React.FC<ParametrosTabProps> = ({
                           <input
                             type="number"
                             step="0.05"
-                            value={opc.valor}
+                            value={opc.valor ?? ''}
                             onChange={(e) => {
                               const nextOpc = [...(parametro.opciones || [])];
-                              nextOpc[opcIdx] = { ...nextOpc[opcIdx], valor: parseFloat(e.target.value) || 0 };
+                              nextOpc[opcIdx] = {
+                                ...nextOpc[opcIdx],
+                                valor: e.target.value === '' ? ('' as any) : (parseFloat(e.target.value) || 0)
+                              };
                               updateParametro(idx, { opciones: nextOpc });
                             }}
                             className="w-16 bg-surface-container text-xs font-mono font-bold text-primary text-center rounded px-1 py-0.5 focus:outline-none"

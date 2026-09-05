@@ -20,6 +20,7 @@ import {
   DestinoGasto
 } from '../../core/types';
 import { formatARS, formatUSD, TotalesPresupuestoResultado } from '../../core/calculations';
+import { NumericInput } from '../common/NumericInput';
 
 interface PresupuestoTotalsCardProps {
   totales: TotalesPresupuestoResultado;
@@ -31,8 +32,8 @@ interface PresupuestoTotalsCardProps {
   onToggleGasto: (idx: number) => void;
   onRemoveGasto: (id: string) => void;
   onResetGastos?: () => void;
-  margenPorcentaje: number;
-  onMargenPorcentajeChange: (val: number) => void;
+  margenPorcentaje: number | null;
+  onMargenPorcentajeChange: (val: number | null) => void;
   onToggleTax: (idx: number) => void;
   onUpdateTaxPct: (idx: number, pct: number) => void;
   onRemoveTax: (idx: number) => void;
@@ -365,22 +366,22 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
               Calculado sobre Costo Directo + Indirectos ({formatARS(totales.costoTotalObra)})
             </span>
           </div>
-          <div className="relative w-24">
-            <input
-              type="number"
-              min="0"
-              max="500"
-              step="1"
+          <div className="w-24">
+            <NumericInput
               value={margenPorcentaje}
-              onChange={(e) => onMargenPorcentajeChange(parseFloat(e.target.value) || 0)}
+              onChange={(val) => onMargenPorcentajeChange(val)}
+              fallbackOnBlur={0}
+              min={0}
+              max={500}
+              decimals={1}
+              suffix="%"
               className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl pl-3 pr-7 py-1.5 text-sm sm:text-base text-primary font-mono font-bold text-right focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[38px]"
             />
-            <span className="text-xs text-primary font-bold absolute right-2.5 top-2.5">%</span>
           </div>
         </div>
 
         <div className="flex justify-between text-xs sm:text-sm font-bold text-tertiary pt-1 border-t border-outline-variant/10">
-          <span>Monto Beneficio ({margenPorcentaje}%):</span>
+          <span>Monto Beneficio ({margenPorcentaje ?? 0}%):</span>
           <span className="font-mono font-semibold">{formatARS(totales.beneficioMonto)}</span>
         </div>
       </div>
@@ -426,26 +427,27 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
                   <span className="truncate">{tax.nombre}</span>
                 </label>
 
-                <div className="flex items-center gap-1 shrink-0">
-                  <input
-                    type="number"
-                    step="0.1"
+                <div className="w-20 shrink-0">
+                  <NumericInput
                     value={tax.porcentaje}
-                    onChange={(e) => onUpdateTaxPct(idx, parseFloat(e.target.value) || 0)}
-                    className="w-16 bg-surface-container-highest border border-outline-variant/30 rounded-lg px-1.5 py-0.5 text-xs text-right font-mono"
+                    onChange={(val) => onUpdateTaxPct(idx, val ?? 0)}
+                    min={0}
+                    max={100}
+                    decimals={2}
+                    suffix="%"
+                    className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-lg px-2 pr-5 py-0.5 text-xs text-right font-mono"
                   />
-                  <span className="text-xs text-on-surface-variant font-bold">%</span>
-
-                  {idx >= 2 && (
-                    <button
-                      type="button"
-                      onClick={() => onRemoveTax(idx)}
-                      className="text-on-surface-variant hover:text-error p-1 rounded-full transition-colors ml-1"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
                 </div>
+
+                {idx >= 2 && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveTax(idx)}
+                    className="text-on-surface-variant hover:text-error p-1 rounded-full transition-colors ml-1"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
               </div>
 
               {tax.aplica && (

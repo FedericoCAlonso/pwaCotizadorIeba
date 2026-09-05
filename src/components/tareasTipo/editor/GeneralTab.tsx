@@ -159,8 +159,8 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
             type="number"
             min={0}
             step={100}
-            value={formData.costoFijoOperativo || 0}
-            onChange={(e) => setFormData({ ...formData, costoFijoOperativo: parseFloat(e.target.value) || 0 })}
+            value={formData.costoFijoOperativo ?? ''}
+            onChange={(e) => setFormData({ ...formData, costoFijoOperativo: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0 })}
             className={inputCls}
             placeholder="0"
           />
@@ -242,15 +242,15 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-1">
+              <label className="text-xs font-bold text-on-surface-variant block uppercase mb-1">
                 Costo Directo del Servicio ($)
               </label>
               <input
                 type="number"
                 min={0}
                 step={100}
-                value={formData.costoServicioDirecto || 0}
-                onChange={(e) => setFormData({ ...formData, costoServicioDirecto: parseFloat(e.target.value) || 0 })}
+                value={formData.costoServicioDirecto ?? ''}
+                onChange={(e) => setFormData({ ...formData, costoServicioDirecto: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0 })}
                 className={inputCls}
                 placeholder="0"
               />

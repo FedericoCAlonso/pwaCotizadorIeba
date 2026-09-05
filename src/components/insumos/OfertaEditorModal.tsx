@@ -6,7 +6,8 @@ import {
   calcularPrecioFinal,
   calcularPrecioUnitarioDesdePresentacion,
   obtenerPresentacionesSugeridas,
-  formatARS
+  formatARS,
+  safeNum
 } from '../../core/calculations';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useModalKeyboardNavigation } from '../../hooks/useModalKeyboardNavigation';
@@ -45,7 +46,7 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
   const sugerenciasEmpaque = useMemo(() => obtenerPresentacionesSugeridas(unidadVenta), [unidadVenta]);
   const [presentacionSeleccionada, setPresentacionSeleccionada] = useState<string>('');
   const [factorEmpaque, setFactorEmpaque] = useState<number>(1);
-  const [precioBultoDisplay, setPrecioBultoDisplay] = useState<number>(0);
+  const [precioBultoDisplay, setPrecioBultoDisplay] = useState<number | null>(0);
 
   useEffect(() => {
     if (isOpen) {
@@ -78,20 +79,22 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
   }, [isOpen, editingOferta]);
 
   // Cálculos reactivos
+  const rawBulto = safeNum(precioBultoDisplay);
   const bultoNeto = modoPrecio === 'con_iva'
-    ? calcularPrecioNeto(precioBultoDisplay, alicuotaIVA)
-    : precioBultoDisplay;
+    ? calcularPrecioNeto(rawBulto, alicuotaIVA)
+    : rawBulto;
 
   const bultoFinal = modoPrecio === 'con_iva'
-    ? precioBultoDisplay
-    : calcularPrecioFinal(precioBultoDisplay, alicuotaIVA);
+    ? rawBulto
+    : calcularPrecioFinal(rawBulto, alicuotaIVA);
 
   const unitarioNeto = calcularPrecioUnitarioDesdePresentacion(bultoNeto, factorEmpaque);
   const unitarioFinal = calcularPrecioUnitarioDesdePresentacion(bultoFinal, factorEmpaque);
 
-  const syncFormData = (bultoVal: number, factor: number, presLabel: string, ali: number, modo: 'con_iva' | 'neto') => {
-    const netBulto = modo === 'con_iva' ? calcularPrecioNeto(bultoVal, ali) : bultoVal;
-    const finBulto = modo === 'con_iva' ? bultoVal : calcularPrecioFinal(bultoVal, ali);
+  const syncFormData = (bultoVal: number | null, factor: number, presLabel: string, ali: number, modo: 'con_iva' | 'neto') => {
+    const rawVal = safeNum(bultoVal);
+    const netBulto = modo === 'con_iva' ? calcularPrecioNeto(rawVal, ali) : rawVal;
+    const finBulto = modo === 'con_iva' ? rawVal : calcularPrecioFinal(rawVal, ali);
     const netUnit = calcularPrecioUnitarioDesdePresentacion(netBulto, factor);
     const finUnit = calcularPrecioUnitarioDesdePresentacion(finBulto, factor);
 
@@ -103,11 +106,11 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
       precioFinal: finUnit,
       presentacionCompra: presLabel,
       cantidadPorPresentacion: factor,
-      precioPresentacion: modo === 'con_iva' ? netBulto : bultoVal
+      precioPresentacion: modo === 'con_iva' ? netBulto : rawVal
     }));
   };
 
-  const handlePrecioBultoChange = (val: number) => {
+  const handlePrecioBultoChange = (val: number | null) => {
     setPrecioBultoDisplay(val);
     syncFormData(val, factorEmpaque, presentacionSeleccionada, alicuotaIVA, modoPrecio);
   };
@@ -126,9 +129,9 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
     syncFormData(precioBultoDisplay, nextFactor, etiqueta, alicuotaIVA, modoPrecio);
   };
 
-  const handleCustomFactorChange = (qty: number) => {
-    const validQty = Math.max(1, qty);
-    setFactorEmpaque(validQty);
+  const handleCustomFactorChange = (qty: any) => {
+    setFactorEmpaque(qty);
+    const validQty = Math.max(1, typeof qty === 'number' ? qty : (parseFloat(qty) || 1));
     syncFormData(precioBultoDisplay, validQty, presentacionSeleccionada, alicuotaIVA, modoPrecio);
   };
 
@@ -283,8 +286,11 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
                     type="number"
                     min="1"
                     step="any"
-                    value={factorEmpaque}
-                    onChange={(e) => handleCustomFactorChange(parseFloat(e.target.value) || 1)}
+                    value={factorEmpaque ?? ''}
+                    onChange={(e) => handleCustomFactorChange(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                    onBlur={() => {
+                      if (!factorEmpaque || Number(factorEmpaque) < 1) handleCustomFactorChange(1);
+                    }}
                     className={`${inputCls} font-mono`}
                     placeholder="Cantidad por bulto"
                     required

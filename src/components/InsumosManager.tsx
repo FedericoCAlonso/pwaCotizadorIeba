@@ -183,10 +183,11 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
     await db.materiales.add(newMat);
 
     if (formDataQuickMat.precio && formDataQuickMat.precio > 0) {
+      const p = formDataQuickMat.precio;
       const modo = formDataQuickMat.modoPrecio || 'con_iva';
       const alicuota = formDataQuickMat.alicuotaIVA ?? 21;
-      const precioNeto = modo === 'con_iva' ? calcularPrecioNeto(formDataQuickMat.precio, alicuota) : formDataQuickMat.precio;
-      const precioFinal = modo === 'con_iva' ? formDataQuickMat.precio : calcularPrecioFinal(formDataQuickMat.precio, alicuota);
+      const precioNeto = modo === 'con_iva' ? calcularPrecioNeto(p, alicuota) : p;
+      const precioFinal = modo === 'con_iva' ? p : calcularPrecioFinal(p, alicuota);
 
       const newOferta: Oferta = {
         id: `oferta-${crypto.randomUUID()}`,

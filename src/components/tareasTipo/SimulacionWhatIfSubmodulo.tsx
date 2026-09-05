@@ -223,7 +223,7 @@ export const SimulacionWhatIfSubmodulo: React.FC<SimulacionWhatIfSubmoduloProps>
               <div className="font-mono text-2xl font-extrabold text-primary mt-1">
                 {formatARS(simPrecioVenta)}
               </div>
-              <span className="text-[10px] text-on-surface-variant block mt-0.5">por {selectedSimTarea.unidad}</span>
+              <span className="text-xs text-on-surface-variant block mt-0.5">por {selectedSimTarea.unidad}</span>
             </div>
           </div>
 

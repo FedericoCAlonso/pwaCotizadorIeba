@@ -43,6 +43,7 @@ import { useAppOptions } from '../hooks/useAppOptions';
 import { useToast } from '../contexts/ToastContext';
 import { PresupuestoItemRow } from './presupuesto/PresupuestoItemRow';
 import { PresupuestoTotalsCard } from './presupuesto/PresupuestoTotalsCard';
+import { NumericInput } from './common/NumericInput';
 import { PlanificadorCuadrillaCard } from './presupuesto/PlanificadorCuadrillaCard';
 import { ItemPickerModal } from './presupuesto/ItemPickerModal';
 import { EmisionPresupuestoModal } from './presupuesto/EmisionPresupuestoModal';
@@ -229,7 +230,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     costosIndirectosAplicados: totales.costosIndirectosAplicados,
     costoGlobal: totales.costoGlobal,
     gastosGeneralesTotal: totales.gastosGeneralesTotal,
-    beneficioPorcentaje: margenPorcentaje,
+    beneficioPorcentaje: safeNum(margenPorcentaje),
     beneficioMonto: totales.beneficioMonto,
     subtotalSinImpuestos: totales.subtotalSinImpuestos,
     montoImpuestosTotal: totales.montoImpuestosTotal,
@@ -241,7 +242,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     subtotalCostosDirectos: totales.subtotalCostosDirectos,
     subtotalCostosIndirectos: totales.subtotalCostosIndirectos,
     costoTotalObra: totales.costoTotalObra,
-    margenPorcentaje,
+    margenPorcentaje: safeNum(margenPorcentaje),
     montoGanancia: totales.beneficioMonto,
     impuestosDetalle,
     impuestosPorcentaje: 0,
@@ -480,12 +481,23 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     });
   };
 
-  const handleUpdateItemQuantity = (index: number, qty: number, formula?: string) => {
-    const safeQty = Math.max(0.01, safeNum(qty) || 1);
+  const handleUpdateItemQuantity = (index: number, qty: number | null, formula?: string) => {
     setItems((prev) => {
       const next = [...prev];
       const target = next[index];
-      const prevQty = target.cantidad || 1;
+      if (!target) return prev;
+
+      if (qty === null || isNaN(qty as number)) {
+        next[index] = {
+          ...target,
+          cantidad: null as any,
+          formulaCantidad: formula,
+        };
+        return next;
+      }
+
+      const safeQty = Math.max(0.001, safeNum(qty));
+      const prevQty = safeNum(target.cantidad) || 1;
 
       const insumosSnap = target.insumosSnapshot || [];
       const manoObraSnap = target.manoObraSnapshot || [];
@@ -540,12 +552,24 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     });
   };
 
-  const handleUpdateItemUnitDirectCost = (index: number, cost: number) => {
-    const safeCost = Math.max(0, safeNum(cost));
+  const handleUpdateItemUnitDirectCost = (index: number, cost: number | null) => {
     setItems((prev) => {
       const next = [...prev];
       const target = next[index];
-      const qty = target.cantidad || 1;
+      if (!target) return prev;
+
+      if (cost === null || isNaN(cost as number)) {
+        next[index] = {
+          ...target,
+          costoUnitario: null as any,
+          costoDirectoTotal: 0,
+          costoTotal: 0
+        };
+        return next;
+      }
+
+      const safeCost = Math.max(0, safeNum(cost));
+      const qty = safeNum(target.cantidad) || 1;
       const costoDirectoTotal = roundMoney(safeCost * qty);
 
       next[index] = {
@@ -669,7 +693,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     );
   };
 
-  const handleUpdateItemMaterialQuantity = (itemIndex: number, materialIndex: number, newQty: number) => {
+  const handleUpdateItemMaterialQuantity = (itemIndex: number, materialIndex: number, newQty: number | null) => {
     const safeQty = Math.max(0, safeNum(newQty));
     if (safeQty === 0) {
       handleRemoveItemMaterial(itemIndex, materialIndex);
@@ -828,7 +852,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     setBrandModalTarget(null);
   };
 
-  const handleUpdateItemManoObraCost = (index: number, moCost: number) => {
+  const handleUpdateItemManoObraCost = (index: number, moCost: number | null) => {
     const safeMOCost = Math.max(0, safeNum(moCost));
     setItems((prev) => {
       const next = [...prev];
@@ -926,7 +950,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     toast.success(`Mano de obra "${catMO.nombre}" agregada a la partida`);
   };
 
-  const handleUpdateItemLaborHours = (itemIndex: number, laborIndex: number, newHours: number) => {
+  const handleUpdateItemLaborHours = (itemIndex: number, laborIndex: number, newHours: number | null) => {
     const safeHours = Math.max(0, safeNum(newHours));
     if (safeHours === 0) {
       handleRemoveItemLabor(itemIndex, laborIndex);
@@ -1202,10 +1226,12 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                     Validez Oferta (Días)
                   </label>
                   <div className="relative">
-                    <input
-                      type="number"
+                    <NumericInput
                       value={validezDias}
-                      onChange={(e) => setValidezDias(parseInt(e.target.value) || 15)}
+                      onChange={(val) => setValidezDias(val as any)}
+                      fallbackOnBlur={config.validezDiasPorDefecto || 15}
+                      min={1}
+                      max={365}
                       className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-sm text-on-surface font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow shadow-2xs"
                     />
                     <Calendar className="w-5 h-5 text-on-surface-variant absolute right-3 top-2.5 pointer-events-none" />
@@ -1235,12 +1261,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                     className="w-24 bg-surface-container-highest border-none rounded-lg px-3 py-1.5 text-sm text-on-surface focus:ring-2 focus:ring-primary/50"
                   />
                   <span className="text-sm text-on-surface-variant font-medium">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
+                  <NumericInput
                     value={cotizacionDolar}
-                    onChange={(e) => setCotizacionDolar(parseFloat(e.target.value) || 0)}
-                    className="w-24 bg-surface-container-highest border-none rounded-lg px-3 py-1.5 text-sm text-on-surface font-mono focus:ring-2 focus:ring-primary/50"
+                    onChange={(val) => setCotizacionDolar(val as any)}
+                    fallbackOnBlur={config.dolarReferenciaValor || 1200}
+                    min={0}
+                    decimals={2}
+                    className="w-28 bg-surface-container-highest border-none rounded-lg px-3 py-1.5 text-sm text-on-surface font-mono focus:ring-2 focus:ring-primary/50"
                   />
                 </div>
               )}

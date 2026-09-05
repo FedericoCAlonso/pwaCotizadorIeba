@@ -218,10 +218,10 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
     });
   };
 
-  const setExplicitStagedQuantity = (insumoId: string, val: number, formula?: string) => {
+  const setExplicitStagedQuantity = (insumoId: string, val: number | null, formula?: string) => {
     setStagedQuantities((prev) => {
       const next = new Map(prev);
-      if (val <= 0 || isNaN(val)) {
+      if (val === null || val <= 0 || isNaN(val)) {
         next.delete(insumoId);
       } else {
         next.set(insumoId, { cantidad: val, formula });
@@ -359,7 +359,7 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
           <div className="space-y-1.5">
             {availableCategoryIds.length > 3 && (
               <div className="flex items-center justify-between text-xs text-on-surface-variant px-0.5">
-                <span className="font-semibold text-[11px] uppercase tracking-wider text-on-surface-variant/75">
+                <span className="font-semibold text-xs uppercase tracking-wider text-on-surface-variant/75">
                   Categorías
                 </span>
                 <button
@@ -439,7 +439,7 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
               <button
                 type="button"
                 onClick={handleClearSelection}
-                className="text-[11px] text-on-surface-variant hover:text-on-surface underline ml-1"
+                className="text-xs text-on-surface-variant hover:text-on-surface underline ml-1"
               >
                 Limpiar
               </button>
@@ -530,17 +530,17 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5 mb-1">
                         {catName && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant uppercase tracking-wider">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant uppercase tracking-wider">
                             {catName}
                           </span>
                         )}
                         {ins.unidadVenta && (
-                          <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                          <span className="text-xs font-mono font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                             /{ins.unidadVenta}
                           </span>
                         )}
                         {isAlreadyInTarea && (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3" /> En la Partida
                           </span>
                         )}
@@ -559,7 +559,7 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
                           {ins.precioActual ? formatARS(ins.precioActual) : 'Sin precio cargado'}
                         </span>
                         {ins.atributos && ins.atributos.length > 0 && (
-                          <span className="text-[11px] text-on-surface-variant/80 truncate">
+                          <span className="text-xs text-on-surface-variant/80 truncate">
                             • {ins.atributos.slice(0, 3).map((a) => `${a.clave}: ${a.valor}`).join(', ')}
                           </span>
                         )}
@@ -582,7 +582,7 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
                       />
                     </div>
 
-                    <span className="text-[11px] font-mono text-on-surface-variant min-w-[24px]">
+                    <span className="text-xs font-mono text-on-surface-variant min-w-[24px]">
                       {unit}
                     </span>
 

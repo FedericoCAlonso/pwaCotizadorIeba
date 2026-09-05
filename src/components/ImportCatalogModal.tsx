@@ -695,7 +695,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     <Table className="w-4 h-4 text-primary" />
                     Descargar Plantilla por Categoría Específica
                   </h5>
-                  <p className="text-on-surface-variant text-[11px] mt-0.5">
+                  <p className="text-on-surface-variant text-xs mt-0.5">
                     Selecciona la categoría para descargar la planilla con sus atributos técnicos específicos. Si la categoría no existe, créala primero desde el gestor de categorías.
                   </p>
                 </div>
@@ -762,7 +762,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     />
                     <div>
                       <span className="block text-xs">Actualizar existencias (Recomendado)</span>
-                      <span className="text-[10px] text-on-surface-variant font-normal">Actualiza si el material ya existe por nombre</span>
+                      <span className="text-xs text-on-surface-variant font-normal">Actualiza si el material ya existe por nombre</span>
                     </div>
                   </label>
 
@@ -780,7 +780,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     />
                     <div>
                       <span className="block text-xs">Crear siempre nuevos ítems</span>
-                      <span className="text-[10px] text-on-surface-variant font-normal">Agrega todo como ítem nuevo</span>
+                      <span className="text-xs text-on-surface-variant font-normal">Agrega todo como ítem nuevo</span>
                     </div>
                   </label>
                 </div>
@@ -813,7 +813,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     </select>
                   </div>
                 </div>
-                <p className="text-[11px] text-on-surface-variant">
+                <p className="text-xs text-on-surface-variant">
                   El sistema convertirá automáticamente los precios a su base canónica neta para garantizar cálculos exactos en presupuestos A, B, C y X.
                 </p>
               </div>
@@ -824,7 +824,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
 
               <div className="p-3.5 bg-primary/5 border border-primary/20 rounded-2xl text-xs space-y-1">
                 <span className="font-semibold text-primary block">✨ Autogeneración de Nombres Técnicos</span>
-                <p className="text-on-surface-variant text-[11px]">
+                <p className="text-on-surface-variant text-xs">
                   Los nombres de los materiales se construirán automáticamente combinando la categoría y los atributos encontrados en las columnas del archivo usando el separador Pipe (ej. <code className="text-primary font-mono font-semibold">Cables | Tipo = IRAM 247-3 | Cantidad de Conductores = 1 | Sección Nominal = 2.5 mm² | Color / Código = Marrón (Fase)</code>).
                 </p>
               </div>
@@ -842,7 +842,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     {headers.map(h => <option key={h} value={h}>Columna: {h}</option>)}
                   </select>
                   {getSampleValues(mapping.categoria) && (
-                    <p className="text-[10px] text-on-surface-variant/80 mt-1 truncate">
+                    <p className="text-xs text-on-surface-variant/80 mt-1 truncate">
                       <span className="font-semibold">Muestra:</span> {getSampleValues(mapping.categoria)}
                     </p>
                   )}
@@ -860,7 +860,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     {headers.map(h => <option key={h} value={h}>Columna: {h}</option>)}
                   </select>
                   {getSampleValues(mapping.unidad) && (
-                    <p className="text-[10px] text-on-surface-variant/80 mt-1 truncate">
+                    <p className="text-xs text-on-surface-variant/80 mt-1 truncate">
                       <span className="font-semibold">Muestra:</span> {getSampleValues(mapping.unidad)}
                     </p>
                   )}
@@ -877,7 +877,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                   <span>Resumen de Previsualización (Dry-Run)</span>
                 </div>
                 <p>Se analizaron {rawRows.length} filas del archivo de forma segura en memoria:</p>
-                <ul className="list-disc pl-5 pt-1 font-mono text-[11px] space-y-0.5">
+                <ul className="list-disc pl-5 pt-1 font-mono text-xs space-y-0.5">
                   <li><strong>{parsedPreview.materialesToCreate.length}</strong> Materiales listos ({parsedPreview.updatedCount} actualizados, {parsedPreview.newCount} nuevos).</li>
                   {parsedPreview.categoriasToCreate.length > 0 && (
                     <li className="text-primary font-bold">
@@ -909,7 +909,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                       return (
                         <tr key={idx}>
                           <td className="p-2.5 font-medium">{m.nombre}</td>
-                          <td className="p-2.5 text-[11px] font-mono text-on-surface-variant">{m.categoriaId}</td>
+                          <td className="p-2.5 text-xs font-mono text-on-surface-variant">{m.categoriaId}</td>
                           <td className="p-2.5">{m.unidadVenta}</td>
                           <td className="p-2.5 text-right font-mono font-bold text-primary">
                             ${of ? of.precio?.toLocaleString('es-AR') : '0.00'}

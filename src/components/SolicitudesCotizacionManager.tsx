@@ -442,11 +442,18 @@ export const SolicitudCotizacionManager: React.FC = () => {
                           <input
                             type="number"
                             step="0.1"
-                            value={it.cantidad || 1}
+                            value={it.cantidad ?? ''}
                             onChange={(e) => {
                               const updated = [...items];
-                              updated[idx].cantidad = parseFloat(e.target.value) || 1;
+                              updated[idx].cantidad = e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0;
                               setItems(updated);
+                            }}
+                            onBlur={() => {
+                              if (!it.cantidad || it.cantidad <= 0) {
+                                const updated = [...items];
+                                updated[idx].cantidad = 1;
+                                setItems(updated);
+                              }
                             }}
                             className={`${inputCls} w-24 font-mono text-center py-1`}
                           />
@@ -532,17 +539,17 @@ const ResponsePriceModal: React.FC<ResponsePriceModalProps> = ({
                 <div key={it.id || idx} className="p-3 bg-surface-container-highest/40 border border-outline-variant/30 rounded-2xl flex items-center justify-between gap-3">
                   <div>
                     <h4 className="text-xs font-semibold text-on-surface">{mat?.nombre || 'Material'}</h4>
-                    <span className="text-[11px] text-on-surface-variant">{prod ? `Marca: ${prod.marca}` : 'Genérico'}</span>
+                    <span className="text-xs text-on-surface-variant">{prod ? `Marca: ${prod.marca}` : 'Genérico'}</span>
                   </div>
                   <div className="w-32">
                     <input
                       type="number"
                       step="0.01"
                       placeholder="Precio ARS"
-                      value={it.precioRespuesta || ''}
+                      value={it.precioRespuesta ?? ''}
                       onChange={(e) => {
                         const updated = [...responseItems];
-                        updated[idx].precioRespuesta = parseFloat(e.target.value) || 0;
+                        updated[idx].precioRespuesta = e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0;
                         setResponseItems(updated);
                       }}
                       className={`${inputCls} font-mono text-primary font-bold text-right py-1`}

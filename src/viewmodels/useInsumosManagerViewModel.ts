@@ -112,7 +112,7 @@ export function useInsumosManagerViewModel({
   const [formDataQuickMat, setFormDataQuickMat] = useState<{
     nombre: string;
     unidadVenta: string;
-    precio: number;
+    precio: number | null;
     alicuotaIVA?: number;
     modoPrecio?: 'con_iva' | 'neto';
     proveedorId: string;

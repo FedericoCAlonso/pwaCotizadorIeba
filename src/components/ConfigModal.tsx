@@ -254,7 +254,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
               <div><label className="block text-xs text-on-surface-variant mb-1">Nombre de Moneda</label><input type="text" value={formData.dolarReferenciaNombre} onChange={(e) => setFormData({ ...formData, dolarReferenciaNombre: e.target.value })} className={inputCls} placeholder="USD Blue, USD Oficial" /></div>
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Cotización 1 USD en ARS</label>
-                <div className="relative"><span className="text-xs text-on-surface-variant absolute left-3 top-2.5 font-mono">$</span><input type="number" step="0.01" value={formData.dolarReferenciaValor} onChange={(e) => setFormData({ ...formData, dolarReferenciaValor: parseFloat(e.target.value) || 0 })} className={`${inputCls} pl-7 font-mono text-primary font-bold`} required /></div>
+                <div className="relative"><span className="text-xs text-on-surface-variant absolute left-3 top-2.5 font-mono">$</span><input type="number" step="0.01" value={formData.dolarReferenciaValor ?? ''} onChange={(e) => setFormData({ ...formData, dolarReferenciaValor: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0 })} className={`${inputCls} pl-7 font-mono text-primary font-bold`} required /></div>
               </div>
               <div className="flex items-center pt-5">
                 <label className="flex items-center gap-2 cursor-pointer text-sm text-on-surface">
@@ -331,22 +331,22 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
               </div>
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">IIBB (%)</label>
-                <div className="relative"><input type="number" step="0.1" value={formData.porcentajeIIBBPorDefecto ?? 3.5} onChange={(e) => setFormData({ ...formData, porcentajeIIBBPorDefecto: parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono pr-7`} /><Percent className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" /></div>
+                <div className="relative"><input type="number" step="0.1" value={formData.porcentajeIIBBPorDefecto ?? ''} onChange={(e) => setFormData({ ...formData, porcentajeIIBBPorDefecto: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono pr-7`} /><Percent className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" /></div>
               </div>
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Margen por Defecto (%)</label>
-                <div className="relative"><input type="number" inputMode="decimal" value={formData.margenPorDefectoPct} onChange={(e) => setFormData({ ...formData, margenPorDefectoPct: parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono pr-7`} /><Percent className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" /></div>
+                <div className="relative"><input type="number" inputMode="decimal" value={formData.margenPorDefectoPct ?? ''} onChange={(e) => setFormData({ ...formData, margenPorDefectoPct: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono pr-7`} /><Percent className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" /></div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Umbral Alerta Margen Bajo (%)</label>
-                <div className="relative"><input type="number" inputMode="decimal" value={formData.umbralMargenMinimoAdvertencia ?? 20} onChange={(e) => setFormData({ ...formData, umbralMargenMinimoAdvertencia: parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono pr-7`} /><Percent className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" /></div>
+                <div className="relative"><input type="number" inputMode="decimal" value={formData.umbralMargenMinimoAdvertencia ?? ''} onChange={(e) => setFormData({ ...formData, umbralMargenMinimoAdvertencia: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono pr-7`} /><Percent className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" /></div>
               </div>
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Validez por Defecto (días)</label>
-                <div className="relative"><input type="number" inputMode="decimal" value={formData.validezDiasPorDefecto} onChange={(e) => setFormData({ ...formData, validezDiasPorDefecto: parseInt(e.target.value) || 15 })} className={`${inputCls} font-mono pr-7`} /><Calendar className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" /></div>
+                <div className="relative"><input type="number" inputMode="decimal" value={formData.validezDiasPorDefecto ?? ''} onChange={(e) => setFormData({ ...formData, validezDiasPorDefecto: e.target.value === '' ? ('' as any) : parseInt(e.target.value) || 0 })} className={`${inputCls} font-mono pr-7`} /><Calendar className="w-3.5 h-3.5 text-on-surface-variant absolute right-2.5 top-2.5" /></div>
               </div>
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Prefijo de Número</label>
@@ -424,16 +424,16 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Peso α EMA Calibración MO</label>
-                <input type="number" step="0.05" min="0.05" max="0.95" value={formData.alphaEmaManoObra ?? DEFAULT_APP_CONFIG.alphaEmaManoObra} onChange={(e) => setFormData({ ...formData, alphaEmaManoObra: parseFloat(e.target.value) || DEFAULT_APP_CONFIG.alphaEmaManoObra })} className={`${inputCls} font-mono`} />
-                <span className="text-[10px] text-on-surface-variant/70">Defecto: {DEFAULT_APP_CONFIG.alphaEmaManoObra} (30% peso a dato nuevo)</span>
+                <input type="number" step="0.05" min="0.05" max="0.95" value={formData.alphaEmaManoObra ?? ''} onChange={(e) => setFormData({ ...formData, alphaEmaManoObra: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0 })} className={`${inputCls} font-mono`} />
+                <span className="text-xs text-on-surface-variant/70">Defecto: {DEFAULT_APP_CONFIG.alphaEmaManoObra} (30% peso a dato nuevo)</span>
               </div>
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Umbral Vencimiento Verde (días)</label>
-                <input type="number" value={formData.diasVencimientoPrecioVerde ?? DEFAULT_APP_CONFIG.diasVencimientoPrecioVerde} onChange={(e) => setFormData({ ...formData, diasVencimientoPrecioVerde: parseInt(e.target.value) || DEFAULT_APP_CONFIG.diasVencimientoPrecioVerde })} className={`${inputCls} font-mono`} />
+                <input type="number" value={formData.diasVencimientoPrecioVerde ?? ''} onChange={(e) => setFormData({ ...formData, diasVencimientoPrecioVerde: e.target.value === '' ? ('' as any) : parseInt(e.target.value) || 0 })} className={`${inputCls} font-mono`} />
               </div>
               <div>
                 <label className="block text-xs text-on-surface-variant mb-1">Umbral Vencimiento Amarillo (días)</label>
-                <input type="number" value={formData.diasVencimientoPrecioAmarillo ?? DEFAULT_APP_CONFIG.diasVencimientoPrecioAmarillo} onChange={(e) => setFormData({ ...formData, diasVencimientoPrecioAmarillo: parseInt(e.target.value) || DEFAULT_APP_CONFIG.diasVencimientoPrecioAmarillo })} className={`${inputCls} font-mono`} />
+                <input type="number" value={formData.diasVencimientoPrecioAmarillo ?? ''} onChange={(e) => setFormData({ ...formData, diasVencimientoPrecioAmarillo: e.target.value === '' ? ('' as any) : parseInt(e.target.value) || 0 })} className={`${inputCls} font-mono`} />
               </div>
             </div>
           </div>

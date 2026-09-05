@@ -737,11 +737,11 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
                     <input
                       type="number"
                       step="0.5"
-                      value={formData.financiero.descuentoHabitualPct || 0}
+                      value={formData.financiero.descuentoHabitualPct ?? ''}
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          financiero: { ...prev.financiero, descuentoHabitualPct: parseFloat(e.target.value) || 0 }
+                          financiero: { ...prev.financiero, descuentoHabitualPct: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0 }
                         }))
                       }
                       className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
@@ -756,11 +756,11 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
                     <input
                       type="number"
                       step="1000"
-                      value={formData.financiero.limiteCreditoARS || 0}
+                      value={formData.financiero.limiteCreditoARS ?? ''}
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          financiero: { ...prev.financiero, limiteCreditoARS: parseFloat(e.target.value) || 0 }
+                          financiero: { ...prev.financiero, limiteCreditoARS: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0 }
                         }))
                       }
                       className="w-full bg-surface-container-high border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
