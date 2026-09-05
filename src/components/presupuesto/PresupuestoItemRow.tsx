@@ -104,11 +104,120 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
   const isParametric = hasParametrosValores;
   const hasMaterialCalc = Boolean(item.parametrosEstimacionMaterial);
 
+  const renderItemMenu = () => {
+    if (!showItemMenu) return null;
+    return (
+      <>
+        <div
+          className="fixed inset-0 z-20"
+          onClick={() => setShowItemMenu(false)}
+        />
+        <div className="absolute right-0 top-full mt-1.5 z-30 bg-surface-container-high rounded-2xl shadow-xl py-1.5 min-w-[210px] border border-outline-variant/30 text-on-surface animate-in fade-in zoom-in-95 duration-150">
+          <button
+            type="button"
+            onClick={() => {
+              onSaveAsTemplate(item);
+              setShowItemMenu(false);
+            }}
+            className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-primary hover:bg-primary/10 transition-colors text-left font-medium"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Guardar en Catálogo</span>
+          </button>
+
+          {isItemLibre && !hasSnapshots && (
+            <button
+              type="button"
+              onClick={() => {
+                onToggleExpand(item.id);
+                setShowItemMenu(false);
+              }}
+              className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-surface-container-highest transition-colors text-left font-medium"
+            >
+              <Layers className="w-4 h-4" />
+              <span>Desglosar Costos (Materiales / MO)</span>
+            </button>
+          )}
+
+          {onOpenMaterialPicker && (
+            <button
+              type="button"
+              onClick={() => {
+                onOpenMaterialPicker(index);
+                setShowItemMenu(false);
+              }}
+              className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-primary hover:bg-primary/10 transition-colors text-left font-medium"
+            >
+              <Package className="w-4 h-4" />
+              <span>Agregar Materiales del Catálogo</span>
+            </button>
+          )}
+
+          {onOpenInSituEditor && (
+            <button
+              type="button"
+              onClick={() => {
+                onOpenInSituEditor(index);
+                setShowItemMenu(false);
+              }}
+              className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-surface-container-highest transition-colors text-left font-medium"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Editar Fórmulas y Materiales</span>
+            </button>
+          )}
+
+          {isParametric && onOpenParametricModal && (
+            <button
+              type="button"
+              onClick={() => {
+                onOpenParametricModal(index);
+                setShowItemMenu(false);
+              }}
+              className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-on-surface hover:bg-surface-container-highest transition-colors text-left"
+            >
+              <Sliders className="w-4 h-4 text-on-surface-variant" />
+              <span>Reajustar Parámetros</span>
+            </button>
+          )}
+
+          {hasMaterialCalc && onOpenMaterialModal && (
+            <button
+              type="button"
+              onClick={() => {
+                onOpenMaterialModal(index);
+                setShowItemMenu(false);
+              }}
+              className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-on-surface hover:bg-surface-container-highest transition-colors text-left"
+            >
+              <Ruler className="w-4 h-4 text-on-surface-variant" />
+              <span>Cálculo Paramétrico</span>
+            </button>
+          )}
+
+          <hr className="border-outline-variant/20 my-1" />
+
+          <button
+            type="button"
+            onClick={() => {
+              onRemoveItem(index);
+              setShowItemMenu(false);
+            }}
+            className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-error hover:bg-error-container/20 transition-colors text-left font-medium"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Eliminar Partida</span>
+          </button>
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl sm:rounded-3xl p-3 sm:p-5 space-y-3 hover:border-outline-variant/50 transition-all shadow-2xs">
-      {/* 1. Header de Partida (M3 Primary Header) */}
-      <div className="flex items-center justify-between gap-2">
-        {/* Left: # Index & Title Input */}
+      {/* 1. Header de Partida (M3 Primary Header: Mobile 2-filas ergonómico, Desktop 1-fila espacioso) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        {/* Fila 1 en móvil / Lado izquierdo en escritorio: Índice, Título a ancho completo y Menú móvil */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <span className="text-xs font-mono font-bold text-on-surface-variant px-2 py-1 rounded-lg sm:rounded-xl bg-surface-container shrink-0">
             #{index + 1}
@@ -121,213 +230,124 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
             onChange={(e) => onUpdateItemDescription(index, e.target.value)}
             className="w-full bg-surface-container-lowest border border-outline-variant/30 focus:border-primary focus:ring-2 focus:ring-primary/30 rounded-xl px-3 py-2 text-sm sm:text-base font-bold text-on-surface placeholder:text-on-surface-variant/40 transition shadow-2xs min-h-[40px]"
           />
-        </div>
 
-        {/* Right: Type Badge & Actions */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {item.naturaleza === 'servicio_profesional' ? (
-            <span className="hidden sm:inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 items-center gap-1">
-              <GraduationCap className="w-3 h-3" />
-              <span>Servicio Profesional</span>
-            </span>
-          ) : item.naturaleza === 'servicio_tercerizado' ? (
-            <span className="hidden sm:inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 items-center gap-1">
-              <Truck className="w-3 h-3" />
-              <span>Servicio Tercerizado</span>
-            </span>
-          ) : isItemLibre ? (
-            <span className="hidden sm:inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 items-center gap-1">
-              <FileText className="w-3 h-3" />
-              <span>{hasSnapshots ? 'Desglosado' : 'Directo'}</span>
-            </span>
-          ) : (
-            <span className="hidden sm:inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 items-center gap-1">
-              <Layers className="w-3 h-3" />
-              <span>Catálogo</span>
-            </span>
-          )}
-
-          {/* Primary contextual action (Parámetros / Fórmulas y Materiales / Desglosar) */}
-          {(isItemLibre || isCustom) && onOpenMaterialPicker && (
-            <button
-              type="button"
-              onClick={() => onOpenMaterialPicker(index)}
-              className="flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs min-h-[36px]"
-              title="Seleccionar y agregar materiales desde el catálogo para esta partida"
-            >
-              <Package className="w-3.5 h-3.5" />
-              <span>+ Materiales</span>
-            </button>
-          )}
-
-          {isItemLibre ? (
-            <>
-              {onOpenInSituEditor && (
-                <button
-                  type="button"
-                  onClick={() => onOpenInSituEditor(index)}
-                  className="flex items-center gap-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs min-h-[36px]"
-                  title="Editar fórmulas, materiales y mano de obra para este ítem libre"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{hasSnapshots ? 'Fórmulas y Materiales' : 'Desglosar'}</span>
-                </button>
-              )}
-              {isParametric && onOpenParametricModal && (
-                <button
-                  type="button"
-                  onClick={() => onOpenParametricModal(index)}
-                  className="flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs min-h-[36px]"
-                  title="Ajustar valores de los parámetros"
-                >
-                  <Sliders className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Parámetros</span>
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              {isParametric && onOpenParametricModal ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenParametricModal(index)}
-                  className="flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs min-h-[36px]"
-                  title="Configurar parámetros y variables de la tarea"
-                >
-                  <Sliders className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Parámetros</span>
-                </button>
-              ) : onOpenInSituEditor ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenInSituEditor(index)}
-                  className="flex items-center gap-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs min-h-[36px]"
-                  title="Componer o editar insumos y horas para esta partida"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{hasSnapshots ? 'Desglose' : 'Desglosar'}</span>
-                </button>
-              ) : null}
-            </>
-          )}
-
-          {/* Secondary Actions Menu Dropdown */}
-          <div className="relative">
+          {/* Menú de acciones secundario en móvil (3 puntos) */}
+          <div className="sm:hidden relative shrink-0">
             <button
               type="button"
               onClick={() => setShowItemMenu((v) => !v)}
-              className="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-full transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+              className="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-full transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center"
               title="Más acciones para esta partida"
               aria-label="Más acciones"
             >
               <MoreVertical className="w-4 h-4" />
             </button>
+            {renderItemMenu()}
+          </div>
+        </div>
 
-            {showItemMenu && (
+        {/* Fila 2 en móvil / Lado derecho en escritorio: Badges de naturaleza y Botones contextuales */}
+        <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0 flex-wrap sm:flex-nowrap">
+          {item.naturaleza === 'servicio_profesional' ? (
+            <span className="inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 items-center gap-1">
+              <GraduationCap className="w-3 h-3" />
+              <span>Servicio Profesional</span>
+            </span>
+          ) : item.naturaleza === 'servicio_tercerizado' ? (
+            <span className="inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 items-center gap-1">
+              <Truck className="w-3 h-3" />
+              <span>Servicio Tercerizado</span>
+            </span>
+          ) : isItemLibre ? (
+            <span className="inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 items-center gap-1">
+              <FileText className="w-3 h-3" />
+              <span>{hasSnapshots ? 'Desglosado' : 'Directo'}</span>
+            </span>
+          ) : (
+            <span className="inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 items-center gap-1">
+              <Layers className="w-3 h-3" />
+              <span>Catálogo</span>
+            </span>
+          )}
+
+          <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
+            {/* Primary contextual action (Parámetros / Fórmulas y Materiales / Desglosar) */}
+            {(isItemLibre || isCustom) && onOpenMaterialPicker && (
+              <button
+                type="button"
+                onClick={() => onOpenMaterialPicker(index)}
+                className="flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs min-h-[36px]"
+                title="Seleccionar y agregar materiales desde el catálogo para esta partida"
+              >
+                <Package className="w-3.5 h-3.5" />
+                <span>+ Materiales</span>
+              </button>
+            )}
+
+            {isItemLibre ? (
               <>
-                <div
-                  className="fixed inset-0 z-20"
-                  onClick={() => setShowItemMenu(false)}
-                />
-                <div className="absolute right-0 top-full mt-1.5 z-30 bg-surface-container-high rounded-2xl shadow-xl py-1.5 min-w-[210px] border border-outline-variant/30 text-on-surface animate-in fade-in zoom-in-95 duration-150">
+                {onOpenInSituEditor && (
                   <button
                     type="button"
-                    onClick={() => {
-                      onSaveAsTemplate(item);
-                      setShowItemMenu(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-primary hover:bg-primary/10 transition-colors text-left font-medium"
+                    onClick={() => onOpenInSituEditor(index)}
+                    className="flex items-center gap-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs min-h-[36px]"
+                    title="Editar fórmulas, materiales y mano de obra para este ítem libre"
                   >
-                    <Sparkles className="w-4 h-4" />
-                    <span>Guardar en Catálogo</span>
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>{hasSnapshots ? 'Fórmulas y Mat.' : 'Desglosar'}</span>
                   </button>
-
-                  {isItemLibre && !hasSnapshots && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onToggleExpand(item.id);
-                        setShowItemMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-surface-container-highest transition-colors text-left font-medium"
-                    >
-                      <Layers className="w-4 h-4" />
-                      <span>Desglosar Costos (Materiales / MO)</span>
-                    </button>
-                  )}
-
-                  {onOpenMaterialPicker && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onOpenMaterialPicker(index);
-                        setShowItemMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-primary hover:bg-primary/10 transition-colors text-left font-medium"
-                    >
-                      <Package className="w-4 h-4" />
-                      <span>Agregar Materiales del Catálogo</span>
-                    </button>
-                  )}
-
-                  {onOpenInSituEditor && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onOpenInSituEditor(index);
-                        setShowItemMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-surface-container-highest transition-colors text-left font-medium"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                      <span>Editar Fórmulas y Materiales</span>
-                    </button>
-                  )}
-
-                  {isParametric && onOpenParametricModal && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onOpenParametricModal(index);
-                        setShowItemMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-on-surface hover:bg-surface-container-highest transition-colors text-left"
-                    >
-                      <Sliders className="w-4 h-4 text-on-surface-variant" />
-                      <span>Reajustar Parámetros</span>
-                    </button>
-                  )}
-
-                  {hasMaterialCalc && onOpenMaterialModal && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onOpenMaterialModal(index);
-                        setShowItemMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-on-surface hover:bg-surface-container-highest transition-colors text-left"
-                    >
-                      <Ruler className="w-4 h-4 text-on-surface-variant" />
-                      <span>Cálculo Paramétrico</span>
-                    </button>
-                  )}
-
-                  <hr className="border-outline-variant/20 my-1" />
-
+                )}
+                {isParametric && onOpenParametricModal && (
                   <button
                     type="button"
-                    onClick={() => {
-                      onRemoveItem(index);
-                      setShowItemMenu(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-error hover:bg-error-container/20 transition-colors text-left font-medium"
+                    onClick={() => onOpenParametricModal(index)}
+                    className="flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs min-h-[36px]"
+                    title="Ajustar valores de los parámetros"
                   >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Eliminar Partida</span>
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Parámetros</span>
                   </button>
-                </div>
+                )}
+              </>
+            ) : (
+              <>
+                {isParametric && onOpenParametricModal ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenParametricModal(index)}
+                    className="flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs min-h-[36px]"
+                    title="Configurar parámetros y variables de la tarea"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Parámetros</span>
+                  </button>
+                ) : onOpenInSituEditor ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenInSituEditor(index)}
+                    className="flex items-center gap-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 px-2.5 sm:px-3 py-1.5 rounded-full transition shadow-2xs min-h-[36px]"
+                    title="Componer o editar insumos y horas para esta partida"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>{hasSnapshots ? 'Desglose' : 'Desglosar'}</span>
+                  </button>
+                ) : null}
               </>
             )}
+
+            {/* Menú de acciones secundario en escritorio (3 puntos) */}
+            <div className="hidden sm:block relative">
+              <button
+                type="button"
+                onClick={() => setShowItemMenu((v) => !v)}
+                className="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-full transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+                title="Más acciones para esta partida"
+                aria-label="Más acciones"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+              {renderItemMenu()}
+            </div>
           </div>
         </div>
       </div>
@@ -425,7 +445,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
             <select
               value={item.condicionTrabajo || 'normal'}
               onChange={(e) => onUpdateItemCondicion(index, e.target.value as any)}
-              className="bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-2.5 py-1.5 text-xs sm:text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/50 shadow-2xs flex-1 min-w-[100px] min-h-[36px]"
+              className="bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-2.5 pr-7 py-1.5 text-xs sm:text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/50 shadow-2xs flex-1 min-w-[100px] min-h-[36px]"
               title="Condición de trabajo en obra (afecta rendimiento de MO)"
             >
               {condicionesTrabajo.map((c) => (
@@ -506,7 +526,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
             </div>
 
             {/* Total Venta Partida Destacado */}
-            <div className="bg-primary/10 border border-primary/25 px-3 py-1.5 rounded-xl flex items-baseline gap-1.5 text-primary text-right ml-auto">
+            <div className="bg-primary/10 border border-primary/25 px-3 py-1.5 rounded-xl flex items-baseline gap-1.5 text-primary text-right ml-auto shrink-0">
               <span className="font-mono font-black text-base sm:text-lg">
                 {formatARS(calcItem.precioVentaClienteTotal ?? item.precioVentaTotal)}
               </span>

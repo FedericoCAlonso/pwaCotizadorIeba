@@ -94,7 +94,10 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
   };
 
   return (
-    <div className="bg-surface-container-low rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 space-y-4 border border-outline-variant/10 shadow-sm sticky top-6">
+    <div
+      id="presupuesto-totales-card"
+      className="bg-surface-container-low rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 space-y-4 border border-outline-variant/10 shadow-sm sticky top-6"
+    >
       <div className="flex items-center justify-between">
         <h3 className="text-xs sm:text-sm font-bold text-primary uppercase tracking-wide flex items-center gap-2">
           <Calculator className="w-4 h-4 text-primary shrink-0" />

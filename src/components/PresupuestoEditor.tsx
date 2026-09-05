@@ -16,7 +16,8 @@ import {
   RefreshCw,
   MessageSquare,
   Check,
-  Clock
+  Clock,
+  Calculator
 } from 'lucide-react';
 import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
 import { TareaEditorModal } from './tareasTipo/TareaEditorModal';
@@ -336,6 +337,22 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   // Keyboard shortcut & auto-focus management
   const itemTitleRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const prevItemsLength = useRef(items.length);
+  const [isTotalsCardVisible, setIsTotalsCardVisible] = useState(false);
+
+  useEffect(() => {
+    const el = document.getElementById('presupuesto-totales-card');
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsTotalsCardVisible(entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [items.length]);
 
   useEffect(() => {
     if (items.length > prevItemsLength.current) {
@@ -1159,7 +1176,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                   <select
                     value={tipoFactura}
                     onChange={(e) => handleTipoFacturaChange(e.target.value as TipoFactura)}
-                    className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow shadow-2xs"
+                    className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 pr-8 py-2.5 text-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow shadow-2xs"
                   >
                     {tiposFactura.map((tf) => (
                       <option key={tf} value={tf}>
@@ -1370,7 +1387,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                     >
                       {/* Chapter Header */}
                       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/20 pb-3">
-                        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <div className="flex items-center gap-2 flex-1 min-w-[160px] sm:min-w-[200px]">
                           <Folder className="w-4 h-4 text-primary shrink-0" />
                           <input
                             type="text"
@@ -1604,6 +1621,64 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           />
         </div>
       </div>
+
+      {/* Mobile Floating Quick-Summary Bar (Visible on mobile when items exist and Totals card is not yet in view) */}
+      {items.length > 0 && (
+        <aside
+          aria-label="Resumen flotante de cotización"
+          className={`lg:hidden fixed bottom-[68px] sm:bottom-20 left-2 right-2 sm:left-4 sm:right-4 z-30 transition-all duration-300 ${
+            !isTotalsCardVisible
+              ? 'opacity-100 translate-y-0 pointer-events-auto'
+              : 'opacity-0 translate-y-4 pointer-events-none'
+          }`}
+        >
+          <div className="bg-surface-container-high/95 backdrop-blur-md border border-outline-variant/40 rounded-2xl p-2.5 sm:p-3 shadow-xl flex items-center justify-between gap-2.5 text-on-surface">
+            <div
+              className="flex-1 min-w-0 cursor-pointer"
+              onClick={() => {
+                document.getElementById('presupuesto-totales-card')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              title="Tocar para ver desglose completo de totales"
+            >
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Total:</span>
+                <span className="text-base sm:text-lg font-black font-mono text-primary truncate">
+                  {formatARS(totales.precioFinalGlobal)}
+                </span>
+              </div>
+              <div className="text-[10px] sm:text-xs text-on-surface-variant font-medium truncate flex items-center gap-1.5">
+                <span>{items.length} {items.length === 1 ? 'partida' : 'partidas'}</span>
+                <span>•</span>
+                <span>Costo: {formatARS(totales.costoGlobal)}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  document.getElementById('presupuesto-totales-card')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="p-2 text-on-surface-variant hover:text-on-surface bg-surface-container hover:bg-surface-variant rounded-xl border border-outline-variant/30 transition-all min-h-[38px] min-w-[38px] flex items-center justify-center"
+                title="Ir al detalle de totales y cadena de precios"
+                aria-label="Ver totales"
+              >
+                <Calculator className="w-4 h-4 text-primary" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowEmitirModal(true)}
+                className="px-3 sm:px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs sm:text-sm rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-all min-h-[38px]"
+                title="Emitir presupuesto final"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Emitir</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+      )}
 
       {/* Item Picker Modal */}
       <ItemPickerModal
