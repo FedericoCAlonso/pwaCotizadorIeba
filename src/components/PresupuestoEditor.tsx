@@ -1066,26 +1066,26 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 Cálculo de costos en capas (materiales, mano de obra, indirectos, margen, impuestos).
               </p>
               {autoSaveStatus === 'saving' && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-xs animate-pulse">
-                  <RefreshCw className="w-3 h-3 animate-spin" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-xs animate-pulse">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                   Guardando borrador...
                 </span>
               )}
               {autoSaveStatus === 'saved' && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
-                  <Check className="w-3 h-3 text-emerald-500" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
+                  <Check className="w-3.5 h-3.5 text-emerald-500" />
                   Borrador guardado {lastAutoSaveTime ? `a las ${lastAutoSaveTime}` : 'automáticamente'}
                 </span>
               )}
               {autoSaveStatus === 'error' && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-error/10 text-error border border-error/20 shadow-xs">
-                  <AlertCircle className="w-3 h-3" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-error/10 text-error border border-error/20 shadow-xs">
+                  <AlertCircle className="w-3.5 h-3.5" />
                   Error al autoguardar
                 </span>
               )}
               {autoSaveStatus === 'idle' && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface-container-highest text-on-surface-variant border border-outline-variant/30 shadow-xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary/70"></span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-surface-container-highest text-on-surface-variant border border-outline-variant/30 shadow-xs">
+                  <span className="w-2 h-2 rounded-full bg-primary/70"></span>
                   Autoguardado de borrador activo
                 </span>
               )}
@@ -1261,7 +1261,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 >
                   <Layers className="w-3.5 h-3.5" />
                   <span>Trabajo Tipo</span>
-                  <span className="text-[10px] opacity-60 font-mono hidden md:inline">Alt+C</span>
+                  <span className="text-xs opacity-60 font-mono hidden md:inline">Alt+C</span>
                 </button>
                 <button
                   type="button"
@@ -1271,7 +1271,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Ítem Libre</span>
-                  <span className="text-[10px] opacity-75 font-mono hidden md:inline">Alt+N</span>
+                  <span className="text-xs opacity-75 font-mono hidden md:inline">Alt+N</span>
                 </button>
                 <button
                   type="button"
@@ -1641,12 +1641,12 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               title="Tocar para ver desglose completo de totales"
             >
               <div className="flex items-baseline gap-1.5">
-                <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Total:</span>
+                <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Total:</span>
                 <span className="text-base sm:text-lg font-black font-mono text-primary truncate">
                   {formatARS(totales.precioFinalGlobal)}
                 </span>
               </div>
-              <div className="text-[10px] sm:text-xs text-on-surface-variant font-medium truncate flex items-center gap-1.5">
+              <div className="text-xs text-on-surface-variant font-medium truncate flex items-center gap-1.5">
                 <span>{items.length} {items.length === 1 ? 'partida' : 'partidas'}</span>
                 <span>•</span>
                 <span>Costo: {formatARS(totales.costoGlobal)}</span>

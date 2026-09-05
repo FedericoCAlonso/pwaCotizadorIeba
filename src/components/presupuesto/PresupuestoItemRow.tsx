@@ -249,23 +249,23 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
         {/* Fila 2 en móvil / Lado derecho en escritorio: Badges de naturaleza y Botones contextuales */}
         <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0 flex-wrap sm:flex-nowrap">
           {item.naturaleza === 'servicio_profesional' ? (
-            <span className="inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 items-center gap-1">
-              <GraduationCap className="w-3 h-3" />
+            <span className="inline-flex text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 items-center gap-1">
+              <GraduationCap className="w-3.5 h-3.5" />
               <span>Servicio Profesional</span>
             </span>
           ) : item.naturaleza === 'servicio_tercerizado' ? (
-            <span className="inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 items-center gap-1">
-              <Truck className="w-3 h-3" />
+            <span className="inline-flex text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 items-center gap-1">
+              <Truck className="w-3.5 h-3.5" />
               <span>Servicio Tercerizado</span>
             </span>
           ) : isItemLibre ? (
-            <span className="inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 items-center gap-1">
-              <FileText className="w-3 h-3" />
+            <span className="inline-flex text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 items-center gap-1">
+              <FileText className="w-3.5 h-3.5" />
               <span>{hasSnapshots ? 'Desglosado' : 'Directo'}</span>
             </span>
           ) : (
-            <span className="inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 items-center gap-1">
-              <Layers className="w-3 h-3" />
+            <span className="inline-flex text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 items-center gap-1">
+              <Layers className="w-3.5 h-3.5" />
               <span>Catálogo</span>
             </span>
           )}
@@ -352,14 +352,14 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
         </div>
       </div>
 
-      {/* 2. Alcance Técnico y Chips M3 Tonales */}
+      {/* 2. Alcance Técnico y Chips Tonales */}
       <div className="space-y-2">
         <textarea
-          rows={2}
-          placeholder="Detalle técnico y alcance de la partida: marcas, materiales incluidos, desmonte, pruebas..."
+          rows={item.notasTecnicas || item.clausulaTecnica ? 2 : 1}
+          placeholder="Alcance técnico y notas: marcas, materiales incluidos, desmonte, pruebas..."
           value={item.notasTecnicas || item.clausulaTecnica || ''}
           onChange={(e) => onUpdateItemNotasTecnicas?.(index, e.target.value)}
-          className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-2xl px-3.5 py-2 text-xs sm:text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50 resize-y leading-relaxed transition shadow-2xs"
+          className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl sm:rounded-2xl px-3.5 py-2 text-xs sm:text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50 resize-y leading-relaxed transition shadow-2xs"
         />
 
         {/* Chips Tonales (Parámetros, Fórmulas y Exclusiones) */}
@@ -373,12 +373,12 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                 title="Clic para reajustar los parámetros de este trabajo tipo"
               >
                 <span className="font-bold flex items-center gap-1 shrink-0">
-                  <Sliders className="w-3 h-3" />
+                  <Sliders className="w-3.5 h-3.5" />
                   <span>Parámetros:</span>
                 </span>
                 <span className="flex flex-wrap items-center gap-1">
                   {Object.entries(item.valoresParametros || item.valoresVariables || {}).map(([key, val]) => (
-                    <span key={key} className="bg-primary/20 px-1.5 py-0.5 rounded text-[11px] font-semibold break-words">
+                    <span key={key} className="bg-primary/20 px-1.5 py-0.5 rounded text-xs font-semibold break-words">
                       {key}: {typeof val === 'number' ? (Number.isInteger(val) ? val : val.toFixed(2)) : val}
                     </span>
                   ))}
@@ -393,7 +393,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                 className="text-xs font-mono px-2.5 py-1 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 flex items-center gap-1.5 transition text-left max-w-full"
                 title="Clic para reajustar cálculo métrico de material"
               >
-                <Ruler className="w-3 h-3 shrink-0" />
+                <Ruler className="w-3.5 h-3.5 shrink-0" />
                 <span className="break-words truncate max-w-xs sm:max-w-md">{item.parametrosEstimacionMaterial.explicacionCalculo}</span>
               </button>
             )}
@@ -411,41 +411,43 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
         )}
       </div>
 
-      {/* 3. Matriz Numérica Equilibrada (Key Metrics Grid - 2 Columnas M3) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-surface-container/60 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-outline-variant/20 items-center">
-        {/* Columna Izquierda: Parámetros Físicos */}
-        <div className="space-y-1.5">
-          <span className="text-[11px] sm:text-xs uppercase font-bold text-on-surface-variant tracking-wider block">
-            Cómputo Físico & Entorno
-          </span>
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            {/* Cantidad */}
-            <div className="w-24 sm:w-28 flex-1 sm:flex-none">
-              <MathInput
-                value={item.cantidad}
-                formula={item.formulaCantidad}
-                onChange={(val, form) => onUpdateItemQuantity(index, val, form)}
-                suffix={item.unidad}
-                size="sm"
-                min={0.01}
-                step={0.1}
-              />
-            </div>
+      {/* 3. Strip Numérico Limpio y Ergonómico (Cómputo x Costo = Total Venta) */}
+      <div className="bg-surface-container/40 rounded-2xl p-3 sm:p-4 border border-outline-variant/20 flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
+        {/* Bloque Cómputo: Cantidad, Unidad, Condición de Obra */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap flex-1">
+          {/* Cantidad */}
+          <div className="flex flex-col gap-1 w-28 sm:w-32 flex-1 sm:flex-none">
+            <span className="text-xs font-bold text-on-surface-variant">Cantidad</span>
+            <MathInput
+              value={item.cantidad}
+              formula={item.formulaCantidad}
+              onChange={(val, form) => onUpdateItemQuantity(index, val, form)}
+              suffix={item.unidad}
+              size="sm"
+              min={0.01}
+              step={0.1}
+            />
+          </div>
 
-            {/* Unidad */}
+          {/* Unidad */}
+          <div className="flex flex-col gap-1 w-16 sm:w-20">
+            <span className="text-xs font-bold text-on-surface-variant text-center">Unidad</span>
             <input
               type="text"
               value={item.unidad}
               onChange={(e) => onUpdateItemUnit(index, e.target.value)}
-              className="w-14 sm:w-16 bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-2 py-1.5 text-xs sm:text-sm text-on-surface text-center font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-2xs min-h-[36px]"
+              className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl px-2 py-2 text-xs sm:text-sm text-on-surface text-center font-semibold focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-2xs min-h-[38px]"
               title="Unidad de medida (ej: u, boca, m, gl)"
             />
+          </div>
 
-            {/* Condición de Obra */}
+          {/* Condición de Obra */}
+          <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
+            <span className="text-xs font-bold text-on-surface-variant">Condición</span>
             <select
               value={item.condicionTrabajo || 'normal'}
               onChange={(e) => onUpdateItemCondicion(index, e.target.value as any)}
-              className="bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-2.5 pr-7 py-1.5 text-xs sm:text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/50 shadow-2xs flex-1 min-w-[100px] min-h-[36px]"
+              className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl px-2.5 pr-7 py-2 text-xs sm:text-sm text-on-surface font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-2xs min-h-[38px]"
               title="Condición de trabajo en obra (afecta rendimiento de MO)"
             >
               {condicionesTrabajo.map((c) => (
@@ -457,83 +459,78 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
           </div>
         </div>
 
-        {/* Columna Derecha: Valores Económicos y Venta Final */}
-        <div className="space-y-1.5 sm:border-l sm:border-outline-variant/20 sm:pl-3.5">
-          <div className="flex justify-between items-center text-[11px] sm:text-xs uppercase font-bold text-on-surface-variant tracking-wider">
-            <span>Costo Base</span>
-            <span className="text-primary font-bold">Precio Venta Final</span>
+        {/* Bloque Económico: Costo Base y Precio de Venta */}
+        <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-5 pt-2.5 lg:pt-0 border-t lg:border-t-0 lg:border-l border-outline-variant/20 lg:pl-5 shrink-0">
+          {/* Costo Directo / Insumos / Mano de Obra */}
+          <div className="flex flex-col gap-1 min-w-[110px]">
+            <span className="text-xs font-bold text-on-surface-variant">Costo Base</span>
+            {isItemLibre ? (
+              hasSnapshots ? (
+                <div className="flex flex-col gap-1 text-xs">
+                  <div className="flex items-center gap-1.5 font-mono">
+                    <span className="font-bold text-on-surface-variant">Insumos:</span>
+                    <span className="font-bold text-primary">{formatARS(calcItem.costoInsumos || item.costoInsumos || 0)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-on-surface-variant">M. Obra:</span>
+                    {item.manoObraSnapshot && item.manoObraSnapshot.length > 0 ? (
+                      <span className="font-bold text-primary font-mono" title="Calculado por horas en el desglose de roles">
+                        {formatARS(item.costoManoObra || 0)}
+                      </span>
+                    ) : (
+                      <div className="w-24 sm:w-28" title="Mano de obra o adicionales directos para esta partida">
+                        <MathInput
+                          value={item.costoManoObra || 0}
+                          onChange={(val) => onUpdateItemManoObraCost ? onUpdateItemManoObraCost(index, val) : onUpdateItemUnitDirectCost(index, val)}
+                          prefix="$"
+                          size="sm"
+                          min={0}
+                          step={100}
+                          placeholder="0"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="w-28 sm:w-32">
+                  <MathInput
+                    value={
+                      item.costoUnitario !== undefined
+                        ? item.costoUnitario
+                        : roundMoney((item.costoDirectoTotal || 0) / (item.cantidad || 1))
+                    }
+                    onChange={(val) => onUpdateItemUnitDirectCost(index, val)}
+                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                      if (e.key === 'Enter' && onEnterAtEnd) {
+                        e.preventDefault();
+                        onEnterAtEnd();
+                      }
+                    }}
+                    prefix="$"
+                    size="sm"
+                    min={0}
+                    step={1}
+                  />
+                </div>
+              )
+            ) : (
+              <div className="font-mono text-xs">
+                <span className="font-bold text-on-surface-variant block">Directo:</span>
+                <span className="font-bold text-on-surface text-sm">{formatARS(calcItem.costoDirectoTotal ?? item.costoDirectoTotal)}</span>
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            {/* Costo Directo Unitario */}
-            <div className="text-xs">
-              {isItemLibre ? (
-                hasSnapshots ? (
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5 text-on-surface-variant font-mono text-xs sm:text-[11px]">
-                      <span className="opacity-70 text-[11px] uppercase font-bold">Insumos:</span>
-                      <span className="font-bold text-primary">{formatARS(calcItem.costoInsumos || item.costoInsumos || 0)}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[11px] uppercase font-bold text-on-surface-variant opacity-70">M. Obra:</span>
-                      {item.manoObraSnapshot && item.manoObraSnapshot.length > 0 ? (
-                        <span className="font-bold text-primary font-mono text-xs sm:text-[11px]" title="Calculado por horas en el desglose de roles">
-                          {formatARS(item.costoManoObra || 0)}
-                        </span>
-                      ) : (
-                        <div className="w-20 sm:w-24" title="Mano de obra o adicionales directos para esta partida">
-                          <MathInput
-                            value={item.costoManoObra || 0}
-                            onChange={(val) => onUpdateItemManoObraCost ? onUpdateItemManoObraCost(index, val) : onUpdateItemUnitDirectCost(index, val)}
-                            prefix="$"
-                            size="sm"
-                            min={0}
-                            step={100}
-                            placeholder="0"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="w-24 sm:w-28">
-                    <MathInput
-                      value={
-                        item.costoUnitario !== undefined
-                          ? item.costoUnitario
-                          : roundMoney((item.costoDirectoTotal || 0) / (item.cantidad || 1))
-                      }
-                      onChange={(val) => onUpdateItemUnitDirectCost(index, val)}
-                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                        if (e.key === 'Enter' && onEnterAtEnd) {
-                          e.preventDefault();
-                          onEnterAtEnd();
-                        }
-                      }}
-                      prefix="$"
-                      size="sm"
-                      min={0}
-                      step={1}
-                    />
-                  </div>
-                )
-              ) : (
-                <div className="font-mono text-xs font-medium text-on-surface-variant">
-                  <span className="text-[11px] block opacity-70">Directo:</span>
-                  <span className="font-bold text-on-surface text-xs sm:text-sm">{formatARS(calcItem.costoDirectoTotal ?? item.costoDirectoTotal)}</span>
-                </div>
-              )}
+          {/* Total Venta Partida */}
+          <div className="bg-primary/10 border border-primary/25 px-3.5 py-2 rounded-xl flex flex-col items-end text-right shrink-0">
+            <span className="text-xs font-bold text-primary tracking-wider uppercase">Venta Total</span>
+            <div className="font-mono font-black text-lg sm:text-xl text-primary leading-tight">
+              {formatARS(calcItem.precioVentaClienteTotal ?? item.precioVentaTotal)}
             </div>
-
-            {/* Total Venta Partida Destacado */}
-            <div className="bg-primary/10 border border-primary/25 px-3 py-1.5 rounded-xl flex items-baseline gap-1.5 text-primary text-right ml-auto shrink-0">
-              <span className="font-mono font-black text-base sm:text-lg">
-                {formatARS(calcItem.precioVentaClienteTotal ?? item.precioVentaTotal)}
-              </span>
-              <span className="text-[11px] sm:text-xs font-mono text-primary/70">
-                ({formatARS(calcItem.precioVentaClienteUnitario ?? item.precioVentaUnitario)}/{item.unidad || 'u'})
-              </span>
-            </div>
+            <span className="text-xs font-mono text-primary/75">
+              ({formatARS(calcItem.precioVentaClienteUnitario ?? item.precioVentaUnitario)}/{item.unidad || 'u'})
+            </span>
           </div>
         </div>
       </div>
@@ -603,9 +600,9 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
               {/* Honorarios Snapshot */}
               {item.costoServicios !== undefined && item.costoServicios > 0 && (
                 <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20 space-y-1">
-                  <div className="flex justify-between items-center text-[11px] sm:text-xs uppercase font-bold text-purple-700 dark:text-purple-300 tracking-wider">
-                    <span className="flex items-center gap-1">
-                      <GraduationCap className="w-3.5 h-3.5" />
+                  <div className="flex justify-between items-center text-xs sm:text-sm font-bold text-purple-700 dark:text-purple-300 tracking-wide">
+                    <span className="flex items-center gap-1.5">
+                      <GraduationCap className="w-4 h-4" />
                       <span>Honorarios y Ensayos Técnicos</span>
                     </span>
                     <span className="font-mono text-sm font-bold">{formatARS(item.costoServicios)}</span>
@@ -621,7 +618,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
               {/* Insumos Snapshot */}
               {item.insumosSnapshot && item.insumosSnapshot.length > 0 && (
                 <div className="space-y-1.5">
-                  <div className="flex justify-between items-center text-[11px] sm:text-xs uppercase font-bold text-primary tracking-wider">
+                  <div className="flex justify-between items-center text-xs sm:text-sm font-bold text-primary tracking-wide">
                     <span>Materiales e Insumos ({item.insumosSnapshot.length})</span>
                     <span className="font-mono">{formatARS(item.costoInsumos)}</span>
                   </div>
@@ -716,7 +713,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
               {/* Mano de Obra Snapshot & Inline Adder */}
               {(isItemLibre || (item.manoObraSnapshot && item.manoObraSnapshot.length > 0)) && (
                 <div className="space-y-1.5 pt-2 border-t border-outline-variant/20">
-                  <div className="flex justify-between items-center text-[11px] sm:text-xs uppercase font-bold text-primary tracking-wider">
+                  <div className="flex justify-between items-center text-xs sm:text-sm font-bold text-primary tracking-wide">
                     <span>Mano de Obra ({item.manoObraSnapshot?.length || 0})</span>
                     <span className="font-mono">{formatARS(item.costoManoObra || 0)}</span>
                   </div>
@@ -845,7 +842,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
               {/* Servicios Tercerizados Snapshot */}
               {item.serviciosTercerizados && item.serviciosTercerizados.length > 0 && (
                 <div className="space-y-1.5 pt-2 border-t border-outline-variant/20">
-                  <div className="flex justify-between items-center text-[11px] sm:text-xs uppercase font-bold text-purple-600 dark:text-purple-400 tracking-wider">
+                  <div className="flex justify-between items-center text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-400 tracking-wide">
                     <span>Servicios Tercerizados ({item.serviciosTercerizados.length})</span>
                     <span className="font-mono">{formatARS(item.costoServiciosTercerizados || 0)}</span>
                   </div>
@@ -864,7 +861,7 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
 
               {/* APU Prorated Micro-Breakdown when GG absolutes exist */}
               {calcItem.ggAbsolutoProrrateado ? (
-                <div className="w-full flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs text-on-surface-variant font-mono pt-2 border-t border-outline-variant/15">
+                <div className="w-full flex flex-wrap items-center justify-between gap-2 text-xs text-on-surface-variant font-mono pt-2 border-t border-outline-variant/15">
                   <span>Incidencia: {((calcItem.incidencia || 0) * 100).toFixed(1)}%</span>
                   <span>GG Fijo Prorr.: +{formatARS(calcItem.ggAbsolutoProrrateado || 0)}</span>
                   <span>Base APU: {formatARS(calcItem.baseCostoItem || 0)}</span>

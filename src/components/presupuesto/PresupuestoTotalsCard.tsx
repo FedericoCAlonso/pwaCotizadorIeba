@@ -68,26 +68,26 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
     switch (destino) {
       case 'mano_obra':
         return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">
-            <HardHat className="w-3 h-3" /> MO
+          <span className="inline-flex items-center gap-1 text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-1 rounded-full">
+            <HardHat className="w-3.5 h-3.5" /> MO
           </span>
         );
       case 'materiales':
         return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
-            <Package className="w-3 h-3" /> Materiales
+          <span className="inline-flex items-center gap-1 text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2.5 py-1 rounded-full">
+            <Package className="w-3.5 h-3.5" /> Materiales
           </span>
         );
       case 'servicios':
         return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full">
-            <Truck className="w-3 h-3" /> Servicios
+          <span className="inline-flex items-center gap-1 text-xs font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2.5 py-1 rounded-full">
+            <Truck className="w-3.5 h-3.5" /> Servicios
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-slate-500/10 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full">
-            <Globe className="w-3 h-3" /> Indirecto
+          <span className="inline-flex items-center gap-1 text-xs font-semibold bg-slate-500/10 text-slate-600 dark:text-slate-400 px-2.5 py-1 rounded-full">
+            <Globe className="w-3.5 h-3.5" /> Indirecto
           </span>
         );
     }
@@ -123,7 +123,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
               </span>
               <span className="font-mono font-bold text-on-surface">{formatARS(totales.subtotalInsumosTotal)}</span>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] sm:text-xs text-on-surface-variant font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-on-surface-variant font-mono">
               <span>Base: {formatARS(totales.subtotalInsumosBase)}</span>
               {totales.gastosMaterialesTotal > 0 && (
                 <span className="text-blue-600 dark:text-blue-400 font-semibold">
@@ -151,7 +151,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
               </span>
               <span className="font-mono font-bold text-on-surface">{formatARS(totales.subtotalManoObraTotal)}</span>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] sm:text-xs text-on-surface-variant font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-on-surface-variant font-mono">
               <span>Base: {formatARS(totales.subtotalManoObraBase)}</span>
               {totales.ahorroSinergiaManoObra > 0 && (
                 <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -175,7 +175,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
               </span>
               <span className="font-mono font-bold text-on-surface">{formatARS(totales.subtotalServiciosTotal)}</span>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] sm:text-xs text-on-surface-variant font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-on-surface-variant font-mono">
               <span>Base: {formatARS(totales.subtotalServiciosBase)}</span>
               {totales.gastosServiciosTotal > 0 && (
                 <span className="text-purple-600 dark:text-purple-400 font-semibold">
@@ -194,7 +194,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
             <label className="text-xs sm:text-sm font-bold text-on-surface uppercase tracking-wider block">
               2. Gastos & Modificadores
             </label>
-            <span className="text-[11px] sm:text-xs text-on-surface-variant">
+            <span className="text-xs text-on-surface-variant">
               Directos (s/Rubro) o Indirectos (s/Costo Total C)
             </span>
           </div>
@@ -235,7 +235,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
 
         {gastosConfig.length === 0 ? (
           <div className="p-3.5 rounded-xl bg-surface-container/50 border border-dashed border-outline-variant/30 text-center space-y-2">
-            <p className="text-[11px] text-on-surface-variant">
+            <p className="text-xs text-on-surface-variant">
               Sin gastos aplicados en esta cotización.
             </p>
             <div className="flex items-center justify-center gap-2 flex-wrap pt-0.5">
@@ -245,7 +245,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
                   onClick={onOpenCatalogPicker}
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-secondary-container text-on-secondary-container text-xs font-bold hover:bg-secondary-container/80 transition-colors"
                 >
-                  <BookOpen className="w-3 h-3" />
+                  <BookOpen className="w-3.5 h-3.5" />
                   <span>Elegir de la Lista</span>
                 </button>
               )}
@@ -255,7 +255,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
                   onClick={onResetGastos}
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-high text-on-surface text-xs font-medium hover:bg-surface-container-highest transition-colors"
                 >
-                  <RotateCcw className="w-3 h-3" />
+                  <RotateCcw className="w-3.5 h-3.5" />
                   <span>Cargar por Defecto</span>
                 </button>
               )}
@@ -264,7 +264,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
                 onClick={() => onOpenGastoModal()}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
               >
-                <Plus className="w-3 h-3" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>Crear Nuevo</span>
               </button>
             </div>
@@ -302,10 +302,10 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
                         <button
                           type="button"
                           onClick={() => onOpenParametricGastoModal(g)}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold transition-colors shadow-2xs"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-colors shadow-2xs"
                           title="Ajustar variables de obra de este gasto"
                         >
-                          <Sliders className="w-3 h-3" />
+                          <Sliders className="w-3.5 h-3.5" />
                           <span>Variables ({g.parametros.length})</span>
                         </button>
                       )}
@@ -331,11 +331,11 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
                   </div>
 
                   {g.aplica && (
-                    <div className="flex justify-between items-center text-[11px] text-on-surface-variant font-mono pt-1 border-t border-outline-variant/10">
+                    <div className="flex justify-between items-center text-xs text-on-surface-variant font-mono pt-1 border-t border-outline-variant/10">
                       <span className="flex items-center gap-1 truncate">
                         {g.modalidad === 'porcentual' ? `${g.valor}%` : g.modalidad === 'parametrico' ? (
                           <span className="text-primary font-bold inline-flex items-center gap-0.5">
-                            <Zap className="w-2.5 h-2.5" /> Fórmula ⚡
+                            <Zap className="w-3 h-3" /> Fórmula ⚡
                           </span>
                         ) : 'Fijo'}:
                       </span>
@@ -361,7 +361,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
             <label className="text-xs sm:text-sm font-bold text-on-surface uppercase tracking-wider block">
               3. Beneficio (B)
             </label>
-            <span className="text-[11px] sm:text-xs text-on-surface-variant">
+            <span className="text-xs text-on-surface-variant">
               Calculado sobre Costo Directo + Indirectos ({formatARS(totales.costoTotalObra)})
             </span>
           </div>
@@ -398,7 +398,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
             <label className="text-xs sm:text-sm font-bold text-on-surface uppercase tracking-wider block">
               5. Impuestos ({tipoFactura})
             </label>
-            <span className="text-[11px] sm:text-xs text-on-surface-variant">Calculados sobre Subtotal (S), sin cascada</span>
+            <span className="text-xs text-on-surface-variant">Calculados sobre Subtotal (S), sin cascada</span>
           </div>
           <button
             type="button"
@@ -434,7 +434,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
                     onChange={(e) => onUpdateTaxPct(idx, parseFloat(e.target.value) || 0)}
                     className="w-16 bg-surface-container-highest border border-outline-variant/30 rounded-lg px-1.5 py-0.5 text-xs text-right font-mono"
                   />
-                  <span className="text-[10px] text-on-surface-variant font-bold">%</span>
+                  <span className="text-xs text-on-surface-variant font-bold">%</span>
 
                   {idx >= 2 && (
                     <button
@@ -477,7 +477,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
           <span className="text-xs sm:text-sm font-bold text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
             Coeficiente de Venta K = {totales.coeficienteK.toFixed(4)}
           </span>
-          <span className="text-[11px] sm:text-xs text-on-surface-variant">
+          <span className="text-xs text-on-surface-variant">
             Multiplicador aplicado a cada ítem para el cliente
           </span>
         </div>
