@@ -58,6 +58,12 @@ import { ClienteCombobox } from './presupuesto/ClienteCombobox';
 import { ActualizarPreciosModal } from './presupuesto/ActualizarPreciosModal';
 import { MaterialBrandModal, ApplyBrandPayload } from './presupuesto/MaterialBrandModal';
 import { usePresupuestoEditorViewModel } from '../viewmodels/usePresupuestoEditorViewModel';
+import { PresupuestoEditorTabBar } from './presupuesto/editor/PresupuestoEditorTabBar';
+import { ClienteTab } from './presupuesto/editor/ClienteTab';
+import { PartidasTab } from './presupuesto/editor/PartidasTab';
+import { CuadrillaTab } from './presupuesto/editor/CuadrillaTab';
+import { ComercialTab } from './presupuesto/editor/ComercialTab';
+import { PresupuestoLiveFooter } from './presupuesto/editor/PresupuestoLiveFooter';
 
 interface PresupuestoEditorProps {
   presupuestoId?: string;
@@ -91,6 +97,9 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     manoObraList,
     manoObraMap,
     totales,
+    sinergiaManoObra,
+    activeTab,
+    setActiveTab,
     clienteId,
     setClienteId,
     numero,
@@ -344,23 +353,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   // Keyboard shortcut & auto-focus management
   const itemTitleRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const prevItemsLength = useRef(items.length);
-  const [isTotalsCardVisible, setIsTotalsCardVisible] = useState(false);
   const [targetCapituloIdForModal, setTargetCapituloIdForModal] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    const el = document.getElementById('presupuesto-totales-card');
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsTotalsCardVisible(entry.isIntersecting);
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [items.length]);
 
   useEffect(() => {
     if (items.length > prevItemsLength.current) {
@@ -1194,470 +1187,118 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
-        {/* Left Column: Header Info & Items List (2 Cols) */}
-        <div className="lg:col-span-2 space-y-5 sm:space-y-6">
-          {/* Header Metadata Card */}
-          <div className="bg-surface-container-low rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 space-y-4 sm:space-y-5 border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow">
-            <h3 className="text-xs sm:text-sm font-bold text-primary uppercase tracking-wide">
-              Datos Generales & Tipo de Comprobante
-            </h3>
+      {/* 4-Stage Navigation Bar */}
+      <PresupuestoEditorTabBar
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        clienteNombre={selectedCliente?.nombre}
+        itemsCount={items.length}
+        cuadrillaBadge={sinergiaManoObra?.sonCompatibles ? `${sinergiaManoObra.operarios || operariosCuadrilla} op` : undefined}
+        precioFinalFormatted={totales.precioFinalGlobal > 0 ? formatARS(totales.precioFinalGlobal) : undefined}
+      />
 
-            <div className="space-y-4">
-              {/* Cliente Solicitante */}
-              <div>
-                <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">
-                  Cliente Solicitante
-                </label>
-                <ClienteCombobox
-                  clientes={clientes}
-                  selectedClienteId={clienteId}
-                  onSelectCliente={(newId) => setClienteId(newId)}
-                />
-              </div>
+      {/* Stage Tab Content */}
+      <div className="min-h-[420px]">
+        {activeTab === 'cliente' && (
+          <ClienteTab
+            clientes={clientes}
+            clienteId={clienteId}
+            setClienteId={setClienteId}
+            selectedCliente={selectedCliente}
+            tipoFactura={tipoFactura}
+            setTipoFactura={handleTipoFacturaChange}
+            validezDias={validezDias}
+            setValidezDias={setValidezDias}
+            config={config}
+            mostrarDolar={mostrarDolar}
+            setMostrarDolar={setMostrarDolar}
+            nombreDolar={nombreDolar}
+            setNombreDolar={setNombreDolar}
+            cotizacionDolar={cotizacionDolar}
+            setCotizacionDolar={setCotizacionDolar}
+            onNext={() => setActiveTab('partidas')}
+          />
+        )}
 
-              {/* Tipo de Factura & Validez Oferta */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">
-                    Tipo de Factura
-                  </label>
-                  <select
-                    value={tipoFactura}
-                    onChange={(e) => handleTipoFacturaChange(e.target.value as TipoFactura)}
-                    className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 pr-8 py-2.5 text-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow shadow-2xs"
-                  >
-                    {tiposFactura.map((tf) => (
-                      <option key={tf} value={tf}>
-                        {tf}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+        {activeTab === 'partidas' && (
+          <PartidasTab
+            items={items}
+            capitulos={capitulos}
+            totales={totales}
+            expandedItems={expandedItems}
+            onToggleExpandItem={handleToggleExpandItem}
+            itemTitleRefs={itemTitleRefs}
+            onOpenItemPicker={(capId) => {
+              setTargetCapituloIdForModal(capId);
+              setShowItemPickerModal(true);
+            }}
+            onAddCapitulo={handleAddCapitulo}
+            onUpdateCapitulo={handleUpdateCapitulo}
+            onRemoveCapitulo={handleRemoveCapitulo}
+            onAddDirectItem={handleAddDirectItem}
+            onUpdateItemCondicion={handleUpdateItemCondicion}
+            onUpdateItemQuantity={handleUpdateItemQuantity}
+            onUpdateItemUnit={handleUpdateItemUnit}
+            onUpdateItemUnitDirectCost={handleUpdateItemUnitDirectCost}
+            onUpdateItemDescription={handleUpdateItemDescription}
+            onUpdateItemNotasTecnicas={handleUpdateItemNotasTecnicas}
+            onRemoveItem={handleRemoveItem}
+            onSaveAsTemplate={handleSaveAsTemplateAction}
+            onOpenParametricModal={handleOpenParametricModalForExistingItem}
+            onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
+            onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
+            onOpenMaterialPicker={(itemIdx) => setMaterialPickerItemIndex(itemIdx)}
+            onOpenBrandModal={(itemIdx, matIdx) => setBrandModalTarget({ itemIndex: itemIdx, materialIndex: matIdx })}
+            onUpdateItemMaterialQuantity={handleUpdateItemMaterialQuantity}
+            onRemoveItemMaterial={handleRemoveItemMaterial}
+            onUpdateItemManoObraCost={handleUpdateItemManoObraCost}
+            onAddLaborRole={handleAddLaborToItem}
+            onUpdateItemLaborHours={handleUpdateItemLaborHours}
+            onRemoveItemLabor={handleRemoveItemLabor}
+            manoObraList={manoObraList}
+            condicionesTrabajo={condicionesTrabajo}
+            umbralMargenMinimo={config.umbralMargenMinimoAdvertencia ?? 20}
+            onNext={() => setActiveTab('cuadrilla')}
+            onPrev={() => setActiveTab('cliente')}
+          />
+        )}
 
-                <div>
-                  <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">
-                    Validez Oferta (Días)
-                  </label>
-                  <div className="relative">
-                    <NumericInput
-                      value={validezDias}
-                      onChange={(val) => setValidezDias(val as any)}
-                      fallbackOnBlur={config.validezDiasPorDefecto || 15}
-                      min={1}
-                      max={365}
-                      className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-sm text-on-surface font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow shadow-2xs"
-                    />
-                    <Calendar className="w-5 h-5 text-on-surface-variant absolute right-3 top-2.5 pointer-events-none" />
-                  </div>
-                </div>
-              </div>
-            </div>
+        {activeTab === 'cuadrilla' && (
+          <CuadrillaTab
+            items={items}
+            estrategia={estrategiaCuadrilla}
+            nivelConfianza={nivelConfianzaCuadrilla}
+            aplicarOptimizacion={aplicarOptimizacionCuadrilla}
+            operarios={operariosCuadrilla}
+            horasJornada={horasJornadaCuadrilla}
+            modoPlanificacion={modoPlanificacionCuadrilla}
+            diasObjetivo={diasObjetivoObra}
+            manoObraList={manoObraList}
+            onChangeEstrategia={setEstrategiaCuadrilla}
+            onChangeNivelConfianza={setNivelConfianzaCuadrilla}
+            onToggleOptimizacion={setAplicarOptimizacionCuadrilla}
+            onChangeOperarios={setOperariosCuadrilla}
+            onChangeHorasJornada={setHorasJornadaCuadrilla}
+            onChangeModoPlanificacion={setModoPlanificacionCuadrilla}
+            onChangeDiasObjetivo={setDiasObjetivoObra}
+            totales={totales}
+            gastosConfig={gastosConfig}
+            onOpenGastoModal={(g) => {
+              setEditingGasto(g || null);
+              setShowGastoModal(true);
+            }}
+            onOpenCatalogPicker={() => setShowGastoCatalogPickerModal(true)}
+            onOpenParametricGastoModal={(g) => setParametricGastoToAdjust(g)}
+            onToggleGasto={handleToggleGasto}
+            onRemoveGasto={handleRemoveGasto}
+            onResetGastos={handleResetGastos}
+            onNext={() => setActiveTab('comercial')}
+            onPrev={() => setActiveTab('partidas')}
+          />
+        )}
 
-            {/* Currency Option Toggle */}
-            <div className="bg-surface-variant p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
-              <label className="flex items-center gap-3 cursor-pointer text-sm font-medium text-on-surface">
-                <input
-                  type="checkbox"
-                  checked={mostrarDolar}
-                  onChange={(e) => setMostrarDolar(e.target.checked)}
-                  className="w-5 h-5 text-primary rounded border-outline bg-surface-container-highest focus:ring-primary"
-                />
-                <span>Mostrar Cotización Equivalente</span>
-              </label>
-
-              {mostrarDolar && (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={nombreDolar}
-                    onChange={(e) => setNombreDolar(e.target.value)}
-                    className="w-24 bg-surface-container-highest border-none rounded-lg px-3 py-1.5 text-sm text-on-surface focus:ring-2 focus:ring-primary/50"
-                  />
-                  <span className="text-sm text-on-surface-variant font-medium">$</span>
-                  <NumericInput
-                    value={cotizacionDolar}
-                    onChange={(val) => setCotizacionDolar(val as any)}
-                    fallbackOnBlur={config.dolarReferenciaValor || 1200}
-                    min={0}
-                    decimals={2}
-                    className="w-28 bg-surface-container-highest border-none rounded-lg px-3 py-1.5 text-sm text-on-surface font-mono focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Items / Partidas Section */}
-          <div className="bg-surface-container-low rounded-2xl sm:rounded-3xl p-3 sm:p-6 space-y-4 sm:space-y-5 border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-              <div>
-                <h3 className="text-xs sm:text-sm font-bold text-primary uppercase tracking-wide flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-primary shrink-0" />
-                  <span>Partidas de la Cotización ({items.length})</span>
-                </h3>
-                {capitulos.length > 0 && (
-                  <span className="text-xs text-on-surface-variant">
-                    {capitulos.length} {capitulos.length === 1 ? 'capítulo organizado' : 'capítulos organizados'}
-                  </span>
-                )}
-              </div>
-
-              {/* Unified Action Toolbar */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTargetCapituloIdForModal(undefined);
-                    setShowItemPickerModal(true);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl sm:rounded-full text-xs sm:text-sm font-bold transition-all shadow-xs min-h-[38px] active:scale-95"
-                  title="Agregar partida desde catálogo o como ítem libre (Alt + N)"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Agregar Partida</span>
-                  <span className="text-xs opacity-75 font-mono hidden md:inline">Alt+N</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleAddCapitulo()}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface rounded-xl sm:rounded-full text-xs sm:text-sm font-semibold transition-all border border-outline-variant/30 min-h-[38px]"
-                  title="Crear un nuevo capítulo o ambiente de obra"
-                >
-                  <FolderPlus className="w-4 h-4 text-primary" />
-                  <span>Nuevo Capítulo</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Alerta de Margen Bajo */}
-            {totales.totalARS > 0 && (
-              (() => {
-                const netMarginPct = ((totales.totalARS - totales.costoTotalObra) / totales.totalARS) * 100;
-                const umbralMinimo = config.umbralMargenMinimoAdvertencia ?? 20;
-                if (netMarginPct < umbralMinimo) {
-                  return (
-                    <div className="p-4 bg-amber-500/15 border border-amber-500/30 rounded-2xl text-amber-700 dark:text-amber-300 flex items-start gap-3 shadow-sm">
-                      <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                      <div className="text-xs space-y-1">
-                        <p className="font-bold text-sm">⚠️ Advertencia de Margen Bajo ({netMarginPct.toFixed(1)}%)</p>
-                        <p>
-                          El margen neto estimado de esta cotización está por debajo del umbral mínimo de seguridad configurado (<strong>{umbralMinimo}%</strong>).
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              })()
-            )}
-
-            {/* Items Rendering (With or Without Chapters) */}
-            {items.length === 0 ? (
-              <div className="text-center py-14 px-4 border-2 border-dashed border-outline-variant/40 rounded-3xl bg-surface-container-low space-y-3">
-                <Layers className="w-10 h-10 text-primary/60 mx-auto" />
-                <div className="space-y-1">
-                  <p className="text-base font-bold text-on-surface">Aún no agregaste partidas a esta cotización.</p>
-                  <p className="text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto">
-                    Buscá una tarea en tu catálogo con sus rendimientos o creá un ítem libre para cotizar.
-                  </p>
-                </div>
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTargetCapituloIdForModal(undefined);
-                      setShowItemPickerModal(true);
-                    }}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary rounded-full text-xs sm:text-sm font-bold shadow-xs transition-all active:scale-95"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Agregar Primera Partida</span>
-                    <span className="text-xs opacity-75 font-mono hidden md:inline">Alt+N</span>
-                  </button>
-                </div>
-              </div>
-            ) : capitulos.length === 0 ? (
-              <div className="space-y-3">
-                {items.map((item, idx) => {
-                  const isExpanded = !!expandedItems[item.id];
-                  const calcItem = totales.itemsCalculados[idx] || item;
-
-                  return (
-                    <PresupuestoItemRow
-                      key={item.id}
-                      item={item}
-                      index={idx}
-                      calcItem={calcItem}
-                      isExpanded={isExpanded}
-                      titleInputRef={(el) => {
-                        if (el) {
-                          itemTitleRefs.current.set(item.id, el);
-                        } else {
-                          itemTitleRefs.current.delete(item.id);
-                        }
-                      }}
-                      onEnterAtEnd={handleAddDirectItem}
-                      onToggleExpand={handleToggleExpandItem}
-                      onUpdateItemCondicion={handleUpdateItemCondicion}
-                      onUpdateItemQuantity={handleUpdateItemQuantity}
-                      onUpdateItemUnit={handleUpdateItemUnit}
-                      onUpdateItemUnitDirectCost={handleUpdateItemUnitDirectCost}
-                      onUpdateItemDescription={handleUpdateItemDescription}
-                      onUpdateItemNotasTecnicas={handleUpdateItemNotasTecnicas}
-                      onRemoveItem={handleRemoveItem}
-                      onSaveAsTemplate={handleSaveAsTemplateAction}
-                      onOpenParametricModal={handleOpenParametricModalForExistingItem}
-                      onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
-                      onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
-                      onOpenMaterialPicker={(itemIdx) => setMaterialPickerItemIndex(itemIdx)}
-                      onOpenMaterialBrandModal={(itemIdx, matIdx) => setBrandModalTarget({ itemIndex: itemIdx, materialIndex: matIdx })}
-                      onUpdateItemMaterialQuantity={handleUpdateItemMaterialQuantity}
-                      onRemoveItemMaterial={handleRemoveItemMaterial}
-                      onUpdateItemManoObraCost={handleUpdateItemManoObraCost}
-                      onAddLaborRole={handleAddLaborToItem}
-                      onUpdateItemLaborHours={handleUpdateItemLaborHours}
-                      onRemoveItemLabor={handleRemoveItemLabor}
-                      categoriasManoObra={manoObraList}
-                      condicionesTrabajo={condicionesTrabajo}
-                    />
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {capitulos.map((cap) => {
-                  const capItems = items
-                    .map((item, idx) => ({ item, originalIdx: idx }))
-                    .filter(({ item }) => item.capituloId === cap.id);
-                  const capTotal = totales.capitulosTotales?.[cap.id];
-
-                  return (
-                    <div
-                      key={cap.id}
-                      className="bg-surface-container/50 border border-outline-variant/30 rounded-2xl sm:rounded-3xl p-3 sm:p-5 space-y-3"
-                    >
-                      {/* Chapter Header */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/20 pb-3">
-                        <div className="flex items-center gap-2 flex-1 min-w-[160px] sm:min-w-[200px]">
-                          <Folder className="w-4 h-4 text-primary shrink-0" />
-                          <input
-                            type="text"
-                            value={cap.nombre}
-                            onChange={(e) => handleUpdateCapitulo(cap.id, e.target.value)}
-                            className="bg-transparent border-none p-0 text-sm font-bold text-on-surface focus:ring-0 w-full"
-                            placeholder="Nombre del Capítulo..."
-                          />
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {capTotal && (
-                            <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
-                              Subtotal: {formatARS(capTotal.precioVentaTotal)}
-                            </span>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveCapitulo(cap.id)}
-                            className="p-1.5 text-on-surface-variant hover:text-error rounded-full transition-colors"
-                            title="Eliminar Capítulo"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Chapter Items */}
-                      {capItems.length === 0 ? (
-                        <p className="text-xs text-on-surface-variant/70 italic py-2">
-                          Sin partidas en este capítulo.
-                        </p>
-                      ) : (
-                        <div className="space-y-3">
-                          {capItems.map(({ item, originalIdx }) => {
-                            const isExpanded = !!expandedItems[item.id];
-                            const calcItem = totales.itemsCalculados[originalIdx] || item;
-
-                            return (
-                              <PresupuestoItemRow
-                                key={item.id}
-                                item={item}
-                                index={originalIdx}
-                                calcItem={calcItem}
-                                isExpanded={isExpanded}
-                                titleInputRef={(el) => {
-                                  if (el) itemTitleRefs.current.set(item.id, el);
-                                  else itemTitleRefs.current.delete(item.id);
-                                }}
-                                onEnterAtEnd={() => handleAddCustomItem(cap.id)}
-                                onToggleExpand={handleToggleExpandItem}
-                                onUpdateItemCondicion={handleUpdateItemCondicion}
-                                onUpdateItemQuantity={handleUpdateItemQuantity}
-                                onUpdateItemUnit={handleUpdateItemUnit}
-                                onUpdateItemUnitDirectCost={handleUpdateItemUnitDirectCost}
-                                onUpdateItemDescription={handleUpdateItemDescription}
-                                onUpdateItemNotasTecnicas={handleUpdateItemNotasTecnicas}
-                                onRemoveItem={handleRemoveItem}
-                                onSaveAsTemplate={handleSaveAsTemplateAction}
-                                onOpenParametricModal={handleOpenParametricModalForExistingItem}
-                                onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
-                                onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
-                                onOpenMaterialPicker={(itemIdx) => setMaterialPickerItemIndex(itemIdx)}
-                                onOpenMaterialBrandModal={(itemIdx, matIdx) => setBrandModalTarget({ itemIndex: itemIdx, materialIndex: matIdx })}
-                                onUpdateItemMaterialQuantity={handleUpdateItemMaterialQuantity}
-                                onRemoveItemMaterial={handleRemoveItemMaterial}
-                                onUpdateItemManoObraCost={handleUpdateItemManoObraCost}
-                                onAddLaborRole={handleAddLaborToItem}
-                                onUpdateItemLaborHours={handleUpdateItemLaborHours}
-                                onRemoveItemLabor={handleRemoveItemLabor}
-                                categoriasManoObra={manoObraList}
-                                condicionesTrabajo={condicionesTrabajo}
-                              />
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* Add Item to this Chapter button */}
-                      <div className="pt-2 border-t border-outline-variant/15 flex items-center justify-end">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTargetCapituloIdForModal(cap.id);
-                            setShowItemPickerModal(true);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition-colors shadow-2xs"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>+ Partida en {cap.nombre || 'este Capítulo'}</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* Unassigned Items Block */}
-                {(() => {
-                  const unassigned = items
-                    .map((item, idx) => ({ item, originalIdx: idx }))
-                    .filter(({ item }) => !item.capituloId);
-
-                  if (unassigned.length === 0) return null;
-
-                  return (
-                    <div className="bg-surface-container/30 border border-dashed border-outline-variant/30 rounded-3xl p-4 sm:p-5 space-y-3">
-                      <div className="flex items-center justify-between border-b border-outline-variant/20 pb-2">
-                        <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
-                          Partidas Generales (Sin Capítulo Asignado)
-                        </span>
-                        <span className="text-xs font-mono font-bold text-on-surface-variant">
-                          {unassigned.length} {unassigned.length === 1 ? 'partida' : 'partidas'}
-                        </span>
-                      </div>
-
-                      <div className="space-y-3">
-                        {unassigned.map(({ item, originalIdx }) => {
-                          const isExpanded = !!expandedItems[item.id];
-                          const calcItem = totales.itemsCalculados[originalIdx] || item;
-
-                          return (
-                            <PresupuestoItemRow
-                              key={item.id}
-                              item={item}
-                              index={originalIdx}
-                              calcItem={calcItem}
-                              isExpanded={isExpanded}
-                              titleInputRef={(el) => {
-                                if (el) itemTitleRefs.current.set(item.id, el);
-                                else itemTitleRefs.current.delete(item.id);
-                              }}
-                              onEnterAtEnd={handleAddDirectItem}
-                              onToggleExpand={handleToggleExpandItem}
-                              onUpdateItemCondicion={handleUpdateItemCondicion}
-                              onUpdateItemQuantity={handleUpdateItemQuantity}
-                              onUpdateItemUnit={handleUpdateItemUnit}
-                              onUpdateItemUnitDirectCost={handleUpdateItemUnitDirectCost}
-                              onUpdateItemDescription={handleUpdateItemDescription}
-                              onUpdateItemNotasTecnicas={handleUpdateItemNotasTecnicas}
-                              onRemoveItem={handleRemoveItem}
-                              onSaveAsTemplate={handleSaveAsTemplateAction}
-                              onOpenParametricModal={handleOpenParametricModalForExistingItem}
-                              onOpenMaterialModal={handleOpenMaterialModalForExistingItem}
-                              onOpenInSituEditor={handleOpenInSituEditorForExistingItem}
-                              onOpenMaterialPicker={(itemIdx) => setMaterialPickerItemIndex(itemIdx)}
-                              onOpenMaterialBrandModal={(itemIdx, matIdx) => setBrandModalTarget({ itemIndex: itemIdx, materialIndex: matIdx })}
-                              onUpdateItemMaterialQuantity={handleUpdateItemMaterialQuantity}
-                              onRemoveItemMaterial={handleRemoveItemMaterial}
-                              onUpdateItemManoObraCost={handleUpdateItemManoObraCost}
-                              onAddLaborRole={handleAddLaborToItem}
-                              onUpdateItemLaborHours={handleUpdateItemLaborHours}
-                              onRemoveItemLabor={handleRemoveItemLabor}
-                              categoriasManoObra={manoObraList}
-                              condicionesTrabajo={condicionesTrabajo}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-
-          {/* Planificador de Cuadrilla & Sinergia de Obra */}
-          {items.length > 0 && (
-            <PlanificadorCuadrillaCard
-              items={items}
-              operarios={operariosCuadrilla}
-              horasEfectivasJornada={horasJornadaCuadrilla}
-              onSelectHorasEfectivasJornada={setHorasJornadaCuadrilla}
-              modoPlanificacion={modoPlanificacionCuadrilla}
-              onSelectModoPlanificacion={setModoPlanificacionCuadrilla}
-              diasObjetivo={diasObjetivoObra}
-              onSelectDiasObjetivo={setDiasObjetivoObra}
-              margenRiesgoPct={margenRiesgoPorcentaje}
-              nivelMargenRiesgo={nivelMargenRiesgo}
-              aplicarOptimizacion={aplicarOptimizacionCuadrilla}
-              onSelectOperarios={setOperariosCuadrilla}
-              onSelectMargenRiesgo={(pct, nivel) => {
-                setMargenRiesgoPorcentaje(pct);
-                if (nivel) setNivelMargenRiesgo(nivel);
-              }}
-              onToggleAplicarOptimizacion={setAplicarOptimizacionCuadrilla}
-              costosIndirectosCatalog={costosIndirectos}
-              costosIndirectosConfig={costosIndirectosConfig}
-              categoriasManoObra={manoObraList}
-              estrategiaSeleccionada={estrategiaCuadrilla}
-              nivelConfianza={nivelConfianzaCuadrilla}
-              onSelectEstrategia={setEstrategiaCuadrilla}
-              onSelectNivelConfianza={setNivelConfianzaCuadrilla}
-            />
-          )}
-
-          {/* Payment Conditions */}
-          <div className="bg-surface-container-low border border-outline-variant/10 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 space-y-3 shadow-sm">
-            <h3 className="text-xs sm:text-sm font-bold text-primary uppercase tracking-wide">
-              Condiciones de Pago & Esquema de Cobro
-            </h3>
-
-            <div>
-              <textarea
-                value={condicionesPagoTexto}
-                onChange={(e) => setCondicionesPagoTexto(e.target.value)}
-                rows={3}
-                className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-xl sm:rounded-2xl p-3 sm:p-4 text-xs sm:text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y shadow-2xs"
-                placeholder="Ingresa las condiciones comerciales y plazos de pago acordados con el cliente..."
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Calculations Sidebar */}
-        <div className="space-y-6">
-          <PresupuestoTotalsCard
+        {activeTab === 'comercial' && (
+          <ComercialTab
             totales={totales}
             tipoFactura={tipoFactura}
             gastosConfig={gastosConfig}
@@ -1666,81 +1307,44 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               setShowGastoModal(true);
             }}
             onOpenCatalogPicker={() => setShowGastoCatalogPickerModal(true)}
-            onResetGastos={handleResetGastos}
             onOpenParametricGastoModal={(g) => setParametricGastoToAdjust(g)}
             onToggleGasto={handleToggleGasto}
             onRemoveGasto={handleRemoveGasto}
+            onResetGastos={handleResetGastos}
             margenPorcentaje={margenPorcentaje}
             onMargenPorcentajeChange={setMargenPorcentaje}
+            margenRiesgoPorcentaje={margenRiesgoPorcentaje}
+            setMargenRiesgoPorcentaje={setMargenRiesgoPorcentaje}
+            nivelMargenRiesgo={nivelMargenRiesgo}
+            setNivelMargenRiesgo={setNivelMargenRiesgo}
             onToggleTax={handleToggleTax}
             onUpdateTaxPct={handleUpdateTaxPct}
             onRemoveTax={handleRemoveTax}
             onAddCustomTax={handleAddCustomTax}
             mostrarDolar={mostrarDolar}
             nombreDolar={nombreDolar}
+            condicionesPagoTexto={condicionesPagoTexto}
+            setCondicionesPagoTexto={setCondicionesPagoTexto}
             onEmitirClick={() => setShowEmitirModal(true)}
             onOpenListaMateriales={() => setShowListaMaterialesModal(true)}
+            onOpenWhatsApp={() => setShowWhatsAppModal(true)}
+            onOpenActualizarPrecios={handleRecalcularConPreciosVigentes}
+            onSaveDraft={() => handleSavePresupuesto('borrador')}
+            onPrev={() => setActiveTab('cuadrilla')}
           />
-        </div>
+        )}
       </div>
 
-      {/* Mobile Floating Quick-Summary Bar (Visible on mobile when items exist and Totals card is not yet in view) */}
-      {items.length > 0 && (
-        <aside
-          aria-label="Resumen flotante de cotización"
-          className={`lg:hidden fixed bottom-[68px] sm:bottom-20 left-2 right-2 sm:left-4 sm:right-4 z-30 transition-all duration-300 ${
-            !isTotalsCardVisible
-              ? 'opacity-100 translate-y-0 pointer-events-auto'
-              : 'opacity-0 translate-y-4 pointer-events-none'
-          }`}
-        >
-          <div className="bg-surface-container-high/95 backdrop-blur-md border border-outline-variant/40 rounded-2xl p-2.5 sm:p-3 shadow-xl flex items-center justify-between gap-2.5 text-on-surface">
-            <div
-              className="flex-1 min-w-0 cursor-pointer"
-              onClick={() => {
-                document.getElementById('presupuesto-totales-card')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              title="Tocar para ver desglose completo de totales"
-            >
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Total:</span>
-                <span className="text-base sm:text-lg font-black font-mono text-primary truncate">
-                  {formatARS(totales.precioFinalGlobal)}
-                </span>
-              </div>
-              <div className="text-xs text-on-surface-variant font-medium truncate flex items-center gap-1.5">
-                <span>{items.length} {items.length === 1 ? 'partida' : 'partidas'}</span>
-                <span>•</span>
-                <span>Costo: {formatARS(totales.costoGlobal)}</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  document.getElementById('presupuesto-totales-card')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="p-2 text-on-surface-variant hover:text-on-surface bg-surface-container hover:bg-surface-variant rounded-xl border border-outline-variant/30 transition-all min-h-[38px] min-w-[38px] flex items-center justify-center"
-                title="Ir al detalle de totales y cadena de precios"
-                aria-label="Ver totales"
-              >
-                <Calculator className="w-4 h-4 text-primary" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowEmitirModal(true)}
-                className="px-3 sm:px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs sm:text-sm rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-all min-h-[38px]"
-                title="Emitir presupuesto final"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>Emitir</span>
-              </button>
-            </div>
-          </div>
-        </aside>
-      )}
+      {/* Persistent Live Financial Footer */}
+      <PresupuestoLiveFooter
+        totales={totales}
+        margenPorcentaje={margenPorcentaje}
+        mostrarDolar={mostrarDolar}
+        nombreDolar={nombreDolar}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        onEmitirClick={() => setShowEmitirModal(true)}
+      />
 
       {/* Item Picker Modal */}
       <ItemPickerModal

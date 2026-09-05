@@ -100,6 +100,8 @@ function computeEditorStatePayload(state: {
   });
 }
 
+export type PresupuestoEditorTab = 'cliente' | 'partidas' | 'cuadrilla' | 'comercial';
+
 export interface UsePresupuestoEditorViewModelProps {
   presupuestoId?: string;
   initialClienteId?: string;
@@ -169,6 +171,10 @@ export function usePresupuestoEditorViewModel({
     mostrarItemizado: true,
     mostrarDetalleCostos: false,
     condicionesComerciales: ''
+  });
+
+  const [activeTab, setActiveTab] = useState<PresupuestoEditorTab>(() => {
+    return initialClienteId ? 'partidas' : 'cliente';
   });
 
   const [showItemPickerModal, setShowItemPickerModal] = useState<boolean>(false);
@@ -1695,6 +1701,10 @@ export function usePresupuestoEditorViewModel({
     manoObraList,
     manoObraMap,
     totales,
+
+    // Stage Tab State
+    activeTab,
+    setActiveTab,
 
     // Form States
     clienteId,

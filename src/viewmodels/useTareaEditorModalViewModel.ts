@@ -413,10 +413,12 @@ export function useTareaEditorModalViewModel({
     }));
 
     setTimeout(() => {
-      const el = document.getElementById(`param-id-${targetIdx}`) as HTMLInputElement;
-      if (el) {
-        el.focus();
-        el.select();
+      if (typeof document !== 'undefined') {
+        const el = document.getElementById(`param-id-${targetIdx}`) as HTMLInputElement;
+        if (el) {
+          el.focus();
+          el.select();
+        }
       }
     }, 60);
   };
@@ -599,10 +601,12 @@ export function useTareaEditorModalViewModel({
     }));
 
     setTimeout(() => {
-      const el = document.getElementById(`var-id-${targetIdx}`) as HTMLInputElement;
-      if (el) {
-        el.focus();
-        el.select();
+      if (typeof document !== 'undefined') {
+        const el = document.getElementById(`var-id-${targetIdx}`) as HTMLInputElement;
+        if (el) {
+          el.focus();
+          el.select();
+        }
       }
     }, 60);
   };
