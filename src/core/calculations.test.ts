@@ -2775,6 +2775,107 @@ describe('22. Motor de Actualización Integral de Precios y Tarifas', () => {
       expect(res.mensaje).toContain('No hay partidas');
     });
   });
+
+  describe('Ítems libres y partidas ad-hoc con Costo Base en calcularTotalesPresupuesto', () => {
+    it('calcula costo global, subtotal, precio final y venta unitaria para un ítem libre con costoUnitario', () => {
+      const freeItem: ItemPresupuesto = {
+        id: 'free-item-1',
+        tipoItem: 'item_libre',
+        descripcion: 'Reparación de acometida especial',
+        cantidad: 2,
+        unidad: 'gl',
+        costoUnitario: 25000,
+        costoInsumos: 0,
+        costoManoObra: 0,
+        costoServiciosTercerizados: 0,
+        costoDirectoTotal: 50000,
+        costoTotal: 50000,
+        precioVentaUnitario: 0,
+        precioVentaTotal: 0,
+        insumosSnapshot: [],
+        manoObraSnapshot: []
+      };
+
+      const result = calcularTotalesPresupuesto({
+        items: [freeItem],
+        beneficioPorcentaje: 20,
+        tipoFactura: 'Factura B',
+        impuestosDetalle: [{ id: 'iva', nombre: 'IVA', porcentaje: 21, aplica: true, discriminar: true, montoCalculado: 0 }]
+      });
+
+      expect(result.costoGlobal).toBe(50000);
+      expect(result.subtotalSinImpuestos).toBe(60000);
+      expect(result.precioFinalGlobal).toBe(72600);
+      expect(result.itemsCalculados).toHaveLength(1);
+
+      const calcItem = result.itemsCalculados[0];
+      expect(calcItem.costoDirectoTotal).toBe(50000);
+      expect(calcItem.costoUnitario).toBe(25000);
+      expect(calcItem.precioVentaTotal).toBe(result.precioFinalGlobal);
+      expect(calcItem.precioVentaClienteTotal).toBe(result.precioFinalGlobal);
+      expect(calcItem.precioVentaClienteUnitario).toBe(roundMoney(result.precioFinalGlobal / 2));
+      expect(calcItem.precioVentaUnitario).toBe(roundMoney(result.precioFinalGlobal / 2));
+    });
+
+    it('calcula correctamente cuando sólo se especifica costoDirectoTotal sin costoUnitario inicial', () => {
+      const freeItem: ItemPresupuesto = {
+        id: 'free-item-2',
+        tipoItem: 'item_libre',
+        descripcion: 'Servicio de urgencia nocturna',
+        cantidad: 1,
+        unidad: 'serv',
+        costoInsumos: 0,
+        costoManoObra: 0,
+        costoServiciosTercerizados: 0,
+        costoDirectoTotal: 30000,
+        precioVentaUnitario: 0,
+        precioVentaTotal: 0,
+        insumosSnapshot: [],
+        manoObraSnapshot: []
+      };
+
+      const result = calcularTotalesPresupuesto({
+        items: [freeItem],
+        beneficioPorcentaje: 15,
+        impuestosDetalle: []
+      });
+
+      expect(result.costoGlobal).toBe(30000);
+      expect(result.itemsCalculados[0].costoDirectoTotal).toBe(30000);
+      expect(result.itemsCalculados[0].costoUnitario).toBe(30000);
+      expect(result.itemsCalculados[0].precioVentaTotal).toBeGreaterThan(30000);
+      expect(result.itemsCalculados[0].precioVentaClienteUnitario).toBe(result.itemsCalculados[0].precioVentaTotal);
+    });
+
+    it('no reduce el costo base de un ítem libre por sinergia de cuadrilla', () => {
+      const freeItem: ItemPresupuesto = {
+        id: 'free-item-3',
+        tipoItem: 'item_libre',
+        descripcion: 'Montaje ad-hoc',
+        cantidad: 1,
+        unidad: 'u',
+        costoUnitario: 10000,
+        costoInsumos: 0,
+        costoManoObra: 0,
+        costoServiciosTercerizados: 0,
+        costoDirectoTotal: 10000,
+        precioVentaUnitario: 0,
+        precioVentaTotal: 0,
+        insumosSnapshot: [],
+        manoObraSnapshot: []
+      };
+
+      const resultConSinergia = calcularTotalesPresupuesto({
+        items: [freeItem],
+        factorSinergiaManoObra: 0.85,
+        impuestosDetalle: []
+      });
+
+      expect(resultConSinergia.costoGlobal).toBe(10000);
+      expect(resultConSinergia.itemsCalculados[0].costoDirectoTotal).toBe(10000);
+      expect(resultConSinergia.itemsCalculados[0].costoManoObra).toBe(10000);
+    });
+  });
 });
 
 

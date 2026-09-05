@@ -536,6 +536,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         ? roundMoney(costoInsumos + costoManoObra + safeNum(target.costoServiciosTercerizados))
         : roundMoney(unitDirectCost * safeQty);
 
+      const updatedCostoManoObra = hasSnapshots
+        ? costoManoObra
+        : Math.max(0, roundMoney(costoDirectoTotal - costoInsumos - safeNum(target.costoServiciosTercerizados)));
+
       next[index] = {
         ...target,
         cantidad: safeQty,
@@ -543,7 +547,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         insumosSnapshot: insumosActualizados,
         manoObraSnapshot: manoObraActualizada,
         costoInsumos,
-        costoManoObra,
+        costoManoObra: updatedCostoManoObra,
         costoDirectoTotal,
         costoUnitario: hasSnapshots ? roundMoney(costoDirectoTotal / safeQty) : unitDirectCost,
         costoTotal: costoDirectoTotal
@@ -562,6 +566,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         next[index] = {
           ...target,
           costoUnitario: null as any,
+          costoManoObra: 0,
           costoDirectoTotal: 0,
           costoTotal: 0
         };
@@ -572,9 +577,18 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       const qty = safeNum(target.cantidad) || 1;
       const costoDirectoTotal = roundMoney(safeCost * qty);
 
+      const hasSnapshots = (target.insumosSnapshot && target.insumosSnapshot.length > 0) ||
+                           (target.manoObraSnapshot && target.manoObraSnapshot.length > 0);
+      const costoInsumos = safeNum(target.costoInsumos);
+      const costoServicios = safeNum(target.costoServiciosTercerizados);
+      const costoManoObra = hasSnapshots
+        ? safeNum(target.costoManoObra)
+        : Math.max(0, roundMoney(costoDirectoTotal - costoInsumos - costoServicios));
+
       next[index] = {
         ...target,
         costoUnitario: safeCost,
+        costoManoObra,
         costoDirectoTotal,
         costoTotal: costoDirectoTotal
       };

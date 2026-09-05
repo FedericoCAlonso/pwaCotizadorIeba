@@ -1384,9 +1384,7 @@ export function calcularTotalesPresupuesto(params: {
       }
     }
 
-    const cManoObraTeorica = safeNum(item.costoManoObra);
-    const cManoObra = roundMoney(cManoObraTeorica * sinergiaFactor);
-
+    let cManoObraTeorica = safeNum(item.costoManoObra);
     let cServicios = 0;
     if (item.serviciosTercerizados && item.serviciosTercerizados.length > 0) {
       cServicios = roundMoney(
@@ -1397,6 +1395,20 @@ export function calcularTotalesPresupuesto(params: {
     } else {
       cServicios = safeNum(item.costoServiciosTercerizados);
     }
+
+    // Partida ad-hoc o ítem libre sin desglose explícito de snapshots
+    if (cInsumos === 0 && cManoObraTeorica === 0 && cServicios === 0) {
+      const cant = safeNum(item.cantidad) > 0 ? safeNum(item.cantidad) : 1;
+      const directTotal = safeNum(item.costoDirectoTotal) > 0
+        ? safeNum(item.costoDirectoTotal)
+        : (safeNum(item.costoUnitario) > 0 ? roundMoney(safeNum(item.costoUnitario) * cant) : 0);
+      if (directTotal > 0) {
+        cManoObraTeorica = directTotal;
+      }
+    }
+
+    const itemSinergiaFactor = (item.tipoItem === 'item_libre' || (!item.manoObraSnapshot?.length && !item.tareaTipoId)) ? 1.0 : sinergiaFactor;
+    const cManoObra = roundMoney(cManoObraTeorica * itemSinergiaFactor);
 
     subtotalInsumosBase = roundMoney(subtotalInsumosBase + cInsumos);
     subtotalManoObraTeorica = roundMoney(subtotalManoObraTeorica + cManoObraTeorica);
@@ -1657,7 +1669,7 @@ export function calcularTotalesPresupuesto(params: {
       }
     }
 
-    const cManoObra = roundMoney(safeNum(item.costoManoObra) * sinergiaFactor);
+    let cManoObraTeorica = safeNum(item.costoManoObra);
     let cServicios = 0;
     if (item.serviciosTercerizados && item.serviciosTercerizados.length > 0) {
       cServicios = roundMoney(item.serviciosTercerizados.reduce((acc, s) => acc + safeNum(s.costo), 0));
@@ -1666,6 +1678,20 @@ export function calcularTotalesPresupuesto(params: {
     } else {
       cServicios = safeNum(item.costoServiciosTercerizados);
     }
+
+    // Partida ad-hoc o ítem libre sin desglose explícito de snapshots
+    if (cInsumos === 0 && cManoObraTeorica === 0 && cServicios === 0) {
+      const cant = safeNum(item.cantidad) > 0 ? safeNum(item.cantidad) : 1;
+      const directTotal = safeNum(item.costoDirectoTotal) > 0
+        ? safeNum(item.costoDirectoTotal)
+        : (safeNum(item.costoUnitario) > 0 ? roundMoney(safeNum(item.costoUnitario) * cant) : 0);
+      if (directTotal > 0) {
+        cManoObraTeorica = directTotal;
+      }
+    }
+
+    const itemSinergiaFactor = (item.tipoItem === 'item_libre' || (!item.manoObraSnapshot?.length && !item.tareaTipoId)) ? 1.0 : sinergiaFactor;
+    const cManoObra = roundMoney(cManoObraTeorica * itemSinergiaFactor);
 
     // Prorrateo de gastos directos: combinación de gastos globales y gastos específicos del capítulo
     const capId = item.capituloId || 'sin_capitulo';
@@ -1743,8 +1769,12 @@ export function calcularTotalesPresupuesto(params: {
       impuestosItem,
       precioFinalItem,
       precioVentaClienteTotal: precioVentaTotal,
+      precioVentaClienteUnitario: precioVentaUnitario,
       precioVentaUnitario,
-      precioVentaTotal
+      precioVentaTotal,
+      costoUnitario: item.costoUnitario !== undefined && safeNum(item.costoUnitario) > 0
+        ? item.costoUnitario
+        : roundMoney(costoDirectoItem / cant)
     };
   });
 

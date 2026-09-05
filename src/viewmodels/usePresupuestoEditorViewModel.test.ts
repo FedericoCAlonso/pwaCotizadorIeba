@@ -279,5 +279,38 @@ describe('usePresupuestoEditorViewModel', () => {
     expect(db.presupuestos.put).not.toHaveBeenCalled();
     expect(mockDraftAutoSaved).not.toHaveBeenCalled();
   });
+
+  it('actualiza los totales de la cotización cuando se carga costo a un ítem libre', () => {
+    const { result } = renderHook(() =>
+      usePresupuestoEditorViewModel({
+        config: DEFAULT_APP_CONFIG,
+        onSaved: mockOnSaved
+      })
+    );
+
+    act(() => {
+      result.current.handleAddDirectItem(undefined, 'Servicio de acometida libre');
+    });
+
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.totales.costoGlobal).toBe(0);
+
+    // Actualizar el ítem con un costo directo base
+    act(() => {
+      const target = result.current.items[0];
+      result.current.handleUpdateItem(0, {
+        ...target,
+        costoUnitario: 35000,
+        costoDirectoTotal: 35000,
+        costoManoObra: 35000,
+        costoTotal: 35000
+      });
+    });
+
+    expect(result.current.totales.costoGlobal).toBe(35000);
+    expect(result.current.totales.itemsCalculados[0].costoDirectoTotal).toBe(35000);
+    expect(result.current.totales.precioFinalGlobal).toBeGreaterThan(35000);
+    expect(result.current.totales.itemsCalculados[0].precioVentaTotal).toBe(result.current.totales.precioFinalGlobal);
+  });
 });
 
