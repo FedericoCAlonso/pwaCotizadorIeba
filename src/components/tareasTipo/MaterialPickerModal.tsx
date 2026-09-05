@@ -360,7 +360,7 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
             {availableCategoryIds.length > 3 && (
               <div className="flex items-center justify-between text-xs text-on-surface-variant px-0.5">
                 <span className="font-semibold text-[11px] uppercase tracking-wider text-on-surface-variant/75">
-                  Categorías ({availableCategoryIds.length})
+                  Categorías
                 </span>
                 <button
                   type="button"
@@ -369,7 +369,7 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
                   aria-expanded={isCategoriesExpanded}
                   title={isCategoriesExpanded ? 'Mostrar en una sola fila desplazable' : 'Desplegar todas las categorías en cuadrícula'}
                 >
-                  <span>{isCategoriesExpanded ? 'Colapsar fila' : `Ver todas (${availableCategoryIds.length})`}</span>
+                  <span>{isCategoriesExpanded ? 'Colapsar fila' : 'Ver todas'}</span>
                   {isCategoriesExpanded ? (
                     <ChevronUp className="w-3.5 h-3.5" />
                   ) : (
@@ -390,19 +390,17 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedCategory('todas')}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 shrink-0 ${
+                  className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 shrink-0 ${
                     selectedCategory === 'todas'
                       ? 'bg-secondary-container text-on-secondary-container shadow-xs'
                       : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant'
                   }`}
                 >
                   <span>Todas</span>
-                  <span className="text-[10px] opacity-75 font-mono">({searchMatchedInsumos.length})</span>
                 </button>
 
                 {availableCategoryIds.map((catId) => {
                   const catName = categoriasMap.get(catId) || (catId === 'sin_categoria' ? 'Sin Categoría' : catId);
-                  const count = categoryCounts.get(catId) || 0;
                   const isSelected = selectedCategory === catId;
 
                   return (
@@ -410,14 +408,13 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
                       key={catId}
                       type="button"
                       onClick={() => setSelectedCategory(catId)}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 shrink-0 ${
+                      className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 shrink-0 ${
                         isSelected
                           ? 'bg-primary-container text-on-primary-container border border-primary/30 shadow-xs'
                           : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant'
                       }`}
                     >
                       <span>{catName}</span>
-                      <span className="text-[10px] opacity-75 font-mono">({count})</span>
                     </button>
                   );
                 })}

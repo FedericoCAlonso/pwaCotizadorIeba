@@ -130,7 +130,7 @@ export const TareasTipoManager: React.FC<TareasTipoManagerProps> = ({
           }`}
         >
           <BookOpen className="w-4 h-4" />
-          <span>Catálogo & Diseñador ({tareasTipo.length})</span>
+          <span>Catálogo & Diseñador</span>
         </button>
 
         <button

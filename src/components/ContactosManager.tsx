@@ -108,20 +108,6 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
     });
   }, [contactos, filterRole, searchQuery]);
 
-  // Counts for tabs
-  const counts = useMemo(() => {
-    let clis = 0;
-    let provs = 0;
-    let ambos = 0;
-    contactos.forEach((c) => {
-      const isCli = c.roles?.includes('cliente');
-      const isProv = c.roles?.includes('proveedor');
-      if (isCli) clis++;
-      if (isProv) provs++;
-      if (isCli && isProv) ambos++;
-    });
-    return { todos: contactos.length, cliente: clis, proveedor: provs, ambos };
-  }, [contactos]);
 
   // Handlers
   const handleOpenNewModal = (defaultRole: 'cliente' | 'proveedor' = 'cliente') => {
@@ -268,7 +254,7 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           <button
             type="button"
             onClick={() => setFilterRole('todos')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
               filterRole === 'todos'
                 ? 'bg-primary text-on-primary shadow-xs'
                 : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
@@ -276,15 +262,12 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           >
             <Users className="w-3.5 h-3.5" />
             <span>Todos</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20">
-              {counts.todos}
-            </span>
           </button>
 
           <button
             type="button"
             onClick={() => setFilterRole('cliente')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
               filterRole === 'cliente'
                 ? 'bg-primary text-on-primary shadow-xs'
                 : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
@@ -292,15 +275,12 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           >
             <Building className="w-3.5 h-3.5" />
             <span>Clientes</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20">
-              {counts.cliente}
-            </span>
           </button>
 
           <button
             type="button"
             onClick={() => setFilterRole('proveedor')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
               filterRole === 'proveedor'
                 ? 'bg-primary text-on-primary shadow-xs'
                 : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
@@ -308,15 +288,12 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           >
             <Truck className="w-3.5 h-3.5" />
             <span>Proveedores</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20">
-              {counts.proveedor}
-            </span>
           </button>
 
           <button
             type="button"
             onClick={() => setFilterRole('ambos')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
               filterRole === 'ambos'
                 ? 'bg-primary text-on-primary shadow-xs'
                 : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
@@ -324,9 +301,6 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>Ambos Roles</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20">
-              {counts.ambos}
-            </span>
           </button>
         </div>
 

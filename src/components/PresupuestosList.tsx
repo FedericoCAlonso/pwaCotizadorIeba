@@ -132,13 +132,13 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
           </div>
 
           {/* Status Filter Chips with invisible native horizontal scroll */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden w-full md:w-auto pb-1 md:pb-0 touch-pan-x overscroll-contain">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden w-full md:w-auto pb-1 md:pb-0 touch-pan-x overscroll-contain">
             {['todos', 'borrador', 'enviado', 'aprobado', 'rechazado', 'vencido'].map((st) => (
               <button
                 type="button"
                 key={st}
                 onClick={() => setSelectedEstado(st)}
-                className={`px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-semibold transition-colors capitalize whitespace-nowrap border min-h-[34px] ${
+                className={`px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-semibold transition-colors capitalize whitespace-nowrap border min-h-[32px] ${
                   selectedEstado === st
                     ? 'bg-secondary-container text-on-secondary-container border-transparent shadow-xs'
                     : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant border-outline-variant/30'

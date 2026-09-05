@@ -120,7 +120,7 @@ describe('MaterialPickerModal - Selección por Lote con Cantidad Compartida', ()
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('filtra dinámicamente los chips de categoría y sus conteos al escribir en la búsqueda', () => {
+  it('filtra dinámicamente los chips de categoría al escribir en la búsqueda', () => {
     render(
       <MaterialPickerModal
         isOpen={true}
@@ -130,24 +130,23 @@ describe('MaterialPickerModal - Selección por Lote con Cantidad Compartida', ()
       />
     );
 
-    // Inicialmente: 4 insumos en total (3 en cat1, 1 en cat2)
-    expect(screen.getByText(/Todas/i)).toBeDefined();
-    expect(screen.getByText('(4)')).toBeDefined();
-    expect(screen.getByText('(3)')).toBeDefined(); // cat1
-    expect(screen.getByText('(1)')).toBeDefined(); // cat2
+    // Inicialmente: insumos en cat1 y cat2
+    expect(screen.getByRole('button', { name: /Todas/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /^cat1$/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /^cat2$/i })).toBeDefined();
 
     // Buscar "corrugado"
     const searchInput = screen.getByPlaceholderText(/Buscar por nombre/i);
     fireEvent.change(searchInput, { target: { value: 'corrugado' } });
 
-    // Ahora sólo debe figurar la categoría cat2 con (1), y "Todas" con (1). cat1 ya no tiene coincidencias y se oculta.
-    expect(screen.getAllByText('(1)')).toHaveLength(2);
-    expect(screen.queryByText('(3)')).toBeNull();
+    // Ahora sólo debe figurar el chip de categoría cat2 y "Todas". cat1 ya no tiene coincidencias y se oculta.
+    expect(screen.getByRole('button', { name: /^cat2$/i })).toBeDefined();
+    expect(screen.queryByRole('button', { name: /^cat1$/i })).toBeNull();
 
     // Limpiar búsqueda
     fireEvent.change(searchInput, { target: { value: '' } });
-    expect(screen.getByText('(4)')).toBeDefined();
-    expect(screen.getByText('(3)')).toBeDefined();
+    expect(screen.getByRole('button', { name: /^cat1$/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /^cat2$/i })).toBeDefined();
   });
 
   it('permite alternar entre colapsar y expandir cuando hay más de 3 categorías', () => {
@@ -186,8 +185,8 @@ describe('MaterialPickerModal - Selección por Lote con Cantidad Compartida', ()
       />
     );
 
-    // Debe mostrar el botón "Ver todas (4)"
-    const toggleBtn = screen.getByRole('button', { name: /Ver todas \(4\)/i });
+    // Debe mostrar el botón "Ver todas"
+    const toggleBtn = screen.getByRole('button', { name: /Ver todas/i });
     expect(toggleBtn).toBeDefined();
 
     // Clic para expandir
@@ -196,7 +195,7 @@ describe('MaterialPickerModal - Selección por Lote con Cantidad Compartida', ()
 
     // Clic para colapsar
     fireEvent.click(screen.getByRole('button', { name: /Colapsar fila/i }));
-    expect(screen.getByRole('button', { name: /Ver todas \(4\)/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /Ver todas/i })).toBeDefined();
   });
 });
 

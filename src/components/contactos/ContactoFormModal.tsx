@@ -314,7 +314,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
                 : 'text-on-surface-variant hover:bg-surface-variant'
             }`}
           >
-            2. Personas ({formData.contactos.length})
+            2. Personas de Contacto
           </button>
           <button
             type="button"

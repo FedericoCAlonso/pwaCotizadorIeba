@@ -189,7 +189,7 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
         {contacto.contactos && contacto.contactos.length > 0 && (
           <div className="mt-3 bg-surface-container p-3 rounded-xl space-y-1.5">
             <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">
-              Personas ({contacto.contactos.length}):
+              Personas de contacto:
             </span>
             <div className="space-y-1">
               {contacto.contactos.map((p, idx) => (
@@ -221,7 +221,7 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
                     activeTab === 'presupuestos' ? 'bg-surface-container-highest text-primary shadow-2xs font-bold' : 'text-on-surface-variant'
                   }`}
                 >
-                  Cotizaciones ({contactPresupuestos.length})
+                  Cotizaciones
                 </button>
               )}
               {isProv && (
@@ -232,7 +232,7 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
                     activeTab === 'rfqs' ? 'bg-surface-container-highest text-primary shadow-2xs font-bold' : 'text-on-surface-variant'
                   }`}
                 >
-                  RFQs ({contactRFQs.length})
+                  RFQs
                 </button>
               )}
               <button

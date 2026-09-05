@@ -702,7 +702,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
             }`}
           >
             <Package className="w-4 h-4" />
-            <span>Materiales ({materiales.length})</span>
+            <span>Materiales</span>
           </button>
           <button
             type="button"
@@ -714,7 +714,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>Familias & Categorías ({categorias.length})</span>
+            <span>Familias & Categorías</span>
           </button>
         </div>
       </div>
@@ -828,16 +828,13 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedCategory('todas')}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                className={`px-3 py-1 sm:px-3.5 sm:py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs ${
                   selectedCategory === 'todas'
                     ? 'bg-primary text-on-primary font-bold'
                     : 'bg-surface-container-high hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-outline-variant/30'
                 }`}
               >
                 <span>Todas</span>
-                <span className="text-[10px] opacity-75 font-mono">
-                  ({filterContext ? filteredMateriales.length : materiales.length})
-                </span>
               </button>
 
               {categorias.map((cat) => {
@@ -852,14 +849,13 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                     key={cat.id}
                     type="button"
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                    className={`px-3 py-1 sm:px-3.5 sm:py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs ${
                       isSelected
                         ? 'bg-primary-container text-on-primary-container border border-primary/30 font-bold'
                         : 'bg-surface-container-high hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-outline-variant/30'
                     }`}
                   >
                     <span>{cat.nombre}</span>
-                    <span className="text-[10px] opacity-75 font-mono">({count})</span>
                   </button>
                 );
               })}
@@ -876,7 +872,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                       onChange={(e) => setSelectedCategory(e.target.value)}
                       className="w-full pl-3 pr-8 py-2 sm:py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 appearance-none has-custom-icon min-h-[40px] sm:min-h-[36px] cursor-pointer"
                     >
-                      <option value="todas">Todas las Categorías ({materiales.length})</option>
+                      <option value="todas">Todas las Categorías</option>
                       {(() => {
                         const groups = categorias.reduce((acc, c) => {
                           const superName = c.supercategoriaNombre || 'General / Otros';
@@ -887,14 +883,11 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
 
                         return Object.entries(groups).map(([supercat, cats]) => (
                           <optgroup key={supercat} label={supercat}>
-                            {cats.map((c) => {
-                              const count = materiales.filter((m) => m.categoriaId === c.id).length;
-                              return (
-                                <option key={c.id} value={c.id}>
-                                  {c.nombre} ({count})
-                                </option>
-                              );
-                            })}
+                            {cats.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.nombre}
+                              </option>
+                            ))}
                           </optgroup>
                         ));
                       })()}
