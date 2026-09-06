@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Plus,
-  FolderPlus,
   Folder,
   Trash2,
   AlertCircle,
@@ -106,37 +105,15 @@ export const PartidasTab: React.FC<PartidasTabProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            type="button"
-            onClick={() => onOpenItemPicker(undefined)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold transition-all shadow-xs min-h-[46px] cursor-pointer"
-            title="Agregar partida desde catálogo o como ítem libre"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Agregar Partida</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onAddDirectItem(undefined)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold transition-all border border-outline-variant/30 min-h-[46px] cursor-pointer"
-            title="Agregar renglón libre rápido"
-          >
-            <Plus className="w-4 h-4 text-primary" />
-            <span>+ Ítem Libre</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onAddCapitulo}
-            className="flex items-center gap-2 px-4 py-2.5 bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold transition-all border border-outline-variant/30 min-h-[46px] cursor-pointer"
-            title="Crear un nuevo capítulo o ambiente de obra"
-          >
-            <FolderPlus className="w-4 h-4 text-primary" />
-            <span>Nuevo Capítulo</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => onOpenItemPicker(undefined)}
+          className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold transition-all shadow-xs min-h-[46px] cursor-pointer active:scale-95"
+          title="Agregar partida desde catálogo, crear ítem libre o nuevo capítulo (Alt + N)"
+        >
+          <Plus className="w-5 h-5" />
+          <span>Agregar Partida</span>
+        </button>
       </div>
 
       {/* Alerta de Margen Bajo */}
@@ -170,21 +147,14 @@ export const PartidasTab: React.FC<PartidasTabProps> = ({
               Buscá una tarea en tu catálogo con sus rendimientos precalculados o creá un ítem libre para cotizar al instante.
             </p>
           </div>
-          <div className="pt-2 flex items-center justify-center gap-3 flex-wrap">
+          <div className="pt-2 flex items-center justify-center">
             <button
               type="button"
               onClick={() => onOpenItemPicker(undefined)}
-              className="inline-flex items-center gap-2 px-5 py-3 bg-primary text-on-primary rounded-2xl text-sm sm:text-base font-bold shadow-xs hover:bg-primary/90 transition-all cursor-pointer min-h-[46px]"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-on-primary rounded-2xl text-sm sm:text-base font-bold shadow-xs transition-all cursor-pointer min-h-[46px] active:scale-95"
             >
-              <Plus className="w-4 h-4" />
-              <span>Explorar Catálogo</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onAddDirectItem(undefined)}
-              className="inline-flex items-center gap-2 px-5 py-3 bg-surface-container-highest text-on-surface rounded-2xl text-sm sm:text-base font-semibold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer min-h-[46px]"
-            >
-              <span>+ Ítem Libre Directo</span>
+              <Plus className="w-5 h-5" />
+              <span>Agregar Primera Partida</span>
             </button>
           </div>
         </div>

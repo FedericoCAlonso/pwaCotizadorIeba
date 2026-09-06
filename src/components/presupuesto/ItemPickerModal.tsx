@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Layers, X, Search, Sliders, Plus, GraduationCap, Truck } from 'lucide-react';
+import { Layers, X, Search, Sliders, Plus, GraduationCap, Truck, FolderPlus } from 'lucide-react';
 import { TareaTipo, Insumo, CategoriaManoDeObra } from '../../core/types';
 import { calcularCostoTareaTipo, formatARS } from '../../core/calculations';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
@@ -13,6 +13,7 @@ interface ItemPickerModalProps {
   onSelectTarea: (tarea: TareaTipo) => void;
   onConfigureParametricTarea?: (tarea: TareaTipo) => void;
   onAddCustomItem?: (descripcion: string) => void;
+  onAddCapitulo?: (nombre?: string) => void;
 }
 
 export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
@@ -23,7 +24,8 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
   manoObraMap,
   onSelectTarea,
   onConfigureParametricTarea,
-  onAddCustomItem
+  onAddCustomItem,
+  onAddCapitulo
 }) => {
   useEscapeKey(isOpen, onClose);
   const [searchTerm, setSearchTerm] = useState('');
@@ -229,54 +231,112 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-3 sm:p-5 overflow-y-auto space-y-3 flex-1">
-          {/* Opción Dinámica: Crear como Ítem Libre */}
+          {/* Opción Dinámica: Crear como Ítem Libre o Capítulo */}
           {hasSearch ? (
-            <div
-              onClick={() => handleCreateCustom(searchTerm.trim())}
-              className={`p-3 sm:p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 cursor-pointer group shadow-2xs ${
-                selectedIndex === -1
-                  ? 'bg-primary/15 border-primary shadow-sm ring-2 ring-primary/30'
-                  : 'bg-primary/5 border-dashed border-primary/40 hover:bg-primary/10'
-              }`}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="p-2 rounded-xl bg-primary text-on-primary shrink-0 shadow-2xs">
-                  <Plus className="w-4 h-4" />
+            <div className="space-y-2">
+              <div
+                onClick={() => handleCreateCustom(searchTerm.trim())}
+                className={`p-3 sm:p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 cursor-pointer group shadow-2xs ${
+                  selectedIndex === -1
+                    ? 'bg-primary/15 border-primary shadow-sm ring-2 ring-primary/30'
+                    : 'bg-primary/5 border-dashed border-primary/40 hover:bg-primary/10'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="p-2 rounded-xl bg-primary text-on-primary shrink-0 shadow-2xs">
+                    <Plus className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold uppercase tracking-wider text-primary block">
+                      Crear como Ítem Libre
+                    </span>
+                    <span className="text-sm sm:text-base font-bold text-on-surface truncate block">
+                      "{searchTerm.trim()}"
+                    </span>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <span className="text-xs font-bold uppercase tracking-wider text-primary block">
-                    Crear como Ítem Libre
-                  </span>
-                  <span className="text-sm sm:text-base font-bold text-on-surface truncate block">
-                    "{searchTerm.trim()}"
-                  </span>
-                </div>
+                <span className="text-xs font-mono font-bold text-primary bg-surface-container px-2.5 py-1 rounded-lg border border-outline-variant/30 shrink-0">
+                  {filteredTareas.length === 0 || selectedIndex === -1 ? 'Enter ↵' : 'Shift+Enter'}
+                </span>
               </div>
-              <span className="text-xs font-mono font-bold text-primary bg-surface-container px-2.5 py-1 rounded-lg border border-outline-variant/30 shrink-0">
-                {filteredTareas.length === 0 || selectedIndex === -1 ? 'Enter ↵' : 'Shift+Enter'}
-              </span>
+
+              {onAddCapitulo && (
+                <div
+                  onClick={() => {
+                    onAddCapitulo(searchTerm.trim());
+                    onClose();
+                  }}
+                  className="p-2.5 sm:p-3 rounded-2xl bg-surface-container-high/60 hover:bg-surface-container-highest border border-outline-variant/30 transition-all flex items-center justify-between gap-3 cursor-pointer group text-on-surface"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="p-1.5 rounded-xl bg-secondary/15 text-secondary shrink-0 group-hover:bg-secondary group-hover:text-on-secondary transition-colors">
+                      <FolderPlus className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold uppercase tracking-wider text-secondary block">
+                        Crear como Capítulo / Ambiente
+                      </span>
+                      <span className="text-xs sm:text-sm font-semibold text-on-surface truncate block">
+                        "{searchTerm.trim()}"
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-secondary bg-secondary/10 px-2.5 py-1 rounded-lg shrink-0">
+                    + Capítulo
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
-            <div
-              onClick={() => handleCreateCustom('')}
-              className="p-3 rounded-2xl bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant/30 transition-all flex items-center justify-between gap-3 cursor-pointer text-on-surface"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-xl bg-primary/10 text-primary shrink-0">
-                  <Plus className="w-4 h-4" />
+            <div className={`grid gap-2.5 ${onAddCapitulo ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+              <div
+                onClick={() => handleCreateCustom('')}
+                className="p-3 rounded-2xl bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant/30 transition-all flex items-center justify-between gap-2.5 cursor-pointer text-on-surface group"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0 group-hover:bg-primary group-hover:text-on-primary transition-colors">
+                    <Plus className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs sm:text-sm font-bold block truncate">
+                      Partida en Blanco (Ítem Libre)
+                    </span>
+                    <span className="text-xs text-on-surface-variant block truncate">
+                      Cargar descripción y costos directo
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-xs sm:text-sm font-bold block">
-                    Crear Partida en Blanco (Ítem Libre)
-                  </span>
-                  <span className="text-xs text-on-surface-variant block">
-                    Cargar directamente descripción, materiales o mano de obra
-                  </span>
-                </div>
+                <span className="text-xs font-mono text-on-surface-variant opacity-60 hidden sm:inline shrink-0">
+                  Shift+↵
+                </span>
               </div>
-              <span className="text-xs font-mono text-on-surface-variant opacity-70 hidden sm:inline">
-                Shift + Enter
-              </span>
+
+              {onAddCapitulo && (
+                <div
+                  onClick={() => {
+                    onAddCapitulo();
+                    onClose();
+                  }}
+                  className="p-3 rounded-2xl bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant/30 transition-all flex items-center justify-between gap-2.5 cursor-pointer text-on-surface group"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="p-2 rounded-xl bg-secondary/15 text-secondary shrink-0 group-hover:bg-secondary group-hover:text-on-secondary transition-colors">
+                      <FolderPlus className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs sm:text-sm font-bold block truncate">
+                        Nuevo Capítulo / Ambiente
+                      </span>
+                      <span className="text-xs text-on-surface-variant block truncate">
+                        Sección para agrupar partidas
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded-lg shrink-0">
+                    + Agrupar
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

@@ -1352,6 +1352,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         onSelectTarea={(tarea) => handleAddTareaTipoItem(tarea, 1, targetCapituloIdForModal)}
         onConfigureParametricTarea={(tarea) => handleOpenParametricModalForNewTask(tarea, targetCapituloIdForModal)}
         onAddCustomItem={(desc) => handleAddDirectItem(targetCapituloIdForModal, desc)}
+        onAddCapitulo={handleAddCapitulo}
       />
 
       {/* Parametric Job Dynamic Variables & Formulas Modal */}
