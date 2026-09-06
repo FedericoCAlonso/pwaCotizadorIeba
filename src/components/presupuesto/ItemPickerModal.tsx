@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Layers, X, Search, Sliders, Plus, GraduationCap, Truck, FolderPlus } from 'lucide-react';
+import { Layers, X, Search, Sliders, Plus, GraduationCap, Truck, FolderPlus, ChevronDown, ChevronUp } from 'lucide-react';
 import { TareaTipo, Insumo, CategoriaManoDeObra } from '../../core/types';
 import { calcularCostoTareaTipo, formatARS } from '../../core/calculations';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
@@ -31,6 +31,7 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoria, setSelectedCategoria] = useState<string>('todas');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [expandedTareaId, setExpandedTareaId] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -60,6 +61,7 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
       setSearchTerm('');
       setSelectedCategoria('todas');
       setSelectedIndex(0);
+      setExpandedTareaId(null);
       setTimeout(() => {
         searchInputRef.current?.focus();
       }, 50);
@@ -67,12 +69,13 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
+    setExpandedTareaId(null);
     if (searchTerm.trim() && filteredTareas.length === 0) {
       setSelectedIndex(-1);
     } else {
       setSelectedIndex(0);
     }
-  }, [searchTerm, filteredTareas.length]);
+  }, [searchTerm, selectedCategoria, filteredTareas.length]);
 
   const handleSelect = (tarea: TareaTipo) => {
     const isParametricJob = Boolean(
@@ -364,8 +367,8 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
             </div>
           ) : (
             filteredTareas.map((tarea, idx) => {
-              const cost = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap);
               const isHighlighted = idx === selectedIndex;
+              const isExpanded = expandedTareaId === tarea.id;
               const isParametrico = Boolean(
                 tarea.esParametrico ||
                 (tarea.parametros && tarea.parametros.length > 0) ||
@@ -379,103 +382,130 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
                   ref={(el) => {
                     itemRefs.current[idx] = el;
                   }}
-                  onClick={() => handleSelect(tarea)}
-                  className={`border p-3.5 sm:p-4 rounded-2xl cursor-pointer transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 group shadow-2xs ${
+                  className={`border rounded-2xl transition-all shadow-2xs overflow-hidden ${
                     isHighlighted
-                      ? 'bg-primary/10 border-primary shadow-sm ring-1 ring-primary/40'
-                      : 'bg-surface-container-low border-outline-variant/20 hover:border-primary/50 hover:bg-surface-container/80'
+                      ? 'bg-primary/10 border-primary ring-1 ring-primary/40'
+                      : isExpanded
+                      ? 'bg-surface-container border-primary/40 shadow-xs'
+                      : 'bg-surface-container-low border-outline-variant/20 hover:border-primary/40 hover:bg-surface-container-high/60'
                   }`}
                 >
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-semibold text-on-tertiary-container bg-tertiary-container px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                        {tarea.categoria}
-                      </span>
-                      {tarea.naturaleza === 'servicio_profesional' ? (
-                        <span className="text-xs font-bold text-purple-800 dark:text-purple-200 bg-purple-500/20 border border-purple-500/30 px-2 py-0.5 rounded-md flex items-center gap-1 select-none font-mono">
-                          <GraduationCap className="w-3.5 h-3.5" />
-                          <span>Servicio Profesional</span>
+                  {/* Fila compacta: solo nombre e indicadores mínimos. Tocar para desplegar */}
+                  <div
+                    onClick={() => setExpandedTareaId((prev) => (prev === tarea.id ? null : tarea.id))}
+                    className="px-3.5 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-3 cursor-pointer select-none group"
+                    title={isExpanded ? 'Toca para contraer' : 'Toca para ver detalles de insumos y mano de obra'}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="text-on-surface-variant group-hover:text-primary transition-colors shrink-0">
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4 text-primary" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </div>
+
+                      <h4 className="font-bold text-sm sm:text-base text-on-surface group-hover:text-primary transition-colors truncate">
+                        {tarea.nombre}
+                      </h4>
+
+                      {tarea.categoria && (
+                        <span className="text-[11px] sm:text-xs font-semibold text-on-tertiary-container bg-tertiary-container/80 px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 hidden sm:inline">
+                          {tarea.categoria}
                         </span>
-                      ) : tarea.naturaleza === 'servicio_tercerizado' ? (
-                        <span className="text-xs font-bold text-amber-800 dark:text-amber-200 bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded-md flex items-center gap-1 select-none font-mono">
-                          <Truck className="w-3.5 h-3.5" />
-                          <span>Tercerizado</span>
+                      )}
+
+                      {isParametrico && (
+                        <span className="text-[11px] font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded shrink-0 font-mono">
+                          Paramétrico
                         </span>
-                      ) : isParametrico ? (
-                        <span className="text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-md flex items-center gap-1 select-none font-mono">
-                          <Sliders className="w-3.5 h-3.5" />
-                          <span>Paramétrico</span>
-                        </span>
-                      ) : null}
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2.5 shrink-0">
                       <span className="text-xs font-mono text-on-surface-variant font-bold">
                         /{tarea.unidad || 'u'}
                       </span>
-                    </div>
 
-                    <h4 className="font-bold text-sm sm:text-base text-on-surface group-hover:text-primary transition-colors leading-snug">
-                      {tarea.nombre}
-                    </h4>
-
-                    <div className="text-xs text-on-surface-variant flex items-center gap-3">
-                      {tarea.naturaleza === 'servicio_profesional' ? (
-                        <span className="font-medium text-purple-700 dark:text-purple-300">
-                          Honorarios: {formatARS(cost.costoServiciosUnitario || 0)}
-                          {cost.insumosSnapshotUnitario.length > 0 ? ` • Insumos: ${cost.insumosSnapshotUnitario.length}` : ''}
-                        </span>
-                      ) : (
-                        <>
-                          <span>Insumos: {cost.insumosSnapshotUnitario.length}</span>
-                          <span>•</span>
-                          <span>MO: {cost.manoObraSnapshotUnitario.reduce((acc, m) => acc + m.horasTotales, 0)} hs</span>
-                        </>
-                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelect(tarea);
+                        }}
+                        className="px-3 py-1.5 bg-primary/10 hover:bg-primary text-primary hover:text-on-primary rounded-xl text-xs font-bold transition-all flex items-center gap-1 active:scale-95 shadow-2xs cursor-pointer min-h-[34px]"
+                        title={isParametrico ? 'Configurar y agregar' : 'Agregar partida directamente'}
+                      >
+                        {isParametrico ? <Sliders className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                        <span className="hidden sm:inline">{isParametrico ? 'Configurar' : 'Agregar'}</span>
+                      </button>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
-                    <div className="text-left sm:text-right">
-                      <span className="text-xs text-on-surface-variant uppercase tracking-wider block font-semibold">
-                        Costo Directo
-                      </span>
-                      <span className="font-mono text-base font-bold text-primary">
-                        {formatARS(cost.costoDirectoUnitario)}
-                      </span>
-                    </div>
+                  {/* Detalle ampliado: se calcula y muestra ÚNICAMENTE al tocar la fila */}
+                  {isExpanded && (() => {
+                    const cost = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap);
+                    return (
+                      <div className="px-4 pb-3.5 pt-2 border-t border-outline-variant/15 bg-surface-container-lowest/70 space-y-3 animate-in fade-in duration-150">
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-0.5">
+                          <div className="flex items-center gap-2 flex-wrap text-xs text-on-surface-variant">
+                            {tarea.categoria && (
+                              <span className="sm:hidden font-semibold text-on-tertiary-container bg-tertiary-container/80 px-2 py-0.5 rounded-full uppercase text-[11px]">
+                                {tarea.categoria}
+                              </span>
+                            )}
+                            {tarea.naturaleza === 'servicio_profesional' ? (
+                              <span className="font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1 bg-purple-500/15 px-2 py-0.5 rounded-md font-mono">
+                                <GraduationCap className="w-3.5 h-3.5" />
+                                <span>Servicio Profesional</span>
+                              </span>
+                            ) : tarea.naturaleza === 'servicio_tercerizado' ? (
+                              <span className="font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1 bg-amber-500/15 px-2 py-0.5 rounded-md font-mono">
+                                <Truck className="w-3.5 h-3.5" />
+                                <span>Tercerizado</span>
+                              </span>
+                            ) : isParametrico ? (
+                              <span className="font-bold text-primary flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded-md font-mono">
+                                <Sliders className="w-3.5 h-3.5" />
+                                <span>Asistente Paramétrico</span>
+                              </span>
+                            ) : null}
 
-                    <div className="flex items-center gap-1.5">
-                      {isParametrico ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelect(tarea);
-                          }}
-                          className="px-3 py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition active:scale-95"
-                          title="Configurar variables de este trabajo tipo"
-                        >
-                          <Sliders className="w-3.5 h-3.5" />
-                          <span>Configurar</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelect(tarea);
-                          }}
-                          className={`px-3 py-2 rounded-xl transition flex items-center gap-1 text-xs font-bold active:scale-95 ${
-                            isHighlighted
-                              ? 'bg-primary text-on-primary shadow-xs'
-                              : 'bg-primary/10 hover:bg-primary hover:text-on-primary text-primary'
-                          }`}
-                          title="Agregar partida a la cotización"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span>Agregar</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                            <span>•</span>
+                            <span>Insumos: <strong>{cost.insumosSnapshotUnitario.length}</strong></span>
+                            <span>•</span>
+                            <span>Mano de Obra: <strong>{cost.manoObraSnapshotUnitario.reduce((acc, m) => acc + m.horasTotales, 0)} hs</strong></span>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="text-[11px] text-on-surface-variant uppercase tracking-wider block font-semibold">
+                              Costo Directo Estimado
+                            </span>
+                            <span className="font-mono text-base font-black text-primary">
+                              {formatARS(cost.costoDirectoUnitario)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {tarea.notasTecnicas && (
+                          <p className="text-xs text-on-surface-variant leading-relaxed bg-surface-container/40 p-2.5 rounded-xl border border-outline-variant/15">
+                            {tarea.notasTecnicas}
+                          </p>
+                        )}
+
+                        <div className="pt-1 flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSelect(tarea)}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl text-xs sm:text-sm font-bold shadow-xs transition active:scale-95 cursor-pointer"
+                          >
+                            {isParametrico ? <Sliders className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                            <span>{isParametrico ? 'Configurar Variables y Agregar' : 'Confirmar y Agregar a Cotización'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })
