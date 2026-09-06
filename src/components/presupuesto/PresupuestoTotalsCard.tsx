@@ -1,23 +1,15 @@
 import React from 'react';
 import {
   Calculator,
-  RotateCcw,
   X,
-  CheckCircle,
-  Plus,
-  Edit2,
+  ShieldAlert,
   HardHat,
   Package,
-  Truck,
-  Globe,
-  Sliders,
-  Zap,
-  BookOpen
+  Truck
 } from 'lucide-react';
 import {
   GastoPresupuestoConfig,
-  TipoFactura,
-  DestinoGasto
+  TipoFactura
 } from '../../core/types';
 import { formatARS, formatUSD, TotalesPresupuestoResultado } from '../../core/calculations';
 import { NumericInput } from '../common/NumericInput';
@@ -25,81 +17,35 @@ import { NumericInput } from '../common/NumericInput';
 interface PresupuestoTotalsCardProps {
   totales: TotalesPresupuestoResultado;
   tipoFactura: TipoFactura;
-  gastosConfig: GastoPresupuestoConfig[];
-  onOpenGastoModal: (gastoToEdit?: GastoPresupuestoConfig) => void;
-  onOpenCatalogPicker?: () => void;
-  onOpenParametricGastoModal?: (gasto: GastoPresupuestoConfig) => void;
-  onToggleGasto: (idx: number) => void;
-  onRemoveGasto: (id: string) => void;
-  onResetGastos?: () => void;
+  gastosConfig?: GastoPresupuestoConfig[];
   margenPorcentaje: number | null;
-  onMargenPorcentajeChange: (val: number | null) => void;
+  margenRiesgoPorcentaje?: number;
   onToggleTax: (idx: number) => void;
   onUpdateTaxPct: (idx: number, pct: number) => void;
   onRemoveTax: (idx: number) => void;
   onAddCustomTax: () => void;
   mostrarDolar: boolean;
   nombreDolar: string;
-  onEmitirClick: () => void;
-  onOpenListaMateriales?: () => void;
 }
 
 export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
   totales,
   tipoFactura,
-  gastosConfig = [],
-  onOpenGastoModal,
-  onOpenCatalogPicker,
-  onOpenParametricGastoModal,
-  onToggleGasto,
-  onRemoveGasto,
-  onResetGastos,
   margenPorcentaje,
-  onMargenPorcentajeChange,
+  margenRiesgoPorcentaje,
   onToggleTax,
   onUpdateTaxPct,
   onRemoveTax,
   onAddCustomTax,
   mostrarDolar,
-  nombreDolar,
-  onEmitirClick,
-  onOpenListaMateriales
+  nombreDolar
 }) => {
-  const getDestinoBadge = (destino: DestinoGasto) => {
-    switch (destino) {
-      case 'mano_obra':
-        return (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-1 rounded-full">
-            <HardHat className="w-3.5 h-3.5" /> MO
-          </span>
-        );
-      case 'materiales':
-        return (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2.5 py-1 rounded-full">
-            <Package className="w-3.5 h-3.5" /> Materiales
-          </span>
-        );
-      case 'servicios':
-        return (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2.5 py-1 rounded-full">
-            <Truck className="w-3.5 h-3.5" /> Servicios
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold bg-slate-500/10 text-slate-600 dark:text-slate-400 px-2.5 py-1 rounded-full">
-            <Globe className="w-3.5 h-3.5" /> Indirecto
-          </span>
-        );
-    }
-  };
-
   return (
     <div
       id="presupuesto-totales-card"
-      className="bg-surface-container-low rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 space-y-4 border border-outline-variant/10 shadow-sm sticky top-6"
+      className="bg-surface-container-low rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 space-y-4 border border-outline-variant/10 shadow-sm"
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pb-1 border-b border-outline-variant/10">
         <h3 className="text-xs sm:text-sm font-bold text-primary uppercase tracking-wide flex items-center gap-2">
           <Calculator className="w-4 h-4 text-primary shrink-0" />
           <span>Liquidación & Cadena de Precios</span>
@@ -113,7 +59,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
           <span className="font-mono text-sm sm:text-base font-bold text-on-surface">{formatARS(totales.costoGlobal)}</span>
         </div>
 
-        {/* 3 Pilares Directos (Materiales, Mano de Obra, Servicios) */}
+        {/* 3 Pilares Directos + Fondo de Riesgo */}
         <div className="space-y-2 pt-1 border-t border-outline-variant/10 text-xs sm:text-sm">
           {/* Materiales */}
           <div className="bg-surface-container p-2.5 rounded-xl border border-outline-variant/15 flex flex-col gap-1">
@@ -130,15 +76,6 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
                 <span className="text-blue-600 dark:text-blue-400 font-semibold">
                   +{formatARS(totales.gastosMaterialesTotal)} gastos directos
                 </span>
-              )}
-              {onOpenListaMateriales && (
-                <button
-                  type="button"
-                  onClick={onOpenListaMateriales}
-                  className="text-primary hover:underline font-sans font-semibold flex items-center gap-1 cursor-pointer ml-auto"
-                >
-                  <Package className="w-3 h-3" /> Ver / Exportar Insumos
-                </button>
               )}
             </div>
           </div>
@@ -185,204 +122,73 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
               )}
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* 2. GASTOS Y COSTOS INDIRECTOS (GG) */}
-      <div className="bg-surface-container-high/60 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-outline-variant/20 space-y-3">
-        <div className="flex justify-between items-center">
-          <div>
-            <label className="text-xs sm:text-sm font-bold text-on-surface uppercase tracking-wider block">
-              2. Gastos & Modificadores
-            </label>
-            <span className="text-xs text-on-surface-variant">
-              Directos (s/Rubro) o Indirectos (s/Costo Total C)
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 flex-wrap justify-end">
-            {onResetGastos && (
-              <button
-                type="button"
-                onClick={onResetGastos}
-                className="p-1 text-on-surface-variant hover:text-primary transition-colors"
-                title="Restablecer gastos por defecto del catálogo"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            )}
-            {onOpenCatalogPicker && (
-              <button
-                type="button"
-                onClick={onOpenCatalogPicker}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-secondary-container text-on-secondary-container text-xs font-bold hover:bg-secondary-container/80 transition-colors"
-                title="Elegir gastos existentes del catálogo"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Desde Lista</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => onOpenGastoModal()}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
-              title="Crear un nuevo gasto personalizado"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Nuevo Gasto</span>
-            </button>
-          </div>
-        </div>
-
-        {gastosConfig.length === 0 ? (
-          <div className="p-3.5 rounded-xl bg-surface-container/50 border border-dashed border-outline-variant/30 text-center space-y-2">
-            <p className="text-xs text-on-surface-variant">
-              Sin gastos aplicados en esta cotización.
-            </p>
-            <div className="flex items-center justify-center gap-2 flex-wrap pt-0.5">
-              {onOpenCatalogPicker && (
-                <button
-                  type="button"
-                  onClick={onOpenCatalogPicker}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-secondary-container text-on-secondary-container text-xs font-bold hover:bg-secondary-container/80 transition-colors"
-                >
-                  <BookOpen className="w-3.5 h-3.5" />
-                  <span>Elegir de la Lista</span>
-                </button>
-              )}
-              {onResetGastos && (
-                <button
-                  type="button"
-                  onClick={onResetGastos}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-high text-on-surface text-xs font-medium hover:bg-surface-container-highest transition-colors"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Cargar por Defecto</span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => onOpenGastoModal()}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Crear Nuevo</span>
-              </button>
+          {/* Fondo de Reserva / Riesgo */}
+          {totales.montoMargenRiesgo !== undefined && totales.montoMargenRiesgo > 0 && (
+            <div className="bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20 flex justify-between items-center text-xs sm:text-sm">
+              <span className="font-semibold flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+                Fondo de Reserva / Riesgo (+{margenRiesgoPorcentaje ?? 0}%):
+              </span>
+              <span className="font-mono font-bold text-amber-700 dark:text-amber-300">
+                +{formatARS(totales.montoMargenRiesgo)}
+              </span>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {gastosConfig.map((g, idx) => {
-              const desg = totales.gastosDesglosados.find((d) => d.id === g.id);
-              const monto = desg ? desg.montoCalculado : 0;
-
-              return (
-                <div
-                  key={g.id || idx}
-                  className={`p-2.5 rounded-xl border transition-all space-y-1.5 ${
-                    g.aplica
-                      ? 'bg-surface-container border-outline-variant/30 shadow-xs'
-                      : 'bg-surface-container/40 border-dashed border-outline-variant/20 opacity-60'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 cursor-pointer font-medium text-xs text-on-surface truncate flex-1">
-                      <input
-                        type="checkbox"
-                        checked={g.aplica}
-                        onChange={() => onToggleGasto(idx)}
-                        className="w-4 h-4 text-primary rounded border-outline-variant"
-                      />
-                      <span className="truncate font-medium">{g.nombre}</span>
-                    </label>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {getDestinoBadge(g.destino || 'costo_indirecto')}
-
-                      {g.parametros && g.parametros.length > 0 && onOpenParametricGastoModal && (
-                        <button
-                          type="button"
-                          onClick={() => onOpenParametricGastoModal(g)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-colors shadow-2xs"
-                          title="Ajustar variables de obra de este gasto"
-                        >
-                          <Sliders className="w-3.5 h-3.5" />
-                          <span>Variables ({g.parametros.length})</span>
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => onOpenGastoModal(g)}
-                        className="p-1 text-on-surface-variant hover:text-primary rounded-lg transition-colors"
-                        title="Editar Gasto"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onRemoveGasto(g.id)}
-                        className="p-1 text-on-surface-variant hover:text-error rounded-lg transition-colors"
-                        title="Eliminar Gasto"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {g.aplica && (
-                    <div className="flex justify-between items-center text-xs text-on-surface-variant font-mono pt-1 border-t border-outline-variant/10">
-                      <span className="flex items-center gap-1 truncate">
-                        {g.modalidad === 'porcentual' ? `${g.valor}%` : g.modalidad === 'parametrico' ? (
-                          <span className="text-primary font-bold inline-flex items-center gap-0.5">
-                            <Zap className="w-3 h-3" /> Fórmula ⚡
-                          </span>
-                        ) : 'Fijo'}:
-                      </span>
-                      <span className="font-bold text-primary">+{formatARS(monto)}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="flex justify-between text-xs font-bold text-primary pt-1 border-t border-outline-variant/20">
-          <span>Costos Indirectos (GG sobre C):</span>
-          <span className="font-mono">{formatARS(totales.gastosGeneralesTotal)}</span>
+          )}
         </div>
       </div>
 
-      {/* 3. BENEFICIO (B) */}
+      {/* 2. COSTOS INDIRECTOS & GASTOS DE OBRA (GG) */}
       <div className="bg-surface-container-high/60 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-outline-variant/20 space-y-2">
         <div className="flex justify-between items-center">
           <div>
             <label className="text-xs sm:text-sm font-bold text-on-surface uppercase tracking-wider block">
-              3. Beneficio (B)
+              2. Costos Indirectos & Gastos (GG)
             </label>
             <span className="text-xs text-on-surface-variant">
-              Calculado sobre Costo Directo + Indirectos ({formatARS(totales.costoTotalObra)})
+              Logística, fletes y servicios de obra (Etapa 3)
             </span>
           </div>
-          <div className="w-24">
-            <NumericInput
-              value={margenPorcentaje}
-              onChange={(val) => onMargenPorcentajeChange(val)}
-              fallbackOnBlur={0}
-              min={0}
-              max={500}
-              decimals={1}
-              suffix="%"
-              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl pl-3 pr-7 py-1.5 text-sm sm:text-base text-primary font-mono font-bold text-right focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[38px]"
-            />
-          </div>
+          <span className="font-mono text-sm sm:text-base font-bold text-primary">
+            {formatARS(totales.gastosGeneralesTotal)}
+          </span>
         </div>
 
-        <div className="flex justify-between text-xs sm:text-sm font-bold text-tertiary pt-1 border-t border-outline-variant/10">
-          <span>Monto Beneficio ({margenPorcentaje ?? 0}%):</span>
-          <span className="font-mono font-semibold">{formatARS(totales.beneficioMonto)}</span>
+        {totales.gastosDesglosados && totales.gastosDesglosados.filter((g) => g.montoCalculado > 0).length > 0 ? (
+          <div className="space-y-1 pt-1 border-t border-outline-variant/10 text-xs">
+            {totales.gastosDesglosados
+              .filter((g) => g.montoCalculado > 0)
+              .map((g, idx) => (
+                <div key={g.id || idx} className="flex justify-between items-center text-on-surface-variant font-mono py-0.5">
+                  <span className="truncate flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
+                    {g.nombre}
+                  </span>
+                  <span className="font-semibold text-on-surface shrink-0">+{formatARS(g.montoCalculado)}</span>
+                </div>
+              ))}
+          </div>
+        ) : (
+          <p className="text-xs text-on-surface-variant/70 italic border-t border-outline-variant/10 pt-1">
+            Sin costos indirectos aplicados.
+          </p>
+        )}
+      </div>
+
+      {/* 3. BENEFICIO COMERCIAL (B) - Reflejo en Cascada (Sin Input Duplicado) */}
+      <div className="bg-surface-container-high/60 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-outline-variant/20 flex justify-between items-center">
+        <div>
+          <label className="text-xs sm:text-sm font-bold text-on-surface uppercase tracking-wider block">
+            3. Beneficio Comercial (B)
+          </label>
+          <span className="text-xs text-on-surface-variant">
+            +{margenPorcentaje ?? 0}% sobre Costo Total C + GG ({formatARS(totales.costoTotalObra)})
+          </span>
+        </div>
+        <div className="text-right">
+          <span className="font-mono font-black text-primary text-sm sm:text-base">
+            +{formatARS(totales.beneficioMonto)}
+          </span>
         </div>
       </div>
 
@@ -392,19 +198,19 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
         <span className="font-mono text-primary text-sm sm:text-base font-bold">{formatARS(totales.subtotalSinImpuestos)}</span>
       </div>
 
-      {/* 5. IMPUESTOS (independientes calculados sobre S) */}
+      {/* 5. IMPUESTOS (calculados sobre S) */}
       <div className="bg-surface-container-high/60 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-outline-variant/20 space-y-3">
         <div className="flex justify-between items-center">
           <div>
             <label className="text-xs sm:text-sm font-bold text-on-surface uppercase tracking-wider block">
               5. Impuestos ({tipoFactura})
             </label>
-            <span className="text-xs text-on-surface-variant">Calculados sobre Subtotal (S), sin cascada</span>
+            <span className="text-xs text-on-surface-variant">Calculados sobre Subtotal (S)</span>
           </div>
           <button
             type="button"
             onClick={onAddCustomTax}
-            className="text-xs text-primary hover:underline font-bold"
+            className="text-xs text-primary hover:underline font-bold cursor-pointer"
           >
             + Impuesto
           </button>
@@ -443,7 +249,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
                   <button
                     type="button"
                     onClick={() => onRemoveTax(idx)}
-                    className="text-on-surface-variant hover:text-error p-1 rounded-full transition-colors ml-1"
+                    className="text-on-surface-variant hover:text-error p-1 rounded-full transition-colors ml-1 cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -490,15 +296,6 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
           </div>
         )}
       </div>
-
-      <button
-        type="button"
-        onClick={onEmitirClick}
-        className="w-full py-3 sm:py-3.5 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full transition-all flex items-center justify-center gap-2 text-sm sm:text-base shadow-md hover:shadow-lg active:scale-98 cursor-pointer min-h-[46px]"
-      >
-        <CheckCircle className="w-5 h-5 text-on-primary" />
-        <span>Emitir Presupuesto...</span>
-      </button>
     </div>
   );
 };

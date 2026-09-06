@@ -1,10 +1,8 @@
 import React from 'react';
 import {
-  Calculator,
   Percent,
   ShieldAlert,
   CreditCard,
-  Send,
   MessageSquare,
   Package,
   RefreshCw,
@@ -269,19 +267,48 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
             </div>
           </div>
 
-          {/* Barra de Acciones Finales */}
-          <div className="bg-surface-container-low rounded-3xl p-4 sm:p-6 border border-outline-variant/20 shadow-xs space-y-3">
-            <h3 className="text-xs sm:text-sm font-bold text-on-surface uppercase tracking-wider">
+          {/* Navegación a Etapa Anterior */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={onPrev}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-surface-container-highest text-on-surface rounded-2xl text-xs sm:text-sm font-bold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Volver a Etapa 3: Cuadrilla & Gastos</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Columna Derecha: Liquidación Financiera & Acciones de Emisión (5 Cols) */}
+        <div className="lg:col-span-5 space-y-4">
+          <PresupuestoTotalsCard
+            totales={totales}
+            tipoFactura={tipoFactura}
+            gastosConfig={gastosConfig}
+            margenPorcentaje={margenPorcentaje}
+            margenRiesgoPorcentaje={margenRiesgoPorcentaje}
+            onToggleTax={onToggleTax}
+            onUpdateTaxPct={onUpdateTaxPct}
+            onRemoveTax={onRemoveTax}
+            onAddCustomTax={onAddCustomTax}
+            mostrarDolar={mostrarDolar}
+            nombreDolar={nombreDolar}
+          />
+
+          {/* Panel Unificado de Emisión y Cierre */}
+          <div className="bg-surface-container-low rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-outline-variant/20 shadow-xs space-y-3">
+            <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
               Acciones de Emisión y Entrega
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div className="flex flex-col gap-2.5">
               <button
                 type="button"
                 onClick={onEmitirClick}
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-primary text-on-primary rounded-2xl text-xs sm:text-sm font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 bg-primary hover:bg-primary/90 text-on-primary rounded-2xl text-sm font-bold shadow-md hover:shadow-lg active:scale-98 transition-all cursor-pointer min-h-[48px]"
               >
-                <FileCheck className="w-4 h-4" />
+                <FileCheck className="w-5 h-5" />
                 <span>Emitir Presupuesto / PDF</span>
               </button>
 
@@ -289,97 +316,53 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
                 <button
                   type="button"
                   onClick={onOpenWhatsApp}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer"
+                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md active:scale-98 transition-all cursor-pointer min-h-[44px]"
                 >
                   <MessageSquare className="w-4 h-4" />
                   <span>Enviar por WhatsApp</span>
                 </button>
               )}
 
-              {onOpenListaMateriales && (
-                <button
-                  type="button"
-                  onClick={onOpenListaMateriales}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-surface-container-highest text-on-surface rounded-2xl text-xs sm:text-sm font-semibold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer"
-                >
-                  <Package className="w-4 h-4 text-blue-500" />
-                  <span>Lista de Materiales (BOM)</span>
-                </button>
-              )}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {onOpenListaMateriales && (
+                  <button
+                    type="button"
+                    onClick={onOpenListaMateriales}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-surface-container-highest text-on-surface rounded-xl text-xs font-semibold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer min-h-[40px]"
+                  >
+                    <Package className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Insumos (BOM)</span>
+                  </button>
+                )}
 
-              {onOpenActualizarPrecios && (
-                <button
-                  type="button"
-                  onClick={onOpenActualizarPrecios}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-surface-container-highest text-on-surface rounded-2xl text-xs sm:text-sm font-semibold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer"
-                >
-                  <RefreshCw className="w-4 h-4 text-primary" />
-                  <span>Actualizar Precios Vigentes</span>
-                </button>
+                {onOpenActualizarPrecios && (
+                  <button
+                    type="button"
+                    onClick={onOpenActualizarPrecios}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-surface-container-highest text-on-surface rounded-xl text-xs font-semibold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer min-h-[40px]"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-primary" />
+                    <span>Actualizar Precios</span>
+                  </button>
+                )}
+              </div>
+
+              {onSaveDraft && (
+                <div className="pt-1 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={onSaveDraft}
+                    disabled={isSaving}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/10 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{isSaving ? 'Guardando...' : 'Guardar Borrador Manual'}</span>
+                  </button>
+                </div>
               )}
             </div>
-
-            {onSaveDraft && (
-              <div className="pt-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={onSaveDraft}
-                  disabled={isSaving}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/10 rounded-xl transition-colors cursor-pointer"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{isSaving ? 'Guardando...' : 'Guardar Borrador Manual'}</span>
-                </button>
-              </div>
-            )}
           </div>
         </div>
-
-        {/* Columna Derecha: Tarjeta de Liquidación Formal Completa (5 Cols) */}
-        <div className="lg:col-span-5">
-          <PresupuestoTotalsCard
-            totales={totales}
-            tipoFactura={tipoFactura}
-            gastosConfig={gastosConfig}
-            onOpenGastoModal={onOpenGastoModal}
-            onOpenCatalogPicker={onOpenCatalogPicker}
-            onResetGastos={onResetGastos}
-            onOpenParametricGastoModal={onOpenParametricGastoModal}
-            onToggleGasto={onToggleGasto}
-            onRemoveGasto={onRemoveGasto}
-            margenPorcentaje={margenPorcentaje}
-            onMargenPorcentajeChange={onMargenPorcentajeChange}
-            onToggleTax={onToggleTax}
-            onUpdateTaxPct={onUpdateTaxPct}
-            onRemoveTax={onRemoveTax}
-            onAddCustomTax={onAddCustomTax}
-            mostrarDolar={mostrarDolar}
-            nombreDolar={nombreDolar}
-            onEmitirClick={onEmitirClick}
-            onOpenListaMateriales={onOpenListaMateriales}
-          />
-        </div>
-      </div>
-
-      {/* Navegación al pie */}
-      <div className="flex items-center justify-between pt-2">
-        <button
-          type="button"
-          onClick={onPrev}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-surface-container-highest text-on-surface rounded-2xl text-xs sm:text-sm font-bold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Volver a Cuadrilla & Gastos</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onEmitirClick}
-          className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-on-primary rounded-2xl text-xs sm:text-sm font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer"
-        >
-          <FileCheck className="w-4 h-4" />
-          <span>Emitir Presupuesto Formal</span>
-        </button>
       </div>
     </div>
   );

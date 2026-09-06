@@ -41,10 +41,6 @@ import {
 } from '../core/calculations';
 import { useAppOptions } from '../hooks/useAppOptions';
 import { useToast } from '../contexts/ToastContext';
-import { PresupuestoItemRow } from './presupuesto/PresupuestoItemRow';
-import { PresupuestoTotalsCard } from './presupuesto/PresupuestoTotalsCard';
-import { NumericInput } from './common/NumericInput';
-import { PlanificadorCuadrillaCard } from './presupuesto/PlanificadorCuadrillaCard';
 import { ItemPickerModal } from './presupuesto/ItemPickerModal';
 import { EmisionPresupuestoModal } from './presupuesto/EmisionPresupuestoModal';
 import { WhatsAppShareModal } from './presupuesto/WhatsAppShareModal';
