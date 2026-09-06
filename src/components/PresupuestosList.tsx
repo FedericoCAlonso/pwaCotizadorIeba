@@ -59,6 +59,7 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
     const q = searchTerm.toLowerCase();
     const matchesSearch =
       p.numero.toLowerCase().includes(q) ||
+      (p.direccionObra && p.direccionObra.toLowerCase().includes(q)) ||
       (cliente && (
         (cliente.nombre && cliente.nombre.toLowerCase().includes(q)) ||
         (cliente.razonSocial && cliente.razonSocial.toLowerCase().includes(q)) ||
@@ -190,9 +191,9 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
               cliente?.razonSocial && cliente?.nombre && cliente.razonSocial !== cliente.nombre
                 ? cliente.razonSocial
                 : null;
-            const direccionObra = cliente
+            const direccionObra = p.direccionObra || (cliente
               ? [cliente.direccion, cliente.localidad].filter(Boolean).join(', ')
-              : '';
+              : '');
 
             return (
               <div

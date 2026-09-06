@@ -53,6 +53,7 @@ import { TareaFormData } from '../components/tareasTipo/TareaEditorModal';
 function computeEditorStatePayload(state: {
   items: any[];
   clienteId: string;
+  direccionObra?: string;
   capitulos: any[];
   validezDias: number;
   tipoFactura: string;
@@ -77,6 +78,7 @@ function computeEditorStatePayload(state: {
   return JSON.stringify({
     items: state.items,
     clienteId: state.clienteId,
+    direccionObra: state.direccionObra || '',
     capitulos: state.capitulos,
     validezDias: state.validezDias,
     tipoFactura: state.tipoFactura,
@@ -149,6 +151,7 @@ export function usePresupuestoEditorViewModel({
 
   // ─── Form State ───────────────────────────────────────────────────────────────
   const [clienteId, setClienteId] = useState<string>(initialClienteId || '');
+  const [direccionObra, setDireccionObra] = useState<string>('');
   const [numero, setNumero] = useState<string>('');
   const [validezDias, setValidezDias] = useState<number>(config.validezDiasPorDefecto || 15);
   const [margenPorcentaje, setMargenPorcentaje] = useState<number | null>(config.margenPorDefectoPct || 30);
@@ -248,6 +251,7 @@ export function usePresupuestoEditorViewModel({
       }
       loadedPresupuestoIdRef.current = existingPresupuesto.id;
       setClienteId(existingPresupuesto.clienteId);
+      setDireccionObra(existingPresupuesto.direccionObra || '');
       setNumero(existingPresupuesto.numero);
       setValidezDias(existingPresupuesto.validezDias);
       setMargenPorcentaje(existingPresupuesto.beneficioPorcentaje ?? existingPresupuesto.margenPorcentaje ?? 30);
@@ -307,6 +311,7 @@ export function usePresupuestoEditorViewModel({
       lastSavedPayloadRef.current = computeEditorStatePayload({
         items: existingPresupuesto.items || [],
         clienteId: existingPresupuesto.clienteId || '',
+        direccionObra: existingPresupuesto.direccionObra || '',
         capitulos: existingPresupuesto.capitulos || [],
         validezDias: existingPresupuesto.validezDias,
         tipoFactura: existingPresupuesto.tipoFactura,
@@ -366,6 +371,7 @@ export function usePresupuestoEditorViewModel({
       lastSavedPayloadRef.current = computeEditorStatePayload({
         items: [],
         clienteId: '',
+        direccionObra: '',
         capitulos: [],
         validezDias: 15,
         tipoFactura: 'Presupuesto X (Sin Factura)',
@@ -476,6 +482,7 @@ export function usePresupuestoEditorViewModel({
     const currentPayload = computeEditorStatePayload({
       items,
       clienteId: clienteId || '',
+      direccionObra: direccionObra.trim() || '',
       capitulos,
       validezDias,
       tipoFactura,
@@ -530,6 +537,7 @@ export function usePresupuestoEditorViewModel({
         id: existingPresupuesto?.id || draftIdRef.current,
         numero: numeroStr,
         clienteId: clienteId || '',
+        direccionObra: direccionObra.trim() || undefined,
         fechaEmision: existingPresupuesto?.fechaEmision || now,
         validezDias: safeNum(validezDias) > 0 ? safeNum(validezDias) : (config.validezDiasPorDefecto || 15),
         tipoFactura,
@@ -605,7 +613,7 @@ export function usePresupuestoEditorViewModel({
       setAutoSaveStatus('error');
     }
   }, [
-    items, clienteId, capitulos, existingPresupuesto, numero, config, validezDias, tipoFactura,
+    items, clienteId, direccionObra, capitulos, existingPresupuesto, numero, config, validezDias, tipoFactura,
     gastosConfig, costosIndirectosConfig, totales, operariosCuadrilla, horasJornadaCuadrilla,
     modoPlanificacionCuadrilla, diasObjetivoObra, margenRiesgoPorcentaje,
     nivelMargenRiesgo, aplicarOptimizacionCuadrilla, sinergiaManoObra, resultadoCuadrilla,
@@ -624,6 +632,7 @@ export function usePresupuestoEditorViewModel({
     const currentPayload = computeEditorStatePayload({
       items,
       clienteId: clienteId || '',
+      direccionObra: direccionObra.trim() || '',
       capitulos,
       validezDias,
       tipoFactura,
@@ -670,7 +679,7 @@ export function usePresupuestoEditorViewModel({
       }
     };
   }, [
-    items, clienteId, capitulos, validezDias, tipoFactura, margenPorcentaje,
+    items, clienteId, direccionObra, capitulos, validezDias, tipoFactura, margenPorcentaje,
     gastosConfig, costosIndirectosConfig, mostrarDolar, nombreDolar, cotizacionDolar,
     condicionesPagoTexto, impuestosDetalle, opcionesEmision, operariosCuadrilla,
     horasJornadaCuadrilla, modoPlanificacionCuadrilla, diasObjetivoObra,
@@ -1520,6 +1529,7 @@ export function usePresupuestoEditorViewModel({
       id: existingPresupuesto?.id || draftIdRef.current,
       numero: numeroStr,
       clienteId: clienteId || '',
+      direccionObra: direccionObra.trim() || undefined,
       fechaEmision: existingPresupuesto?.fechaEmision || now,
       validezDias: safeNum(validezDias) > 0 ? safeNum(validezDias) : (config.validezDiasPorDefecto || 15),
       tipoFactura,
@@ -1586,6 +1596,7 @@ export function usePresupuestoEditorViewModel({
     lastSavedPayloadRef.current = computeEditorStatePayload({
       items,
       clienteId: clienteId || '',
+      direccionObra: direccionObra.trim() || '',
       capitulos,
       validezDias,
       tipoFactura,
@@ -1709,6 +1720,8 @@ export function usePresupuestoEditorViewModel({
     // Form States
     clienteId,
     setClienteId,
+    direccionObra,
+    setDireccionObra,
     numero,
     setNumero,
     validezDias,

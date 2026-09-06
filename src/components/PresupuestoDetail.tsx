@@ -415,9 +415,18 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                 <strong>Email:</strong> {cliente.email}
               </div>
             )}
-            {cliente?.direccion && (
+            {presupuesto.direccionObra ? (
+              <div>
+                <strong>Ubicación Obra:</strong> {presupuesto.direccionObra}
+              </div>
+            ) : cliente?.direccion ? (
               <div>
                 <strong>Ubicación Obra:</strong> {cliente.direccion}
+              </div>
+            ) : null}
+            {presupuesto.direccionObra && cliente?.direccion && presupuesto.direccionObra !== cliente.direccion && (
+              <div>
+                <strong>Domicilio Fiscal:</strong> {cliente.direccion}
               </div>
             )}
           </div>

@@ -44,7 +44,8 @@ export interface VariablePlantillaWhatsApp {
 
 export const VARIABLES_WHATSAPP_DISPONIBLES: VariablePlantillaWhatsApp[] = [
   { tag: '{{cliente_nombre}}', etiqueta: 'Nombre Cliente', descripcion: 'Nombre o razón social del cliente', ejemplo: 'Juan Pérez' },
-  { tag: '{{cliente_direccion}}', etiqueta: 'Dirección Cliente', descripcion: 'Dirección o ubicación de la obra', ejemplo: 'Av. Corrientes 1234' },
+  { tag: '{{cliente_direccion}}', etiqueta: 'Dirección Cliente / Obra', descripcion: 'Dirección o ubicación de la obra', ejemplo: 'Av. Corrientes 1234' },
+  { tag: '{{obra_direccion}}', etiqueta: 'Ubicación Obra', descripcion: 'Dirección específica de la obra presupuestada', ejemplo: 'Thames 1850, Palermo' },
   { tag: '{{cliente_telefono}}', etiqueta: 'Teléfono Cliente', descripcion: 'Teléfono del cliente', ejemplo: '11 5555-1234' },
   { tag: '{{numero_presupuesto}}', etiqueta: 'N° Cotización', descripcion: 'Identificador correlativo del presupuesto', ejemplo: 'IEBA-2026-1001' },
   { tag: '{{id_servicio}}', etiqueta: 'ID Servicio', descripcion: 'Número de cotización o ID de servicio de plataforma', ejemplo: 'IEBA-2026-1001' },
@@ -189,7 +190,7 @@ export function generarMensajeWhatsAppCotizacion(
   const prestadorEmail = config?.email || '';
 
   const clienteNombre = cliente?.razonSocial || cliente?.nombre || 'Cliente';
-  const clienteDireccion = cliente?.direccion || '';
+  const clienteDireccion = presupuesto.direccionObra || cliente?.direccion || '';
   const clienteTelefono = cliente?.telefono || '';
 
   const condicionesPago =
@@ -222,6 +223,7 @@ export function generarMensajeWhatsAppCotizacion(
   const replacements: Record<string, string> = {
     '{{cliente_nombre}}': clienteNombre,
     '{{cliente_direccion}}': clienteDireccion,
+    '{{obra_direccion}}': clienteDireccion,
     '{{cliente_telefono}}': clienteTelefono,
     '{{numero_presupuesto}}': presupuesto.numero || '',
     '{{id_servicio}}': presupuesto.numero || '',

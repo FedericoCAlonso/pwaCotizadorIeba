@@ -130,9 +130,9 @@ export const buildPresupuestoPDFDoc = (
   doc.text(`CUIT / DNI: ${cliente?.cuitDni || 'S/D'}`, col2X, currentY + 10);
   doc.text(cliente?.telefono ? `Tel: ${cliente.telefono}` : 'Tel: S/D', col3X, currentY + 10);
 
-  // Fila 2 datos cliente
-  const direccionStr = cliente?.direccion ? `Dir / Obra: ${cliente.direccion}` : 'Obra: Según relevamiento';
-  doc.text(direccionStr, margin + 4, currentY + 16.5);
+  // Fila 2 datos cliente y obra
+  const obraStr = (presupuesto.direccionObra || cliente?.direccion || 'Según relevamiento').slice(0, 48);
+  doc.text(`Obra: ${obraStr}`, margin + 4, currentY + 16.5);
   doc.text(`Condición IVA: ${cliente?.condicionIVA || 'Consumidor Final'}`, col2X, currentY + 16.5);
   doc.text(cliente?.email ? `Email: ${cliente.email}` : 'Email: S/D', col3X, currentY + 16.5);
 

@@ -781,6 +781,7 @@ export interface Presupuesto {
   numero: string;
   clienteId: string;
   proyectoId?: string;
+  direccionObra?: string; // Dirección o ubicación específica de la obra para esta cotización
   fechaEmision: string;
   validezDias: number;
 

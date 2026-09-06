@@ -121,9 +121,9 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
               <div className="text-xs font-semibold text-on-surface truncate">
                 {cliente?.razonSocial || cliente?.nombre || 'Cliente General'}
               </div>
-              {cliente?.direccion && (
+              {(presupuesto.direccionObra || cliente?.direccion) && (
                 <div className="text-xs text-on-surface-variant truncate">
-                  {cliente.direccion}
+                  Obra: {presupuesto.direccionObra || cliente?.direccion}
                 </div>
               )}
             </div>

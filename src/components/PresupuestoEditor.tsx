@@ -98,6 +98,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     setActiveTab,
     clienteId,
     setClienteId,
+    direccionObra,
+    setDireccionObra,
     numero,
     setNumero,
     validezDias,
@@ -226,6 +228,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     id: existingPresupuesto?.id || 'pres-preview',
     numero: numero || 'IEBA-PREVIEW',
     clienteId,
+    direccionObra: direccionObra.trim() || undefined,
     fechaEmision: existingPresupuesto?.fechaEmision || new Date().toISOString(),
     validezDias,
     tipoFactura,
@@ -264,6 +267,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     existingPresupuesto,
     numero,
     clienteId,
+    direccionObra,
     validezDias,
     tipoFactura,
     capitulos,
@@ -1100,9 +1104,6 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               </span>
             </h2>
             <div className="flex flex-wrap items-center gap-2 mt-1">
-              <p className="text-xs sm:text-sm text-on-surface-variant font-medium">
-                Cálculo de costos en capas (materiales, mano de obra, indirectos, margen, impuestos).
-              </p>
               {autoSaveStatus === 'saving' && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-xs animate-pulse">
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -1161,6 +1162,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             clientes={clientes}
             clienteId={clienteId}
             setClienteId={setClienteId}
+            direccionObra={direccionObra}
+            setDireccionObra={setDireccionObra}
             selectedCliente={selectedCliente}
             tipoFactura={tipoFactura}
             setTipoFactura={handleTipoFacturaChange}
