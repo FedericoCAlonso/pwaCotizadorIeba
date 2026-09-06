@@ -36,7 +36,7 @@ export const CalibracionEmaSubmodulo: React.FC<CalibracionEmaSubmoduloProps> = (
             <div key={tarea.id} className="bg-surface-container-low border border-outline-variant/20 rounded-3xl p-5 space-y-4 shadow-sm">
               <div className="flex justify-between items-start">
                 <div>
-                  <span className="text-[10px] font-bold text-on-tertiary-container bg-tertiary-container px-2 py-0.5 rounded-full uppercase">
+                  <span className="text-xs font-bold text-on-tertiary-container bg-tertiary-container px-2.5 py-0.5 rounded-full uppercase">
                     {tarea.categoria}
                   </span>
                   <h4 className="font-bold text-on-surface text-base mt-1">{tarea.nombre}</h4>
@@ -77,7 +77,7 @@ export const CalibracionEmaSubmodulo: React.FC<CalibracionEmaSubmoduloProps> = (
 
               <div className="pt-3 border-t border-outline-variant/30 flex justify-between items-center">
                 <div>
-                  <span className="text-[10px] text-on-surface-variant uppercase block">Factor Sugerido EMA</span>
+                  <span className="text-xs text-on-surface-variant uppercase block font-medium">Factor Sugerido EMA</span>
                   <span className="font-mono text-sm font-bold text-primary">{disp.factorEmaSugerido.toFixed(2)}x</span>
                 </div>
 

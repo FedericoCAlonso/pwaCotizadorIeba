@@ -426,7 +426,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
                     <Tag className="w-3.5 h-3.5 text-primary" />
                     <span>Etiquetas & Rubros (Tags)</span>
                   </label>
-                  <span className="text-[11px] text-on-surface-variant">Escribe y presiona Enter</span>
+                  <span className="text-xs text-on-surface-variant">Escribe y presiona Enter</span>
                 </div>
 
                 {/* Input Field + Add Button */}
@@ -492,7 +492,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
                 {/* Autocomplete / Suggested Tags from Database */}
                 {availableSuggestions.length > 0 && (
                   <div className="pt-1.5 border-t border-outline-variant/15 flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider mr-1">
+                    <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mr-1">
                       Sugerencias ({availableSuggestions.length}):
                     </span>
                     {availableSuggestions.slice(0, 8).map((sug) => (
@@ -500,7 +500,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
                         key={sug}
                         type="button"
                         onClick={() => handleAddTag(sug)}
-                        className="text-[11px] px-2.5 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-on-surface font-medium rounded-full border border-outline-variant/30 transition flex items-center gap-1 active:scale-95"
+                        className="text-xs px-2.5 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-on-surface font-medium rounded-full border border-outline-variant/30 transition flex items-center gap-1 active:scale-95"
                         title={`Agregar etiqueta "${sug}"`}
                       >
                         <Plus className="w-3 h-3 text-primary" />
@@ -657,7 +657,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
                   {formData.contactos.map((persona, idx) => (
                     <div key={persona.id || idx} className="bg-surface-container p-3 rounded-xl border border-outline-variant/20 space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-bold text-primary uppercase">Persona #{idx + 1}</span>
+                        <span className="text-xs font-bold text-primary uppercase">Persona #{idx + 1}</span>
                         <button
                           type="button"
                           onClick={() => handleRemovePersona(idx)}
@@ -912,7 +912,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
                             plantillaWhatsAppPersonalizada: DEFAULT_WHATSAPP_TEMPLATE_VAITTY
                           }))
                         }
-                        className="px-2.5 py-1 bg-surface-container hover:bg-surface text-on-surface text-[11px] font-medium rounded-full border border-outline-variant/30 transition-colors flex items-center gap-1 shadow-xs"
+                        className="px-2.5 py-1 bg-surface-container hover:bg-surface text-on-surface text-xs font-medium rounded-full border border-outline-variant/30 transition-colors flex items-center gap-1 shadow-xs"
                       >
                         <Sparkles className="w-3 h-3 text-primary" />
                         <span>Cargar Preset Vaitty</span>
@@ -925,7 +925,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
                             plantillaWhatsAppPersonalizada: DEFAULT_WHATSAPP_TEMPLATE_GENERIC
                           }))
                         }
-                        className="px-2.5 py-1 bg-surface-container hover:bg-surface text-on-surface text-[11px] font-medium rounded-full border border-outline-variant/30 transition-colors flex items-center gap-1 shadow-xs"
+                        className="px-2.5 py-1 bg-surface-container hover:bg-surface text-on-surface text-xs font-medium rounded-full border border-outline-variant/30 transition-colors flex items-center gap-1 shadow-xs"
                       >
                         <RotateCcw className="w-3 h-3 text-on-surface-variant" />
                         <span>Cargar Genérico</span>
@@ -945,7 +945,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
 
                   {/* Chips de inserción de tags */}
                   <div className="space-y-1.5">
-                    <span className="text-[11px] font-semibold text-on-surface-variant block">
+                    <span className="text-xs font-semibold text-on-surface-variant block">
                       Variables disponibles (Haz clic para insertar en el texto):
                     </span>
                     <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1.5 bg-surface-container rounded-xl border border-outline-variant/20">
@@ -960,7 +960,7 @@ export const ContactoFormModal: React.FC<ContactoFormModalProps> = ({
                                 (prev.plantillaWhatsAppPersonalizada || '') + ` ${v.tag} `
                             }));
                           }}
-                          className="px-2 py-0.5 bg-surface-container-high hover:bg-primary/10 hover:text-primary text-on-surface text-[10px] font-mono rounded-lg border border-outline-variant/20 transition-colors"
+                          className="px-2 py-0.5 bg-surface-container-high hover:bg-primary/10 hover:text-primary text-on-surface text-xs font-mono rounded-lg border border-outline-variant/20 transition-colors"
                           title={`${v.descripcion} (Ejemplo: ${v.ejemplo})`}
                         >
                           +{v.etiqueta}

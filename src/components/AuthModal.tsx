@@ -275,7 +275,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               {isConfigured && mode !== 'reset' && (
                 <div className="relative my-4 text-center">
                   <hr className="border-outline-variant/30" />
-                  <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface px-3 text-[11px] text-on-surface-variant font-medium">
+                  <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface px-3 text-xs text-on-surface-variant font-medium">
                     o con correo
                   </span>
                 </div>
@@ -319,7 +319,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   <button
                     type="button"
                     onClick={() => { setMode('reset'); setError(null); setSuccessMsg(null); }}
-                    className="self-end text-[11px] font-medium text-primary hover:underline"
+                    className="self-end text-xs font-medium text-primary hover:underline"
                   >
                     ¿Olvidaste tu contraseña?
                   </button>

@@ -219,14 +219,14 @@ export const LogisticaManager: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={selectAllApproved}
-                  className="text-[11px] font-semibold text-primary hover:underline"
+                  className="text-xs font-semibold text-primary hover:underline"
                 >
                   Seleccionar Aprobados / Enviados
                 </button>
                 <span className="text-outline-variant">|</span>
                 <button
                   onClick={clearSelection}
-                  className="text-[11px] font-medium text-on-surface-variant hover:underline"
+                  className="text-xs font-medium text-on-surface-variant hover:underline"
                 >
                   Limpiar
                 </button>
@@ -259,7 +259,7 @@ export const LogisticaManager: React.FC = () => {
                         <span className="font-semibold text-xs text-on-surface truncate">
                           {p.numero} - {cli?.nombre || 'Cliente General'}
                         </span>
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize shrink-0 ${
+                        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize shrink-0 ${
                           p.estado === 'aprobado' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
                           p.estado === 'enviado' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' :
                           'bg-surface-container-highest text-on-surface-variant'
@@ -267,10 +267,10 @@ export const LogisticaManager: React.FC = () => {
                           {p.estado}
                         </span>
                       </div>
-                      <p className="text-[11px] text-on-surface-variant truncate mt-0.5">
+                      <p className="text-xs text-on-surface-variant truncate mt-0.5">
                         Emisión: {p.fechaEmision ? new Date(p.fechaEmision).toLocaleDateString('es-AR') : 'S/D'}
                       </p>
-                      <div className="flex items-center justify-between text-[11px] font-mono mt-1 pt-1 border-t border-outline-variant/10">
+                      <div className="flex items-center justify-between text-xs font-mono mt-1 pt-1 border-t border-outline-variant/10">
                         <span>{p.items?.length || 0} partidas</span>
                         <span className="font-bold text-primary">{formatARS(p.totalARS || 0)}</span>
                       </div>
@@ -317,7 +317,7 @@ export const LogisticaManager: React.FC = () => {
                   </p>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] text-on-surface-variant block uppercase font-medium">Estimado Total Materiales</span>
+                  <span className="text-xs text-on-surface-variant block uppercase font-medium">Estimado Total Materiales</span>
                   <span className="text-base font-bold font-mono text-primary">
                     {formatARS(consolidatedItems.reduce((acc, i) => acc + i.subtotal, 0))}
                   </span>
@@ -325,7 +325,7 @@ export const LogisticaManager: React.FC = () => {
                     const diffGlobal = roundMoney(consolidatedItems.reduce((acc, i) => acc + i.diferenciaMonto, 0));
                     if (Math.abs(diffGlobal) < 1) return null;
                     return (
-                      <div className={`text-[11px] font-semibold mt-0.5 flex items-center justify-end gap-1 ${diffGlobal > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      <div className={`text-xs font-semibold mt-0.5 flex items-center justify-end gap-1 ${diffGlobal > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         {diffGlobal > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                         <span>{diffGlobal > 0 ? `+${formatARS(diffGlobal)} sobrecosto vs presupuestado` : `${formatARS(diffGlobal)} de ahorro vs presupuestado`}</span>
                       </div>
@@ -348,7 +348,7 @@ export const LogisticaManager: React.FC = () => {
                           <Truck className="w-4 h-4 text-primary shrink-0" />
                           <h4 className="font-semibold text-base text-on-surface">{provName}</h4>
                           {diferenciaGroup > 0 && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                               <AlertTriangle className="w-3 h-3" />
                               <span>+{formatARS(diferenciaGroup)} vs pres.</span>
                             </span>
@@ -412,7 +412,7 @@ export const LogisticaManager: React.FC = () => {
                                 <div className="text-on-surface font-medium">{formatARS(it.precioUnitario)}</div>
                                 {Math.abs(it.diferenciaMonto) > 0.01 && (
                                   <span
-                                    className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${it.diferenciaMonto > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+                                    className={`inline-flex items-center gap-0.5 text-xs font-semibold ${it.diferenciaMonto > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
                                     title={`Precio congelado en presupuesto: ${formatARS(it.precioPresupuestadoUnitario)}`}
                                   >
                                     {it.diferenciaMonto > 0 ? '▲' : '▼'} {it.diferenciaMonto > 0 ? '+' : ''}{it.diferenciaPorcentaje.toFixed(0)}%

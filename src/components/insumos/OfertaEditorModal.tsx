@@ -214,7 +214,7 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
                   </option>
                 ))}
               </select>
-              <p className="text-[11px] text-on-surface-variant mt-1">
+              <p className="text-xs text-on-surface-variant mt-1">
                 Indica si esta cotización corresponde a una marca puntual o al insumo general.
               </p>
             </div>
@@ -239,7 +239,7 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
                 <option key={p.id} value={p.razonSocial || p.nombre} />
               ))}
             </datalist>
-            <p className="text-[11px] text-on-surface-variant mt-1">
+            <p className="text-xs text-on-surface-variant mt-1">
               {formDataOferta.proveedorId ? (
                 <span className="text-primary font-medium">✓ Proveedor agendado en Directorio</span>
               ) : proveedorInput.trim() ? (
@@ -259,7 +259,7 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
                 <Package className="w-3.5 h-3.5 text-primary" />
                 <span>Presentación de Compra / Empaque</span>
               </label>
-              <span className="text-[10px] text-on-surface-variant font-mono">
+              <span className="text-xs text-on-surface-variant font-mono">
                 Unidad base: <strong>{unidadVenta}</strong>
               </span>
             </div>
@@ -311,7 +311,7 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
               <label className="text-xs font-semibold text-on-surface">
                 {factorEmpaque > 1 ? `Precio de la Presentación (${presentacionSeleccionada})` : 'Precio de Compra Directo'}
               </label>
-              <div className="flex items-center gap-1 bg-surface-container-highest p-0.5 rounded-lg border border-outline-variant/30 text-[11px]">
+              <div className="flex items-center gap-1 bg-surface-container-highest p-0.5 rounded-lg border border-outline-variant/30 text-xs">
                 <button
                   type="button"
                   onClick={() => handleToggleModoPrecio('con_iva')}
@@ -366,12 +366,12 @@ export const OfertaEditorModal: React.FC<OfertaEditorModalProps> = ({
             </div>
 
             {/* Desglose en vivo de Base Neta, Final y Costo Unitario Computable */}
-            <div className="pt-2 border-t border-outline-variant/20 space-y-1 text-[11px] font-mono text-on-surface-variant">
+            <div className="pt-2 border-t border-outline-variant/20 space-y-1 text-xs font-mono text-on-surface-variant">
               {factorEmpaque > 1 && (
                 <div className="flex justify-between items-center bg-primary/5 p-2 rounded-xl border border-primary/20 text-on-surface">
                   <span>Costo Unitario Base ({unidadVenta}):</span>
                   <strong className="text-primary text-xs font-bold">
-                    {formatARS(unitarioNeto)} <span className="text-[10px] font-normal text-on-surface-variant">Neto / {unidadVenta}</span>
+                    {formatARS(unitarioNeto)} <span className="text-xs font-normal text-on-surface-variant">Neto / {unidadVenta}</span>
                   </strong>
                 </div>
               )}

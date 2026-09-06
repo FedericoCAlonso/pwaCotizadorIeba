@@ -128,13 +128,13 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onNavigateTa
                   </div>
                   {step.completed ? (
                     <div className="flex items-center gap-1">
-                      <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
                         {step.count} cargados
                       </span>
                       <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                     </div>
                   ) : (
-                    <span className="text-[10px] font-mono text-on-surface-variant/70">
+                    <span className="text-xs font-mono text-on-surface-variant">
                       0 registrados (Paso {idx + 1})
                     </span>
                   )}
@@ -143,12 +143,12 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onNavigateTa
                 <h4 className="font-semibold text-xs text-on-surface group-hover:text-primary transition-colors">
                   {step.title}
                 </h4>
-                <p className="text-[11px] text-on-surface-variant mt-0.5 line-clamp-2">
+                <p className="text-xs text-on-surface-variant mt-0.5 line-clamp-2">
                   {step.description}
                 </p>
               </div>
 
-              <div className="mt-3 flex items-center justify-end text-[11px] font-semibold text-primary group-hover:translate-x-0.5 transition-transform">
+              <div className="mt-3 flex items-center justify-end text-xs font-semibold text-primary group-hover:translate-x-0.5 transition-transform">
                 <span>{step.completed ? 'Ver lista' : step.actionText}</span>
                 <ArrowRight className="w-3 h-3 ml-1" />
               </div>

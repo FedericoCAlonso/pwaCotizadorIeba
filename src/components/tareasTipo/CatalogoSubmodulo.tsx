@@ -101,27 +101,27 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                   <div>
                     {/* Chip M3: 8dp (rounded-lg) */}
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11px] font-semibold text-on-tertiary-container bg-tertiary-container px-2.5 py-0.5 rounded-lg uppercase tracking-wider select-none">
+                      <span className="text-xs font-semibold text-on-tertiary-container bg-tertiary-container px-2.5 py-0.5 rounded-lg uppercase tracking-wider select-none">
                         {tarea.categoria}
                       </span>
                       {tarea.naturaleza === 'servicio_profesional' ? (
-                        <span className="text-[10px] font-bold text-purple-800 dark:text-purple-200 bg-purple-500/20 border border-purple-500/30 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none font-mono">
+                        <span className="text-xs font-bold text-purple-800 dark:text-purple-200 bg-purple-500/20 border border-purple-500/30 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none font-mono">
                           <GraduationCap className="w-3 h-3" />
                           <span>Servicio Profesional</span>
                         </span>
                       ) : tarea.naturaleza === 'servicio_tercerizado' ? (
-                        <span className="text-[10px] font-bold text-amber-800 dark:text-amber-200 bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none font-mono">
+                        <span className="text-xs font-bold text-amber-800 dark:text-amber-200 bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none font-mono">
                           <Truck className="w-3 h-3" />
                           <span>Tercerizado</span>
                         </span>
                       ) : ((tarea.parametros && tarea.parametros.length > 0) || (tarea.variables && tarea.variables.length > 0) || tarea.esParametrico) ? (
-                        <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none">
+                        <span className="text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none">
                           <Sliders className="w-3 h-3" />
                           <span>Paramétrico</span>
                         </span>
                       ) : null}
                       {tarea.clausulaExclusiones && (
-                        <span className="text-[10px] font-medium text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/25 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none" title={tarea.clausulaExclusiones}>
+                        <span className="text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/25 px-2 py-0.5 rounded-lg flex items-center gap-1 select-none" title={tarea.clausulaExclusiones}>
                           <ShieldAlert className="w-3 h-3 text-amber-500" />
                           <span>Exclusiones</span>
                         </span>
@@ -221,7 +221,7 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                 {/* Despiece o Resumen de Costo según Naturaleza */}
                 {tarea.naturaleza === 'servicio_profesional' ? (
                   <div className="mt-3 pt-3 border-t border-outline-variant/15 space-y-1.5 text-xs">
-                    <div className="flex items-center justify-between text-[11px] font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
+                    <div className="flex items-center justify-between text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
                       <span className="flex items-center gap-1">
                         <GraduationCap className="w-3.5 h-3.5" />
                         <span>Honorarios y Ensayos</span>
@@ -231,12 +231,12 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                       </span>
                     </div>
                     {tarea.formulaHonorarios && (
-                      <p className="text-[10px] text-on-surface-variant font-mono truncate bg-surface-container p-1.5 rounded-lg">
+                      <p className="text-xs text-on-surface-variant font-mono truncate bg-surface-container p-1.5 rounded-lg">
                         Fórmula: <code>{tarea.formulaHonorarios}</code>
                       </p>
                     )}
                     {tarea.insumos.length > 0 && (
-                      <div className="text-[10px] text-on-surface-variant pt-1 border-t border-outline-variant/10">
+                      <div className="text-xs text-on-surface-variant pt-1 border-t border-outline-variant/10">
                         + {tarea.insumos.length} insumos ({formatARS(costData.costoInsumosUnitario)})
                       </div>
                     )}
@@ -245,14 +245,14 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                   <>
                     {/* Despiece Insumos */}
                     <div className="mt-3 pt-3 border-t border-outline-variant/15 space-y-1 text-xs">
-                      <div className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                      <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
                         Insumos ({tarea.insumos.length}):
                       </div>
                       <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
                         {tarea.insumos.map((item, idx) => {
                           const mat = insumosMap.get(item.materialId || item.insumoId || '');
                           return (
-                            <div key={idx} className="flex justify-between items-center text-[11px] text-on-surface">
+                            <div key={idx} className="flex justify-between items-center text-xs text-on-surface">
                               <span className="truncate max-w-[170px]">{mat?.nombre || 'Material'}</span>
                               <span className="font-mono text-on-surface-variant shrink-0">
                                 {item.cantidad} {mat?.unidadVenta || mat?.unidad || 'u'}
@@ -277,11 +277,11 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
               {/* Costos Footer */}
               <div className="pt-3 border-t border-outline-variant/15 flex items-baseline justify-between">
                 <div>
-                  <span className="text-[10px] text-on-surface-variant uppercase block font-medium">Costo Directo Base</span>
+                  <span className="text-xs text-on-surface-variant uppercase block font-medium">Costo Directo Base</span>
                   <span className="font-mono text-base font-bold text-primary">
                     {formatARS(costData.costoDirectoUnitario)}
                   </span>
-                  <span className="text-[10px] text-on-surface-variant font-normal"> /{tarea.unidad}</span>
+                  <span className="text-xs text-on-surface-variant font-normal"> /{tarea.unidad}</span>
                 </div>
 
                 {/* Botón Simular: Shape Full Stadium */}

@@ -42,7 +42,7 @@ export const VariablesTab: React.FC<VariablesTabProps> = ({
               <Calculator className="w-4 h-4" />
               <span>Variables y Cálculos Intermedios (Fórmulas Matemáticas)</span>
             </h4>
-            <p className="text-[11px] text-on-surface-variant">
+            <p className="text-xs text-on-surface-variant">
               Cálculos automáticos con fórmulas y funciones (<code className="font-mono text-emerald-700 dark:text-emerald-300">ceil</code>, <code className="font-mono text-emerald-700 dark:text-emerald-300">floor</code>, <code className="font-mono text-emerald-700 dark:text-emerald-300">round</code>, <code className="font-mono text-emerald-700 dark:text-emerald-300">int</code>, <code className="font-mono text-emerald-700 dark:text-emerald-300">min</code>, <code className="font-mono text-emerald-700 dark:text-emerald-300">max</code>). Se calculan a partir de los parámetros de entrada para evitar repetir cálculos en los materiales o en la mano de obra.
             </p>
           </div>
@@ -65,7 +65,7 @@ export const VariablesTab: React.FC<VariablesTabProps> = ({
             <p className="text-xs text-on-surface-variant font-medium">
               No hay variables calculadas definidas.
             </p>
-            <p className="text-[11px] text-on-surface-variant/70">
+            <p className="text-xs text-on-surface-variant">
               Puedes agregar fórmulas matemáticas intermedias (ej: <code className="font-mono">modulos_totales = 4 + circuitos * 2</code>) para simplificar la formulación de los materiales y mano de obra.
             </p>
             <button
@@ -112,7 +112,7 @@ export const VariablesTab: React.FC<VariablesTabProps> = ({
                     </div>
 
                     <div className="w-full sm:w-1/4">
-                      <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
+                      <label className="text-xs font-bold text-on-surface-variant block uppercase mb-0.5">
                         Identificador
                       </label>
                       <input
@@ -129,7 +129,7 @@ export const VariablesTab: React.FC<VariablesTabProps> = ({
                     </div>
 
                     <div className="w-full sm:w-2/4">
-                      <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
+                      <label className="text-xs font-bold text-on-surface-variant block uppercase mb-0.5">
                         Nombre Descriptivo
                       </label>
                       <input
@@ -142,7 +142,7 @@ export const VariablesTab: React.FC<VariablesTabProps> = ({
                     </div>
 
                     <div className="w-24 shrink-0">
-                      <label className="text-[10px] font-bold text-on-surface-variant block uppercase mb-0.5">
+                      <label className="text-xs font-bold text-on-surface-variant block uppercase mb-0.5">
                         Unidad
                       </label>
                       <input
@@ -166,7 +166,7 @@ export const VariablesTab: React.FC<VariablesTabProps> = ({
 
                   {/* Fila Inferior: Editor de Fórmula y Previsualización de Valor Calculado */}
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-on-surface-variant block uppercase">
+                    <label className="text-xs font-bold text-on-surface-variant block uppercase">
                       Fórmula Matemática de Cálculo
                     </label>
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -179,7 +179,7 @@ export const VariablesTab: React.FC<VariablesTabProps> = ({
                         required
                       />
                       <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0 px-1 border-t sm:border-t-0 border-outline-variant/15 pt-1 sm:pt-0 sm:mt-1">
-                        <span className="text-[10px] text-on-surface-variant font-medium sm:hidden">Resultado:</span>
+                        <span className="text-xs text-on-surface-variant font-medium sm:hidden">Resultado:</span>
                         <span
                           className={`text-xs font-mono font-bold px-2.5 py-1 rounded-lg shrink-0 ${
                             evalRes.isValid

@@ -103,7 +103,7 @@ export const QuickClienteModal: React.FC<QuickClienteModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-bold text-on-surface">Crear Nuevo Cliente</h3>
-              <p className="text-[11px] sm:text-xs text-on-surface-variant">
+              <p className="text-xs text-on-surface-variant">
                 Se guardará en tu directorio y se asociará a esta cotización
               </p>
             </div>
@@ -122,7 +122,7 @@ export const QuickClienteModal: React.FC<QuickClienteModalProps> = ({
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1 text-xs">
           {/* Nombre / Razón Social */}
           <div className="space-y-1">
-            <label className="text-[11px] font-bold text-on-surface uppercase tracking-wider block">
+            <label className="text-xs font-bold text-on-surface uppercase tracking-wider block">
               Nombre / Razón Social <span className="text-error">*</span>
             </label>
             <div className="relative">
@@ -141,7 +141,7 @@ export const QuickClienteModal: React.FC<QuickClienteModalProps> = ({
           {/* CUIT/DNI & Condición IVA */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-on-surface uppercase tracking-wider block">
+              <label className="text-xs font-bold text-on-surface uppercase tracking-wider block">
                 CUIT / DNI
               </label>
               <input
@@ -154,7 +154,7 @@ export const QuickClienteModal: React.FC<QuickClienteModalProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-on-surface uppercase tracking-wider block">
+              <label className="text-xs font-bold text-on-surface uppercase tracking-wider block">
                 Condición IVA
               </label>
               <select
@@ -174,7 +174,7 @@ export const QuickClienteModal: React.FC<QuickClienteModalProps> = ({
           {/* Teléfono & Email */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-on-surface uppercase tracking-wider block flex items-center gap-1">
+              <label className="text-xs font-bold text-on-surface uppercase tracking-wider block flex items-center gap-1">
                 <Phone className="w-3 h-3 text-primary" />
                 <span>Teléfono / WhatsApp</span>
               </label>
@@ -188,7 +188,7 @@ export const QuickClienteModal: React.FC<QuickClienteModalProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-on-surface uppercase tracking-wider block flex items-center gap-1">
+              <label className="text-xs font-bold text-on-surface uppercase tracking-wider block flex items-center gap-1">
                 <Mail className="w-3 h-3 text-primary" />
                 <span>Correo Electrónico</span>
               </label>
@@ -205,7 +205,7 @@ export const QuickClienteModal: React.FC<QuickClienteModalProps> = ({
           {/* Dirección & Localidad */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-on-surface uppercase tracking-wider block flex items-center gap-1">
+              <label className="text-xs font-bold text-on-surface uppercase tracking-wider block flex items-center gap-1">
                 <MapPin className="w-3 h-3 text-primary" />
                 <span>Dirección / Calle</span>
               </label>
@@ -219,7 +219,7 @@ export const QuickClienteModal: React.FC<QuickClienteModalProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-on-surface uppercase tracking-wider block">
+              <label className="text-xs font-bold text-on-surface uppercase tracking-wider block">
                 Localidad / Ciudad
               </label>
               <input

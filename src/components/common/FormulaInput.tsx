@@ -308,12 +308,12 @@ export const FormulaInput: React.FC<FormulaInputProps> = ({
             ref={dropdownRef}
             className="absolute left-0 top-full mt-1 w-full sm:w-80 max-h-56 overflow-y-auto bg-surface-container-high border border-primary/30 rounded-2xl shadow-2xl z-50 p-1.5 space-y-0.5 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-md"
           >
-            <div className="px-2 py-1 text-[10px] font-bold text-on-surface-variant/70 uppercase tracking-wider flex items-center justify-between border-b border-outline-variant/20 mb-1">
+            <div className="px-2 py-1 text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center justify-between border-b border-outline-variant/20 mb-1">
               <span className="flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-primary" />
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
                 <span>Sugerencias IntelliSense</span>
               </span>
-              <span className="text-[9px] font-mono text-on-surface-variant/60 lowercase">↑↓ enter / tab</span>
+              <span className="text-xs font-mono text-on-surface-variant/80 lowercase">↑↓ enter / tab</span>
             </div>
 
             {suggestions.map((item, idx) => {
@@ -332,35 +332,35 @@ export const FormulaInput: React.FC<FormulaInputProps> = ({
                 >
                   <div className="flex items-center gap-2 truncate">
                     {item.type === 'param' && (
-                      <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                      <span className={`px-2 py-0.5 rounded-md text-xs font-mono font-bold ${
                         isSelected ? 'bg-white/20 text-white' : 'bg-primary/15 text-primary'
                       }`}>
                         🅿️ {item.id}
                       </span>
                     )}
                     {item.type === 'var' && (
-                      <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                      <span className={`px-2 py-0.5 rounded-md text-xs font-mono font-bold ${
                         isSelected ? 'bg-white/20 text-white' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                       }`}>
                         ⚡ ${item.id}
                       </span>
                     )}
                     {item.type === 'func' && (
-                      <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                      <span className={`px-2 py-0.5 rounded-md text-xs font-mono font-bold ${
                         isSelected ? 'bg-white/20 text-white' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
                       }`}>
                         ƒ {item.id}()
                       </span>
                     )}
                     {item.type === 'op' && (
-                      <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                      <span className={`px-2 py-0.5 rounded-md text-xs font-mono font-bold ${
                         isSelected ? 'bg-white/20 text-white' : 'bg-purple-500/15 text-purple-700 dark:text-purple-300'
                       }`}>
                         & {item.id}
                       </span>
                     )}
                     {item.type === 'value' && (
-                      <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                      <span className={`px-2 py-0.5 rounded-md text-xs font-mono font-bold ${
                         isSelected ? 'bg-white/20 text-white' : 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300'
                       }`}>
                         🏷️ {item.id}
@@ -370,8 +370,8 @@ export const FormulaInput: React.FC<FormulaInputProps> = ({
                   </div>
 
                   {item.detail && (
-                    <span className={`text-[10px] shrink-0 font-normal ml-2 ${
-                      isSelected ? 'text-white/80' : 'text-on-surface-variant/70'
+                    <span className={`text-xs shrink-0 font-normal ml-2 ${
+                      isSelected ? 'text-white/80' : 'text-on-surface-variant'
                     }`}>
                       {item.detail}
                     </span>
@@ -385,8 +385,8 @@ export const FormulaInput: React.FC<FormulaInputProps> = ({
 
       {/* Chips de Inserción Rápida */}
       {showChips && (parametros.length > 0 || variables.length > 0 || attributeValues.length > 0) && (
-        <div className="flex items-center gap-1.5 flex-wrap pt-0.5 px-0.5">
-          <span className="text-[10px] font-semibold text-on-surface-variant/70 shrink-0">
+        <div className="flex items-center gap-1.5 flex-wrap pt-1 px-0.5">
+          <span className="text-xs font-semibold text-on-surface-variant shrink-0">
             Insertar:
           </span>
 
@@ -396,7 +396,7 @@ export const FormulaInput: React.FC<FormulaInputProps> = ({
               key={`val-${val}`}
               type="button"
               onClick={() => handleInsertSnippet(val)}
-              className="px-1.5 py-0.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 text-[10px] font-mono font-bold rounded-md border border-cyan-500/25 transition active:scale-95 shrink-0"
+              className="px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 text-xs font-mono font-bold rounded-lg border border-cyan-500/25 transition active:scale-95 shrink-0"
               title={`Valor de catálogo: ${val}`}
             >
               🏷️ {val}
@@ -409,7 +409,7 @@ export const FormulaInput: React.FC<FormulaInputProps> = ({
               key={p.id}
               type="button"
               onClick={() => handleInsertSnippet(p.id)}
-              className="px-2 py-0.5 bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-mono font-semibold rounded-lg border border-primary/20 transition active:scale-95 shrink-0"
+              className="px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-mono font-semibold rounded-lg border border-primary/20 transition active:scale-95 shrink-0"
               title={`Insertar parámetro: ${p.nombre}`}
             >
               {p.id}
@@ -422,7 +422,7 @@ export const FormulaInput: React.FC<FormulaInputProps> = ({
               key={v.id}
               type="button"
               onClick={() => handleInsertSnippet(v.id)}
-              className="px-2 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] font-mono font-semibold rounded-lg border border-emerald-500/25 transition active:scale-95 shrink-0"
+              className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-mono font-semibold rounded-lg border border-emerald-500/25 transition active:scale-95 shrink-0"
               title={`Insertar variable calculada: ${v.nombre}`}
             >
               ${v.id}
@@ -433,7 +433,7 @@ export const FormulaInput: React.FC<FormulaInputProps> = ({
           <button
             type="button"
             onClick={() => handleInsertSnippet('? :')}
-            className="px-1.5 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[11px] font-mono font-bold rounded-lg border border-amber-500/25 transition active:scale-95 shrink-0"
+            className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-mono font-bold rounded-lg border border-amber-500/25 transition active:scale-95 shrink-0"
             title="Insertar operador ternario (cond ? val1 : val2)"
           >
             ? :
@@ -442,7 +442,7 @@ export const FormulaInput: React.FC<FormulaInputProps> = ({
           <button
             type="button"
             onClick={() => handleInsertSnippet('si()')}
-            className="px-1.5 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[11px] font-mono font-bold rounded-lg border border-amber-500/25 transition active:scale-95 shrink-0"
+            className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-mono font-bold rounded-lg border border-amber-500/25 transition active:scale-95 shrink-0"
             title="Insertar función si(cond, val1, val2)"
           >
             si()
@@ -451,7 +451,7 @@ export const FormulaInput: React.FC<FormulaInputProps> = ({
           <button
             type="button"
             onClick={() => handleInsertSnippet('ceil()')}
-            className="px-1.5 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-on-surface-variant text-[11px] font-mono font-semibold rounded-lg border border-outline-variant/30 transition active:scale-95 shrink-0"
+            className="px-2 py-1 bg-surface-container-highest hover:bg-surface-variant text-on-surface-variant text-xs font-mono font-semibold rounded-lg border border-outline-variant/30 transition active:scale-95 shrink-0"
             title="Redondeo hacia arriba ceil(x)"
           >
             ceil()

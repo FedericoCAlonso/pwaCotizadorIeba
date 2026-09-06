@@ -277,11 +277,11 @@ export const RegistroTrabajoManager: React.FC = () => {
                       <td className="px-5 py-4 text-center font-mono font-bold text-on-surface text-sm">{r.cantidadEjecutada} {tarea ? tarea.unidad : 'u'}</td>
                       <td className="px-5 py-4 text-center font-mono font-bold text-primary text-sm">{r.horasReales}h</td>
                       <td className="px-5 py-4 text-center">
-                        <span className={`text-[11px] font-medium px-3 py-1 rounded-full capitalize ${condBadge(r.condicion)}`}>{r.condicion}</span>
+                        <span className={`text-xs font-medium px-3 py-1 rounded-full capitalize ${condBadge(r.condicion)}`}>{r.condicion}</span>
                       </td>
                       <td className="px-5 py-4 text-center text-xs">
                         {r.motivoDesvio ? (
-                          <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium">
+                          <span className="inline-block px-2.5 py-0.5 rounded-full text-xs bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium">
                             {MOTIVO_DESVIO_ETIQUETAS[r.motivoDesvio]}
                           </span>
                         ) : <span className="text-outline-variant">—</span>}
@@ -344,7 +344,7 @@ export const RegistroTrabajoManager: React.FC = () => {
 
                   {r.motivoDesvio && (
                     <div className="mt-1">
-                      <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium">
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium">
                         Motivo desvío: {MOTIVO_DESVIO_ETIQUETAS[r.motivoDesvio]}
                       </span>
                     </div>
@@ -486,7 +486,7 @@ export const RegistroTrabajoManager: React.FC = () => {
                     key={h}
                     type="button"
                     onClick={() => setFormData((prev) => ({ ...prev, horasReales: h }))}
-                    className="px-2 py-0.5 rounded-lg text-[11px] font-mono bg-surface-container hover:bg-primary-container hover:text-on-primary-container text-on-surface-variant transition-colors"
+                    className="px-2 py-0.5 rounded-lg text-xs font-mono bg-surface-container hover:bg-primary-container hover:text-on-primary-container text-on-surface-variant transition-colors"
                   >
                     {h}h
                   </button>
@@ -522,7 +522,7 @@ export const RegistroTrabajoManager: React.FC = () => {
                     key={q}
                     type="button"
                     onClick={() => setFormData((prev) => ({ ...prev, cantidadEjecutada: q }))}
-                    className="px-2 py-0.5 rounded-lg text-[11px] font-mono bg-surface-container hover:bg-primary-container hover:text-on-primary-container text-on-surface-variant transition-colors"
+                    className="px-2 py-0.5 rounded-lg text-xs font-mono bg-surface-container hover:bg-primary-container hover:text-on-primary-container text-on-surface-variant transition-colors"
                   >
                     +{q}
                   </button>

@@ -180,7 +180,7 @@ export const SaveAsTareaTipoModal: React.FC<SaveAsTareaTipoModalProps> = ({
           {/* Resumen del Contenido */}
           <div className="p-3 bg-surface-container-low border border-outline-variant/20 rounded-2xl space-y-1">
             <span className="font-semibold text-on-surface block">Contenido a Clonar:</span>
-            <div className="flex items-center gap-4 text-on-surface-variant text-[11px]">
+            <div className="flex items-center gap-4 text-on-surface-variant text-xs">
               <span>📦 <strong>{insumos.length}</strong> Insumos/Materiales</span>
               <span>⏱️ <strong>{manoObra.reduce((acc, m) => acc + m.horas, 0)} hs</strong> Mano de Obra</span>
             </div>

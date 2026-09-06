@@ -77,7 +77,7 @@ export const MaterialEditorModal: React.FC<MaterialEditorModalProps> = ({
               <button
                 type="button"
                 onClick={onOpenCreateCat}
-                className="text-[11px] text-primary hover:underline font-semibold"
+                className="text-xs text-primary hover:underline font-semibold"
               >
                 + Nueva Categoría
               </button>
@@ -88,7 +88,7 @@ export const MaterialEditorModal: React.FC<MaterialEditorModalProps> = ({
                 <button
                   type="button"
                   onClick={onRestoreDefaultCategories}
-                  className="px-2.5 py-1 bg-amber-500 text-white font-semibold rounded-lg text-[10px]"
+                  className="px-2.5 py-1 bg-amber-500 text-white font-semibold rounded-lg text-xs"
                 >
                   Cargar iniciales
                 </button>
@@ -132,7 +132,7 @@ export const MaterialEditorModal: React.FC<MaterialEditorModalProps> = ({
               <button
                 type="button"
                 onClick={onAddCustomAttribute}
-                className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
+                className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
                 title="Agregar atributo adicional no sugerido en la categoría"
               >
                 + Atributo Extra
@@ -167,10 +167,10 @@ export const MaterialEditorModal: React.FC<MaterialEditorModalProps> = ({
 
                   return (
                     <div key={attrTpl.clave}>
-                      <label className="block text-[11px] font-medium text-on-surface-variant mb-1 truncate">
+                      <label className="block text-xs font-medium text-on-surface-variant mb-1 truncate">
                         {attrTpl.etiqueta} {attrTpl.unidad ? `(${attrTpl.unidad})` : ''}
                         {isBlocked && (
-                          <span className="ml-1 text-[9px] text-amber-500 font-bold">(Fijo por norma)</span>
+                          <span className="ml-1 text-xs text-amber-500 font-bold">(Fijo por norma)</span>
                         )}
                       </label>
                       {availableOptions.length > 0 ? (
@@ -209,7 +209,7 @@ export const MaterialEditorModal: React.FC<MaterialEditorModalProps> = ({
 
             {extraAttrs.length > 0 && (
               <div className="space-y-2 pt-2 border-t border-outline-variant/20">
-                <span className="block text-[11px] font-semibold text-on-surface-variant">Atributos Adicionales</span>
+                <span className="block text-xs font-semibold text-on-surface-variant">Atributos Adicionales</span>
                 {extraAttrs.map((attr, idx) => {
                   const actualIdx = (formDataMat.atributos || []).findIndex((a) => a.clave === attr.clave);
                   return (
@@ -218,14 +218,14 @@ export const MaterialEditorModal: React.FC<MaterialEditorModalProps> = ({
                         type="text"
                         value={attr.clave}
                         onChange={(e) => onUpdateCustomAttrKey(actualIdx, e.target.value)}
-                        className={`${inputCls} w-1/3 text-[11px]`}
+                        className={`${inputCls} w-1/3 text-xs`}
                         placeholder="Nombre Atributo..."
                       />
                       <input
                         type="text"
                         value={attr.valor}
                         onChange={(e) => onAttributeValueChange(attr.clave, e.target.value)}
-                        className={`${inputCls} flex-1 text-[11px]`}
+                        className={`${inputCls} flex-1 text-xs`}
                         placeholder="Valor..."
                       />
                       <button
@@ -251,7 +251,7 @@ export const MaterialEditorModal: React.FC<MaterialEditorModalProps> = ({
               <button
                 type="button"
                 onClick={onAutoGenerateName}
-                className="text-[11px] text-primary hover:underline font-semibold"
+                className="text-xs text-primary hover:underline font-semibold"
                 title="Restablecer nombre formateado por defecto"
               >
                 ✨ Restablecer Formato

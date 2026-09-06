@@ -41,7 +41,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
             <Package className="w-4 h-4 mt-0.5 shrink-0" />
             <div>
               <div className="text-xs font-bold">📦 Montaje / Obra (APU)</div>
-              <div className="text-[10px] text-on-surface-variant font-normal leading-tight mt-0.5">
+              <div className="text-xs text-on-surface-variant font-normal leading-tight mt-0.5">
                 Materiales + Mano de Obra (MOD)
               </div>
             </div>
@@ -59,7 +59,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
             <GraduationCap className="w-4 h-4 mt-0.5 shrink-0 text-purple-600 dark:text-purple-400" />
             <div>
               <div className="text-xs font-bold">🎓 Servicio Profesional / Ensayo</div>
-              <div className="text-[10px] text-on-surface-variant font-normal leading-tight mt-0.5">
+              <div className="text-xs text-on-surface-variant font-normal leading-tight mt-0.5">
                 Protocolo SRT 900/15, Termografía, DCI
               </div>
             </div>
@@ -77,7 +77,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
             <Truck className="w-4 h-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
             <div>
               <div className="text-xs font-bold">🚜 Servicio Tercerizado</div>
-              <div className="text-[10px] text-on-surface-variant font-normal leading-tight mt-0.5">
+              <div className="text-xs text-on-surface-variant font-normal leading-tight mt-0.5">
                 Alquiler plataforma, grúa, subcontrato
               </div>
             </div>
@@ -193,7 +193,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
                 <GraduationCap className="w-4 h-4" />
                 <span>Honorarios Profesionales, Aranceles y Ensayos Técnicos</span>
               </h4>
-              <p className="text-[11px] text-on-surface-variant mt-0.5">
+              <p className="text-xs text-on-surface-variant mt-0.5">
                 Ingresa el monto fijo de honorarios (ej: <code className="font-mono font-bold text-purple-700 dark:text-purple-300">120000</code>) o una fórmula matemática con parámetros/variables (ej: <code className="font-mono font-bold text-purple-700 dark:text-purple-300">120000 + jabalinas * 20000</code>).
               </p>
             </div>
@@ -210,7 +210,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
               />
 
               <div className="flex flex-wrap items-center justify-between gap-2 bg-surface-container-highest/60 px-3 py-2 rounded-xl border border-purple-500/25">
-                <span className="text-[11px] font-semibold text-on-surface-variant flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-on-surface-variant flex items-center gap-1.5">
                   <Calculator className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                   <span>Honorarios Totales Evaluados (con valores default):</span>
                 </span>

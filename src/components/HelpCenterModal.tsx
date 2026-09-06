@@ -112,7 +112,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                   </div>
                   <div>
                     <span className="block font-medium text-xs text-on-surface">{cat.title}</span>
-                    <span className="text-[10px] opacity-80 line-clamp-1">{cat.summary}</span>
+                    <span className="text-xs text-on-surface-variant line-clamp-1">{cat.summary}</span>
                   </div>
                 </button>
               );
@@ -146,7 +146,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                     {sec.bullets && sec.bullets.length > 0 && (
                       <ul className="space-y-1.5 pt-1">
                         {sec.bullets.map((bullet, bIdx) => (
-                          <li key={bIdx} className="flex items-start gap-2 text-[11px] text-on-surface">
+                          <li key={bIdx} className="flex items-start gap-2 text-xs text-on-surface">
                             <CheckCircle2 className="w-3.5 h-3.5 text-tertiary shrink-0 mt-0.5" />
                             <span>{bullet}</span>
                           </li>
@@ -178,7 +178,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
 
         {/* Modal Footer */}
         <div className="pt-3 border-t border-outline-variant/20 flex justify-between items-center shrink-0 mt-2">
-          <span className="text-[11px] text-on-surface-variant font-mono">Cotizador Eléctrico — IEBA v1.3.0</span>
+          <span className="text-xs text-on-surface-variant font-mono">Cotizador Eléctrico — IEBA v1.3.0</span>
           <button
             type="button"
             onClick={onClose}

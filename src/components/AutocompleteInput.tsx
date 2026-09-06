@@ -105,14 +105,14 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
                   className="px-3 py-2 cursor-pointer hover:bg-slate-700/80 transition-colors flex flex-col"
                 >
                   <span className="text-sm text-slate-200 font-medium">{opt.label}</span>
-                  {opt.subLabel && <span className="text-[10px] text-slate-400 mt-0.5">{opt.subLabel}</span>}
+                  {opt.subLabel && <span className="text-xs text-slate-400 mt-0.5">{opt.subLabel}</span>}
                 </li>
               ))}
             </ul>
           ) : (
-            <div className="px-3 py-4 text-center text-sm text-slate-500">
+            <div className="px-3 py-4 text-center text-sm text-slate-400">
               <span className="block mb-1">Sin resultados.</span>
-              <span className="text-[11px]">Se guardará "{value}" como nuevo ingreso.</span>
+              <span className="text-xs">Se guardará "{value}" como nuevo ingreso.</span>
             </div>
           )}
         </div>

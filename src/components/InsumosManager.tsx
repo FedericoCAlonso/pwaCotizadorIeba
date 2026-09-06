@@ -637,7 +637,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
+                <span className="text-xs font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
                   Filtro de Insumos Activo
                 </span>
                 <span className="text-xs font-mono font-bold text-on-primary-container">
@@ -866,7 +866,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
             {showFilters && (
               <div className="pt-3 border-t border-outline-variant/20 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in duration-150">
                 <div>
-                  <label className="block text-[11px] font-semibold text-on-surface-variant mb-1">Familia / Categoría</label>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Familia / Categoría</label>
                   <div className="relative">
                     <select
                       value={selectedCategory}
@@ -898,7 +898,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-on-surface-variant mb-1">Vigencia del Precio</label>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Vigencia del Precio</label>
                   <div className="relative">
                     <select
                       value={selectedVencimiento}
@@ -915,7 +915,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-on-surface-variant mb-1">Estado de Ficha Técnica</label>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Estado de Ficha Técnica</label>
                   <div className="relative">
                     <select
                       value={selectedFichaStatus}
@@ -1098,13 +1098,13 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                             <div className="font-semibold text-on-surface truncate flex items-center gap-2" title={mat.nombre}>
                               <span>{mat.nombre}</span>
                               {(() => { const q = getObraQuantity(mat.id); return q ? (
-                                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md shrink-0">
+                                <span className="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md shrink-0">
                                   Obra: {q.cantidad} {q.unidad}
                                 </span>
                               ) : null; })()}
                             </div>
                             {mat.fichaIncompleta && (
-                              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
+                              <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
                                 <AlertCircle className="w-3 h-3" /> Ficha Incompleta (Alta Rápida)
                               </span>
                             )}
@@ -1121,7 +1121,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                                       key={p.id}
                                       type="button"
                                       onClick={() => handleTogglePreferido(p)}
-                                      className={`text-[10px] px-2 py-0.5 rounded-lg font-medium flex items-center gap-1 transition-colors cursor-pointer ${
+                                      className={`text-xs px-2 py-0.5 rounded-lg font-medium flex items-center gap-1 transition-colors cursor-pointer ${
                                         p.esPreferido
                                           ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
                                           : 'bg-surface-container-highest text-on-surface-variant'
@@ -1136,10 +1136,10 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                                 })}
                               </div>
                             ) : (
-                              <span className="text-on-surface-variant italic text-[11px]">Genérico</span>
+                              <span className="text-on-surface-variant italic text-xs">Genérico</span>
                             )}
                             {provNombre && (
-                              <div className="text-[10px] text-on-surface-variant mt-1 truncate max-w-[180px]">
+                              <div className="text-xs text-on-surface-variant mt-1 truncate max-w-[180px]">
                                 Ref: {provNombre}
                               </div>
                             )}
@@ -1148,13 +1148,13 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                             {vigOferta ? (
                               <div>
                                 <span className="font-bold text-primary block">
-                                  {formatARS(vigOferta.precio)} <span className="text-[10px] font-normal text-on-surface-variant">Neto/{mat.unidadVenta || 'u'}</span>
+                                  {formatARS(vigOferta.precio)} <span className="text-xs font-normal text-on-surface-variant">Neto/{mat.unidadVenta || 'u'}</span>
                                 </span>
-                                <span className="text-[10px] text-on-surface-variant font-medium block">
+                                <span className="text-xs text-on-surface-variant font-medium block">
                                   c/IVA ({vigOferta.alicuotaIVA ?? 21}%): {formatARS(vigOferta.precioFinal ?? calcularPrecioFinal(vigOferta.precio, vigOferta.alicuotaIVA ?? 21))}
                                 </span>
                                 {vigOferta.presentacionCompra && (vigOferta.cantidadPorPresentacion || 1) > 1 && (
-                                  <span className="text-[10px] text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded-md inline-block mt-0.5" title={`Cotizado por ${vigOferta.presentacionCompra}`}>
+                                  <span className="text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded-md inline-block mt-0.5" title={`Cotizado por ${vigOferta.presentacionCompra}`}>
                                     📦 {vigOferta.presentacionCompra}
                                   </span>
                                 )}
@@ -1163,7 +1163,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                               <span className="text-on-surface-variant">-</span>
                             )}
                             {vigProd && (
-                              <span className="text-[10px] text-on-surface-variant font-normal block">
+                              <span className="text-xs text-on-surface-variant font-normal block">
                                 {vigProd.marca} {vigProd.esPreferido ? '⭐' : ''}
                               </span>
                             )}
@@ -1259,11 +1259,11 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                             onChange={() => handleToggleSelectMaterial(mat.id)}
                             className="w-4 h-4 text-primary rounded cursor-pointer"
                           />
-                          <span className="text-[11px] font-semibold text-on-primary-container bg-primary-container px-2.5 py-0.5 rounded-lg select-none">
+                          <span className="text-xs font-semibold text-on-primary-container bg-primary-container px-2.5 py-0.5 rounded-lg select-none">
                             {cat?.nombre || 'General'}
                           </span>
                           {(() => { const q = getObraQuantity(mat.id); return q ? (
-                            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg select-none">
+                            <span className="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg select-none">
                               Obra: {q.cantidad} {q.unidad}
                             </span>
                           ) : null; })()}
@@ -1289,7 +1289,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                       </h4>
 
                       {mat.fichaIncompleta && (
-                        <div className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-semibold select-none">
+                        <div className="mt-1.5 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 font-semibold select-none">
                           <AlertCircle className="w-3.5 h-3.5" />
                           <span>Ficha Incompleta (Alta Rápida)</span>
                         </div>
@@ -1303,7 +1303,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                             .map((a, idx) => (
                               <span
                                 key={idx}
-                                className="text-[11px] bg-surface-container text-on-surface-variant px-2.5 py-0.5 rounded-lg font-mono select-none"
+                                className="text-xs bg-surface-container text-on-surface-variant px-2.5 py-0.5 rounded-lg font-mono select-none"
                               >
                                 {a.clave}: {a.valor}
                               </span>
@@ -1313,12 +1313,12 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
 
                       {/* Products / Brands Breakdown */}
                       <div className="mt-3 pt-2.5 border-t border-outline-variant/15 space-y-2">
-                        <div className="flex items-center justify-between text-[11px] text-on-surface-variant font-medium">
+                        <div className="flex items-center justify-between text-xs text-on-surface-variant font-medium">
                           <span>Marcas & Modelos ({prods.length}):</span>
                           <button
                             type="button"
                             onClick={() => handleOpenCreateProd(mat.id)}
-                            className="text-primary hover:underline font-semibold text-[11px] cursor-pointer"
+                            className="text-primary hover:underline font-semibold text-xs cursor-pointer"
                           >
                             + Agregar Marca
                           </button>
@@ -1335,7 +1335,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                               return (
                                 <div
                                   key={p.id}
-                                  className="text-[11px] bg-surface-container-highest/60 hover:bg-surface-container-highest text-on-surface p-2 rounded-xl flex items-center justify-between gap-2 group transition-colors"
+                                  className="text-xs bg-surface-container-highest/60 hover:bg-surface-container-highest text-on-surface p-2 rounded-xl flex items-center justify-between gap-2 group transition-colors"
                                 >
                                   <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                     <button
@@ -1357,16 +1357,16 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
 
                                   <div className="flex items-center gap-2 shrink-0">
                                     {prodOferta ? (
-                                      <div className="text-right font-mono text-[11px]">
+                                      <div className="text-right font-mono text-xs">
                                         <span className="font-bold text-primary">{formatARS(prodOferta.precio)}</span>
                                         {prodProv && (
-                                          <span className="text-[10px] text-on-surface-variant block truncate max-w-[100px]" title={prodProv}>
+                                          <span className="text-xs text-on-surface-variant block truncate max-w-[100px]" title={prodProv}>
                                             {prodProv}
                                           </span>
                                         )}
                                       </div>
                                     ) : (
-                                      <span className="text-[10px] text-on-surface-variant italic">Sin precio</span>
+                                      <span className="text-xs text-on-surface-variant italic">Sin precio</span>
                                     )}
 
                                     <OnlinePriceButton
@@ -1397,7 +1397,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                             })}
                           </div>
                         ) : (
-                          <p className="text-[11px] text-on-surface-variant italic">Genérico / Sin marca registrada</p>
+                          <p className="text-xs text-on-surface-variant italic">Genérico / Sin marca registrada</p>
                         )}
                       </div>
                     </div>
@@ -1405,19 +1405,19 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                     {/* Pricing & Footer Actions */}
                     <div className="mt-4 pt-3 border-t border-outline-variant/15 flex items-center justify-between">
                       <div>
-                        <span className="text-[10px] text-on-surface-variant block font-mono">
+                        <span className="text-xs text-on-surface-variant block font-mono">
                           Precio Vigente /{mat.unidadVenta || 'u'}:
                         </span>
                         {vigOferta ? (
                           <div>
                             <div className="font-mono text-base font-bold text-primary">
-                              {formatARS(vigOferta.precio)} <span className="text-[11px] font-normal text-on-surface-variant">Neto/{mat.unidadVenta || 'u'}</span>
+                              {formatARS(vigOferta.precio)} <span className="text-xs font-normal text-on-surface-variant">Neto/{mat.unidadVenta || 'u'}</span>
                             </div>
-                            <div className="text-[11px] font-mono text-on-surface-variant">
+                            <div className="text-xs font-mono text-on-surface-variant">
                               c/IVA ({vigOferta.alicuotaIVA ?? 21}%): <strong className="text-on-surface">{formatARS(vigOferta.precioFinal ?? calcularPrecioFinal(vigOferta.precio, vigOferta.alicuotaIVA ?? 21))}</strong>
                             </div>
                             {vigOferta.presentacionCompra && (vigOferta.cantidadPorPresentacion || 1) > 1 && (
-                              <div className="text-[10px] text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded-md inline-block mt-0.5" title={`Cotizado por ${vigOferta.presentacionCompra}`}>
+                              <div className="text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded-md inline-block mt-0.5" title={`Cotizado por ${vigOferta.presentacionCompra}`}>
                                 📦 {vigOferta.presentacionCompra}
                               </div>
                             )}
@@ -1428,7 +1428,7 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
                           </div>
                         )}
                         {provNombre && (
-                          <span className="text-[10px] text-on-surface-variant block truncate max-w-[150px] mt-0.5" title={provNombre}>
+                          <span className="text-xs text-on-surface-variant block truncate max-w-[150px] mt-0.5" title={provNombre}>
                             {provNombre} {vigProd ? `(${vigProd.marca})` : ''}
                           </span>
                         )}

@@ -9,7 +9,7 @@ interface EstadoBadgeProps {
 
 export const EstadoBadge: React.FC<EstadoBadgeProps> = ({ estado, size = 'sm' }) => {
   const iconCls = size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5';
-  const textCls = size === 'sm' ? 'text-[11px] px-2.5 py-0.5' : 'text-xs px-3 py-1';
+  const textCls = size === 'sm' ? 'text-xs px-2.5 py-0.5' : 'text-xs px-3 py-1 font-bold';
 
   switch (estado) {
     case 'aprobado':

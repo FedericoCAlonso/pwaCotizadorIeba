@@ -301,7 +301,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {user.photoURL ? (
                   <img src={user.photoURL} alt="Avatar" className="w-5 h-5 rounded-full" />
                 ) : (
-                  <div className="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center text-[10px] font-bold">
+                  <div className="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center text-xs font-bold">
                     {user.email ? user.email[0].toUpperCase() : 'U'}
                   </div>
                 )}
@@ -314,7 +314,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="absolute right-0 top-full mt-2 z-20 bg-surface-container-high rounded-2xl shadow-xl py-3 min-w-[240px] border border-outline-variant/30 text-on-surface">
                     <div className="px-4 pb-2 border-b border-outline-variant/20 mb-2">
                       <p className="text-xs font-semibold text-on-surface truncate">{user.displayName || 'Usuario IEBA'}</p>
-                      <p className="text-[11px] text-on-surface-variant truncate">{user.email}</p>
+                      <p className="text-xs text-on-surface-variant truncate">{user.email}</p>
                       <div
                         onClick={() => {
                           setShowSyncModal(true);
@@ -400,7 +400,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="flex items-center justify-around px-3 py-1.5 border-b border-outline-variant/30 mb-1">
                     <button
                       onClick={() => { onThemeModeChange('system'); setShowUtilsMenu(false); }}
-                      className={`p-2 rounded-xl flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${themeMode === 'system' ? 'bg-primary-container text-on-primary-container' : 'hover:bg-surface-variant text-on-surface-variant'}`}
+                      className={`p-2 rounded-xl flex flex-col items-center gap-1 text-xs font-medium transition-colors ${themeMode === 'system' ? 'bg-primary-container text-on-primary-container' : 'hover:bg-surface-variant text-on-surface-variant'}`}
                       title="Automático según preferencia del dispositivo"
                     >
                       <Monitor className="w-4 h-4" />
@@ -408,7 +408,7 @@ export const Header: React.FC<HeaderProps> = ({
                     </button>
                     <button
                       onClick={() => { onThemeModeChange('dark'); setShowUtilsMenu(false); }}
-                      className={`p-2 rounded-xl flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${themeMode === 'dark' ? 'bg-primary-container text-on-primary-container' : 'hover:bg-surface-variant text-on-surface-variant'}`}
+                      className={`p-2 rounded-xl flex flex-col items-center gap-1 text-xs font-medium transition-colors ${themeMode === 'dark' ? 'bg-primary-container text-on-primary-container' : 'hover:bg-surface-variant text-on-surface-variant'}`}
                       title="Forzar modo oscuro"
                     >
                       <Moon className="w-4 h-4" />
@@ -416,7 +416,7 @@ export const Header: React.FC<HeaderProps> = ({
                     </button>
                     <button
                       onClick={() => { onThemeModeChange('light'); setShowUtilsMenu(false); }}
-                      className={`p-2 rounded-xl flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${themeMode === 'light' ? 'bg-primary-container text-on-primary-container' : 'hover:bg-surface-variant text-on-surface-variant'}`}
+                      className={`p-2 rounded-xl flex flex-col items-center gap-1 text-xs font-medium transition-colors ${themeMode === 'light' ? 'bg-primary-container text-on-primary-container' : 'hover:bg-surface-variant text-on-surface-variant'}`}
                       title="Forzar modo claro"
                     >
                       <Sun className="w-4 h-4" />
@@ -516,8 +516,8 @@ export const Header: React.FC<HeaderProps> = ({
                 <Icon className="w-5 h-5" aria-hidden="true" />
               </div>
               <span
-                className={`text-[10px] tracking-tight mt-0.5 transition-colors ${
-                  isActive ? 'font-bold text-primary' : 'text-on-surface-variant'
+                className={`text-xs tracking-tight mt-0.5 transition-colors ${
+                  isActive ? 'font-bold text-primary' : 'font-medium text-on-surface-variant'
                 }`}
               >
                 {item.label.split(' ')[0]}
@@ -545,10 +545,10 @@ export const Header: React.FC<HeaderProps> = ({
             <Menu className="w-5 h-5" aria-hidden="true" />
           </div>
           <span
-            className={`text-[10px] tracking-tight mt-0.5 transition-colors ${
+            className={`text-xs tracking-tight mt-0.5 transition-colors ${
               !['presupuestos', 'insumos', 'contactos', 'registroTrabajo'].includes(activeTab)
                 ? 'font-bold text-primary'
-                : 'text-on-surface-variant'
+                : 'font-medium text-on-surface-variant'
             }`}
           >
             Más
@@ -619,7 +619,7 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Utility Actions */}
               <div className="pt-3 border-t border-outline-variant/30 space-y-2">
-                <div className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">
+                <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider px-1">
                   Acciones Rápidas
                 </div>
 
@@ -793,7 +793,7 @@ export const Header: React.FC<HeaderProps> = ({
           {lastResult && lastResult.stats && (
             <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 space-y-2 text-xs">
               <span className="font-bold text-on-surface block">Estadísticas de la última sincronización:</span>
-              <div className="grid grid-cols-2 gap-2 text-on-surface-variant font-mono text-[11px]">
+              <div className="grid grid-cols-2 gap-2 text-on-surface-variant font-mono text-xs">
                 <div>Tablas sincronizadas: <strong className="text-on-surface">{lastResult.stats.tablesProcessed}</strong></div>
                 <div>Actualizados en dispositivo: <strong className="text-emerald-600 dark:text-emerald-400">{lastResult.stats.localUpdatedCount + lastResult.stats.localAddedCount}</strong></div>
                 <div>Novedades enviadas: <strong className="text-primary">{lastResult.stats.localNewerCount}</strong></div>
@@ -808,7 +808,7 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-xs font-bold text-on-surface flex items-center gap-1.5">
                 🧹 Depurar y Compactar Base de Datos
               </span>
-              <span className="text-[11px] text-on-surface-variant leading-relaxed">
+              <span className="text-xs text-on-surface-variant leading-relaxed">
                 Elimina permanentemente de la nube y del dispositivo los contactos, clientes, cotizaciones y relevamientos borrados o residuales.
               </span>
             </div>

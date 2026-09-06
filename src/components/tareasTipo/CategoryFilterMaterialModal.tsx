@@ -291,7 +291,7 @@ export const CategoryFilterMaterialModal: React.FC<CategoryFilterMaterialModalPr
               <h3 className="text-sm sm:text-base font-bold text-on-surface truncate">
                 {initialData ? 'Editar Material por Categoría' : 'Agregar Material por Categoría'}
               </h3>
-              <p className="text-[11px] sm:text-xs text-on-surface-variant truncate">
+              <p className="text-xs text-on-surface-variant truncate">
                 Selecciona la familia técnica y define propiedades según variables
               </p>
             </div>
@@ -310,7 +310,7 @@ export const CategoryFilterMaterialModal: React.FC<CategoryFilterMaterialModalPr
         <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 text-xs">
           {/* 1. Categoría de Catálogo */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-on-surface uppercase tracking-wider block">
+            <label className="text-xs font-bold text-on-surface uppercase tracking-wider block">
               1. Categoría de Materiales
             </label>
             <div className="relative">
@@ -335,7 +335,7 @@ export const CategoryFilterMaterialModal: React.FC<CategoryFilterMaterialModalPr
 
           {/* 2. Nombre del Slot / Insumo */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-on-surface uppercase tracking-wider block">
+            <label className="text-xs font-bold text-on-surface uppercase tracking-wider block">
               2. Nombre / Rol del Material en la Tarea
             </label>
             <input
@@ -351,10 +351,10 @@ export const CategoryFilterMaterialModal: React.FC<CategoryFilterMaterialModalPr
           <div className="space-y-2.5 border-t border-outline-variant/20 pt-3.5">
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-[11px] font-bold text-primary uppercase tracking-wider block">
+                <label className="text-xs font-bold text-primary uppercase tracking-wider block">
                   3. Condiciones sobre Atributos Técnicos
                 </label>
-                <p className="text-[10px] text-on-surface-variant hidden sm:block">
+                <p className="text-xs text-on-surface-variant hidden sm:block">
                   Compara los atributos del catálogo contra números fijos, variables de obra o expresiones.
                 </p>
               </div>
@@ -375,7 +375,7 @@ export const CategoryFilterMaterialModal: React.FC<CategoryFilterMaterialModalPr
               >
                 <Sliders className="w-5 h-5 text-outline-variant mx-auto mb-1" />
                 <p className="text-xs font-bold text-on-surface">Sin criterios de selección</p>
-                <p className="text-[11px] text-primary mt-0.5">+ Toca aquí para agregar una regla por atributo</p>
+                <p className="text-xs text-primary mt-0.5">+ Toca aquí para agregar una regla por atributo</p>
               </div>
             ) : (
               <div className="space-y-2.5">
@@ -460,7 +460,7 @@ export const CategoryFilterMaterialModal: React.FC<CategoryFilterMaterialModalPr
           {/* 4. Estrategia de Selección de Calibre & Fórmula de Cantidad */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-outline-variant/20 pt-3">
             <div>
-              <label className="text-[11px] font-bold text-on-surface uppercase tracking-wider block mb-1">
+              <label className="text-xs font-bold text-on-surface uppercase tracking-wider block mb-1">
                 Estrategia de Selección
               </label>
               <select
@@ -475,7 +475,7 @@ export const CategoryFilterMaterialModal: React.FC<CategoryFilterMaterialModalPr
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-on-surface uppercase tracking-wider block mb-1">
+              <label className="text-xs font-bold text-on-surface uppercase tracking-wider block mb-1">
                 Fórmula de Cantidad
               </label>
               <div className="bg-surface-container-highest border border-outline-variant/30 rounded-xl p-1.5 focus-within:ring-2 focus-within:ring-primary/50 min-h-[44px] flex items-center">
@@ -493,12 +493,12 @@ export const CategoryFilterMaterialModal: React.FC<CategoryFilterMaterialModalPr
 
           {/* 5. Vista Previa en Tiempo Real */}
           <div className="p-3.5 rounded-2xl border bg-surface-container-low/90 space-y-2 border-primary/25">
-            <div className="flex items-center justify-between text-[11px] flex-wrap gap-1">
+            <div className="flex items-center justify-between text-xs flex-wrap gap-1">
               <span className="font-bold text-primary uppercase flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Vista Previa con Variables de Prueba:</span>
               </span>
-              <span className="font-mono text-on-surface-variant text-[10px]">
+              <span className="font-mono text-on-surface-variant text-xs">
                 {Object.entries(currentScope)
                   .map(([k, v]) => `$${k}=${v}`)
                   .join(', ')}

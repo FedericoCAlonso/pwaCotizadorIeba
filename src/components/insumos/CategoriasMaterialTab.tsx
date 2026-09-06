@@ -88,11 +88,11 @@ const AttributeOptionsEditor: React.FC<AttributeOptionsEditorProps> = ({
   return (
     <div className="mt-2.5 pt-2 border-t border-outline-variant/15 space-y-2">
       <div className="flex items-center justify-between">
-        <label className="text-[11px] font-semibold text-on-surface-variant flex items-center gap-1">
+        <label className="text-xs font-semibold text-on-surface-variant flex items-center gap-1">
           <ListFilter className="w-3 h-3 text-primary" />
           <span>Opciones Predefinidas (Desplegable)</span>
         </label>
-        <span className="text-[10px] text-on-surface-variant font-mono">
+        <span className="text-xs text-on-surface-variant font-mono">
           {opciones.length > 0 ? `${opciones.length} opciones cargadas` : 'Campo libre (sin desplegable)'}
         </span>
       </div>
@@ -103,7 +103,7 @@ const AttributeOptionsEditor: React.FC<AttributeOptionsEditorProps> = ({
           {opciones.map((opt, oIdx) => (
             <span
               key={oIdx}
-              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-medium bg-secondary-container text-on-secondary-container border border-outline-variant/20 shadow-2xs group select-none"
+              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-medium bg-secondary-container text-on-secondary-container border border-outline-variant/20 shadow-2xs group select-none"
             >
               <span>{opt}</span>
               <button
@@ -540,9 +540,9 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
         {(selectedFamiliaFilter !== 'todas' || searchTerm) && (
           <div className="flex items-center justify-between pt-2 border-t border-outline-variant/15 text-xs text-on-surface-variant">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-medium">Filtros activos:</span>
+              <span className="text-xs font-medium">Filtros activos:</span>
               {selectedFamiliaFilter !== 'todas' && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[11px] font-semibold">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold">
                   <span>Familia: {allFamilias.find(f => f.id === selectedFamiliaFilter)?.nombre}</span>
                   <button
                     type="button"
@@ -554,7 +554,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                 </span>
               )}
               {searchTerm && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[11px] font-semibold">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold">
                   <span>Texto: "{searchTerm}"</span>
                   <button
                     type="button"
@@ -635,11 +635,11 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                         <h4 className="font-bold text-on-surface text-sm sm:text-base leading-snug truncate">
                           {fam.nombre}
                         </h4>
-                        <span className="text-[11px] font-semibold text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded-lg shrink-0">
+                        <span className="text-xs font-semibold text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded-lg shrink-0">
                           {famCategories.length} {famCategories.length === 1 ? 'categoría' : 'categorías'}
                         </span>
                         {totalMats > 0 && (
-                          <span className="text-[11px] text-on-surface-variant/80 font-mono hidden sm:inline-block">
+                          <span className="text-xs text-on-surface-variant/80 font-mono hidden sm:inline-block">
                             · {totalMats} material{totalMats !== 1 ? 'es' : ''}
                           </span>
                         )}
@@ -698,7 +698,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                                     <Tag className="w-3.5 h-3.5" />
                                   </div>
                                   <h5 className="font-bold text-on-surface text-sm">{cat.nombre}</h5>
-                                  <span className="text-[10px] font-semibold text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded-lg select-none">
+                                  <span className="text-xs font-semibold text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded-lg select-none">
                                     {matCount} {matCount === 1 ? 'material' : 'materiales'}
                                   </span>
                                 </div>
@@ -707,20 +707,20 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                                 <div className="mt-2 pl-0 sm:pl-8">
                                   {cat.atributosSugeridos && cat.atributosSugeridos.length > 0 ? (
                                     <div className="flex flex-wrap items-center gap-1.5">
-                                      <span className="text-[10px] text-on-surface-variant/80 font-medium mr-0.5">
+                                      <span className="text-xs text-on-surface-variant/80 font-medium mr-0.5">
                                         Atributos:
                                       </span>
                                       {cat.atributosSugeridos.map((at, idx) => (
                                         <span
                                           key={idx}
-                                          className="inline-flex items-center gap-1 text-[10px] bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-md font-mono select-none border border-outline-variant/15"
+                                          className="inline-flex items-center gap-1 text-xs bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-md font-mono select-none border border-outline-variant/15"
                                         >
                                           <span>
                                             {at.etiqueta || at.clave} {at.unidad ? `(${at.unidad})` : ''}
                                           </span>
                                           {at.opciones && at.opciones.length > 0 && (
                                             <span
-                                              className="text-[9px] bg-secondary-container text-on-secondary-container px-1 py-0.2 rounded font-bold"
+                                              className="text-xs bg-secondary-container text-on-secondary-container px-1 py-0.2 rounded font-bold"
                                               title={`Opciones predefinidas (${at.opciones.length}): ${at.opciones.join(', ')}`}
                                             >
                                               {at.opciones.length}
@@ -730,7 +730,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                                       ))}
                                     </div>
                                   ) : (
-                                    <span className="text-[10px] text-on-surface-variant/60 italic">
+                                    <span className="text-xs text-on-surface-variant/60 italic">
                                       Sin atributos normativos definidos
                                     </span>
                                   )}
@@ -1006,7 +1006,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                       >
                         <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                           <div className="sm:col-span-4">
-                            <label className="block text-[10px] text-on-surface-variant font-medium mb-0.5">
+                            <label className="block text-xs text-on-surface-variant font-medium mb-0.5">
                               Etiqueta Visible
                             </label>
                             <input
@@ -1020,7 +1020,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                           </div>
 
                           <div className="sm:col-span-3">
-                            <label className="block text-[10px] text-on-surface-variant font-medium mb-0.5">
+                            <label className="block text-xs text-on-surface-variant font-medium mb-0.5">
                               Clave Interna (ID)
                             </label>
                             <input
@@ -1034,7 +1034,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                           </div>
 
                           <div className="sm:col-span-2">
-                            <label className="block text-[10px] text-on-surface-variant font-medium mb-0.5">
+                            <label className="block text-xs text-on-surface-variant font-medium mb-0.5">
                               Unidad
                             </label>
                             <input
@@ -1047,7 +1047,7 @@ export const CategoriasMaterialTab: React.FC<CategoriasMaterialTabProps> = ({
                           </div>
 
                           <div className="sm:col-span-2">
-                            <label className="block text-[10px] text-on-surface-variant font-medium mb-0.5">
+                            <label className="block text-xs text-on-surface-variant font-medium mb-0.5">
                               Tipo
                             </label>
                             <select

@@ -140,7 +140,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                 <h2 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight truncate">
                   {presupuesto.numero}
                 </h2>
-                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border capitalize ${getEstadoBadgeClass(presupuesto.estado)}`}>
+                <span className={`text-xs font-bold px-3 py-1 rounded-full border capitalize ${getEstadoBadgeClass(presupuesto.estado)}`}>
                   {presupuesto.estado}
                 </span>
               </div>
@@ -220,7 +220,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                     onClick={() => setShowMoreMenu(false)}
                   />
                   <div className="absolute right-0 top-full mt-2 z-30 bg-surface-container-high rounded-2xl shadow-xl py-2 min-w-[240px] border border-outline-variant/30 text-on-surface animate-in fade-in zoom-in-95 duration-150">
-                    <div className="px-3 py-1.5 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider border-b border-outline-variant/20 mb-1">
+                    <div className="px-3 py-1.5 text-xs font-bold text-on-surface-variant uppercase tracking-wider border-b border-outline-variant/20 mb-1">
                       Cambiar Estado
                     </div>
                     <div className="grid grid-cols-2 gap-1 px-2 pb-2 border-b border-outline-variant/20 mb-1">
@@ -327,7 +327,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
 
         {/* Document Presentation Toggles Pill */}
         <div className="pt-2 border-t border-outline-variant/20 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span className="text-on-surface-variant text-[11px] font-medium">Opciones de vista del documento:</span>
+          <span className="text-on-surface-variant text-xs font-semibold">Opciones de vista del documento:</span>
           <div className="flex items-center gap-4 bg-surface-container-highest px-3.5 py-1.5 rounded-full text-on-surface">
             <label className="flex items-center gap-1.5 cursor-pointer select-none">
               <input
@@ -362,7 +362,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
               <span>{config.nombreEmpresa}</span>
             </div>
             <p className="text-xs text-slate-600 font-medium mt-0.5">{config.subtituloEmpresa}</p>
-            <div className="text-[11px] text-slate-500 mt-2 space-y-0.5">
+            <div className="text-xs text-slate-600 mt-2 space-y-0.5">
               <div>CUIT: {config.cuit}</div>
               <div>Tel / WhatsApp: {config.telefono}</div>
               <div>Email: {config.email}</div>
@@ -388,7 +388,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
         {/* Client Box */}
         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+            <div className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
               Destinatario / Cliente
             </div>
             <div className="font-bold text-slate-900 text-base">{cliente ? cliente.nombre : 'Consumidor Final / General'}</div>
@@ -426,7 +426,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
         {/* Items Table */}
         <div className="overflow-x-auto border border-slate-200 rounded-xl">
           <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="bg-slate-900 text-white uppercase text-[11px] tracking-wider">
+            <thead className="bg-slate-900 text-white uppercase text-xs tracking-wider">
               <tr>
                 <th className="px-3 sm:px-4 py-3 text-center w-10">#</th>
                 <th className="px-3 sm:px-4 py-3">Descripción de la Partida</th>
@@ -485,12 +485,12 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-start pt-4 border-t border-slate-300">
           <div className="space-y-4">
             <div className="space-y-2 text-xs text-slate-600">
-              <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Condiciones Comerciales</h4>
+              <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs">Condiciones Comerciales</h4>
               <p className="whitespace-pre-line leading-relaxed">
                 {presupuesto.opcionesEmision?.condicionesComerciales || presupuesto.condicionesPagoTexto || 'Pago: 50% anticipo al inicio y 50% contra entrega de obra finalizada.'}
               </p>
 
-              <p className="text-[11px] text-slate-500 italic pt-2 border-t border-slate-200">
+              <p className="text-xs text-slate-600 italic pt-2 border-t border-slate-200">
                 * Los precios cotizados se congelan a la fecha de emisión durante los {presupuesto.validezDias} días de validez.
               </p>
             </div>
@@ -515,7 +515,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                   </h4>
                   <div className="space-y-2 text-xs text-slate-700 leading-relaxed">
                     {clausulas.map((c, cIdx) => (
-                      <p key={cIdx} className="italic text-[11px] leading-relaxed">
+                      <p key={cIdx} className="italic text-xs leading-relaxed">
                         • {c}
                       </p>
                     ))}
@@ -543,18 +543,18 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   {(presupuesto.factorSinergiaManoObra && presupuesto.factorSinergiaManoObra < 1.0) && (
-                    <span className="text-[11px] font-mono font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">
+                    <span className="text-xs font-mono font-bold bg-primary/10 text-primary px-2.5 py-1 rounded-full">
                       Sinergia: {Math.round((1 - presupuesto.factorSinergiaManoObra) * 100)}% de ahorro MOD
                     </span>
                   )}
                   {presupuesto.margenRiesgoPorcentaje ? (
-                    <span className="text-[11px] font-mono font-bold bg-secondary-container text-on-secondary-container px-2.5 py-0.5 rounded-full">
+                    <span className="text-xs font-mono font-bold bg-secondary-container text-on-secondary-container px-2.5 py-1 rounded-full">
                       Riesgo: +{presupuesto.margenRiesgoPorcentaje}%
                     </span>
                   ) : null}
                 </div>
               </div>
-              <p className="text-[11px] text-on-surface-variant leading-relaxed">
+              <p className="text-xs text-on-surface-variant leading-relaxed">
                 {presupuesto.sinergiaManoObra?.explicacion || presupuesto.planificacionCuadrilla?.explicacionOptimizacion}
               </p>
             </div>
@@ -595,7 +595,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                       <span className="font-mono">{formatARS(presupuesto.gastosGeneralesTotal || presupuesto.subtotalCostosIndirectos)}</span>
                     </div>
                     {presupuesto.costosIndirectosAplicados && presupuesto.costosIndirectosAplicados.filter(c => c.montoCalculado > 0).map((ci, cIdx) => (
-                      <div key={cIdx} className="flex justify-between text-[11px] text-slate-500 pl-2">
+                      <div key={cIdx} className="flex justify-between text-xs text-slate-600 pl-2">
                         <span>• {ci.nombre}:</span>
                         <span className="font-mono">{formatARS(ci.montoCalculado)}</span>
                       </div>

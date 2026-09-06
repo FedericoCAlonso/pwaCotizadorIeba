@@ -145,7 +145,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                   }`}
                 >
                   <div className="font-bold text-xs flex items-center gap-1.5">📁 Carpeta Local</div>
-                  <div className="text-[10px] text-on-surface-variant mt-1">Disco local, Dropbox, Google Drive Sync o pendrive.</div>
+                  <div className="text-xs text-on-surface-variant mt-1">Disco local, Dropbox, Google Drive Sync o pendrive.</div>
                 </button>
 
                 <button
@@ -168,7 +168,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                   }`}
                 >
                   <div className="font-bold text-xs flex items-center gap-1.5">☁️ Google Drive</div>
-                  <div className="text-[10px] text-on-surface-variant mt-1">Sincronización en tu espacio personal de Google.</div>
+                  <div className="text-xs text-on-surface-variant mt-1">Sincronización en tu espacio personal de Google.</div>
                 </button>
 
                 <button
@@ -191,7 +191,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                   }`}
                 >
                   <div className="font-bold text-xs flex items-center gap-1.5">💾 Respaldo JSON</div>
-                  <div className="text-[10px] text-on-surface-variant mt-1">Descarga y carga manual con fusión de datos.</div>
+                  <div className="text-xs text-on-surface-variant mt-1">Descarga y carga manual con fusión de datos.</div>
                 </button>
               </div>
 
@@ -206,7 +206,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                     />
                     <span>Sincronización Automática en Segundo Plano</span>
                   </label>
-                  <p className="text-[10px] text-on-surface-variant/80 mt-0.5 pl-6">
+                  <p className="text-xs text-on-surface-variant/80 mt-0.5 pl-6">
                     Fusiona cambios por lotes al cambiar de pestaña o en intervalos regulares.
                   </p>
                 </div>
@@ -368,14 +368,14 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, plantillaWhatsAppDefault: DEFAULT_WHATSAPP_TEMPLATE_GENERIC })}
-                  className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Restablecer Genérico</span>
                 </button>
               </div>
             </div>
-            <p className="text-[11px] text-on-surface-variant mb-3">
+            <p className="text-xs text-on-surface-variant mb-3">
               Mensaje predeterminado que se generará al compartir una cotización con clientes que no tengan un formato personalizado.
             </p>
 
@@ -390,7 +390,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
 
               {/* Chips de inserción de tags */}
               <div className="space-y-1.5">
-                <span className="text-[11px] font-semibold text-on-surface-variant block">
+                <span className="text-xs font-semibold text-on-surface-variant block">
                   Variables disponibles (Haz clic para insertar en el texto):
                 </span>
                 <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 bg-surface-container rounded-xl border border-outline-variant/20">
@@ -405,7 +405,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                           plantillaWhatsAppDefault: `${current} ${v.tag} `
                         });
                       }}
-                      className="px-2 py-0.5 bg-surface-container-high hover:bg-primary/10 hover:text-primary text-on-surface text-[10px] font-mono rounded-lg border border-outline-variant/20 transition-colors"
+                      className="px-2 py-0.5 bg-surface-container-high hover:bg-primary/10 hover:text-primary text-on-surface text-xs font-mono rounded-lg border border-outline-variant/20 transition-colors"
                       title={`${v.descripcion} (Ejemplo: ${v.ejemplo})`}
                     >
                       +{v.etiqueta}
@@ -452,13 +452,13 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                     motoresBusquedaOnline: DEFAULT_MOTORES_BUSQUEDA
                   }));
                 }}
-                className="text-[11px] text-primary hover:underline"
+                className="text-xs text-primary hover:underline"
               >
                 Restablecer Predeterminados
               </button>
             </div>
-            <p className="text-[11px] text-on-surface-variant mb-3">
-              Activa o desactiva las plataformas donde consultar precios en 1 clic. Puedes agregar la URL de búsqueda de cualquier proveedor usando <code className="bg-surface-container-highest px-1.5 py-0.5 rounded font-mono text-[10px]">{"{query}"}</code>.
+            <p className="text-xs text-on-surface-variant mb-3">
+              Activa o desactiva las plataformas donde consultar precios en 1 clic. Puedes agregar la URL de búsqueda de cualquier proveedor usando <code className="bg-surface-container-highest px-1.5 py-0.5 rounded font-mono text-xs">{"{query}"}</code>.
             </p>
 
             <div className="space-y-2">
@@ -477,7 +477,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                     />
                     <div className="min-w-0">
                       <span className="font-semibold text-on-surface block truncate">{engine.nombre}</span>
-                      <span className="text-[10px] text-on-surface-variant font-mono truncate block opacity-75">{engine.urlTemplate}</span>
+                      <span className="text-xs text-on-surface-variant font-mono truncate block opacity-75">{engine.urlTemplate}</span>
                     </div>
                   </div>
 
@@ -500,7 +500,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
 
             {/* Formulario para agregar nuevo motor */}
             <div className="mt-3 p-3 bg-surface-container border border-dashed border-outline-variant/30 rounded-2xl space-y-2">
-              <span className="text-[11px] font-bold text-on-surface uppercase tracking-wider block">+ Agregar Tienda o Distribuidor</span>
+              <span className="text-xs font-bold text-on-surface uppercase tracking-wider block">+ Agregar Tienda o Distribuidor</span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
                   type="text"
@@ -562,12 +562,12 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
               <button
                 type="button"
                 onClick={handleRestoreDefaultTareaCategories}
-                className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                className="text-xs text-primary hover:underline flex items-center gap-1"
               >
                 <RotateCcw className="w-3 h-3" /> Restablecer Predeterminadas
               </button>
             </div>
-            <p className="text-[11px] text-on-surface-variant mb-3">
+            <p className="text-xs text-on-surface-variant mb-3">
               Personaliza las categorías para clasificar tus trabajos tipo, módulos y plantillas de cotización (ej: Bocas, Tableros, Acometidas, Energía Solar, etc.).
             </p>
 
@@ -677,7 +677,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
             <div className="p-4 bg-rose-500/5 border border-rose-500/20 rounded-2xl space-y-4">
               <div>
                 <h4 className="text-xs font-bold text-on-surface">Restaurar Categorías de Materiales por Defecto</h4>
-                <p className="text-[11px] text-on-surface-variant mt-0.5 mb-2">
+                <p className="text-xs text-on-surface-variant mt-0.5 mb-2">
                   Restablece el listado inicial de categorías (Cables, Protecciones, Canalizaciones, etc.) con sus atributos sugeridos. Usar con precaución.
                 </p>
                 <button
@@ -691,7 +691,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
 
               <div className="pt-3 border-t border-rose-500/20">
                 <h4 className="text-xs font-bold text-on-surface">Cargar / Restaurar Catálogo Base de Materiales</h4>
-                <p className="text-[11px] text-on-surface-variant mt-0.5 mb-2">
+                <p className="text-xs text-on-surface-variant mt-0.5 mb-2">
                   Carga las fichas técnicas por defecto en el catálogo: {INITIAL_MATERIALES.length} materiales (cables unipolares con código de colores, cajas de chapa y PVC, gabinetes, caños RS y PVC, conectores y bandejas portacables con accesorios).
                 </p>
                 <button
@@ -705,7 +705,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
 
               <div className="pt-3 border-t border-rose-500/20">
                 <h4 className="text-xs font-bold text-on-surface">Cargar / Restaurar Mano de Obra por Defecto</h4>
-                <p className="text-[11px] text-on-surface-variant mt-0.5 mb-2">
+                <p className="text-xs text-on-surface-variant mt-0.5 mb-2">
                   Carga los {INITIAL_MANO_OBRA.length} roles estándar de mano de obra eléctrica (Oficial Especializado, Oficial, Medio Oficial, Ayudante, Capataz, Matriculado, Tablerista, Proyectista) con tarifas en $0 para completar según tus costos.
                 </p>
                 <button
@@ -719,7 +719,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
 
               <div className="pt-3 border-t border-rose-500/20">
                 <h4 className="text-xs font-bold text-on-surface">Cargar / Restaurar Gastos Generales y Estructura por Defecto</h4>
-                <p className="text-[11px] text-on-surface-variant mt-0.5 mb-2">
+                <p className="text-xs text-on-surface-variant mt-0.5 mb-2">
                   Carga los {INITIAL_COSTOS_INDIRECTOS.length} conceptos típicos de gastos indirectos y de estructura (Movilidad, Seguro AP/ART, EPP, Amortización herramientas, Gastos administrativos, Taller, Matrícula, Imprevistos, Andamios) con valores en 0.
                 </p>
                 <button
@@ -733,7 +733,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
 
               <div className="pt-3 border-t border-rose-500/20">
                 <h4 className="text-xs font-bold text-on-surface">Cargar / Restaurar Trabajos Tipo Base</h4>
-                <p className="text-[11px] text-on-surface-variant mt-0.5 mb-2">
+                <p className="text-xs text-on-surface-variant mt-0.5 mb-2">
                   Carga los trabajos tipo recomendados de fábrica, incluyendo el modelo paramétrico de Recableado Integral (con coeficientes de antigüedad, accesibilidad, altura, artefactos especiales y cláusula técnica de protección).
                 </p>
                 <button
@@ -747,7 +747,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
 
               <div className="pt-3 border-t border-rose-500/20">
                 <h4 className="text-xs font-bold text-on-surface">Restaurar Categorías de Trabajos Tipo por Defecto</h4>
-                <p className="text-[11px] text-on-surface-variant mt-0.5 mb-2">
+                <p className="text-xs text-on-surface-variant mt-0.5 mb-2">
                   Restablece las categorías de trabajos tipo a los valores de fábrica (Bocas, Circuitos, Tableros, Acometidas, Medición).
                 </p>
                 <button
@@ -765,7 +765,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({ config, isOpen, onClos
                   <AlertTriangle className="w-4 h-4 shrink-0" />
                   <h4 className="text-xs font-bold uppercase tracking-wider">Zona de Peligro: Restablecer Todo de Fábrica</h4>
                 </div>
-                <p className="text-[11px] text-on-surface-variant mt-1 mb-3">
+                <p className="text-xs text-on-surface-variant mt-1 mb-3">
                   Borra todos los presupuestos, clientes, proveedores y tareas creadas, y restablece completamente la base de datos a sus valores iniciales limpios de fábrica.
                 </p>
                 <button

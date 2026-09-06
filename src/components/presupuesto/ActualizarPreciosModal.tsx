@@ -155,7 +155,7 @@ export const ActualizarPreciosModal: React.FC<ActualizarPreciosModalProps> = ({
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-on-surface-variant">
+                  <p className="text-xs text-on-surface-variant">
                     Seleccioná qué capas querés sincronizar antes de aplicar los cambios
                   </p>
                 </div>
@@ -199,7 +199,7 @@ export const ActualizarPreciosModal: React.FC<ActualizarPreciosModalProps> = ({
                         <Package className="w-4 h-4 text-primary" />
                         <span className="text-sm font-semibold text-on-surface">Materiales e Insumos</span>
                       </div>
-                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
                         analisis.materiales.count > 0
                           ? 'bg-primary/10 text-primary'
                           : 'bg-surface-variant text-on-surface-variant'
@@ -230,10 +230,10 @@ export const ActualizarPreciosModal: React.FC<ActualizarPreciosModalProps> = ({
                         <div key={idx} className="flex items-center justify-between py-1 border-b border-outline-variant/10 last:border-0">
                           <div>
                             <span className="font-medium text-on-surface">{c.nombre}</span>
-                            <span className="text-[11px] text-on-surface-variant ml-1.5">({c.cantidadTotal} {c.unidad})</span>
+                            <span className="text-xs text-on-surface-variant ml-1.5">({c.cantidadTotal} {c.unidad})</span>
                           </div>
                           <div className="text-right">
-                            <span className="line-through text-on-surface-variant/70 text-[11px] mr-1.5">
+                            <span className="line-through text-on-surface-variant/80 text-xs mr-1.5">
                               {formatARS(c.precioAnterior)}
                             </span>
                             <span className="font-semibold text-primary">
@@ -265,7 +265,7 @@ export const ActualizarPreciosModal: React.FC<ActualizarPreciosModalProps> = ({
                         <Users className="w-4 h-4 text-primary" />
                         <span className="text-sm font-semibold text-on-surface">Tarifas de Mano de Obra</span>
                       </div>
-                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
                         analisis.manoObra.count > 0
                           ? 'bg-primary/10 text-primary'
                           : 'bg-surface-variant text-on-surface-variant'
@@ -296,10 +296,10 @@ export const ActualizarPreciosModal: React.FC<ActualizarPreciosModalProps> = ({
                         <div key={idx} className="flex items-center justify-between py-1 border-b border-outline-variant/10 last:border-0">
                           <div>
                             <span className="font-medium text-on-surface">{c.nombreCategoria}</span>
-                            <span className="text-[11px] text-on-surface-variant ml-1.5">({c.horasTotales} hs)</span>
+                            <span className="text-xs text-on-surface-variant ml-1.5">({c.horasTotales} hs)</span>
                           </div>
                           <div className="text-right">
-                            <span className="line-through text-on-surface-variant/70 text-[11px] mr-1.5">
+                            <span className="line-through text-on-surface-variant/80 text-xs mr-1.5">
                               {formatARS(c.costoHoraAnterior)}/h
                             </span>
                             <span className="font-semibold text-primary">
@@ -331,7 +331,7 @@ export const ActualizarPreciosModal: React.FC<ActualizarPreciosModalProps> = ({
                           <Wrench className="w-4 h-4 text-primary" />
                           <span className="text-sm font-semibold text-on-surface">Recálculo Integral de Tareas Tipo</span>
                         </div>
-                        <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-primary/10 text-primary">
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-primary/10 text-primary">
                           {analisis.tareasTipo.count} tarea(s)
                         </span>
                       </label>
@@ -356,7 +356,7 @@ export const ActualizarPreciosModal: React.FC<ActualizarPreciosModalProps> = ({
                           <div key={idx} className="flex items-center justify-between py-1 border-b border-outline-variant/10 last:border-0">
                             <span className="font-medium text-on-surface">{c.itemDescripcion}</span>
                             <div className="text-right">
-                              <span className="line-through text-on-surface-variant/70 text-[11px] mr-1.5">
+                              <span className="line-through text-on-surface-variant/80 text-xs mr-1.5">
                                 {formatARS(c.costoDirectoAnterior)}
                               </span>
                               <span className="font-semibold text-primary">
@@ -389,7 +389,7 @@ export const ActualizarPreciosModal: React.FC<ActualizarPreciosModalProps> = ({
                           <Truck className="w-4 h-4 text-primary" />
                           <span className="text-sm font-semibold text-on-surface">Costos Indirectos y Gastos de Obra</span>
                         </div>
-                        <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-primary/10 text-primary">
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-primary/10 text-primary">
                           {analisis.costosIndirectos.count} gasto(s)
                         </span>
                       </label>
@@ -414,7 +414,7 @@ export const ActualizarPreciosModal: React.FC<ActualizarPreciosModalProps> = ({
                           <div key={idx} className="flex items-center justify-between py-1 border-b border-outline-variant/10 last:border-0">
                             <span className="font-medium text-on-surface">{c.nombre}</span>
                             <div className="text-right">
-                              <span className="line-through text-on-surface-variant/70 text-[11px] mr-1.5">
+                              <span className="line-through text-on-surface-variant/80 text-xs mr-1.5">
                                 {formatARS(c.valorAnterior)}
                               </span>
                               <span className="font-semibold text-primary">

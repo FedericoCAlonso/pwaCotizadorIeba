@@ -148,7 +148,7 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="text-[10px] font-bold text-on-primary-container bg-primary-container px-2 py-0.5 rounded-full uppercase truncate">
+                <span className="text-xs font-bold text-on-primary-container bg-primary-container px-2.5 py-0.5 rounded-full uppercase truncate">
                   Cómputo Paramétrico
                 </span>
                 <span className="text-xs text-on-surface-variant font-mono shrink-0">
@@ -190,7 +190,7 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
                 }`}
               >
                 <Building className="w-4 h-4" />
-                <span className="text-[11px] leading-tight">Por Superficie (m²)</span>
+                <span className="text-xs leading-tight">Por Superficie (m²)</span>
               </button>
 
               <button
@@ -203,7 +203,7 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
                 }`}
               >
                 <Zap className="w-4 h-4" />
-                <span className="text-[11px] leading-tight">Por Cañería & Hilos</span>
+                <span className="text-xs leading-tight">Por Cañería & Hilos</span>
               </button>
 
               <button
@@ -216,7 +216,7 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
                 }`}
               >
                 <Layers className="w-4 h-4" />
-                <span className="text-[11px] leading-tight">Por Cant. Bocas</span>
+                <span className="text-xs leading-tight">Por Cant. Bocas</span>
               </button>
 
               <button
@@ -229,7 +229,7 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
                 }`}
               >
                 <Percent className="w-4 h-4" />
-                <span className="text-[11px] leading-tight">Base + Desperdicio</span>
+                <span className="text-xs leading-tight">Base + Desperdicio</span>
               </button>
             </div>
           </div>
@@ -241,7 +241,7 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
                 <span className="font-bold text-xs text-on-surface uppercase tracking-wide">
                   1. Estimación por Superficie Cubierta (m²)
                 </span>
-                <span className="text-[11px] text-primary font-mono font-bold">
+                <span className="text-xs text-primary font-mono font-bold">
                   {(superficieM2 * factorDensidadM2).toFixed(1)} {unidad} base
                 </span>
               </div>
@@ -255,10 +255,11 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
                     <input
                       type="number"
                       min={1}
-                      step={5}
-                      value={superficieM2 ?? ''}
-                      onChange={(e) => setSuperficieM2(e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
-                      className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      step={1}
+                      value={superficieM2 || ''}
+                      onChange={(e) => setSuperficieM2(Math.max(1, parseFloat(e.target.value) || 0))}
+                      className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-3 py-2 text-xs font-bold text-on-surface"
+                      placeholder="Ej: 75"
                     />
                     <span className="text-xs font-bold text-on-surface-variant">m²</span>
                   </div>
@@ -266,16 +267,16 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
 
                 <div>
                   <label className="text-xs text-on-surface-variant block mb-1 font-medium">
-                    Densidad de Material ({unidad}/m²):
+                    Factor de Consumo por m²:
                   </label>
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
+                      step={0.1}
                       min={0.1}
-                      step={0.5}
-                      value={factorDensidadM2 ?? ''}
-                      onChange={(e) => setFactorDensidadM2(e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0)}
-                      className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      value={factorDensidadM2 || ''}
+                      onChange={(e) => setFactorDensidadM2(Math.max(0.1, parseFloat(e.target.value) || 0))}
+                      className="w-full bg-surface-container border border-outline-variant/30 rounded-xl px-3 py-2 text-xs font-bold text-on-surface"
                     />
                     <span className="text-xs font-bold text-on-surface-variant">{unidad}/m²</span>
                   </div>
@@ -284,7 +285,7 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
 
               {/* Presets de Densidad */}
               <div>
-                <span className="text-[10px] text-on-surface-variant block mb-1.5 font-semibold">
+                <span className="text-xs text-on-surface-variant block mb-1.5 font-semibold">
                   Valores típicos de ingeniería eléctrica recomendados:
                 </span>
                 <div className="grid grid-cols-3 gap-2">
@@ -297,8 +298,8 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
                         : 'bg-surface-container-highest border-outline-variant/20 text-on-surface-variant'
                     }`}
                   >
-                    <span className="block text-[11px] font-bold">3.0 {unidad}/m²</span>
-                    <span className="text-[9px] opacity-80">Vivienda Estándar</span>
+                    <span className="block text-xs font-bold">3.0 {unidad}/m²</span>
+                    <span className="text-xs text-on-surface-variant">Vivienda Estándar</span>
                   </button>
 
                   <button
@@ -310,8 +311,8 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
                         : 'bg-surface-container-highest border-outline-variant/20 text-on-surface-variant'
                     }`}
                   >
-                    <span className="block text-[11px] font-bold">4.0 {unidad}/m²</span>
-                    <span className="text-[9px] opacity-80">Electrificación Media</span>
+                    <span className="block text-xs font-bold">4.0 {unidad}/m²</span>
+                    <span className="text-xs text-on-surface-variant">Electrificación Media</span>
                   </button>
 
                   <button
@@ -323,8 +324,8 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
                         : 'bg-surface-container-highest border-outline-variant/20 text-on-surface-variant'
                     }`}
                   >
-                    <span className="block text-[11px] font-bold">5.5 {unidad}/m²</span>
-                    <span className="text-[9px] opacity-80">Elevada / Comercial</span>
+                    <span className="block text-xs font-bold">5.5 {unidad}/m²</span>
+                    <span className="text-xs text-on-surface-variant">Elevada / Comercial</span>
                   </button>
                 </div>
               </div>
@@ -474,7 +475,7 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
               </span>
             </div>
 
-            <p className="text-[11px] text-on-surface-variant leading-relaxed">
+            <p className="text-xs text-on-surface-variant leading-relaxed">
               El trazado real nunca es una línea recta perfecta. Incluye un margen de tolerancia para las curvas de cañería, colas de empalme en cajas y cortes.
             </p>
 
@@ -498,14 +499,14 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
 
           {/* Live Formula Explanation Card */}
           <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20 space-y-1.5">
-            <span className="text-[10px] font-bold text-primary uppercase tracking-wide flex items-center gap-1">
+            <span className="text-xs font-bold text-primary uppercase tracking-wide flex items-center gap-1">
               <Calculator className="w-3.5 h-3.5" />
               <span>Memoria de Cálculo & Fórmula Resultante:</span>
             </span>
             <div className="font-mono text-sm font-bold text-on-surface">
               {resultadoCalculo.formulaGenerada} = <span className="text-primary font-black text-base">{resultadoCalculo.cantidadEstimadaTotal} {unidad}</span>
             </div>
-            <p className="text-[11px] text-on-surface-variant italic">
+            <p className="text-xs text-on-surface-variant italic">
               {resultadoCalculo.explicacionCalculo}
             </p>
           </div>
@@ -515,7 +516,7 @@ export const ParametricMaterialModal: React.FC<ParametricMaterialModalProps> = (
         {/* Footer */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-outline-variant/20 bg-surface-container-low flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
           <div className="flex items-center justify-between sm:block text-left">
-            <span className="text-[10px] text-on-surface-variant uppercase font-semibold sm:block">
+            <span className="text-xs text-on-surface-variant uppercase font-semibold sm:block">
               Cantidad Total:
             </span>
             <span className="text-base sm:text-lg font-black font-mono text-primary">

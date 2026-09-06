@@ -195,7 +195,7 @@ export const ProveedoresManager: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-on-surface text-base">{prov.razonSocial || prov.nombre}</h3>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container capitalize">
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container capitalize">
                       {prov.tipoProveedor || 'material'}
                     </span>
                   </div>
@@ -216,34 +216,34 @@ export const ProveedoresManager: React.FC = () => {
                         <span className="text-xs font-semibold text-on-surface flex items-center gap-1.5">
                           <User className="w-3.5 h-3.5 text-primary" />{cnt.nombrePersona || 'Sin Nombre'}
                         </span>
-                        {cnt.rol && <span className="text-[10px] text-on-surface-variant/80 bg-surface-container px-2 py-0.5 rounded-full">{cnt.rol}</span>}
+                        {cnt.rol && <span className="text-xs text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-full">{cnt.rol}</span>}
                       </div>
                       <div className="flex flex-wrap gap-2 pt-1">
                         {(cnt.canales || []).map((can, idx) => {
                           if (!can.valor) return null;
                           if (can.tipo === 'whatsapp') {
                             return (
-                              <a key={idx} href={formatWhatsAppUrl(can.valor)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-1 rounded-xl transition-colors">
+                              <a key={idx} href={formatWhatsAppUrl(can.valor)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1 rounded-xl transition-colors">
                                 <MessageCircle className="w-3 h-3" /> WhatsApp
                               </a>
                             );
                           }
                           if (can.tipo === 'email') {
                             return (
-                              <a key={idx} href={`mailto:${can.valor}`} className="inline-flex items-center gap-1 text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2 py-1 rounded-xl transition-colors">
+                              <a key={idx} href={`mailto:${can.valor}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-xl transition-colors">
                                 <Mail className="w-3 h-3" /> Email
                               </a>
                             );
                           }
                           if (can.tipo === 'telefono') {
                             return (
-                              <a key={idx} href={`tel:${can.valor}`} className="inline-flex items-center gap-1 text-[11px] font-medium text-on-surface-variant bg-surface-container px-2 py-1 rounded-xl hover:bg-surface-variant transition-colors">
+                              <a key={idx} href={`tel:${can.valor}`} className="inline-flex items-center gap-1 text-xs font-medium text-on-surface-variant bg-surface-container px-2.5 py-1 rounded-xl hover:bg-surface-variant transition-colors">
                                 <Phone className="w-3 h-3" /> {can.valor}
                               </a>
                             );
                           }
                           return (
-                            <a key={idx} href={can.valor} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-medium text-tertiary bg-tertiary/10 px-2 py-1 rounded-xl hover:bg-tertiary/20 transition-colors">
+                            <a key={idx} href={can.valor} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-tertiary bg-tertiary/10 px-2.5 py-1 rounded-xl hover:bg-tertiary/20 transition-colors">
                               <Globe className="w-3 h-3" /> Web
                             </a>
                           );
@@ -272,7 +272,7 @@ export const ProveedoresManager: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleImportFromContacts}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-full transition-colors"
+                    className="flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-full transition-colors"
                     title="Importar de los contactos del teléfono"
                   >
                     <UserPlus className="w-3 h-3" /> Agenda
@@ -417,7 +417,7 @@ export const ProveedoresManager: React.FC = () => {
             </div>
             <div className="space-y-3.5">
               <p className="text-xs text-on-surface-variant">Pegá el contenido CSV:<br />
-                <code className="text-primary bg-surface-container-highest px-1.5 py-0.5 rounded font-mono text-[11px] block mt-1">RazonSocial, CUIT, Telefono, Email, Contacto, Direccion, Notas</code>
+                <code className="text-primary bg-surface-container-highest px-1.5 py-0.5 rounded font-mono text-xs block mt-1">RazonSocial, CUIT, Telefono, Email, Contacto, Direccion, Notas</code>
               </p>
               <textarea rows={5} value={csvContent} onChange={(e) => setCsvContent(e.target.value)} className={`${inputCls} font-mono text-xs`} />
               <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">

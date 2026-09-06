@@ -161,7 +161,7 @@ export const BlockPriceModal: React.FC<BlockPriceModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowMaterialsList(prev => !prev)}
-                className="text-[11px] text-primary hover:underline font-semibold"
+                className="text-xs text-primary hover:underline font-semibold"
               >
                 {showMaterialsList ? 'Ocultar lista' : 'Ver detalle'}
               </button>
@@ -170,21 +170,21 @@ export const BlockPriceModal: React.FC<BlockPriceModalProps> = ({
             {showMaterialsList ? (
               <div className="max-h-36 overflow-y-auto space-y-1 pt-1 pr-1">
                 {targetMaterials.map(m => (
-                  <div key={m.id} className="text-[11px] bg-surface-container px-2.5 py-1 rounded-lg text-on-surface flex items-center justify-between border border-outline-variant/15">
+                  <div key={m.id} className="text-xs bg-surface-container px-2.5 py-1 rounded-lg text-on-surface flex items-center justify-between border border-outline-variant/15">
                     <span className="truncate">{m.nombre}</span>
-                    <span className="text-[10px] font-mono text-on-surface-variant shrink-0 ml-2">({m.unidadVenta || 'u'})</span>
+                    <span className="text-xs font-mono text-on-surface-variant shrink-0 ml-2">({m.unidadVenta || 'u'})</span>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="flex flex-wrap gap-1 max-h-16 overflow-hidden">
                 {targetMaterials.slice(0, 4).map(m => (
-                  <span key={m.id} className="text-[10px] bg-surface-container-highest px-2 py-0.5 rounded-md text-on-surface truncate max-w-[200px]">
+                  <span key={m.id} className="text-xs bg-surface-container-highest px-2 py-0.5 rounded-md text-on-surface truncate max-w-[200px]">
                     {m.nombre}
                   </span>
                 ))}
                 {targetMaterials.length > 4 && (
-                  <span className="text-[10px] text-on-surface-variant font-bold self-center">
+                  <span className="text-xs text-on-surface-variant font-bold self-center">
                     +{targetMaterials.length - 4} más...
                   </span>
                 )}
@@ -311,22 +311,22 @@ export const BlockPriceModal: React.FC<BlockPriceModalProps> = ({
 
           {/* Live Calculated Unit Price Preview */}
           <div className="p-4 rounded-2xl bg-surface-container-high border border-primary/20 space-y-2">
-            <div className="text-[11px] font-bold text-primary uppercase tracking-wider flex items-center justify-between">
+            <div className="text-xs font-bold text-primary uppercase tracking-wider flex items-center justify-between">
               <span>Precio Unitario Resultante</span>
-              <span className="font-mono text-on-surface-variant text-[10px]">x {primaryUnidad}</span>
+              <span className="font-mono text-on-surface-variant text-xs">x {primaryUnidad}</span>
             </div>
             
             <div className="grid grid-cols-2 gap-3 pt-1">
               <div>
-                <span className="block text-[10px] text-on-surface-variant">Base Neta:</span>
+                <span className="block text-xs text-on-surface-variant">Base Neta:</span>
                 <span className="text-sm font-mono font-bold text-on-surface">
-                  {formatARS(unitarioNeto)} <span className="text-[10px] font-normal text-on-surface-variant">/{primaryUnidad}</span>
+                  {formatARS(unitarioNeto)} <span className="text-xs font-normal text-on-surface-variant">/{primaryUnidad}</span>
                 </span>
               </div>
               <div>
-                <span className="block text-[10px] text-on-surface-variant">Final con IVA:</span>
+                <span className="block text-xs text-on-surface-variant">Final con IVA:</span>
                 <span className="text-sm font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                  {formatARS(unitarioFinal)} <span className="text-[10px] font-normal text-on-surface-variant">/{primaryUnidad}</span>
+                  {formatARS(unitarioFinal)} <span className="text-xs font-normal text-on-surface-variant">/{primaryUnidad}</span>
                 </span>
               </div>
             </div>

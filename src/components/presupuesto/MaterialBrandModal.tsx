@@ -237,7 +237,7 @@ export const MaterialBrandModal: React.FC<MaterialBrandModalProps> = ({
               </p>
             </div>
             <div className="text-right shrink-0">
-              <span className="text-[11px] text-on-surface-variant block">Precio unitario actual</span>
+              <span className="text-xs text-on-surface-variant block">Precio unitario actual</span>
               <span className="font-mono font-bold text-primary text-sm">
                 {formatARS(materialSnapshot.precioUnitarioCongelado)}
               </span>
@@ -252,7 +252,7 @@ export const MaterialBrandModal: React.FC<MaterialBrandModalProps> = ({
                 <span>Marcas registradas en tu catálogo ({matchingProducts.length})</span>
               </label>
               {matchingProducts.length === 0 && (
-                <span className="text-[11px] text-on-surface-variant italic">
+                <span className="text-xs text-on-surface-variant italic">
                   Sin marcas registradas para este material
                 </span>
               )}
@@ -296,19 +296,19 @@ export const MaterialBrandModal: React.FC<MaterialBrandModalProps> = ({
                               </span>
                             )}
                             {prod.esPreferido && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
                                 <Star className="w-2.5 h-2.5 fill-current" />
                                 Preferida
                               </span>
                             )}
                             {prod.tierCalidad && (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-surface-variant text-on-surface-variant">
+                              <span className="px-1.5 py-0.5 rounded text-xs font-semibold uppercase bg-surface-variant text-on-surface-variant">
                                 {prod.tierCalidad}
                               </span>
                             )}
                           </div>
                           {oferta?.proveedorNombre && (
-                            <p className="text-[11px] text-on-surface-variant mt-0.5">
+                            <p className="text-xs text-on-surface-variant mt-0.5">
                               Proveedor habitual: {oferta.proveedorNombre}
                             </p>
                           )}
@@ -321,10 +321,10 @@ export const MaterialBrandModal: React.FC<MaterialBrandModalProps> = ({
                             <span className="font-mono font-bold text-on-surface text-xs sm:text-sm block">
                               {formatARS(oferta.precio)}
                             </span>
-                            <span className="text-[10px] text-on-surface-variant block">Ref. catálogo</span>
+                            <span className="text-xs text-on-surface-variant block">Ref. catálogo</span>
                           </>
                         ) : (
-                          <span className="text-[11px] text-on-surface-variant italic">
+                          <span className="text-xs text-on-surface-variant italic">
                             Sin oferta cargada
                           </span>
                         )}
@@ -367,7 +367,7 @@ export const MaterialBrandModal: React.FC<MaterialBrandModalProps> = ({
                 </div>
                 <div>
                   <h5 className="font-bold text-xs text-on-surface">Genérico / Sin Marca</h5>
-                  <p className="text-[11px] text-on-surface-variant">Sin especificación comercial en el pliego</p>
+                  <p className="text-xs text-on-surface-variant">Sin especificación comercial en el pliego</p>
                 </div>
               </div>
 
@@ -391,7 +391,7 @@ export const MaterialBrandModal: React.FC<MaterialBrandModalProps> = ({
                 </div>
                 <div>
                   <h5 className="font-bold text-xs text-on-surface">Marca Libre / Específica</h5>
-                  <p className="text-[11px] text-on-surface-variant">Escribir marca puntual para este presupuesto</p>
+                  <p className="text-xs text-on-surface-variant">Escribir marca puntual para este presupuesto</p>
                 </div>
               </div>
             </div>
@@ -423,7 +423,7 @@ export const MaterialBrandModal: React.FC<MaterialBrandModalProps> = ({
                 <DollarSign className="w-3.5 h-3.5 text-primary" />
                 <span>Precio Unitario a congelar en esta cotización</span>
               </span>
-              <span className="text-[11px] text-on-surface-variant">
+              <span className="text-xs text-on-surface-variant">
                 Se multiplicará por {materialSnapshot.cantidadTotal} {materialSnapshot.unidad} = {formatARS((customPrice || 0) * materialSnapshot.cantidadTotal)}
               </span>
             </div>

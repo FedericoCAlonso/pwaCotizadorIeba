@@ -99,7 +99,7 @@ export const EmisionPresupuestoModal: React.FC<EmisionPresupuestoModalProps> = (
               className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl p-4 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
               placeholder="Notas, condiciones de pago, validez de la oferta o aclaraciones sobre el alcance de la obra..."
             />
-            <p className="text-[11px] text-on-surface-variant">
+            <p className="text-xs text-on-surface-variant">
               Estas notas se guardan como parte del snapshot inmutable de esta emisión.
             </p>
           </div>
@@ -126,8 +126,8 @@ export const EmisionPresupuestoModal: React.FC<EmisionPresupuestoModalProps> = (
               </span>
             </div>
             <div className="text-right">
-              <span className="text-[11px] text-on-surface-variant block">Coeficiente K:</span>
-              <span className="font-mono text-xs font-bold text-on-surface bg-surface-container px-2.5 py-0.5 rounded-full">
+              <span className="text-xs text-on-surface-variant block">Coeficiente K:</span>
+              <span className="font-mono text-xs font-bold text-on-surface bg-surface-container px-2.5 py-1 rounded-full">
                 {totales.coeficienteK.toFixed(4)}
               </span>
             </div>

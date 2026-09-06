@@ -27,7 +27,7 @@ export const LivePreviewFooter: React.FC<LivePreviewFooterProps> = ({
       {/* Live Preview Cost Box */}
       <div className="p-3 sm:p-4 rounded-2xl bg-primary/10 border border-primary/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
         <div>
-          <span className="text-[10px] font-bold text-primary uppercase tracking-wide flex items-center gap-1">
+          <span className="text-xs font-bold text-primary uppercase tracking-wide flex items-center gap-1">
             <Calculator className="w-3.5 h-3.5" />
             <span>Costo Directo Calculado (Valores Default)</span>
           </span>
@@ -36,7 +36,7 @@ export const LivePreviewFooter: React.FC<LivePreviewFooterProps> = ({
           </div>
         </div>
 
-        <div className="text-left sm:text-right font-mono text-[11px] text-on-surface-variant space-y-0.5">
+        <div className="text-left sm:text-right font-mono text-xs text-on-surface-variant space-y-0.5">
           {liveEvaluation.costoServiciosTotal !== undefined && liveEvaluation.costoServiciosTotal > 0 && (
             <div>
               🎓 Honorarios / Servicios:{' '}

@@ -95,9 +95,9 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
                         {sc.keys.map((k, kIdx) => (
                           <React.Fragment key={kIdx}>
                             {k === 'o' ? (
-                              <span className="text-[10px] text-on-surface-variant px-0.5">o</span>
+                              <span className="text-xs text-on-surface-variant px-0.5">o</span>
                             ) : (
-                              <kbd className="px-2 py-1 text-[11px] font-mono font-bold bg-surface-container-highest border border-outline-variant/50 text-primary rounded-lg shadow-2xs">
+                              <kbd className="px-2 py-1 text-xs font-mono font-bold bg-surface-container-highest border border-outline-variant/50 text-primary rounded-lg shadow-2xs">
                                 {k}
                               </kbd>
                             )}
@@ -112,8 +112,8 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
           })}
 
           <div className="p-3 bg-surface-container-low rounded-xl border border-outline-variant/20 text-center">
-            <p className="text-[11px] text-on-surface-variant">
-              💡 <strong>Nota:</strong> Los atajos de tecla simple como <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-surface-container-high rounded border border-outline-variant/40 text-on-surface">+</kbd> o <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-surface-container-high rounded border border-outline-variant/40 text-on-surface">/</kbd> se pausan automáticamente mientras estás escribiendo en un campo de texto para no interferir.
+            <p className="text-xs text-on-surface-variant">
+              💡 <strong>Nota:</strong> Los atajos de tecla simple como <kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-container-high rounded border border-outline-variant/40 text-on-surface">+</kbd> o <kbd className="px-1.5 py-0.5 text-xs font-mono bg-surface-container-high rounded border border-outline-variant/40 text-on-surface">/</kbd> se pausan automáticamente mientras estás escribiendo en un campo de texto para no interferir.
             </p>
           </div>
         </div>

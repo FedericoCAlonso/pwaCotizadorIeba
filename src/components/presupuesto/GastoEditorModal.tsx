@@ -482,8 +482,8 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                   : 'border-outline-variant/40 bg-surface hover:bg-surface-variant/40 text-on-surface-variant'
               }`}
             >
-              <span className="block text-[11px] font-bold">👷 Mano de Obra</span>
-              <span className="block text-[10px] opacity-75">Costo Directo MO</span>
+              <span className="block text-xs font-bold">👷 Mano de Obra</span>
+              <span className="block text-xs text-on-surface-variant">Costo Directo MO</span>
             </button>
 
             <button
@@ -495,8 +495,8 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                   : 'border-outline-variant/40 bg-surface hover:bg-surface-variant/40 text-on-surface-variant'
               }`}
             >
-              <span className="block text-[11px] font-bold">📦 Materiales</span>
-              <span className="block text-[10px] opacity-75">Costo Directo Insumos</span>
+              <span className="block text-xs font-bold">📦 Materiales</span>
+              <span className="block text-xs text-on-surface-variant">Costo Directo Insumos</span>
             </button>
 
             <button
@@ -508,8 +508,8 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                   : 'border-outline-variant/40 bg-surface hover:bg-surface-variant/40 text-on-surface-variant'
               }`}
             >
-              <span className="block text-[11px] font-bold">🚜 Servicios</span>
-              <span className="block text-[10px] opacity-75">Equipos & Terceros</span>
+              <span className="block text-xs font-bold">🚜 Servicios</span>
+              <span className="block text-xs text-on-surface-variant">Equipos & Terceros</span>
             </button>
 
             <button
@@ -521,8 +521,8 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                   : 'border-outline-variant/40 bg-surface hover:bg-surface-variant/40 text-on-surface-variant'
               }`}
             >
-              <span className="block text-[11px] font-bold">🌐 Costo Indirecto</span>
-              <span className="block text-[10px] opacity-75">Sobre Costo Total (C)</span>
+              <span className="block text-xs font-bold">🌐 Costo Indirecto</span>
+              <span className="block text-xs text-on-surface-variant">Sobre Costo Total (C)</span>
             </button>
           </div>
         </div>
@@ -647,7 +647,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                     <Sliders className="w-3.5 h-3.5 text-primary" />
                     <span>Parámetros y Preguntas de Obra</span>
                   </h4>
-                  <p className="text-[11px] text-on-surface-variant">
+                  <p className="text-xs text-on-surface-variant">
                     Variables que el presupuestador completará al cotizar (antigüedad, normas AEA, dificultad).
                   </p>
                 </div>
@@ -663,7 +663,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
 
               {/* Presets Rápidos de Parámetros */}
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="text-[10px] text-on-surface-variant font-medium">Sugeridos:</span>
+                <span className="text-xs text-on-surface-variant font-semibold">Sugeridos:</span>
                 <button
                   type="button"
                   onClick={() => handleAddPresetParam({
@@ -674,7 +674,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                     unidad: 'años',
                     descripcion: 'Años desde la construcción original de la instalación'
                   })}
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-surface-container border border-outline-variant/30 hover:bg-primary/10 hover:text-primary transition"
+                  className="text-xs font-bold px-2.5 py-1 rounded-lg bg-surface-container border border-outline-variant/30 hover:bg-primary/10 hover:text-primary transition"
                 >
                   + 🏠 Antigüedad (años)
                 </button>
@@ -687,7 +687,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                     valorDefault: 1,
                     descripcion: '1 = Sí cumple, 0 = No cumple (requiere adecuación o contingencia)'
                   })}
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-surface-container border border-outline-variant/30 hover:bg-primary/10 hover:text-primary transition"
+                  className="text-xs font-bold px-2.5 py-1 rounded-lg bg-surface-container border border-outline-variant/30 hover:bg-primary/10 hover:text-primary transition"
                 >
                   + ⚡ Cumple AEA (Sí/No)
                 </button>
@@ -705,7 +705,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                     ],
                     descripcion: 'Multiplicador según el estado de cañerías existentes'
                   })}
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-surface-container border border-outline-variant/30 hover:bg-primary/10 hover:text-primary transition"
+                  className="text-xs font-bold px-2.5 py-1 rounded-lg bg-surface-container border border-outline-variant/30 hover:bg-primary/10 hover:text-primary transition"
                 >
                   + ⚠️ Factor de Riesgo (Select)
                 </button>
@@ -716,7 +716,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                 <div className="bg-surface-container-high p-3.5 rounded-xl border border-primary/30 space-y-3 animate-in fade-in">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-[10px] font-bold text-on-surface mb-1">Nombre Visible</label>
+                      <label className="block text-xs font-bold text-on-surface mb-1">Nombre Visible</label>
                       <input
                         type="text"
                         placeholder="ej: Antigüedad de la Vivienda"
@@ -734,7 +734,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-on-surface mb-1">Variable ID (en fórmulas)</label>
+                      <label className="block text-xs font-bold text-on-surface mb-1">Variable ID (en fórmulas)</label>
                       <input
                         type="text"
                         placeholder="ej: antiguedad_anos"
@@ -747,7 +747,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
 
                   <div className="grid grid-cols-3 gap-2.5">
                     <div>
-                      <label className="block text-[10px] font-bold text-on-surface mb-1">Tipo</label>
+                      <label className="block text-xs font-bold text-on-surface mb-1">Tipo</label>
                       <select
                         value={newParamForm.tipo}
                         onChange={(e) => setNewParamForm({ ...newParamForm, tipo: e.target.value as any })}
@@ -775,7 +775,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-on-surface mb-1">Unidad (Opcional)</label>
+                      <label className="block text-xs font-bold text-on-surface mb-1">Unidad (Opcional)</label>
                       <input
                         type="text"
                         placeholder="ej: años, m, %"
@@ -845,8 +845,8 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
 
                         <div className="min-w-0">
                           <span className="text-xs font-bold text-on-surface block truncate">{p.nombre}</span>
-                          <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant font-mono flex-wrap">
-                            <span className="bg-surface-container-highest px-1.5 py-0.5 rounded text-primary font-bold">{p.id}</span>
+                          <div className="flex items-center gap-1.5 text-xs text-on-surface-variant font-mono flex-wrap">
+                            <span className="bg-surface-container-highest px-2 py-0.5 rounded text-primary font-bold">{p.id}</span>
                             <span>Tipo: {p.tipo}</span>
                             <span>Default: {p.valorDefault}{p.unidad ? ` ${p.unidad}` : ''}</span>
                             {p.condicion && (
@@ -868,7 +868,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                   ))}
                 </div>
               ) : (
-                <p className="text-[11px] text-on-surface-variant italic py-1">
+                <p className="text-xs text-on-surface-variant italic py-1">
                   No hay parámetros definidos aún. Puedes agregar variables arriba o usar directamente <code>base</code>, <code>materiales</code>, <code>mano_obra</code> o <code>servicios</code>.
                 </p>
               )}
@@ -899,37 +899,37 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                 className="w-full px-3.5 py-2.5 bg-surface-container border border-outline-variant/50 focus:border-primary rounded-xl text-xs text-on-surface font-mono outline-none"
               />
               {errorFormula && (
-                <p className="text-[11px] text-error font-medium">{errorFormula}</p>
+                <p className="text-xs text-error font-medium">{errorFormula}</p>
               )}
 
               {/* Chips de Inserción de Variables y Parámetros */}
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="text-[10px] text-on-surface-variant font-bold">Insertar:</span>
+                <span className="text-xs text-on-surface-variant font-bold">Insertar:</span>
                 <button
                   type="button"
                   onClick={() => handleInsertVariable('base')}
-                  className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-surface-container-high border border-outline-variant/30 hover:bg-primary/10 hover:text-primary transition-colors"
+                  className="text-xs font-mono px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline-variant/30 hover:bg-primary/10 hover:text-primary transition-colors"
                 >
                   base ({formatARS(baseActual)})
                 </button>
                 <button
                   type="button"
                   onClick={() => handleInsertVariable('materiales')}
-                  className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-surface-container-high border border-outline-variant/30 hover:bg-primary/10 hover:text-primary transition-colors"
+                  className="text-xs font-mono px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline-variant/30 hover:bg-primary/10 hover:text-primary transition-colors"
                 >
                   materiales
                 </button>
                 <button
                   type="button"
                   onClick={() => handleInsertVariable('mano_obra')}
-                  className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-surface-container-high border border-outline-variant/30 hover:bg-primary/10 hover:text-primary transition-colors"
+                  className="text-xs font-mono px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline-variant/30 hover:bg-primary/10 hover:text-primary transition-colors"
                 >
                   mano_obra
                 </button>
                 <button
                   type="button"
                   onClick={() => handleInsertVariable('servicios')}
-                  className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-surface-container-high border border-outline-variant/30 hover:bg-primary/10 hover:text-primary transition-colors"
+                  className="text-xs font-mono px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline-variant/30 hover:bg-primary/10 hover:text-primary transition-colors"
                 >
                   servicios
                 </button>
@@ -940,7 +940,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                     key={p.id}
                     type="button"
                     onClick={() => handleInsertVariable(p.id)}
-                    className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors"
+                    className="text-xs font-mono font-bold px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors"
                   >
                     ⚡ {p.id}
                   </button>
@@ -951,7 +951,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
             {/* SECCIÓN: Simulador / Test Interactivo en Vivo */}
             {parametros.length > 0 && (
               <div className="bg-surface-container p-3.5 rounded-2xl border border-outline-variant/30 space-y-2">
-                <span className="text-[11px] font-bold text-on-surface block">
+                <span className="text-xs font-bold text-on-surface block">
                   🧪 Probador / Simulador de Parámetros:
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -959,7 +959,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                     const currentVal = testParamValues[p.id] !== undefined ? testParamValues[p.id] : p.valorDefault;
                     return (
                       <div key={p.id} className="bg-surface-container-low p-2 rounded-xl border border-outline-variant/20">
-                        <label className="block text-[10px] font-bold text-on-surface mb-1 truncate">
+                        <label className="block text-xs font-bold text-on-surface mb-1 truncate">
                           {p.nombre} ({p.id})
                         </label>
                         {p.tipo === 'boolean' ? (
@@ -967,14 +967,14 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                             <button
                               type="button"
                               onClick={() => setTestParamValues({ ...testParamValues, [p.id]: 1 })}
-                              className={`flex-1 py-1 rounded text-[10px] font-bold ${currentVal === 1 ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface-variant'}`}
+                              className={`flex-1 py-1.5 rounded-lg text-xs font-bold ${currentVal === 1 ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface-variant'}`}
                             >
                               Sí (1)
                             </button>
                             <button
                               type="button"
                               onClick={() => setTestParamValues({ ...testParamValues, [p.id]: 0 })}
-                              className={`flex-1 py-1 rounded text-[10px] font-bold ${currentVal === 0 ? 'bg-error text-on-error' : 'bg-surface-container-highest text-on-surface-variant'}`}
+                              className={`flex-1 py-1.5 rounded-lg text-xs font-bold ${currentVal === 0 ? 'bg-error text-on-error' : 'bg-surface-container-highest text-on-surface-variant'}`}
                             >
                               No (0)
                             </button>
@@ -983,7 +983,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                           <select
                             value={currentVal}
                             onChange={(e) => setTestParamValues({ ...testParamValues, [p.id]: parseFloat(e.target.value) || 0 })}
-                            className="w-full px-2 py-1 bg-surface-container border border-outline-variant/40 rounded text-xs"
+                            className="w-full px-2.5 py-1.5 bg-surface-container border border-outline-variant/40 rounded-lg text-xs"
                           >
                             {(p.opciones || []).map((opt) => (
                               <option key={opt.id} value={opt.valor}>{opt.label} ({opt.valor})</option>
@@ -994,7 +994,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                             type="number"
                             value={currentVal ?? ''}
                             onChange={(e) => setTestParamValues({ ...testParamValues, [p.id]: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) || 0 })}
-                            className="w-full px-2 py-1 bg-surface-container border border-outline-variant/40 rounded text-xs font-mono"
+                            className="w-full px-2.5 py-1.5 bg-surface-container border border-outline-variant/40 rounded-lg text-xs font-mono"
                           />
                         )}
                       </div>
@@ -1020,7 +1020,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
                 <span className="font-semibold text-on-surface block">
                   Incluir por defecto en nuevas cotizaciones
                 </span>
-                <span className="text-on-surface-variant text-[11px] block mt-0.5">
+                <span className="text-on-surface-variant text-xs block mt-0.5">
                   Si está marcado, este gasto se aplicará automáticamente activado al crear un nuevo presupuesto.
                 </span>
               </div>
@@ -1031,14 +1031,14 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
         {/* Live Calculation Preview Banner */}
         <div className="bg-primary/5 border border-primary/20 rounded-2xl p-3.5 flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-on-surface-variant block">
+            <span className="text-xs text-on-surface-variant block">
               {isCatalogMode ? 'Ejemplo de Impacto (Base de referencia):' : 'Impacto en esta Cotización:'}
             </span>
             <span className="text-sm font-bold font-mono text-primary">
               +{formatARS(montoSimulado)}
             </span>
           </div>
-          <span className="text-[10px] font-medium bg-primary/10 text-primary px-2.5 py-1 rounded-full">
+          <span className="text-xs font-semibold bg-primary/10 text-primary px-3 py-1 rounded-full">
             {destino === 'costo_indirecto' ? 'Costos Indirectos (GG)' : `Costo Directo (${destino})`}
           </span>
         </div>

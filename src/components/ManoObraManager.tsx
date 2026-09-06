@@ -188,25 +188,25 @@ export const ManoObraManager: React.FC = () => {
     switch (rol) {
       case 'ayudante':
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+          <span className="inline-flex items-center gap-1 text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-500/20">
             <span>Ayudante / Asistencia</span>
           </span>
         );
       case 'especialista':
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300 px-2.5 py-0.5 rounded-full border border-purple-500/20">
+          <span className="inline-flex items-center gap-1 text-xs font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300 px-2.5 py-0.5 rounded-full border border-purple-500/20">
             <span>Especialista / Protocolos</span>
           </span>
         );
       case 'independiente':
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+          <span className="inline-flex items-center gap-1 text-xs font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
             <span>Unipersonal / Individual</span>
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
+          <span className="inline-flex items-center gap-1 text-xs font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
             <span>Oficial / Autónomo</span>
           </span>
         );
@@ -249,7 +249,7 @@ export const ManoObraManager: React.FC = () => {
   const getModalidadBadge = (modalidad?: ModalidadGasto, formula?: string) => {
     if (modalidad === 'parametrico' || formula) {
       return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
+        <span className="inline-flex items-center gap-1 text-xs font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
           <Zap className="w-3 h-3" />
           <span>Fórmula ⚡</span>
         </span>
@@ -257,14 +257,14 @@ export const ManoObraManager: React.FC = () => {
     }
     if (modalidad === 'monto_fijo') {
       return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-secondary-container text-on-secondary-container px-2.5 py-0.5 rounded-full">
+        <span className="inline-flex items-center gap-1 text-xs font-bold bg-secondary-container text-on-secondary-container px-2.5 py-0.5 rounded-full">
           <DollarSign className="w-3 h-3" />
           <span>Monto Fijo</span>
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-secondary-container text-on-secondary-container px-2.5 py-0.5 rounded-full">
+      <span className="inline-flex items-center gap-1 text-xs font-bold bg-secondary-container text-on-secondary-container px-2.5 py-0.5 rounded-full">
         <Percent className="w-3 h-3" />
         <span>Porcentual</span>
       </span>
@@ -426,7 +426,7 @@ export const ManoObraManager: React.FC = () => {
 
                   <div className="pt-3 border-t border-outline-variant/20 flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <span className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider block">
+                      <span className="text-xs text-on-surface-variant font-bold uppercase tracking-wider block">
                         Valor / Regla:
                       </span>
                       <span className="font-mono text-base font-black text-primary">
@@ -446,7 +446,7 @@ export const ManoObraManager: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleToggleIncluirPorDefecto(g)}
-                      className={`px-3 py-1.5 rounded-full border text-[11px] font-bold flex items-center gap-1.5 transition active:scale-95 shadow-2xs ${
+                      className={`px-3 py-1.5 rounded-full border text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-2xs ${
                         (g.incluirPorDefecto ?? true)
                           ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
                           : 'bg-surface-container-highest hover:bg-surface-variant text-on-surface-variant border-outline-variant/30 opacity-70'
@@ -536,7 +536,7 @@ export const ManoObraManager: React.FC = () => {
                     }`}
                   >
                     <div className="font-bold">{r.label}</div>
-                    <div className="text-[10px] opacity-80 mt-0.5">{r.sub}</div>
+                    <div className="text-xs opacity-80 mt-0.5">{r.sub}</div>
                   </button>
                 );
               })}

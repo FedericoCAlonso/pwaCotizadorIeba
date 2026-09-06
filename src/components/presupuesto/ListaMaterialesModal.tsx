@@ -169,7 +169,7 @@ export const ListaMaterialesModal: React.FC<ListaMaterialesModalProps> = ({
             <div className="border border-outline-variant/30 rounded-2xl overflow-hidden bg-surface-container-low shadow-xs">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-surface-container-highest/80 border-b border-outline-variant/30 text-on-surface-variant text-[11px] font-bold uppercase tracking-wider">
+                  <tr className="bg-surface-container-highest/80 border-b border-outline-variant/30 text-on-surface-variant text-xs font-bold uppercase tracking-wider">
                     <th className="py-2.5 px-3 w-10 text-center">#</th>
                     <th className="py-2.5 px-3">Descripción del Material / Insumo</th>
                     <th className="py-2.5 px-3 text-right">Cantidad</th>

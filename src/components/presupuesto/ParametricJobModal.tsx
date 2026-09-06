@@ -211,14 +211,14 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
           <div className="pr-3">
             <div className="flex items-center gap-1.5">
               {isInsideGroup && (
-                <span className="text-[10px] font-bold text-primary">↳</span>
+                <span className="text-xs font-bold text-primary">↳</span>
               )}
               <label className="text-xs font-bold text-on-surface block">
                 {parametro.nombre}
               </label>
             </div>
             {parametro.descripcion && (
-              <p className="text-[10px] text-on-surface-variant mt-0.5">{parametro.descripcion}</p>
+              <p className="text-xs text-on-surface-variant mt-0.5">{parametro.descripcion}</p>
             )}
           </div>
           <div className="flex items-center gap-1 bg-surface-container p-1 rounded-xl border border-outline-variant/20 shrink-0">
@@ -259,14 +259,14 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
         >
           <div className="flex items-center gap-1.5 mb-1">
             {isInsideGroup && (
-              <span className="text-[10px] font-bold text-primary">↳</span>
+              <span className="text-xs font-bold text-primary">↳</span>
             )}
-            <label className="text-[11px] font-bold text-on-surface block">
+            <label className="text-xs font-bold text-on-surface block">
               {parametro.nombre}:
             </label>
           </div>
           {parametro.descripcion && (
-            <p className="text-[10px] text-on-surface-variant mb-1.5">{parametro.descripcion}</p>
+            <p className="text-xs text-on-surface-variant mb-1.5">{parametro.descripcion}</p>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {parametro.opciones.map((opc) => (
@@ -299,9 +299,9 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
       >
         <div className="flex items-center gap-1.5 mb-1">
           {isInsideGroup && (
-            <span className="text-[10px] font-bold text-primary">↳</span>
+            <span className="text-xs font-bold text-primary">↳</span>
           )}
-          <label className="text-[11px] font-bold text-on-surface block">
+          <label className="text-xs font-bold text-on-surface block">
             {parametro.nombre} {parametro.unidad ? `(${parametro.unidad})` : ''}:
           </label>
         </div>
@@ -344,7 +344,7 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase truncate ${
+                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full uppercase truncate ${
                   tarea.naturaleza === 'servicio_profesional'
                     ? 'text-purple-800 dark:text-purple-200 bg-purple-500/20'
                     : 'text-on-primary-container bg-primary-container'
@@ -380,7 +380,7 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
                 <Sliders className="w-4 h-4 text-primary" />
                 <span>Parámetros de Entrada</span>
               </h4>
-              <span className="text-[10px] text-on-surface-variant">
+              <span className="text-xs text-on-surface-variant">
                 Valores para dimensionar consumos
               </span>
             </div>
@@ -416,7 +416,7 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
                       {/* Sub-panel M3 Único para todos los dependientes (Hijos, Nietos...) */}
                       {visibleChildren.length > 0 && (
                         <div className="p-3.5 sm:p-4 rounded-2xl bg-surface-container border border-outline-variant/30 border-l-4 border-l-primary space-y-3 animate-in fade-in slide-in-from-top-1">
-                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-primary uppercase tracking-wide">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-primary uppercase tracking-wide">
                             <CornerDownRight className="w-3.5 h-3.5" />
                             <span>Opciones de {group.root.nombre}</span>
                           </div>
@@ -435,7 +435,7 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
             {/* Resumen de Variables Calculadas Internas */}
             {tarea.variables && tarea.variables.length > 0 && (
               <div className="bg-surface-container-highest/60 p-3 rounded-2xl border border-emerald-500/20 space-y-1.5 mt-3">
-                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide flex items-center gap-1">
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide flex items-center gap-1">
                   <span>⚡ Cálculos Internos Derivados</span>
                 </span>
                 <div className="flex flex-wrap gap-2 pt-1">
@@ -468,7 +468,7 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
                   </span>
                 </div>
                 {tarea.formulaHonorarios && (
-                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-on-surface-variant">
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-on-surface-variant">
                     <span className="bg-surface-container px-2 py-0.5 rounded-lg border border-outline-variant/20 font-mono truncate max-w-full">
                       Fórmula: <code className="text-purple-700 dark:text-purple-300">{tarea.formulaHonorarios}</code>
                     </span>
@@ -490,13 +490,13 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
               </div>
               <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                 {calculosResultado.insumosSnapshot.length === 0 ? (
-                  <p className="text-[11px] text-on-surface-variant italic py-1">Sin materiales requeridos</p>
+                  <p className="text-xs text-on-surface-variant italic py-1">Sin materiales requeridos</p>
                 ) : (
                   calculosResultado.insumosSnapshot.map((ins, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-[11px] py-1 border-b border-outline-variant/10">
+                    <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-outline-variant/10">
                       <div className="truncate flex-1 pr-2">
                         <span className="font-medium text-on-surface block truncate">{ins.nombre}</span>
-                        <span className="text-[10px] text-on-surface-variant font-mono">
+                        <span className="text-xs text-on-surface-variant font-mono">
                           {ins.cantidadTotal} {ins.unidad} a {formatARS(ins.precioUnitarioCongelado)}
                         </span>
                       </div>
@@ -522,13 +522,13 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
               </div>
               <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                 {calculosResultado.manoObraSnapshot.length === 0 ? (
-                  <p className="text-[11px] text-on-surface-variant italic py-1">Sin mano de obra adicional</p>
+                  <p className="text-xs text-on-surface-variant italic py-1">Sin mano de obra adicional</p>
                 ) : (
                   calculosResultado.manoObraSnapshot.map((mo, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-[11px] py-1 border-b border-outline-variant/10">
+                    <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-outline-variant/10">
                       <div className="truncate flex-1 pr-2">
                         <span className="font-medium text-on-surface block truncate">{mo.nombreCategoria}</span>
-                        <span className="text-[10px] text-on-surface-variant font-mono">
+                        <span className="text-xs text-on-surface-variant font-mono">
                           {mo.horasTotales} hs a {formatARS(mo.costoHoraCongelado)}/h
                         </span>
                       </div>
@@ -573,7 +573,7 @@ export const ParametricJobModal: React.FC<ParametricJobModalProps> = ({
         {/* Footer */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-outline-variant/20 bg-surface-container-low flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
           <div className="flex items-center justify-between sm:block">
-            <span className="text-[10px] text-on-surface-variant uppercase font-semibold sm:block">
+            <span className="text-xs text-on-surface-variant uppercase font-semibold sm:block">
               Costo Directo Total:
             </span>
             <span className="text-base sm:text-lg font-black font-mono text-primary">

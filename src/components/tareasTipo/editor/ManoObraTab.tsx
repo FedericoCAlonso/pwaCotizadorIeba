@@ -34,7 +34,7 @@ export const ManoObraTab: React.FC<ManoObraTabProps> = ({
             <Clock className="w-4 h-4" />
             <span>Horas de Mano de Obra (con Fórmulas)</span>
           </h4>
-          <p className="text-[11px] text-on-surface-variant">
+          <p className="text-xs text-on-surface-variant">
             Escribe la fórmula para calcular las horas de cada categoría de mano de obra (ej: <code className="font-mono text-primary font-bold">horas_oficial</code> o <code className="font-mono text-primary font-bold">(bocas * 1.5) * k_complejidad</code>).
           </p>
         </div>
@@ -51,7 +51,7 @@ export const ManoObraTab: React.FC<ManoObraTabProps> = ({
       {/* Configuración de Setup y Cuadrilla para Planificador de Sinergia */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-surface-container-low p-3.5 rounded-2xl border border-outline-variant/20">
         <div>
-          <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">
             Horas Alistamiento / Setup
           </label>
           <input
@@ -145,7 +145,7 @@ export const ManoObraTab: React.FC<ManoObraTabProps> = ({
                 <div className="flex flex-wrap items-center justify-between gap-2.5">
                   <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 flex-1 min-w-0">
                     <div className="flex-1 min-w-[180px]">
-                      <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
+                      <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">
                         Rol de Mano de Obra
                       </label>
                       <select
@@ -165,7 +165,7 @@ export const ManoObraTab: React.FC<ManoObraTabProps> = ({
                       </select>
                     </div>
                     <div className="shrink-0 pt-0 sm:pt-4">
-                      <span className="inline-flex items-center px-2.5 py-1.5 rounded-xl bg-surface-container-highest border border-outline-variant/30 text-[11px] font-mono text-on-surface-variant">
+                      <span className="inline-flex items-center px-2.5 py-1.5 rounded-xl bg-surface-container-highest border border-outline-variant/30 text-xs font-mono text-on-surface-variant">
                         Tarifa: <strong className="ml-1 text-on-surface">{formatARS(rate)}/h</strong>
                       </span>
                     </div>
@@ -184,11 +184,11 @@ export const ManoObraTab: React.FC<ManoObraTabProps> = ({
                 {/* Input de Fórmula de Horas */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-bold text-on-surface flex items-center gap-1.5">
+                    <label className="text-xs font-bold text-on-surface flex items-center gap-1.5">
                       <Calculator className="w-3.5 h-3.5 text-primary" />
                       <span>Fórmula de cálculo de horas</span>
                     </label>
-                    <span className="text-[10px] text-on-surface-variant font-mono">Fórmula o valor numérico</span>
+                    <span className="text-xs text-on-surface-variant font-mono">Fórmula o valor numérico</span>
                   </div>
 
                   <div className="bg-surface-container-highest rounded-xl p-2.5 border border-outline-variant/30 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
@@ -217,7 +217,7 @@ export const ManoObraTab: React.FC<ManoObraTabProps> = ({
                   <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 flex-1 min-w-0">
                     {item.condicion !== undefined && item.condicion !== null ? (
                       <div className="flex items-center gap-1.5 bg-surface-container-highest/80 px-2.5 py-1 rounded-xl border border-outline-variant/25 flex-1 max-w-md min-w-0">
-                        <span className="text-[10px] font-bold text-on-surface-variant uppercase shrink-0">Condición:</span>
+                        <span className="text-xs font-bold text-on-surface-variant uppercase shrink-0">Condición:</span>
                         <FormulaInput
                           value={item.condicion || ''}
                           onChange={(newCond) => {
@@ -253,7 +253,7 @@ export const ManoObraTab: React.FC<ManoObraTabProps> = ({
                           next[idx] = { ...next[idx], condicion: '' };
                           setFormData({ ...formData, manoObra: next });
                         }}
-                        className="text-[11px] text-primary hover:underline font-semibold flex items-center gap-1 transition"
+                        className="text-xs text-primary hover:underline font-semibold flex items-center gap-1 transition"
                       >
                         <span>+ Añadir condición de inclusión</span>
                       </button>
@@ -261,7 +261,7 @@ export const ManoObraTab: React.FC<ManoObraTabProps> = ({
 
                     {item.condicion !== undefined && item.condicion !== null && item.condicion.trim() !== '' && (
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${
+                        className={`text-xs font-bold px-2 py-0.5 rounded-md shrink-0 ${
                           isConditionMet
                             ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                             : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'

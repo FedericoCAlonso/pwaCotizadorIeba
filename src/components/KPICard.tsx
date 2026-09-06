@@ -26,9 +26,9 @@ export const KPICard: React.FC<KPICardProps> = ({
   return (
     <div className={`p-3.5 rounded-2xl border flex items-center justify-between shadow-xs ${variantClasses}`}>
       <div className="min-w-0 flex-1">
-        <span className="text-[11px] font-medium block truncate opacity-80">{label}</span>
+        <span className="text-xs font-semibold block truncate opacity-90">{label}</span>
         <div className="text-sm font-bold font-mono truncate">{value}</div>
-        {subtext && <span className="text-[10px] block truncate opacity-70 mt-0.5">{subtext}</span>}
+        {subtext && <span className="text-xs block truncate opacity-80 mt-0.5">{subtext}</span>}
       </div>
       {icon && <div className="ml-2 shrink-0 opacity-85">{icon}</div>}
     </div>

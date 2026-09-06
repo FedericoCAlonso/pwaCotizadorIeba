@@ -115,7 +115,7 @@ export const OnlinePriceButton: React.FC<OnlinePriceButtonProps> = ({
   };
 
   const sizeClasses = {
-    xs: 'p-1.5 text-[11px]',
+    xs: 'p-1.5 text-xs font-medium',
     sm: 'px-2.5 py-1.5 text-xs',
     md: 'px-3 py-2 text-xs'
   }[size];
@@ -202,7 +202,7 @@ export const OnlinePriceButton: React.FC<OnlinePriceButtonProps> = ({
 
               {/* Preview del término de búsqueda */}
               <div className="px-3 py-2 bg-surface-container rounded-xl border border-outline-variant/15">
-                <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">
+                <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">
                   Búsqueda {tipo === 'producto' ? 'Producto/Marca' : 'Material Técnico'}:
                 </span>
                 <span className="text-xs font-semibold text-primary truncate block font-mono mt-0.5">

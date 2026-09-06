@@ -115,21 +115,21 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
           {/* Destinatario y Teléfono */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-surface-container-low p-3.5 rounded-2xl border border-outline-variant/20">
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-1 flex items-center gap-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1 flex items-center gap-1">
                 <User className="w-3.5 h-3.5 text-primary" /> Cliente
               </label>
               <div className="text-xs font-semibold text-on-surface truncate">
                 {cliente?.razonSocial || cliente?.nombre || 'Cliente General'}
               </div>
               {cliente?.direccion && (
-                <div className="text-[10px] text-on-surface-variant truncate">
+                <div className="text-xs text-on-surface-variant truncate">
                   {cliente.direccion}
                 </div>
               )}
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-1 flex items-center gap-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1 flex items-center gap-1">
                 <Phone className="w-3.5 h-3.5 text-emerald-500" /> Teléfono WhatsApp
               </label>
               <input
@@ -186,7 +186,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
 
           {/* Editor del Mensaje Renderizado */}
           <div className="space-y-1.5">
-            <div className="flex justify-between items-center text-[11px] text-on-surface-variant">
+            <div className="flex justify-between items-center text-xs text-on-surface-variant">
               <span>Vista previa editable (Podés retocar los datos antes de enviar):</span>
               <span className="font-mono">{mensajeEditable.length} caracteres</span>
             </div>

@@ -301,11 +301,11 @@ export const SolicitudCotizacionManager: React.FC = () => {
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-semibold text-on-surface text-base">{prov?.razonSocial || prov?.nombre || 'Proveedor'}</h3>
-                    <span className="text-[10px] font-mono text-on-surface-variant block mt-0.5">
+                    <span className="text-xs font-mono text-on-surface-variant block mt-0.5">
                       {new Date(req.fechaCreacion).toLocaleDateString('es-AR')}
                     </span>
                   </div>
-                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize ${
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
                     req.estado === 'respondida' ? 'bg-emerald-500/10 text-emerald-500' :
                     req.estado === 'enviada' ? 'bg-primary/10 text-primary' : 'bg-surface-container-highest text-on-surface-variant'
                   }`}>

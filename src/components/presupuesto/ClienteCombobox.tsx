@@ -170,19 +170,19 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
                   {selectedCliente.razonSocial || selectedCliente.nombre}
                 </h4>
                 {selectedCliente.cuitDni && (
-                  <span className="text-[10px] font-mono font-semibold bg-surface-container px-2 py-0.5 rounded-md text-on-surface-variant shrink-0 border border-outline-variant/20">
+                  <span className="text-xs font-mono font-semibold bg-surface-container px-2 py-0.5 rounded-md text-on-surface-variant shrink-0 border border-outline-variant/20">
                     {selectedCliente.cuitDni}
                   </span>
                 )}
                 {selectedCliente.condicionIVA && (
-                  <span className="text-[10px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.2 rounded shrink-0">
+                  <span className="text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-md shrink-0">
                     {selectedCliente.condicionIVA}
                   </span>
                 )}
               </div>
 
               {/* Sub-info: Teléfono / Dirección */}
-              <div className="flex items-center gap-3 text-[11px] text-on-surface-variant truncate mt-0.5">
+              <div className="flex items-center gap-3 text-xs text-on-surface-variant truncate mt-0.5">
                 {selectedCliente.telefono && (
                   <span className="flex items-center gap-1 shrink-0">
                     <Phone className="w-3 h-3 text-primary" />
@@ -271,16 +271,16 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
           {/* Menú Dropdown Flotante */}
           {isOpenDropdown && (
             <div className="absolute left-0 top-full mt-1.5 w-full bg-surface-container-high border border-outline-variant/30 rounded-2xl shadow-2xl z-50 p-1.5 space-y-1 max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 backdrop-blur-md">
-              <div className="px-3 py-1.5 text-[10px] font-bold text-on-surface-variant uppercase tracking-wider flex items-center justify-between border-b border-outline-variant/15">
+              <div className="px-3 py-1.5 text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center justify-between border-b border-outline-variant/15">
                 <span>{filteredClientes.length} Clientes Encontrados</span>
-                <span className="font-mono lowercase text-[9px]">↑↓ enter para elegir</span>
+                <span className="font-mono lowercase text-xs">↑↓ enter para elegir</span>
               </div>
 
               {filteredClientes.length === 0 ? (
                 <div className="text-center py-4 px-3">
                   <User className="w-6 h-6 text-outline-variant mx-auto mb-1 opacity-60" />
                   <p className="text-xs font-bold text-on-surface">No se encontró "{query}"</p>
-                  <p className="text-[11px] text-on-surface-variant mt-0.5">
+                  <p className="text-xs text-on-surface-variant mt-0.5">
                     Puedes darlo de alta rápidamente con el botón de abajo.
                   </p>
                 </div>
@@ -301,7 +301,7 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         <div
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
                             isSelected
                               ? 'bg-white/20 text-white'
                               : 'bg-primary/10 text-primary border border-primary/20'
@@ -316,7 +316,7 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
                             </span>
                             {c.cuitDni && (
                               <span
-                                className={`text-[10px] font-mono px-1.5 py-0.2 rounded shrink-0 ${
+                                className={`text-xs font-mono px-1.5 py-0.2 rounded shrink-0 ${
                                   isSelected ? 'bg-white/20 text-white' : 'bg-surface-container text-on-surface-variant'
                                 }`}
                               >
@@ -326,7 +326,7 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
                           </div>
                           {(c.telefono || c.direccion || c.localidad) && (
                             <p
-                              className={`text-[10px] truncate ${
+                              className={`text-xs truncate ${
                                 isSelected ? 'text-white/80' : 'text-on-surface-variant/80'
                               }`}
                             >

@@ -200,31 +200,31 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
     switch (estado) {
       case 'aprobado':
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
             <CheckCircle className="w-3 h-3" /> Aprobado
           </span>
         );
       case 'enviado':
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400">
+          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400">
             <FileCheck className="w-3 h-3" /> Enviado
           </span>
         );
       case 'borrador':
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-500/10 text-slate-600 dark:text-slate-400">
+          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-500/10 text-slate-600 dark:text-slate-400">
             <Clock className="w-3 h-3" /> Borrador
           </span>
         );
       case 'rechazado':
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
+          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
             <XCircle className="w-3 h-3" /> Rechazado
           </span>
         );
       case 'vencido':
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
             <AlertTriangle className="w-3 h-3" /> Vencido
           </span>
         );
@@ -299,7 +299,7 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
                       </span>
                     )}
                     {cliente.condicionIVA && (
-                      <span className="inline-block mt-2 text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container">
+                      <span className="inline-block mt-2 text-xs font-medium px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container">
                         {cliente.condicionIVA}
                       </span>
                     )}
@@ -355,7 +355,7 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
                   </div>
 
                   {totalCount > 0 ? (
-                    <div className="flex items-center justify-between bg-surface-container-high/60 px-3 py-1.5 rounded-2xl text-[11px]">
+                    <div className="flex items-center justify-between bg-surface-container-high/60 px-3 py-1.5 rounded-2xl text-xs">
                       <div className="flex items-center gap-2">
                         {aprobadosCount > 0 && (
                           <span className="text-emerald-600 dark:text-emerald-400 font-medium">
@@ -373,7 +373,7 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
                       </span>
                     </div>
                   ) : (
-                    <span className="text-[11px] text-on-surface-variant/70 italic">
+                    <span className="text-xs text-on-surface-variant/70 italic">
                       Sin cotizaciones registradas
                     </span>
                   )}
@@ -491,21 +491,21 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="bg-surface-container-high p-3.5 rounded-2xl border border-outline-variant/20 flex items-center justify-between">
                         <div>
-                          <span className="text-[11px] text-on-surface-variant block font-medium">Total Cotizado</span>
+                          <span className="text-xs text-on-surface-variant block font-medium">Total Cotizado</span>
                           <span className="text-sm font-bold font-mono text-on-surface">{formatARS(totalMontoGeneral)}</span>
                         </div>
                         <TrendingUp className="w-5 h-5 text-primary opacity-80" />
                       </div>
                       <div className="bg-emerald-500/10 p-3.5 rounded-2xl border border-emerald-500/20 flex items-center justify-between">
                         <div>
-                          <span className="text-[11px] text-emerald-700 dark:text-emerald-300 block font-medium">Aprobado / Facturado</span>
+                          <span className="text-xs text-emerald-700 dark:text-emerald-300 block font-medium">Aprobado / Facturado</span>
                           <span className="text-sm font-bold font-mono text-emerald-600 dark:text-emerald-400">{formatARS(totalMontoAprobado)}</span>
                         </div>
                         <CheckCircle className="w-5 h-5 text-emerald-500" />
                       </div>
                       <div className="bg-surface-container-high p-3.5 rounded-2xl border border-outline-variant/20 flex items-center justify-between">
                         <div>
-                          <span className="text-[11px] text-on-surface-variant block font-medium">Presupuestos Emitidos</span>
+                          <span className="text-xs text-on-surface-variant block font-medium">Presupuestos Emitidos</span>
                           <span className="text-sm font-bold font-mono text-on-surface">{list.length} unidades</span>
                         </div>
                         <FileText className="w-5 h-5 text-tertiary opacity-80" />
@@ -601,7 +601,7 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
                   <button
                     type="button"
                     onClick={handleImportFromContacts}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-full transition-colors"
+                    className="flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-full transition-colors"
                     title="Importar de los contactos del teléfono"
                   >
                     <UserPlus className="w-3 h-3" /> Agenda
@@ -733,7 +733,7 @@ export const ClientesManager: React.FC<ClientesManagerProps> = ({
               <p className="text-xs text-on-surface-variant">
                 Pegá el contenido CSV. Formato:
                 <br />
-                <code className="text-primary bg-surface-container-highest px-1.5 py-0.5 rounded font-mono text-[11px] block mt-1">
+                <code className="text-primary bg-surface-container-highest px-1.5 py-0.5 rounded font-mono text-xs block mt-1">
                   Nombre, CUIT_DNI, CondicionIVA, Telefono, Email, Direccion, Notas
                 </code>
               </p>

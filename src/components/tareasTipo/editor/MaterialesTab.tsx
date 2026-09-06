@@ -39,7 +39,7 @@ export const MaterialesTab: React.FC<MaterialesTabProps> = ({
             <Package className="w-4 h-4" />
             <span>Despiece de Insumos & Materiales (con Fórmulas)</span>
           </h4>
-          <p className="text-[11px] text-on-surface-variant">
+          <p className="text-xs text-on-surface-variant">
             Agrega materiales directos del catálogo o ranuras dinámicas que seleccionen automáticamente por categoría y parámetros.
           </p>
         </div>
@@ -70,15 +70,15 @@ export const MaterialesTab: React.FC<MaterialesTabProps> = ({
 
       {/* Chips de variables disponibles para fórmulas */}
       {(formData.parametros.length > 0 || formData.variables.length > 0) && (
-        <div className="flex flex-wrap items-center gap-1 px-1 text-[11px] text-on-surface-variant">
-          <span className="font-semibold text-[10px] uppercase">Variables disponibles:</span>
+        <div className="flex flex-wrap items-center gap-1.5 px-1 text-xs text-on-surface-variant">
+          <span className="font-semibold text-xs uppercase">Variables disponibles:</span>
           {formData.parametros.map((p) => (
-            <span key={p.id} className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+            <span key={p.id} className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary">
               ${p.id}
             </span>
           ))}
           {formData.variables.map((v) => (
-            <span key={v.id} className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+            <span key={v.id} className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
               ⚡${v.id}
             </span>
           ))}
@@ -145,15 +145,15 @@ export const MaterialesTab: React.FC<MaterialesTabProps> = ({
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-surface-variant text-on-surface-variant font-mono">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-surface-variant text-on-surface-variant font-mono">
                         #{idx + 1}
                       </span>
                       {isCategoryFilter ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono flex items-center gap-1">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono flex items-center gap-1">
                           <span>⚡ Por Categoría: {item.nombreSlot || item.filtroMaterial?.etiqueta || 'Dinámico'}</span>
                         </span>
                       ) : isDynamic ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-mono flex items-center gap-1">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-mono flex items-center gap-1">
                           <span>⚡ Slot: {item.nombreSlot || 'Dinámico'}</span>
                         </span>
                       ) : null}
@@ -161,7 +161,7 @@ export const MaterialesTab: React.FC<MaterialesTabProps> = ({
                         {selectedMat?.nombre || (isDynamic || isCategoryFilter ? '(Sin coincidencia para parámetros)' : resolvedId)}
                       </h5>
                     </div>
-                    <div className="text-[11px] text-on-surface-variant font-mono flex items-center gap-2">
+                    <div className="text-xs text-on-surface-variant font-mono flex items-center gap-2">
                       <span>Unit: {formatARS(unitPrice)}</span>
                       <span>•</span>
                       <span className={`font-bold ${isConditionMet ? 'text-primary' : 'text-on-surface-variant line-through'}`}>
@@ -173,7 +173,7 @@ export const MaterialesTab: React.FC<MaterialesTabProps> = ({
                   {/* Formula Input */}
                   <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end min-w-0">
                     <div className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-xl border border-outline-variant/30 flex-1 sm:flex-initial sm:w-64 min-w-0">
-                      <span className="text-[10px] font-bold text-on-surface-variant uppercase shrink-0">Fórmula:</span>
+                      <span className="text-xs font-bold text-on-surface-variant uppercase shrink-0">Fórmula:</span>
                       <FormulaInput
                         value={item.formula || ''}
                         onChange={(newFormula) => {
@@ -209,16 +209,16 @@ export const MaterialesTab: React.FC<MaterialesTabProps> = ({
                 </div>
 
                 {/* Regla Condicional de Inclusión Opcional o Info de Slot */}
-                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-outline-variant/15 text-[11px]">
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-outline-variant/15 text-xs">
                   {isCategoryFilter ? (
                     <div className="flex items-center justify-between gap-2 w-full flex-wrap">
-                      <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant flex-wrap min-w-0">
+                      <div className="flex items-center gap-1.5 text-xs text-on-surface-variant flex-wrap min-w-0">
                         <span className="font-semibold text-emerald-700 dark:text-emerald-300">Criterios:</span>
-                        <span className="font-mono text-[10px] bg-surface-container px-2 py-0.5 rounded-md break-all">
+                        <span className="font-mono text-xs bg-surface-container px-2 py-0.5 rounded-md break-all">
                           {item.filtroMaterial?.criterios?.map((c) => `${c.atributo} ${c.operador} ${c.valor}`).join(' • ')}
                         </span>
                         {matchingRuleName && (
-                          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md truncate max-w-xs">
+                          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md truncate max-w-xs">
                             ✓ {matchingRuleName}
                           </span>
                         )}
@@ -237,15 +237,15 @@ export const MaterialesTab: React.FC<MaterialesTabProps> = ({
                       </button>
                     </div>
                   ) : isDynamic ? (
-                    <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant">
+                    <div className="flex items-center gap-1.5 text-xs text-on-surface-variant">
                       <span className="font-semibold text-primary">Reglas ({item.reglasDinamicas?.length || 0}):</span>
-                      <span className="font-mono text-[10px] bg-surface-container px-2 py-0.5 rounded-md">
+                      <span className="font-mono text-xs bg-surface-container px-2 py-0.5 rounded-md">
                         {matchingRuleName ? `Activo: ${matchingRuleName}` : 'Ninguna activa'}
                       </span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5 bg-surface-container-highest/80 px-2.5 py-1 rounded-xl border border-outline-variant/25 w-full sm:w-auto min-w-0 sm:min-w-[240px]">
-                      <span className="text-[10px] font-bold text-on-surface-variant uppercase shrink-0">Condición:</span>
+                      <span className="text-xs font-bold text-on-surface-variant uppercase shrink-0">Condición:</span>
                       <FormulaInput
                         value={item.condicion || ''}
                         onChange={(newCond) => {
@@ -264,7 +264,7 @@ export const MaterialesTab: React.FC<MaterialesTabProps> = ({
                   )}
                   {item.condicion !== undefined && item.condicion !== null && item.condicion.trim() !== '' && (
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                      className={`text-xs font-bold px-2 py-0.5 rounded-md ${
                         isConditionMet
                           ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                           : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'

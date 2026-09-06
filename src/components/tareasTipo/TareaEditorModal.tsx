@@ -164,7 +164,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                   <span>{tab.label}</span>
                   {tab.badge !== undefined && (
                     <span
-                      className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold ${
+                      className={`text-xs font-mono px-2 py-0.5 rounded-full font-bold ${
                         isActive
                           ? 'bg-primary/15 text-primary'
                           : 'bg-surface-variant text-on-surface-variant'

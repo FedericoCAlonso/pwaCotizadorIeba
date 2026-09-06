@@ -197,17 +197,17 @@ export const ParametricGastoModal: React.FC<ParametricGastoModalProps> = ({
           <div>
             <div className="flex items-center gap-1.5">
               {isInsideGroup && (
-                <span className="text-[10px] font-bold text-primary">↳</span>
+                <span className="text-xs font-bold text-primary">↳</span>
               )}
               <label className="block text-xs font-bold text-on-surface">
                 {p.nombre}
               </label>
             </div>
             {p.descripcion && (
-              <p className="text-[11px] text-on-surface-variant mt-0.5">{p.descripcion}</p>
+              <p className="text-xs text-on-surface-variant mt-0.5">{p.descripcion}</p>
             )}
           </div>
-          <span className="text-[10px] font-mono font-bold bg-surface-container-highest px-2 py-0.5 rounded text-on-surface-variant">
+          <span className="text-xs font-mono font-bold bg-surface-container-highest px-2 py-0.5 rounded text-on-surface-variant">
             {p.id}
           </span>
         </div>
@@ -320,7 +320,7 @@ export const ParametricGastoModal: React.FC<ParametricGastoModalProps> = ({
                 {/* Sub-panel M3 Único para todos los dependientes */}
                 {visibleChildren.length > 0 && (
                   <div className="p-3.5 sm:p-4 rounded-2xl bg-surface-container border border-outline-variant/30 border-l-4 border-l-primary space-y-3 animate-in fade-in slide-in-from-top-1">
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-primary uppercase tracking-wide">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-primary uppercase tracking-wide">
                       <CornerDownRight className="w-3.5 h-3.5" />
                       <span>Opciones de {group.root.nombre}</span>
                     </div>
@@ -344,9 +344,9 @@ export const ParametricGastoModal: React.FC<ParametricGastoModalProps> = ({
             </span>
           </div>
 
-          <div className="text-[11px] text-on-surface-variant flex flex-wrap items-center gap-1.5 pt-1 border-t border-primary/10">
+          <div className="text-xs text-on-surface-variant flex flex-wrap items-center gap-1.5 pt-1 border-t border-primary/10">
             <span className="font-semibold">Fórmula evaluada:</span>
-            <code className="font-mono text-[10px] bg-surface-container-highest px-2 py-0.5 rounded text-on-surface">
+            <code className="font-mono text-xs bg-surface-container-highest px-2 py-0.5 rounded text-on-surface">
               {gasto.formula}
             </code>
           </div>

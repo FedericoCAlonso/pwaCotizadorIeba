@@ -63,18 +63,18 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             {isAmbos ? (
-              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-lg bg-primary-container text-on-primary-container flex items-center gap-1 select-none">
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-lg bg-primary-container text-on-primary-container flex items-center gap-1 select-none">
                 <Sparkles className="w-3.5 h-3.5" /> Cliente & Proveedor
               </span>
             ) : (
               <>
                 {isCli && (
-                  <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-lg bg-secondary-container text-on-secondary-container flex items-center gap-1 select-none">
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-lg bg-secondary-container text-on-secondary-container flex items-center gap-1 select-none">
                     <Building className="w-3.5 h-3.5" /> Cliente
                   </span>
                 )}
                 {isProv && (
-                  <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-lg bg-tertiary-container text-on-tertiary-container flex items-center gap-1 select-none">
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-lg bg-tertiary-container text-on-tertiary-container flex items-center gap-1 select-none">
                     <Truck className="w-3.5 h-3.5" /> Proveedor ({contacto.tipoProveedor || 'ambos'})
                   </span>
                 )}
@@ -82,13 +82,13 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
             )}
 
             {contacto.condicionIVA && (
-              <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-lg bg-surface-container-highest text-on-surface-variant select-none">
+              <span className="text-xs font-medium px-2.5 py-0.5 rounded-lg bg-surface-container-highest text-on-surface-variant select-none">
                 {contacto.condicionIVA}
               </span>
             )}
 
             {contacto.plantillaWhatsAppPersonalizada && (
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1 select-none" title="Formato de mensaje personalizado de WhatsApp activo">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1 select-none" title="Formato de mensaje personalizado de WhatsApp activo">
                 <MessageSquare className="w-3 h-3" /> WhatsApp Custom
               </span>
             )}
@@ -138,7 +138,7 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
             {contacto.etiquetas.map((tag, tIdx) => (
               <span
                 key={tIdx}
-                className="text-[10px] font-semibold px-2.5 py-0.5 rounded-lg bg-surface-container text-on-surface-variant flex items-center gap-1 select-none"
+                className="text-xs font-semibold px-2.5 py-0.5 rounded-lg bg-surface-container text-on-surface-variant flex items-center gap-1 select-none"
               >
                 <Tag className="w-2.5 h-2.5 text-primary" />
                 <span>{tag}</span>
@@ -159,7 +159,7 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
                 href={`https://wa.me/${contacto.telefono.replace(/[^0-9]/g, '')}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-[11px] font-bold text-[#25D366] hover:underline shrink-0"
+                className="text-xs font-bold text-[#25D366] hover:underline shrink-0"
               >
                 WhatsApp
               </a>
@@ -188,17 +188,17 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
         {/* Personas de Contacto Count / Mini Sub-card */}
         {contacto.contactos && contacto.contactos.length > 0 && (
           <div className="mt-3 bg-surface-container p-3 rounded-xl space-y-1.5">
-            <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">
+            <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">
               Personas de contacto:
             </span>
             <div className="space-y-1">
               {contacto.contactos.map((p, idx) => (
                 <div key={idx} className="text-xs flex items-center justify-between text-on-surface">
                   <span className="truncate font-medium">
-                    {p.nombre} {p.rol ? <span className="text-[10px] text-on-surface-variant">({p.rol})</span> : ''}
+                    {p.nombre} {p.rol ? <span className="text-xs text-on-surface-variant">({p.rol})</span> : ''}
                   </span>
                   {p.telefono && (
-                    <a href={`tel:${p.telefono}`} className="text-[11px] font-mono text-primary hover:underline shrink-0 ml-1">
+                    <a href={`tel:${p.telefono}`} className="text-xs font-mono text-primary hover:underline shrink-0 ml-1">
                       {p.telefono}
                     </a>
                   )}
@@ -260,13 +260,13 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
                     >
                       <div>
                         <div className="font-bold text-on-surface font-mono">{p.numero}</div>
-                        <div className="text-[10px] text-on-surface-variant">
+                        <div className="text-xs text-on-surface-variant">
                           {new Date(p.fechaEmision).toLocaleDateString('es-AR')}
                         </div>
                       </div>
                       <div className="text-right">
                         <div className="font-bold text-primary font-mono">{formatARS(p.precioFinalGlobal || p.totalARS)}</div>
-                        <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-md bg-surface-variant text-on-surface-variant select-none">
+                        <span className="text-xs uppercase font-bold px-2 py-0.5 rounded-md bg-surface-variant text-on-surface-variant select-none">
                           {p.estado}
                         </span>
                       </div>
@@ -288,11 +288,11 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
                     >
                       <div>
                         <div className="font-bold text-on-surface font-mono">RFQ #{r.id.slice(0, 8)}</div>
-                        <div className="text-[10px] text-on-surface-variant">
+                        <div className="text-xs text-on-surface-variant">
                           {r.items?.length || 0} materiales solicitados
                         </div>
                       </div>
-                      <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-md bg-surface-variant text-on-surface-variant select-none">
+                      <span className="text-xs uppercase font-bold px-2 py-0.5 rounded-md bg-surface-variant text-on-surface-variant select-none">
                         {r.estado}
                       </span>
                     </div>
@@ -305,27 +305,27 @@ export const ContactoCard: React.FC<ContactoCardProps> = ({
               <div className="bg-surface-container p-3.5 rounded-xl space-y-2 text-xs text-on-surface-variant">
                 {contacto.financiero?.condicionesCobroHabitual && (
                   <div>
-                    <span className="font-bold text-[10px] uppercase text-on-surface block">Cobro habitual:</span>
+                    <span className="font-bold text-xs uppercase text-on-surface block">Cobro habitual:</span>
                     <span>{contacto.financiero.condicionesCobroHabitual}</span>
                   </div>
                 )}
                 {contacto.financiero?.condicionesPagoHabitual && (
                   <div>
-                    <span className="font-bold text-[10px] uppercase text-on-surface block">Pago a proveedor:</span>
+                    <span className="font-bold text-xs uppercase text-on-surface block">Pago a proveedor:</span>
                     <span>{contacto.financiero.condicionesPagoHabitual}</span>
                   </div>
                 )}
                 {contacto.financiero?.cbuCvuAlias && (
                   <div>
-                    <span className="font-bold text-[10px] uppercase text-on-surface block">CBU / Alias:</span>
+                    <span className="font-bold text-xs uppercase text-on-surface block">CBU / Alias:</span>
                     <span className="font-mono font-bold text-primary">{contacto.financiero.cbuCvuAlias}</span>
-                    {contacto.financiero.banco && <span className="block text-[11px]">({contacto.financiero.banco})</span>}
+                    {contacto.financiero.banco && <span className="block text-xs">({contacto.financiero.banco})</span>}
                   </div>
                 )}
                 {!contacto.financiero?.condicionesCobroHabitual &&
                   !contacto.financiero?.condicionesPagoHabitual &&
                   !contacto.financiero?.cbuCvuAlias && (
-                    <p className="text-[11px] text-center text-on-surface-variant py-2">
+                    <p className="text-xs text-center text-on-surface-variant py-2">
                       Sin datos financieros o bancarios cargados.
                     </p>
                   )}

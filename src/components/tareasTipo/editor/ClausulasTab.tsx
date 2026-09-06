@@ -29,7 +29,7 @@ export const ClausulasTab: React.FC<ClausulasTabProps> = ({ formData, setFormDat
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, clausulaExclusiones: DEFAULT_CLAUSULA_SRT_900 })}
-                className="text-[10px] text-purple-700 dark:text-purple-300 font-bold hover:underline"
+                className="text-xs text-purple-700 dark:text-purple-300 font-bold hover:underline"
               >
                 + Insertar plantilla Res. SRT 900/15
               </button>
@@ -37,14 +37,14 @@ export const ClausulasTab: React.FC<ClausulasTabProps> = ({ formData, setFormDat
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, clausulaExclusiones: DEFAULT_CLAUSULA_OBRA_EXISTENTE })}
-                className="text-[10px] text-primary font-bold hover:underline"
+                className="text-xs text-primary font-bold hover:underline"
               >
                 + Insertar plantilla de obra existente
               </button>
             )}
           </div>
         </div>
-        <p className="text-[11px] text-on-surface-variant">
+        <p className="text-xs text-on-surface-variant">
           Texto que se insertará en el presupuesto final para delimitar el alcance del trabajo, exclusiones (ej: canalizaciones obstruidas, roturas de mampostería, pintura) y resguardos legales del instalador.
         </p>
         <textarea
@@ -66,7 +66,7 @@ export const ClausulasTab: React.FC<ClausulasTabProps> = ({ formData, setFormDat
           <FileText className="w-4 h-4 text-primary" />
           <span>Notas Técnicas y Normas de Aplicación</span>
         </label>
-        <p className="text-[11px] text-on-surface-variant">
+        <p className="text-xs text-on-surface-variant">
           Aclaraciones de normas aplicables (ej: Reglamentación AEA 90364, IRAM 247-3, etc.) que se adjuntan a la partida.
         </p>
         <textarea
