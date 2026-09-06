@@ -3,10 +3,6 @@ import {
   Building2,
   Calendar,
   DollarSign,
-  MapPin,
-  Phone,
-  Mail,
-  User,
   ArrowRight,
   FileSpreadsheet
 } from 'lucide-react';
@@ -18,7 +14,7 @@ interface ClienteTabProps {
   clientes: Cliente[];
   clienteId: string;
   setClienteId: (id: string) => void;
-  selectedCliente: Cliente | null;
+  selectedCliente?: Cliente | null;
   tipoFactura: TipoFactura;
   setTipoFactura: (tf: TipoFactura) => void;
   validezDias: number;
@@ -71,60 +67,15 @@ export const ClienteTab: React.FC<ClienteTabProps> = ({
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-bold text-on-surface mb-2">
-              Cliente Solicitante *
-            </label>
-            <ClienteCombobox
-              clientes={clientes}
-              selectedClienteId={clienteId}
-              onSelectCliente={(newId) => setClienteId(newId)}
-            />
-          </div>
-
-          {selectedCliente && (
-            <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 space-y-3 shadow-2xs">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-primary uppercase tracking-wider">
-                  Ficha del Cliente Seleccionado
-                </span>
-                {selectedCliente.cuit && (
-                  <span className="text-xs font-mono font-semibold bg-surface-container-highest px-2.5 py-1 rounded-lg text-on-surface-variant">
-                    CUIT/DNI: {selectedCliente.cuit}
-                  </span>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-sm text-on-surface">
-                <div className="flex items-center gap-2.5">
-                  <User className="w-4 h-4 text-on-surface-variant shrink-0" />
-                  <span className="font-semibold">{selectedCliente.nombre}</span>
-                </div>
-
-                {selectedCliente.direccion && (
-                  <div className="flex items-center gap-2.5">
-                    <MapPin className="w-4 h-4 text-on-surface-variant shrink-0" />
-                    <span className="truncate">{selectedCliente.direccion}</span>
-                  </div>
-                )}
-
-                {selectedCliente.telefono && (
-                  <div className="flex items-center gap-2.5">
-                    <Phone className="w-4 h-4 text-on-surface-variant shrink-0" />
-                    <span>{selectedCliente.telefono}</span>
-                  </div>
-                )}
-
-                {selectedCliente.email && (
-                  <div className="flex items-center gap-2.5">
-                    <Mail className="w-4 h-4 text-on-surface-variant shrink-0" />
-                    <span className="truncate">{selectedCliente.email}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+        <div>
+          <label className="block text-sm font-bold text-on-surface mb-2">
+            Cliente Solicitante *
+          </label>
+          <ClienteCombobox
+            clientes={clientes}
+            selectedClienteId={clienteId}
+            onSelectCliente={(newId) => setClienteId(newId)}
+          />
         </div>
       </div>
 

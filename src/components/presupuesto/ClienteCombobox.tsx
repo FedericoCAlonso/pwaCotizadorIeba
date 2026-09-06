@@ -177,12 +177,18 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
                 )}
               </div>
 
-              {/* Sub-info: Teléfono / Dirección */}
-              <div className="flex items-center gap-3 text-sm text-on-surface-variant truncate mt-1">
+              {/* Sub-info: Teléfono / Email / Dirección */}
+              <div className="flex items-center gap-3 text-sm text-on-surface-variant truncate mt-1 flex-wrap">
                 {selectedCliente.telefono && (
                   <span className="flex items-center gap-1.5 shrink-0">
                     <Phone className="w-3.5 h-3.5 text-primary" />
                     <span>{selectedCliente.telefono}</span>
+                  </span>
+                )}
+                {selectedCliente.email && (
+                  <span className="flex items-center gap-1.5 truncate">
+                    <Mail className="w-3.5 h-3.5 text-primary" />
+                    <span className="truncate">{selectedCliente.email}</span>
                   </span>
                 )}
                 {(selectedCliente.direccion || selectedCliente.localidad) && (

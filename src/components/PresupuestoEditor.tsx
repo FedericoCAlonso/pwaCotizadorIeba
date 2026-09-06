@@ -1131,54 +1131,15 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto flex-wrap">
-          {items.length > 0 && (
-            <button
-              type="button"
-              onClick={handleRecalcularConPreciosVigentes}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-surface-variant hover:bg-surface-container-highest text-on-surface font-bold rounded-full text-sm transition-colors flex items-center justify-center gap-2 shadow-xs min-h-[44px] cursor-pointer"
-              title="Actualiza los precios de todos los insumos congelados de la cotización con los valores vigentes del catálogo"
-            >
-              <RefreshCw className="w-4 h-4 text-primary" />
-              <span>Actualizar Precios</span>
-            </button>
-          )}
-          {items.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowListaMaterialesModal(true)}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-bold rounded-full text-sm transition-colors flex items-center justify-center gap-2 shadow-xs min-h-[44px] cursor-pointer"
-              title="Ver la lista consolidada de materiales (BOM), abrir en catálogo, exportar a Excel o enviar por WhatsApp"
-            >
-              <Package className="w-4 h-4 text-primary" />
-              <span>Lista Materiales</span>
-            </button>
-          )}
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
           <button
             type="button"
             onClick={() => handleSavePresupuesto('borrador')}
-            className="flex-1 sm:flex-none px-5 py-2.5 bg-surface-variant hover:bg-surface-container-highest text-on-surface font-bold rounded-full text-sm transition-colors min-h-[44px] cursor-pointer"
+            className="px-4 py-2 bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface font-semibold rounded-2xl text-xs sm:text-sm transition-colors border border-outline-variant/30 min-h-[40px] cursor-pointer flex items-center gap-2 shadow-2xs active:scale-95"
+            title="Guardar estado actual del borrador"
           >
-            Guardar Borrador
-          </button>
-          {items.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowWhatsAppModal(true)}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-full text-sm shadow-sm flex items-center justify-center gap-2 transition-all min-h-[44px] cursor-pointer"
-              title="Compartir cotización por WhatsApp (formato directo o plataformas como Vaitty)"
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span>WhatsApp</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setShowEmitirModal(true)}
-            className="flex-1 sm:flex-none px-6 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-full text-sm sm:text-base shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95 min-h-[44px] cursor-pointer"
-          >
-            <Lock className="w-4 h-4" />
-            <span>Emitir Presupuesto</span>
+            <Check className="w-4 h-4 text-primary" />
+            <span>Guardar Borrador</span>
           </button>
         </div>
       </div>

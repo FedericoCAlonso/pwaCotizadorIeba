@@ -1,9 +1,7 @@
 import React from 'react';
 import {
   Calculator,
-  ArrowRight,
-  FileCheck,
-  Percent
+  ArrowRight
 } from 'lucide-react';
 import { formatARS, formatUSD, TotalesPresupuestoResultado } from '../../../core/calculations';
 import { PresupuestoEditorTab } from '../../../viewmodels/usePresupuestoEditorViewModel';
@@ -15,7 +13,7 @@ interface PresupuestoLiveFooterProps {
   nombreDolar: string;
   activeTab: PresupuestoEditorTab;
   onSelectTab: (tab: PresupuestoEditorTab) => void;
-  onEmitirClick: () => void;
+  onEmitirClick?: () => void;
 }
 
 export const PresupuestoLiveFooter: React.FC<PresupuestoLiveFooterProps> = ({
@@ -27,6 +25,11 @@ export const PresupuestoLiveFooter: React.FC<PresupuestoLiveFooterProps> = ({
   onSelectTab,
   onEmitirClick
 }) => {
+  // No mostrar el footer flotante si no hay partidas o si ya estamos en la etapa de Cierre Comercial
+  if (!totales.itemsCalculados || totales.itemsCalculados.length === 0 || activeTab === 'comercial') {
+    return null;
+  }
+
   return (
     <aside
       aria-label="Resumen económico en tiempo real"
@@ -76,25 +79,14 @@ export const PresupuestoLiveFooter: React.FC<PresupuestoLiveFooterProps> = ({
           </div>
 
           <div className="shrink-0">
-            {activeTab !== 'comercial' ? (
-              <button
-                type="button"
-                onClick={() => onSelectTab('comercial')}
-                className="inline-flex items-center gap-2 px-5 py-3 bg-primary text-on-primary rounded-2xl text-sm sm:text-base font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer active:scale-95 min-h-[46px]"
-              >
-                <span>Ir al Cierre</span>
-                <ArrowRight className="w-5 h-5" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onEmitirClick}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-on-primary rounded-2xl text-sm sm:text-base font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer active:scale-95 min-h-[46px]"
-              >
-                <FileCheck className="w-5 h-5" />
-                <span>Emitir</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => onSelectTab('comercial')}
+              className="inline-flex items-center gap-2 px-5 py-3 bg-primary text-on-primary rounded-2xl text-sm sm:text-base font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer active:scale-95 min-h-[46px]"
+            >
+              <span>Ir al Cierre</span>
+              <ArrowRight className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </div>
