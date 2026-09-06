@@ -136,27 +136,27 @@ export const CuadrillaTab: React.FC<CuadrillaTabProps> = ({
 
       {/* 2. Gastos Directos & Logística de Obra */}
       <div className="bg-surface-container-low rounded-3xl p-4 sm:p-6 border border-outline-variant/20 shadow-xs space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-outline-variant/15">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-outline-variant/15">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-              <Truck className="w-5 h-5" />
+            <div className="w-11 h-11 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+              <Truck className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-on-surface">
+              <h3 className="text-base sm:text-lg font-bold text-on-surface">
                 Gastos Operativos, Logística & Modificadores
               </h3>
-              <p className="text-xs text-on-surface-variant">
+              <p className="text-sm text-on-surface-variant leading-relaxed">
                 Traslados, fletes, andamios, seguros y gastos adicionales directos o indirectos.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="flex items-center gap-2.5 flex-wrap justify-end">
             {onResetGastos && (
               <button
                 type="button"
                 onClick={onResetGastos}
-                className="p-2 text-on-surface-variant hover:text-primary transition-colors rounded-xl border border-outline-variant/20 hover:bg-surface-container-high"
+                className="p-2.5 text-on-surface-variant hover:text-primary transition-colors rounded-xl border border-outline-variant/20 hover:bg-surface-container-high min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
                 title="Restablecer gastos por defecto del catálogo"
               >
                 <RotateCcw className="w-4 h-4" />
@@ -165,7 +165,7 @@ export const CuadrillaTab: React.FC<CuadrillaTabProps> = ({
             <button
               type="button"
               onClick={onOpenCatalogPicker}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl sm:rounded-2xl bg-secondary-container text-on-secondary-container text-xs font-bold hover:bg-secondary-container/80 transition-colors shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl sm:rounded-2xl bg-secondary-container text-on-secondary-container text-sm font-bold hover:bg-secondary-container/80 transition-colors shadow-2xs cursor-pointer min-h-[44px]"
               title="Elegir gastos existentes del catálogo"
             >
               <BookOpen className="w-4 h-4" />
@@ -174,7 +174,7 @@ export const CuadrillaTab: React.FC<CuadrillaTabProps> = ({
             <button
               type="button"
               onClick={() => onOpenGastoModal()}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl sm:rounded-2xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl sm:rounded-2xl bg-primary/10 text-primary text-sm font-bold hover:bg-primary/20 transition-colors shadow-2xs cursor-pointer min-h-[44px]"
               title="Crear un nuevo gasto personalizado"
             >
               <Plus className="w-4 h-4" />
@@ -184,21 +184,21 @@ export const CuadrillaTab: React.FC<CuadrillaTabProps> = ({
         </div>
 
         {gastosConfig.length === 0 ? (
-          <div className="p-8 rounded-2xl bg-surface-container-lowest border border-dashed border-outline-variant/30 text-center space-y-3">
-            <p className="text-xs sm:text-sm font-semibold text-on-surface-variant">
+          <div className="p-8 rounded-2xl bg-surface-container-lowest border border-dashed border-outline-variant/30 text-center space-y-3.5">
+            <p className="text-sm sm:text-base font-semibold text-on-surface-variant">
               No hay gastos operativos adicionales aplicados a esta cotización.
             </p>
             <button
               type="button"
               onClick={onOpenCatalogPicker}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-secondary-container text-on-secondary-container rounded-xl text-xs font-bold hover:bg-secondary-container/80 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-secondary-container text-on-secondary-container rounded-xl text-sm font-bold hover:bg-secondary-container/80 transition-colors cursor-pointer min-h-[44px]"
             >
               <BookOpen className="w-4 h-4" />
               <span>Explorar catálogo de gastos frecuentes</span>
             </button>
           </div>
         ) : (
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {gastosConfig.map((gasto, idx) => {
               const desglosado = totales.gastosDesglosados?.find((d) => d.id === gasto.id);
               const montoCalc = desglosado?.montoCalculado ?? 0;
@@ -207,7 +207,7 @@ export const CuadrillaTab: React.FC<CuadrillaTabProps> = ({
               return (
                 <div
                   key={gasto.id || idx}
-                  className={`p-3.5 rounded-2xl border transition-all flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 ${
+                  className={`p-4 rounded-2xl border transition-all flex flex-wrap sm:flex-nowrap items-center justify-between gap-3.5 ${
                     gasto.aplica
                       ? 'bg-surface-container-lowest border-outline-variant/30 shadow-2xs'
                       : 'bg-surface-container/30 border-outline-variant/15 opacity-60'
@@ -218,18 +218,18 @@ export const CuadrillaTab: React.FC<CuadrillaTabProps> = ({
                       type="checkbox"
                       checked={gasto.aplica}
                       onChange={() => onToggleGasto(idx)}
-                      className="w-4 h-4 rounded text-primary focus:ring-primary shrink-0"
+                      className="w-5 h-5 rounded text-primary focus:ring-primary shrink-0"
                     />
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-xs sm:text-sm text-on-surface truncate">
+                        <span className="font-bold text-sm sm:text-base text-on-surface truncate">
                           {gasto.nombre}
                         </span>
                         {getDestinoBadge(gasto.destino || 'costo_indirecto')}
                       </div>
 
-                      <div className="text-xs text-on-surface-variant font-mono flex items-center gap-2 pt-0.5">
+                      <div className="text-sm text-on-surface-variant font-mono flex items-center gap-2 pt-0.5">
                         <span>
                           {gasto.modalidad === 'porcentual'
                             ? `${gasto.valor}% sobre base`
@@ -244,8 +244,8 @@ export const CuadrillaTab: React.FC<CuadrillaTabProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
-                    <span className="font-mono text-xs sm:text-sm font-bold text-on-surface">
+                  <div className="flex items-center gap-2.5 shrink-0 ml-auto sm:ml-0">
+                    <span className="font-mono text-sm sm:text-base font-bold text-on-surface">
                       {formatARS(montoCalc)}
                     </span>
 
@@ -253,7 +253,7 @@ export const CuadrillaTab: React.FC<CuadrillaTabProps> = ({
                       <button
                         type="button"
                         onClick={() => onOpenParametricGastoModal(gasto)}
-                        className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                        className="p-2 text-primary hover:bg-primary/10 rounded-xl transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
                         title="Ajustar variables paramétricas del gasto"
                       >
                         <Sliders className="w-4 h-4" />
@@ -263,19 +263,19 @@ export const CuadrillaTab: React.FC<CuadrillaTabProps> = ({
                     <button
                       type="button"
                       onClick={() => onOpenGastoModal(gasto)}
-                      className="p-1.5 text-on-surface-variant hover:text-on-surface rounded-lg transition-colors cursor-pointer"
+                      className="p-2 text-on-surface-variant hover:text-on-surface rounded-xl transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
                       title="Editar configuración del gasto"
                     >
-                      <Edit2 className="w-3.5 h-3.5" />
+                      <Edit2 className="w-4 h-4" />
                     </button>
 
                     <button
                       type="button"
                       onClick={() => onRemoveGasto(gasto.id)}
-                      className="p-1.5 text-on-surface-variant hover:text-error rounded-lg transition-colors cursor-pointer"
+                      className="p-2 text-on-surface-variant hover:text-error rounded-xl transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
                       title="Quitar gasto"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -286,11 +286,11 @@ export const CuadrillaTab: React.FC<CuadrillaTabProps> = ({
       </div>
 
       {/* Navegación entre etapas */}
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex items-center justify-between pt-3">
         <button
           type="button"
           onClick={onPrev}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-surface-container-highest text-on-surface rounded-2xl text-xs sm:text-sm font-bold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer"
+          className="inline-flex items-center gap-2 px-5 py-3 bg-surface-container-highest text-on-surface rounded-2xl text-sm sm:text-base font-bold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer min-h-[48px]"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Volver a Partidas</span>
@@ -299,7 +299,7 @@ export const CuadrillaTab: React.FC<CuadrillaTabProps> = ({
         <button
           type="button"
           onClick={onNext}
-          className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-on-primary rounded-2xl text-xs sm:text-sm font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-on-primary rounded-2xl text-sm sm:text-base font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer min-h-[48px]"
         >
           <span>Continuar a Cierre Comercial</span>
           <ArrowRight className="w-4 h-4" />

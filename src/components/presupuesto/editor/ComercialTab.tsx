@@ -112,26 +112,26 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
         <div className="lg:col-span-7 space-y-6">
           {/* Margen de Beneficio */}
           <div className="bg-surface-container-low rounded-3xl p-4 sm:p-6 border border-outline-variant/20 shadow-xs space-y-4">
-            <div className="flex items-center gap-3 pb-3 border-b border-outline-variant/15">
-              <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <Percent className="w-5 h-5" />
+            <div className="flex items-center gap-3 pb-3.5 border-b border-outline-variant/15">
+              <div className="w-11 h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Percent className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-sm sm:text-base font-bold text-on-surface">
+                <h3 className="text-base sm:text-lg font-bold text-on-surface">
                   Margen de Beneficio / Ganancia Neta
                 </h3>
-                <p className="text-xs text-on-surface-variant">
+                <p className="text-sm text-on-surface-variant leading-relaxed">
                   Porcentaje comercial aplicado sobre el costo total directo e indirecto.
                 </p>
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               <div className="flex items-center justify-between gap-4">
-                <span className="text-xs sm:text-sm font-semibold text-on-surface">
+                <span className="text-sm sm:text-base font-bold text-on-surface">
                   Margen de Beneficio Objetivo:
                 </span>
-                <div className="w-28">
+                <div className="w-32">
                   <NumericInput
                     value={margenPorcentaje}
                     onChange={(val) => onMargenPorcentajeChange(val)}
@@ -140,20 +140,20 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
                     max={500}
                     decimals={1}
                     suffix="%"
-                    className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-3 py-2 text-sm sm:text-base text-primary font-mono font-black text-right focus:ring-2 focus:ring-primary/50 min-h-[44px]"
+                    className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-3.5 py-2 text-base text-primary font-mono font-black text-right focus:ring-2 focus:ring-primary/50 min-h-[46px]"
                   />
                 </div>
               </div>
 
               {/* Presets de margen rápido */}
-              <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                <span className="text-xs text-on-surface-variant font-medium mr-1">Rápidos:</span>
+              <div className="flex items-center gap-2 flex-wrap pt-1">
+                <span className="text-xs sm:text-sm text-on-surface-variant font-bold mr-1">Rápidos:</span>
                 {marginPresets.map((pct) => (
                   <button
                     key={pct}
                     type="button"
                     onClick={() => onMargenPorcentajeChange(pct)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    className={`px-3.5 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer min-h-[40px] ${
                       margenPorcentaje === pct
                         ? 'bg-primary text-on-primary shadow-2xs'
                         : 'bg-surface-container-highest text-on-surface-variant hover:text-on-surface hover:bg-outline-variant/30'
@@ -164,9 +164,9 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
                 ))}
               </div>
 
-              <div className="p-3 bg-surface-container-lowest rounded-2xl border border-outline-variant/20 flex justify-between items-center text-xs sm:text-sm">
+              <div className="p-3.5 bg-surface-container-lowest rounded-2xl border border-outline-variant/20 flex justify-between items-center text-sm">
                 <span className="text-on-surface-variant font-medium">Ganancia Neta en ARS:</span>
-                <span className="font-mono font-bold text-primary text-sm sm:text-base">
+                <span className="font-mono font-bold text-primary text-base sm:text-lg">
                   {formatARS(totales.beneficioMonto)}
                 </span>
               </div>
@@ -175,22 +175,22 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
 
           {/* Margen de Riesgo e Imprevistos de Obra */}
           <div className="bg-surface-container-low rounded-3xl p-4 sm:p-6 border border-outline-variant/20 shadow-xs space-y-4">
-            <div className="flex items-center gap-3 pb-3 border-b border-outline-variant/15">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                <ShieldAlert className="w-5 h-5" />
+            <div className="flex items-center gap-3 pb-3.5 border-b border-outline-variant/15">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <ShieldAlert className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-sm sm:text-base font-bold text-on-surface">
+                <h3 className="text-base sm:text-lg font-bold text-on-surface">
                   Contingencias & Margen de Riesgo
                 </h3>
-                <p className="text-xs text-on-surface-variant">
+                <p className="text-sm text-on-surface-variant leading-relaxed">
                   Cobertura ante imprevistos de obra, retrabajo o volatilidad en obra.
                 </p>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="space-y-3.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {[
                   { id: 'bajo', label: 'Bajo (10%)' },
                   { id: 'medio', label: 'Medio (20%)' },
@@ -201,7 +201,7 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
                     key={lvl.id}
                     type="button"
                     onClick={() => handleNivelRiesgoChange(lvl.id as NivelMargenRiesgo)}
-                    className={`p-2.5 rounded-xl text-xs font-bold text-center border transition-all cursor-pointer ${
+                    className={`p-3 rounded-xl text-sm font-bold text-center border transition-all cursor-pointer min-h-[46px] ${
                       nivelMargenRiesgo === lvl.id
                         ? 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300 shadow-2xs'
                         : 'bg-surface-container-highest border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-high'
@@ -213,8 +213,8 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
               </div>
 
               {nivelMargenRiesgo === 'personalizado' && (
-                <div className="flex items-center gap-2 pt-1">
-                  <label className="text-xs font-semibold text-on-surface-variant">
+                <div className="flex items-center gap-3 pt-1">
+                  <label className="text-sm font-semibold text-on-surface-variant">
                     Porcentaje de contingencia (%):
                   </label>
                   <NumericInput
@@ -222,17 +222,17 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
                     onChange={(v) => setMargenRiesgoPorcentaje(v ?? 0)}
                     min={0}
                     max={100}
-                    className="w-24 bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    className="w-28 bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-mono font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-amber-500/50 min-h-[44px]"
                   />
                 </div>
               )}
 
               {totales.montoMargenRiesgo !== undefined && totales.montoMargenRiesgo > 0 && (
-                <div className="p-3 bg-surface-container-lowest rounded-2xl border border-outline-variant/20 flex justify-between items-center text-xs sm:text-sm">
+                <div className="p-3.5 bg-surface-container-lowest rounded-2xl border border-outline-variant/20 flex justify-between items-center text-sm">
                   <span className="text-on-surface-variant font-medium">
                     Fondo de Reserva ({margenRiesgoPorcentaje}%):
                   </span>
-                  <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                  <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-base">
                     +{formatARS(totales.montoMargenRiesgo)}
                   </span>
                 </div>
@@ -242,15 +242,15 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
 
           {/* Condiciones Comerciales & de Pago */}
           <div className="bg-surface-container-low rounded-3xl p-4 sm:p-6 border border-outline-variant/20 shadow-xs space-y-4">
-            <div className="flex items-center gap-3 pb-3 border-b border-outline-variant/15">
-              <div className="w-10 h-10 rounded-2xl bg-secondary/10 text-secondary flex items-center justify-center shrink-0">
-                <CreditCard className="w-5 h-5" />
+            <div className="flex items-center gap-3 pb-3.5 border-b border-outline-variant/15">
+              <div className="w-11 h-11 rounded-2xl bg-secondary/10 text-secondary flex items-center justify-center shrink-0">
+                <CreditCard className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-sm sm:text-base font-bold text-on-surface">
+                <h3 className="text-base sm:text-lg font-bold text-on-surface">
                   Condiciones Comerciales y Plazos de Pago
                 </h3>
-                <p className="text-xs text-on-surface-variant">
+                <p className="text-sm text-on-surface-variant leading-relaxed">
                   Texto que se incluirá en el PDF/presupuesto formal entregado al cliente.
                 </p>
               </div>
@@ -261,18 +261,18 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
                 value={condicionesPagoTexto}
                 onChange={(e) => setCondicionesPagoTexto(e.target.value)}
                 rows={4}
-                className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl p-3.5 text-xs sm:text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y shadow-2xs"
+                className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl p-4 text-sm sm:text-base text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y shadow-2xs leading-relaxed min-h-[120px]"
                 placeholder="Ejemplo: 50% de anticipo al inicio de los trabajos, 50% contra entrega conforme de la instalación. Validez de precios sujeta a condiciones vigentes."
               />
             </div>
           </div>
 
           {/* Navegación a Etapa Anterior */}
-          <div className="pt-1">
+          <div className="pt-2">
             <button
               type="button"
               onClick={onPrev}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-surface-container-highest text-on-surface rounded-2xl text-xs sm:text-sm font-bold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-surface-container-highest text-on-surface rounded-2xl text-sm sm:text-base font-bold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer min-h-[48px]"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Volver a Etapa 3: Cuadrilla & Gastos</span>
@@ -297,16 +297,16 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
           />
 
           {/* Panel Unificado de Emisión y Cierre */}
-          <div className="bg-surface-container-low rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-outline-variant/20 shadow-xs space-y-3">
-            <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+          <div className="bg-surface-container-low rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-outline-variant/20 shadow-xs space-y-3.5">
+            <h3 className="text-xs sm:text-sm font-bold text-on-surface-variant uppercase tracking-wider">
               Acciones de Emisión y Entrega
             </h3>
 
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-3">
               <button
                 type="button"
                 onClick={onEmitirClick}
-                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 bg-primary hover:bg-primary/90 text-on-primary rounded-2xl text-sm font-bold shadow-md hover:shadow-lg active:scale-98 transition-all cursor-pointer min-h-[48px]"
+                className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-primary hover:bg-primary/90 text-on-primary rounded-2xl text-base font-bold shadow-md hover:shadow-lg active:scale-98 transition-all cursor-pointer min-h-[52px]"
               >
                 <FileCheck className="w-5 h-5" />
                 <span>Emitir Presupuesto / PDF</span>
@@ -316,21 +316,21 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
                 <button
                   type="button"
                   onClick={onOpenWhatsApp}
-                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md active:scale-98 transition-all cursor-pointer min-h-[44px]"
+                  className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-sm sm:text-base font-bold shadow-md active:scale-98 transition-all cursor-pointer min-h-[48px]"
                 >
-                  <MessageSquare className="w-4 h-4" />
+                  <MessageSquare className="w-5 h-5" />
                   <span>Enviar por WhatsApp</span>
                 </button>
               )}
 
-              <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="grid grid-cols-2 gap-2.5 pt-1">
                 {onOpenListaMateriales && (
                   <button
                     type="button"
                     onClick={onOpenListaMateriales}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-surface-container-highest text-on-surface rounded-xl text-xs font-semibold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer min-h-[40px]"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-surface-container-highest text-on-surface rounded-xl text-sm font-semibold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer min-h-[44px]"
                   >
-                    <Package className="w-3.5 h-3.5 text-blue-500" />
+                    <Package className="w-4 h-4 text-blue-500" />
                     <span>Insumos (BOM)</span>
                   </button>
                 )}
@@ -339,9 +339,9 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
                   <button
                     type="button"
                     onClick={onOpenActualizarPrecios}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-surface-container-highest text-on-surface rounded-xl text-xs font-semibold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer min-h-[40px]"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-surface-container-highest text-on-surface rounded-xl text-sm font-semibold hover:bg-outline-variant/30 transition-all border border-outline-variant/30 cursor-pointer min-h-[44px]"
                   >
-                    <RefreshCw className="w-3.5 h-3.5 text-primary" />
+                    <RefreshCw className="w-4 h-4 text-primary" />
                     <span>Actualizar Precios</span>
                   </button>
                 )}
@@ -353,9 +353,9 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({
                     type="button"
                     onClick={onSaveDraft}
                     disabled={isSaving}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/10 rounded-xl transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-primary hover:bg-primary/10 rounded-xl transition-colors cursor-pointer min-h-[40px]"
                   >
-                    <Save className="w-3.5 h-3.5" />
+                    <Save className="w-4 h-4" />
                     <span>{isSaving ? 'Guardando...' : 'Guardar Borrador Manual'}</span>
                   </button>
                 </div>

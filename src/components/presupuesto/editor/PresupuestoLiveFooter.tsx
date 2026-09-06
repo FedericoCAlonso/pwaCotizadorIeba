@@ -40,19 +40,19 @@ export const PresupuestoLiveFooter: React.FC<PresupuestoLiveFooterProps> = ({
           </div>
 
           <div className="space-y-0.5">
-            <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">
+            <span className="text-xs sm:text-sm font-bold text-on-surface-variant uppercase tracking-wider block">
               Costo Directo Base
             </span>
-            <div className="font-mono font-bold text-sm sm:text-base text-on-surface leading-tight">
+            <div className="font-mono font-bold text-base sm:text-lg text-on-surface leading-tight">
               {formatARS(totales.costoGlobal)}
             </div>
           </div>
 
           <div className="hidden md:block pl-3 border-l border-outline-variant/20 space-y-0.5">
-            <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">
+            <span className="text-xs sm:text-sm font-bold text-on-surface-variant uppercase tracking-wider block">
               Margen / Factor K
             </span>
-            <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-primary">
+            <div className="flex items-center gap-1.5 font-mono text-sm font-bold text-primary">
               <span>K: {totales.coeficienteK.toFixed(2)}</span>
               <span className="text-on-surface-variant">({margenPorcentaje ?? 0}%)</span>
             </div>
@@ -60,16 +60,16 @@ export const PresupuestoLiveFooter: React.FC<PresupuestoLiveFooterProps> = ({
         </div>
 
         {/* Total Cotización & Acciones */}
-        <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 flex-1 sm:flex-initial w-full sm:w-auto border-t sm:border-t-0 border-outline-variant/15 pt-2 sm:pt-0">
+        <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-5 flex-1 sm:flex-initial w-full sm:w-auto border-t sm:border-t-0 border-outline-variant/15 pt-2 sm:pt-0">
           <div className="text-left sm:text-right">
-            <span className="text-xs font-bold text-primary uppercase tracking-wider block">
+            <span className="text-xs sm:text-sm font-bold text-primary uppercase tracking-wider block">
               Venta Total
             </span>
-            <div className="font-mono font-black text-lg sm:text-xl text-primary leading-tight">
+            <div className="font-mono font-black text-xl sm:text-2xl text-primary leading-tight">
               {formatARS(totales.precioFinalGlobal)}
             </div>
             {mostrarDolar && totales.totalMonedaExtranjera !== undefined && (
-              <span className="text-xs font-mono text-on-surface-variant block">
+              <span className="text-sm font-mono text-on-surface-variant block">
                 {formatUSD(totales.totalMonedaExtranjera)} ({nombreDolar})
               </span>
             )}
@@ -80,18 +80,18 @@ export const PresupuestoLiveFooter: React.FC<PresupuestoLiveFooterProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectTab('comercial')}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-primary text-on-primary rounded-2xl text-xs sm:text-sm font-bold shadow-xs hover:bg-primary/90 transition-all cursor-pointer active:scale-95"
+                className="inline-flex items-center gap-2 px-5 py-3 bg-primary text-on-primary rounded-2xl text-sm sm:text-base font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer active:scale-95 min-h-[46px]"
               >
                 <span>Ir al Cierre</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-5 h-5" />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={onEmitirClick}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-primary text-on-primary rounded-2xl text-xs sm:text-sm font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer active:scale-95"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-on-primary rounded-2xl text-sm sm:text-base font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer active:scale-95 min-h-[46px]"
               >
-                <FileCheck className="w-4 h-4" />
+                <FileCheck className="w-5 h-5" />
                 <span>Emitir</span>
               </button>
             )}

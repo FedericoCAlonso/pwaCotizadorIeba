@@ -1100,31 +1100,31 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               </span>
             </h2>
             <div className="flex flex-wrap items-center gap-2 mt-1">
-              <p className="text-xs text-on-surface-variant">
+              <p className="text-xs sm:text-sm text-on-surface-variant font-medium">
                 Cálculo de costos en capas (materiales, mano de obra, indirectos, margen, impuestos).
               </p>
               {autoSaveStatus === 'saving' && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-xs animate-pulse">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-xs animate-pulse">
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                   Guardando borrador...
                 </span>
               )}
               {autoSaveStatus === 'saved' && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
                   <Check className="w-3.5 h-3.5 text-emerald-500" />
                   Borrador guardado {lastAutoSaveTime ? `a las ${lastAutoSaveTime}` : 'automáticamente'}
                 </span>
               )}
               {autoSaveStatus === 'error' && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-error/10 text-error border border-error/20 shadow-xs">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-error/10 text-error border border-error/20 shadow-xs">
                   <AlertCircle className="w-3.5 h-3.5" />
                   Error al autoguardar
                 </span>
               )}
               {autoSaveStatus === 'idle' && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-surface-container-highest text-on-surface-variant border border-outline-variant/30 shadow-xs">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-surface-container-highest text-on-surface-variant border border-outline-variant/30 shadow-xs">
                   <span className="w-2 h-2 rounded-full bg-primary/70"></span>
-                  Autoguardado de borrador activo
+                  Autoguardado activo
                 </span>
               )}
             </div>
@@ -1136,7 +1136,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             <button
               type="button"
               onClick={handleRecalcularConPreciosVigentes}
-              className="flex-1 sm:flex-none px-3.5 sm:px-4 py-2 sm:py-2.5 bg-surface-variant hover:bg-surface-container-highest text-on-surface font-semibold rounded-full text-xs sm:text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs min-h-[38px]"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-surface-variant hover:bg-surface-container-highest text-on-surface font-bold rounded-full text-sm transition-colors flex items-center justify-center gap-2 shadow-xs min-h-[44px] cursor-pointer"
               title="Actualiza los precios de todos los insumos congelados de la cotización con los valores vigentes del catálogo"
             >
               <RefreshCw className="w-4 h-4 text-primary" />
@@ -1147,7 +1147,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             <button
               type="button"
               onClick={() => setShowListaMaterialesModal(true)}
-              className="flex-1 sm:flex-none px-3.5 sm:px-4 py-2 sm:py-2.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-semibold rounded-full text-xs sm:text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs min-h-[38px]"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-bold rounded-full text-sm transition-colors flex items-center justify-center gap-2 shadow-xs min-h-[44px] cursor-pointer"
               title="Ver la lista consolidada de materiales (BOM), abrir en catálogo, exportar a Excel o enviar por WhatsApp"
             >
               <Package className="w-4 h-4 text-primary" />
@@ -1157,7 +1157,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           <button
             type="button"
             onClick={() => handleSavePresupuesto('borrador')}
-            className="flex-1 sm:flex-none px-4 sm:px-5 py-2 sm:py-2.5 bg-surface-variant hover:bg-surface-container-highest text-on-surface font-semibold rounded-full text-xs sm:text-sm transition-colors min-h-[38px]"
+            className="flex-1 sm:flex-none px-5 py-2.5 bg-surface-variant hover:bg-surface-container-highest text-on-surface font-bold rounded-full text-sm transition-colors min-h-[44px] cursor-pointer"
           >
             Guardar Borrador
           </button>
@@ -1165,7 +1165,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             <button
               type="button"
               onClick={() => setShowWhatsAppModal(true)}
-              className="flex-1 sm:flex-none px-3.5 sm:px-4 py-2 sm:py-2.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-semibold rounded-full text-xs sm:text-sm shadow-sm flex items-center justify-center gap-1.5 transition-all min-h-[38px]"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-full text-sm shadow-sm flex items-center justify-center gap-2 transition-all min-h-[44px] cursor-pointer"
               title="Compartir cotización por WhatsApp (formato directo o plataformas como Vaitty)"
             >
               <MessageSquare className="w-4 h-4" />
@@ -1175,7 +1175,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           <button
             type="button"
             onClick={() => setShowEmitirModal(true)}
-            className="flex-1 sm:flex-none px-5 sm:px-6 py-2 sm:py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-semibold rounded-full text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95 min-h-[38px]"
+            className="flex-1 sm:flex-none px-6 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-full text-sm sm:text-base shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95 min-h-[44px] cursor-pointer"
           >
             <Lock className="w-4 h-4" />
             <span>Emitir Presupuesto</span>

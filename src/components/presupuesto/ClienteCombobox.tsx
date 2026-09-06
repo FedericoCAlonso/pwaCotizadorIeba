@@ -9,7 +9,8 @@ import {
   Mail,
   MapPin,
   Edit2,
-  ChevronDown
+  ChevronDown,
+  Plus
 } from 'lucide-react';
 import { Contacto } from '../../core/types';
 import { QuickClienteModal } from './QuickClienteModal';
@@ -166,7 +167,7 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
             {/* Datos del Cliente */}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="text-xs sm:text-sm font-bold text-on-surface truncate">
+                <h4 className="text-sm sm:text-base font-bold text-on-surface truncate">
                   {selectedCliente.razonSocial || selectedCliente.nombre}
                 </h4>
                 {selectedCliente.cuitDni && (
@@ -174,24 +175,19 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
                     {selectedCliente.cuitDni}
                   </span>
                 )}
-                {selectedCliente.condicionIVA && (
-                  <span className="text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-md shrink-0">
-                    {selectedCliente.condicionIVA}
-                  </span>
-                )}
               </div>
 
               {/* Sub-info: Teléfono / Dirección */}
-              <div className="flex items-center gap-3 text-xs text-on-surface-variant truncate mt-0.5">
+              <div className="flex items-center gap-3 text-sm text-on-surface-variant truncate mt-1">
                 {selectedCliente.telefono && (
-                  <span className="flex items-center gap-1 shrink-0">
-                    <Phone className="w-3 h-3 text-primary" />
+                  <span className="flex items-center gap-1.5 shrink-0">
+                    <Phone className="w-3.5 h-3.5 text-primary" />
                     <span>{selectedCliente.telefono}</span>
                   </span>
                 )}
                 {(selectedCliente.direccion || selectedCliente.localidad) && (
-                  <span className="flex items-center gap-1 truncate">
-                    <MapPin className="w-3 h-3 text-outline-variant shrink-0" />
+                  <span className="flex items-center gap-1.5 truncate">
+                    <MapPin className="w-3.5 h-3.5 text-outline-variant shrink-0" />
                     <span className="truncate">
                       {[selectedCliente.direccion, selectedCliente.localidad].filter(Boolean).join(', ')}
                     </span>
@@ -206,16 +202,16 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
             <button
               type="button"
               onClick={handleStartSearch}
-              className="px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/10 rounded-xl transition flex items-center gap-1 active:scale-95"
+              className="px-3 py-1.5 text-sm font-bold text-primary hover:bg-primary/10 rounded-xl transition flex items-center gap-1 active:scale-95 min-h-[38px]"
               title="Buscar y seleccionar otro cliente"
             >
-              <Edit2 className="w-3.5 h-3.5" />
+              <Edit2 className="w-4 h-4" />
               <span className="hidden sm:inline">Cambiar</span>
             </button>
             <button
               type="button"
               onClick={handleClear}
-              className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition active:scale-95"
+              className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition active:scale-95 min-h-[38px] min-w-[38px] flex items-center justify-center"
               title="Quitar cliente seleccionado"
             >
               <X className="w-4 h-4" />
@@ -226,7 +222,7 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
         /* ─── Estado 2: Input de Búsqueda y Selector Combobox ─── */
         <div className="relative">
           <div className="relative flex items-center">
-            <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 pointer-events-none" />
+            <Search className="w-5 h-5 text-on-surface-variant absolute left-3.5 pointer-events-none" />
             <input
               ref={inputRef}
               type="text"
@@ -239,7 +235,7 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
               onFocus={() => setIsOpenDropdown(true)}
               onKeyDown={handleKeyDown}
               placeholder="Buscar cliente por nombre, CUIT, teléfono, dirección..."
-              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl pl-10 pr-24 py-2.5 text-xs sm:text-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow placeholder:text-on-surface-variant/50 shadow-2xs"
+              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl pl-11 pr-24 py-2.5 text-sm sm:text-base font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[48px] transition-shadow placeholder:text-on-surface-variant/50 shadow-2xs"
             />
 
             <div className="absolute right-2 flex items-center gap-1">
@@ -247,39 +243,30 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
                 <button
                   type="button"
                   onClick={() => setQuery('')}
-                  className="p-1 text-on-surface-variant hover:text-on-surface rounded-lg transition"
+                  className="p-1.5 text-on-surface-variant hover:text-on-surface rounded-lg transition min-h-[36px] min-w-[36px] flex items-center justify-center"
                   title="Limpiar búsqueda"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               )}
               <button
                 type="button"
-                onClick={() => {
-                  setIsQuickCreateOpen(true);
-                  setIsOpenDropdown(false);
-                }}
-                className="px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs rounded-xl border border-primary/20 transition flex items-center gap-1 active:scale-95 shrink-0"
-                title="Crear un nuevo cliente"
+                onClick={() => setIsOpenDropdown((v) => !v)}
+                className="p-1.5 text-on-surface-variant hover:text-on-surface rounded-lg transition min-h-[36px] min-w-[36px] flex items-center justify-center"
+                title="Desplegar clientes"
               >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">+ Nuevo</span>
+                <ChevronDown className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Menú Dropdown Flotante */}
+          {/* Dropdown de Resultados */}
           {isOpenDropdown && (
-            <div className="absolute left-0 top-full mt-1.5 w-full bg-surface-container-high border border-outline-variant/30 rounded-2xl shadow-2xl z-50 p-1.5 space-y-1 max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 backdrop-blur-md">
-              <div className="px-3 py-1.5 text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center justify-between border-b border-outline-variant/15">
-                <span>{filteredClientes.length} Clientes Encontrados</span>
-                <span className="font-mono lowercase text-xs">↑↓ enter para elegir</span>
-              </div>
-
+            <div className="absolute top-full left-0 right-0 mt-2 z-40 bg-surface-container-high border border-outline-variant/30 rounded-2xl shadow-xl max-h-72 overflow-y-auto p-1.5 space-y-1">
               {filteredClientes.length === 0 ? (
                 <div className="text-center py-4 px-3">
                   <User className="w-6 h-6 text-outline-variant mx-auto mb-1 opacity-60" />
-                  <p className="text-xs font-bold text-on-surface">No se encontró "{query}"</p>
+                  <p className="text-sm font-bold text-on-surface">No se encontró "{query}"</p>
                   <p className="text-xs text-on-surface-variant mt-0.5">
                     Puedes darlo de alta rápidamente con el botón de abajo.
                   </p>
@@ -293,15 +280,15 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
                       type="button"
                       onClick={() => handleSelect(c)}
                       onMouseEnter={() => setSelectedIndex(idx)}
-                      className={`w-full text-left p-2.5 rounded-xl transition flex items-center justify-between gap-2.5 ${
+                      className={`w-full text-left p-3 rounded-xl transition flex items-center justify-between gap-3 ${
                         isSelected
                           ? 'bg-primary text-on-primary font-bold shadow-xs'
                           : 'hover:bg-surface-variant/60 text-on-surface'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
                             isSelected
                               ? 'bg-white/20 text-white'
                               : 'bg-primary/10 text-primary border border-primary/20'
@@ -310,13 +297,13 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
                           {getInitials(c.razonSocial || c.nombre)}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 truncate">
-                            <span className="text-xs font-bold truncate">
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="text-sm font-bold truncate">
                               {c.razonSocial || c.nombre}
                             </span>
                             {c.cuitDni && (
                               <span
-                                className={`text-xs font-mono px-1.5 py-0.2 rounded shrink-0 ${
+                                className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 ${
                                   isSelected ? 'bg-white/20 text-white' : 'bg-surface-container text-on-surface-variant'
                                 }`}
                               >
@@ -326,8 +313,8 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
                           </div>
                           {(c.telefono || c.direccion || c.localidad) && (
                             <p
-                              className={`text-xs truncate ${
-                                isSelected ? 'text-white/80' : 'text-on-surface-variant/80'
+                              className={`text-xs truncate mt-0.5 font-medium ${
+                                isSelected ? 'text-white/80' : 'text-on-surface-variant'
                               }`}
                             >
                               {[c.telefono, c.localidad, c.direccion].filter(Boolean).join(' • ')}
@@ -355,14 +342,14 @@ export const ClienteCombobox: React.FC<ClienteComboboxProps> = ({
                   setIsQuickCreateOpen(true);
                   setIsOpenDropdown(false);
                 }}
-                className={`w-full text-left p-2.5 rounded-xl border border-dashed transition flex items-center gap-2 font-bold text-xs ${
+                className={`w-full text-left p-3 rounded-xl border border-dashed transition flex items-center gap-2 font-bold text-sm min-h-[44px] ${
                   selectedIndex === filteredClientes.length
                     ? 'bg-primary text-on-primary border-primary'
-                    : 'bg-primary/5 hover:bg-primary/15 text-primary border-primary/30'
+                    : 'bg-surface-container border-outline-variant/40 hover:bg-surface-variant text-primary'
                 }`}
               >
-                <UserPlus className="w-4 h-4 shrink-0" />
-                <span>+ Crear nuevo cliente {query ? `"${query}"` : ''}</span>
+                <Plus className="w-4 h-4 shrink-0" />
+                <span>+ Crear nuevo cliente rápidamente</span>
               </button>
             </div>
           )}

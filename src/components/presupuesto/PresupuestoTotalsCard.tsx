@@ -43,34 +43,34 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
   return (
     <div
       id="presupuesto-totales-card"
-      className="bg-surface-container-low rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 space-y-4 border border-outline-variant/10 shadow-sm"
+      className="bg-surface-container-low rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4 border border-outline-variant/10 shadow-sm"
     >
-      <div className="flex items-center justify-between pb-1 border-b border-outline-variant/10">
-        <h3 className="text-xs sm:text-sm font-bold text-primary uppercase tracking-wide flex items-center gap-2">
-          <Calculator className="w-4 h-4 text-primary shrink-0" />
+      <div className="flex items-center justify-between pb-2 border-b border-outline-variant/10">
+        <h3 className="text-sm sm:text-base font-bold text-primary uppercase tracking-wide flex items-center gap-2">
+          <Calculator className="w-5 h-5 text-primary shrink-0" />
           <span>Liquidación & Cadena de Precios</span>
         </h3>
       </div>
 
       {/* 1. COSTO DIRECTO TOTAL (C) */}
-      <div className="bg-surface-container-high/60 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-outline-variant/20 space-y-3">
-        <div className="flex justify-between items-center text-xs sm:text-sm font-bold text-on-surface">
+      <div className="bg-surface-container-high/60 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-outline-variant/20 space-y-3">
+        <div className="flex justify-between items-center text-sm sm:text-base font-bold text-on-surface">
           <span className="uppercase tracking-wider">1. Costo Directo Total (C):</span>
-          <span className="font-mono text-sm sm:text-base font-bold text-on-surface">{formatARS(totales.costoGlobal)}</span>
+          <span className="font-mono text-base sm:text-lg font-bold text-on-surface">{formatARS(totales.costoGlobal)}</span>
         </div>
 
         {/* 3 Pilares Directos + Fondo de Riesgo */}
-        <div className="space-y-2 pt-1 border-t border-outline-variant/10 text-xs sm:text-sm">
+        <div className="space-y-2.5 pt-1 border-t border-outline-variant/10 text-sm">
           {/* Materiales */}
-          <div className="bg-surface-container p-2.5 rounded-xl border border-outline-variant/15 flex flex-col gap-1">
+          <div className="bg-surface-container p-3 rounded-xl border border-outline-variant/15 flex flex-col gap-1.5">
             <div className="flex justify-between items-center">
-              <span className="font-semibold flex items-center gap-1.5 text-on-surface">
-                <Package className="w-3.5 h-3.5 text-blue-500" />
+              <span className="font-semibold flex items-center gap-2 text-on-surface text-sm sm:text-base">
+                <Package className="w-4 h-4 text-blue-500" />
                 Materiales / Insumos:
               </span>
-              <span className="font-mono font-bold text-on-surface">{formatARS(totales.subtotalInsumosTotal)}</span>
+              <span className="font-mono font-bold text-on-surface text-sm sm:text-base">{formatARS(totales.subtotalInsumosTotal)}</span>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-on-surface-variant font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs sm:text-sm text-on-surface-variant font-mono">
               <span>Base: {formatARS(totales.subtotalInsumosBase)}</span>
               {totales.gastosMaterialesTotal > 0 && (
                 <span className="text-blue-600 dark:text-blue-400 font-semibold">
@@ -81,15 +81,15 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
           </div>
 
           {/* Mano de Obra */}
-          <div className="bg-surface-container p-2.5 rounded-xl border border-outline-variant/15 flex flex-col gap-1">
+          <div className="bg-surface-container p-3 rounded-xl border border-outline-variant/15 flex flex-col gap-1.5">
             <div className="flex justify-between items-center">
-              <span className="font-semibold flex items-center gap-1.5 text-on-surface">
-                <HardHat className="w-3.5 h-3.5 text-amber-500" />
+              <span className="font-semibold flex items-center gap-2 text-on-surface text-sm sm:text-base">
+                <HardHat className="w-4 h-4 text-amber-500" />
                 Mano de Obra (MOD):
               </span>
-              <span className="font-mono font-bold text-on-surface">{formatARS(totales.subtotalManoObraTotal)}</span>
+              <span className="font-mono font-bold text-on-surface text-sm sm:text-base">{formatARS(totales.subtotalManoObraTotal)}</span>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-on-surface-variant font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs sm:text-sm text-on-surface-variant font-mono">
               <span>Base: {formatARS(totales.subtotalManoObraBase)}</span>
               {totales.ahorroSinergiaManoObra > 0 && (
                 <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -105,15 +105,15 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
           </div>
 
           {/* Servicios Tercerizados */}
-          <div className="bg-surface-container p-2.5 rounded-xl border border-outline-variant/15 flex flex-col gap-1">
+          <div className="bg-surface-container p-3 rounded-xl border border-outline-variant/15 flex flex-col gap-1.5">
             <div className="flex justify-between items-center">
-              <span className="font-semibold flex items-center gap-1.5 text-on-surface">
-                <Truck className="w-3.5 h-3.5 text-purple-500" />
+              <span className="font-semibold flex items-center gap-2 text-on-surface text-sm sm:text-base">
+                <Truck className="w-4 h-4 text-purple-500" />
                 Servicios Tercerizados:
               </span>
-              <span className="font-mono font-bold text-on-surface">{formatARS(totales.subtotalServiciosTotal)}</span>
+              <span className="font-mono font-bold text-on-surface text-sm sm:text-base">{formatARS(totales.subtotalServiciosTotal)}</span>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-on-surface-variant font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs sm:text-sm text-on-surface-variant font-mono">
               <span>Base: {formatARS(totales.subtotalServiciosBase)}</span>
               {totales.gastosServiciosTotal > 0 && (
                 <span className="text-purple-600 dark:text-purple-400 font-semibold">
@@ -125,9 +125,9 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
 
           {/* Fondo de Reserva / Riesgo */}
           {totales.montoMargenRiesgo !== undefined && totales.montoMargenRiesgo > 0 && (
-            <div className="bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20 flex justify-between items-center text-xs sm:text-sm">
-              <span className="font-semibold flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
-                <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+            <div className="bg-amber-500/10 p-3 rounded-xl border border-amber-500/20 flex justify-between items-center text-sm sm:text-base">
+              <span className="font-semibold flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                <ShieldAlert className="w-4 h-4 text-amber-500" />
                 Fondo de Reserva / Riesgo (+{margenRiesgoPorcentaje ?? 0}%):
               </span>
               <span className="font-mono font-bold text-amber-700 dark:text-amber-300">
@@ -139,29 +139,29 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
       </div>
 
       {/* 2. COSTOS INDIRECTOS & GASTOS DE OBRA (GG) */}
-      <div className="bg-surface-container-high/60 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-outline-variant/20 space-y-2">
+      <div className="bg-surface-container-high/60 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-outline-variant/20 space-y-2.5">
         <div className="flex justify-between items-center">
           <div>
-            <label className="text-xs sm:text-sm font-bold text-on-surface uppercase tracking-wider block">
+            <label className="text-sm sm:text-base font-bold text-on-surface uppercase tracking-wider block">
               2. Costos Indirectos & Gastos (GG)
             </label>
-            <span className="text-xs text-on-surface-variant">
+            <span className="text-xs sm:text-sm text-on-surface-variant">
               Logística, fletes y servicios de obra (Etapa 3)
             </span>
           </div>
-          <span className="font-mono text-sm sm:text-base font-bold text-primary">
+          <span className="font-mono text-base sm:text-lg font-bold text-primary">
             {formatARS(totales.gastosGeneralesTotal)}
           </span>
         </div>
 
         {totales.gastosDesglosados && totales.gastosDesglosados.filter((g) => g.montoCalculado > 0).length > 0 ? (
-          <div className="space-y-1 pt-1 border-t border-outline-variant/10 text-xs">
+          <div className="space-y-1.5 pt-1.5 border-t border-outline-variant/10 text-sm">
             {totales.gastosDesglosados
               .filter((g) => g.montoCalculado > 0)
               .map((g, idx) => (
                 <div key={g.id || idx} className="flex justify-between items-center text-on-surface-variant font-mono py-0.5">
-                  <span className="truncate flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
+                  <span className="truncate flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-primary/60 shrink-0" />
                     {g.nombre}
                   </span>
                   <span className="font-semibold text-on-surface shrink-0">+{formatARS(g.montoCalculado)}</span>
@@ -169,71 +169,71 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
               ))}
           </div>
         ) : (
-          <p className="text-xs text-on-surface-variant/70 italic border-t border-outline-variant/10 pt-1">
+          <p className="text-sm text-on-surface-variant/70 italic border-t border-outline-variant/10 pt-1.5">
             Sin costos indirectos aplicados.
           </p>
         )}
       </div>
 
       {/* 3. BENEFICIO COMERCIAL (B) - Reflejo en Cascada (Sin Input Duplicado) */}
-      <div className="bg-surface-container-high/60 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-outline-variant/20 flex justify-between items-center">
+      <div className="bg-surface-container-high/60 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-outline-variant/20 flex justify-between items-center">
         <div>
-          <label className="text-xs sm:text-sm font-bold text-on-surface uppercase tracking-wider block">
+          <label className="text-sm sm:text-base font-bold text-on-surface uppercase tracking-wider block">
             3. Beneficio Comercial (B)
           </label>
-          <span className="text-xs text-on-surface-variant">
+          <span className="text-xs sm:text-sm text-on-surface-variant">
             +{margenPorcentaje ?? 0}% sobre Costo Total C + GG ({formatARS(totales.costoTotalObra)})
           </span>
         </div>
         <div className="text-right">
-          <span className="font-mono font-black text-primary text-sm sm:text-base">
+          <span className="font-mono font-black text-primary text-base sm:text-lg">
             +{formatARS(totales.beneficioMonto)}
           </span>
         </div>
       </div>
 
       {/* 4. SUBTOTAL SIN IMPUESTOS (S = C + GG + B) */}
-      <div className="bg-surface-container p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border border-outline-variant/30 flex justify-between items-center text-xs sm:text-sm font-bold text-on-surface shadow-2xs">
+      <div className="bg-surface-container p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-outline-variant/30 flex justify-between items-center text-sm sm:text-base font-bold text-on-surface shadow-2xs">
         <span className="uppercase tracking-wider">4. Subtotal sin Impuestos (S):</span>
-        <span className="font-mono text-primary text-sm sm:text-base font-bold">{formatARS(totales.subtotalSinImpuestos)}</span>
+        <span className="font-mono text-primary text-base sm:text-lg font-bold">{formatARS(totales.subtotalSinImpuestos)}</span>
       </div>
 
       {/* 5. IMPUESTOS (calculados sobre S) */}
-      <div className="bg-surface-container-high/60 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-outline-variant/20 space-y-3">
+      <div className="bg-surface-container-high/60 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-outline-variant/20 space-y-3">
         <div className="flex justify-between items-center">
           <div>
-            <label className="text-xs sm:text-sm font-bold text-on-surface uppercase tracking-wider block">
+            <label className="text-sm sm:text-base font-bold text-on-surface uppercase tracking-wider block">
               5. Impuestos ({tipoFactura})
             </label>
-            <span className="text-xs text-on-surface-variant">Calculados sobre Subtotal (S)</span>
+            <span className="text-xs sm:text-sm text-on-surface-variant">Calculados sobre Subtotal (S)</span>
           </div>
           <button
             type="button"
             onClick={onAddCustomTax}
-            className="text-xs text-primary hover:underline font-bold cursor-pointer"
+            className="text-sm text-primary hover:underline font-bold cursor-pointer"
           >
             + Impuesto
           </button>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {totales.impuestosCalculados.map((tax: any, idx: number) => (
             <div
               key={tax.id || idx}
-              className="bg-surface-container p-2 sm:p-2.5 rounded-xl border border-outline-variant/20 space-y-1.5"
+              className="bg-surface-container p-2.5 sm:p-3 rounded-xl border border-outline-variant/20 space-y-1.5"
             >
-              <div className="flex items-center justify-between gap-2">
-                <label className="flex items-center gap-2 cursor-pointer font-medium text-xs sm:text-sm text-on-surface truncate flex-1">
+              <div className="flex items-center justify-between gap-2.5">
+                <label className="flex items-center gap-2.5 cursor-pointer font-medium text-sm text-on-surface truncate flex-1">
                   <input
                     type="checkbox"
                     checked={tax.aplica}
                     onChange={() => onToggleTax(idx)}
-                    className="w-4 h-4 text-primary rounded border-outline-variant"
+                    className="w-5 h-5 text-primary rounded border-outline-variant"
                   />
                   <span className="truncate">{tax.nombre}</span>
                 </label>
 
-                <div className="w-20 shrink-0">
+                <div className="w-24 shrink-0">
                   <NumericInput
                     value={tax.porcentaje}
                     onChange={(val) => onUpdateTaxPct(idx, val ?? 0)}
@@ -241,7 +241,7 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
                     max={100}
                     decimals={2}
                     suffix="%"
-                    className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-lg px-2 pr-5 py-0.5 text-xs text-right font-mono"
+                    className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-2.5 pr-6 py-1 text-sm text-right font-mono font-bold min-h-[38px]"
                   />
                 </div>
 
@@ -249,15 +249,15 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
                   <button
                     type="button"
                     onClick={() => onRemoveTax(idx)}
-                    className="text-on-surface-variant hover:text-error p-1 rounded-full transition-colors ml-1 cursor-pointer"
+                    className="text-on-surface-variant hover:text-error p-1.5 rounded-xl transition-colors ml-1 cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-4 h-4" />
                   </button>
                 )}
               </div>
 
               {tax.aplica && (
-                <div className="flex justify-between items-center text-xs text-on-surface-variant font-mono pt-1 border-t border-outline-variant/10">
+                <div className="flex justify-between items-center text-xs sm:text-sm text-on-surface-variant font-mono pt-1.5 border-t border-outline-variant/10">
                   <span>
                     {tax.nombre} ({tax.porcentaje}% s/S):
                   </span>
@@ -268,30 +268,30 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
           ))}
         </div>
 
-        <div className="flex justify-between text-xs sm:text-sm font-bold text-primary pt-1 border-t border-outline-variant/20">
+        <div className="flex justify-between text-sm sm:text-base font-bold text-primary pt-1.5 border-t border-outline-variant/20">
           <span>Total Impuestos ({totales.impuestosPorcentajeTotal}%):</span>
           <span className="font-mono">{formatARS(totales.montoImpuestosTotal)}</span>
         </div>
       </div>
 
       {/* 6. PRECIO FINAL GLOBAL & COEFICIENTE K */}
-      <div className="bg-primary-container/40 border border-primary/30 p-4 sm:p-5 rounded-2xl sm:rounded-3xl space-y-2 text-center shadow-sm">
-        <span className="text-xs sm:text-sm uppercase tracking-wider font-bold text-primary block">
+      <div className="bg-primary-container/40 border border-primary/30 p-5 sm:p-6 rounded-2xl sm:rounded-3xl space-y-2.5 text-center shadow-sm">
+        <span className="text-sm sm:text-base uppercase tracking-wider font-black text-primary block">
           6. PRECIO FINAL GLOBAL COTIZADO
         </span>
-        <div className="font-mono text-2xl sm:text-3xl font-black text-on-surface">{formatARS(totales.precioFinalGlobal)}</div>
+        <div className="font-mono text-3xl sm:text-4xl font-black text-on-surface tracking-tight">{formatARS(totales.precioFinalGlobal)}</div>
 
-        <div className="pt-2 border-t border-primary/20 flex flex-col items-center justify-center gap-1">
-          <span className="text-xs sm:text-sm font-bold text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
+        <div className="pt-2.5 border-t border-primary/20 flex flex-col items-center justify-center gap-1.5">
+          <span className="text-sm sm:text-base font-bold text-primary bg-primary/10 px-4 py-1.5 rounded-full border border-primary/20">
             Coeficiente de Venta K = {totales.coeficienteK.toFixed(4)}
           </span>
-          <span className="text-xs text-on-surface-variant">
+          <span className="text-xs sm:text-sm text-on-surface-variant">
             Multiplicador aplicado a cada ítem para el cliente
           </span>
         </div>
 
         {mostrarDolar && totales.totalMonedaExtranjera && (
-          <div className="text-xs text-tertiary font-mono font-semibold pt-1">
+          <div className="text-sm text-tertiary font-mono font-bold pt-1.5">
             Equivalente: {formatUSD(totales.totalMonedaExtranjera, nombreDolar)}
           </div>
         )}

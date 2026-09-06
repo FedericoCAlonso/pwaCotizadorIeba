@@ -174,24 +174,24 @@ export const MathInput: React.FC<MathInputProps> = ({
   const hasFormula = Boolean(lastSavedFormula);
 
   const sizeClasses = {
-    sm: 'text-xs sm:text-xs py-1 px-2.5 min-h-[36px] font-semibold',
-    md: 'text-xs sm:text-sm py-1.5 px-3 min-h-[40px]',
-    lg: 'text-sm sm:text-base py-2.5 px-3.5 min-h-[46px]',
+    sm: 'text-sm py-1.5 px-3 min-h-[40px] font-semibold',
+    md: 'text-sm sm:text-base py-2 px-3.5 min-h-[44px]',
+    lg: 'text-base sm:text-lg py-2.5 px-4 min-h-[48px]',
   }[size];
 
   const rightPaddingClass = (() => {
-    if (hasFormula && suffix) return 'pr-11';
-    if (hasFormula) return 'pr-8';
+    if (hasFormula && suffix) return 'pr-12';
+    if (hasFormula) return 'pr-9';
     if (suffix) {
-      return suffix.length <= 2 ? 'pr-6' : 'pr-8';
+      return suffix.length <= 2 ? 'pr-6' : 'pr-9';
     }
-    return 'pr-2';
+    return 'pr-2.5';
   })();
 
   return (
     <div className="relative inline-flex items-center w-full group">
       {prefix && (
-        <span className="absolute left-3 text-xs text-on-surface-variant font-medium pointer-events-none z-10">
+        <span className="absolute left-3 text-sm text-on-surface-variant font-medium pointer-events-none z-10">
           {prefix}
         </span>
       )}
@@ -232,7 +232,7 @@ export const MathInput: React.FC<MathInputProps> = ({
 
         {/* Suffix (e.g. mts, un, hs) */}
         {suffix && (
-          <span className="text-xs text-on-surface-variant font-mono font-medium">
+          <span className="text-sm text-on-surface-variant font-mono font-medium">
             {suffix}
           </span>
         )}

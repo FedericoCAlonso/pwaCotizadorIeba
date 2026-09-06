@@ -62,10 +62,10 @@ export const ClienteTab: React.FC<ClienteTabProps> = ({
             <Building2 className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-sm sm:text-base font-bold text-on-surface">
+            <h2 className="text-base sm:text-lg font-bold text-on-surface">
               Cliente y Ubicación del Proyecto
             </h2>
-            <p className="text-xs text-on-surface-variant">
+            <p className="text-sm text-on-surface-variant">
               Selecciona el cliente o solicitante y verifica los datos de obra.
             </p>
           </div>
@@ -73,7 +73,7 @@ export const ClienteTab: React.FC<ClienteTabProps> = ({
 
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">
+            <label className="block text-sm font-bold text-on-surface mb-2">
               Cliente Solicitante *
             </label>
             <ClienteCombobox
@@ -86,38 +86,38 @@ export const ClienteTab: React.FC<ClienteTabProps> = ({
           {selectedCliente && (
             <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 space-y-3 shadow-2xs">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-primary uppercase tracking-wider">
+                <span className="text-sm font-bold text-primary uppercase tracking-wider">
                   Ficha del Cliente Seleccionado
                 </span>
                 {selectedCliente.cuit && (
-                  <span className="text-xs font-mono font-semibold bg-surface-container-highest px-2 py-0.5 rounded-lg text-on-surface-variant">
+                  <span className="text-xs font-mono font-semibold bg-surface-container-highest px-2.5 py-1 rounded-lg text-on-surface-variant">
                     CUIT/DNI: {selectedCliente.cuit}
                   </span>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-on-surface">
-                <div className="flex items-center gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-sm text-on-surface">
+                <div className="flex items-center gap-2.5">
                   <User className="w-4 h-4 text-on-surface-variant shrink-0" />
                   <span className="font-semibold">{selectedCliente.nombre}</span>
                 </div>
 
                 {selectedCliente.direccion && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     <MapPin className="w-4 h-4 text-on-surface-variant shrink-0" />
                     <span className="truncate">{selectedCliente.direccion}</span>
                   </div>
                 )}
 
                 {selectedCliente.telefono && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     <Phone className="w-4 h-4 text-on-surface-variant shrink-0" />
                     <span>{selectedCliente.telefono}</span>
                   </div>
                 )}
 
                 {selectedCliente.email && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     <Mail className="w-4 h-4 text-on-surface-variant shrink-0" />
                     <span className="truncate">{selectedCliente.email}</span>
                   </div>
@@ -135,10 +135,10 @@ export const ClienteTab: React.FC<ClienteTabProps> = ({
             <FileSpreadsheet className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-sm sm:text-base font-bold text-on-surface">
+            <h2 className="text-base sm:text-lg font-bold text-on-surface">
               Condiciones Fiscales y Validez
             </h2>
-            <p className="text-xs text-on-surface-variant">
+            <p className="text-sm text-on-surface-variant">
               Establece el encuadre fiscal del comprobante y plazo de validez de la cotización.
             </p>
           </div>
@@ -146,13 +146,13 @@ export const ClienteTab: React.FC<ClienteTabProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">
+            <label className="block text-sm font-bold text-on-surface mb-2">
               Tipo de Factura / Comprobante
             </label>
             <select
               value={tipoFactura}
               onChange={(e) => setTipoFactura(e.target.value as TipoFactura)}
-              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-xs sm:text-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow shadow-2xs"
+              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-sm sm:text-base font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[46px] transition-shadow shadow-2xs"
             >
               {tiposFactura.map((tf) => (
                 <option key={tf} value={tf}>
@@ -163,7 +163,7 @@ export const ClienteTab: React.FC<ClienteTabProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">
+            <label className="block text-sm font-bold text-on-surface mb-2">
               Validez de la Oferta (Días)
             </label>
             <div className="relative">
@@ -173,9 +173,9 @@ export const ClienteTab: React.FC<ClienteTabProps> = ({
                 fallbackOnBlur={config.validezDiasPorDefecto || 15}
                 min={1}
                 max={365}
-                className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-on-surface font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow shadow-2xs"
+                className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-sm sm:text-base text-on-surface font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[46px] transition-shadow shadow-2xs"
               />
-              <Calendar className="w-4 h-4 text-on-surface-variant absolute right-3.5 top-3 pointer-events-none" />
+              <Calendar className="w-4 h-4 text-on-surface-variant absolute right-3.5 top-3.5 pointer-events-none" />
             </div>
           </div>
         </div>
@@ -188,22 +188,22 @@ export const ClienteTab: React.FC<ClienteTabProps> = ({
             <DollarSign className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-sm sm:text-base font-bold text-on-surface">
+            <h2 className="text-base sm:text-lg font-bold text-on-surface">
               Moneda y Referencia Cambiaria
             </h2>
-            <p className="text-xs text-on-surface-variant">
+            <p className="text-sm text-on-surface-variant">
               Opción para presentar importes equivalentes en moneda extranjera (USD).
             </p>
           </div>
         </div>
 
         <div className="space-y-3">
-          <label className="flex items-center gap-3 cursor-pointer text-xs sm:text-sm font-semibold text-on-surface select-none">
+          <label className="flex items-center gap-3 cursor-pointer text-sm sm:text-base font-semibold text-on-surface select-none">
             <input
               type="checkbox"
               checked={mostrarDolar}
               onChange={(e) => setMostrarDolar(e.target.checked)}
-              className="w-5 h-5 text-primary rounded border-outline bg-surface-container-highest focus:ring-primary"
+              className="w-5 h-5 text-primary rounded border-outline bg-surface-container-highest focus:ring-primary cursor-pointer"
             />
             <span>Mostrar cotización equivalente en moneda extranjera</span>
           </label>
@@ -211,20 +211,20 @@ export const ClienteTab: React.FC<ClienteTabProps> = ({
           {mostrarDolar && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
               <div>
-                <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                <label className="block text-sm font-bold text-on-surface mb-1.5">
                   Nombre de Referencia (Ej: Dólar MEP)
                 </label>
                 <input
                   type="text"
                   value={nombreDolar}
                   onChange={(e) => setNombreDolar(e.target.value)}
-                  className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-on-surface font-semibold focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]"
+                  className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-sm sm:text-base text-on-surface font-semibold focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[46px]"
                   placeholder="Dólar Blue / MEP"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                <label className="block text-sm font-bold text-on-surface mb-1.5">
                   Cotización ARS / USD
                 </label>
                 <NumericInput
@@ -233,7 +233,7 @@ export const ClienteTab: React.FC<ClienteTabProps> = ({
                   fallbackOnBlur={config.dolarReferenciaValor || 1200}
                   min={0}
                   decimals={2}
-                  className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-on-surface font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]"
+                  className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-sm sm:text-base text-on-surface font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[46px]"
                 />
               </div>
             </div>
@@ -246,10 +246,10 @@ export const ClienteTab: React.FC<ClienteTabProps> = ({
         <button
           type="button"
           onClick={onNext}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-on-primary rounded-2xl text-xs sm:text-sm font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-primary text-on-primary rounded-2xl text-sm sm:text-base font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer min-h-[48px]"
         >
           <span>Continuar a Partidas & Cómputo</span>
-          <ArrowRight className="w-4 h-4" />
+          <ArrowRight className="w-5 h-5" />
         </button>
       </div>
     </div>
