@@ -365,7 +365,7 @@ select:not(.has-custom-icon) {
 }
 
 select optgroup {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: var(--md-sys-color-primary);
   background-color: var(--md-sys-color-surface-container-high);
@@ -373,25 +373,9 @@ select optgroup {
 }
 
 select option {
-  font-size: 0.8125rem;
-  font-weight: 400;
+  font-size: 0.875rem;
+  font-weight: 500;
   color: var(--md-sys-color-on-surface);
   background-color: var(--md-sys-color-surface);
-  padding: 6px 10px;
-}
-
-@media (max-width: 640px) {
-  select {
-    font-size: 0.8125rem !important;
-  }
-  select optgroup {
-    font-size: 0.7rem !important;
-    font-weight: 700 !important;
-    padding-top: 4px;
-    padding-bottom: 2px;
-  }
-  select option {
-    font-size: 0.75rem !important;
-    padding: 6px 8px;
-  }
+  padding: 8px 12px;
 }
