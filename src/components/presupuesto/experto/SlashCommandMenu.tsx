@@ -13,7 +13,9 @@ import {
   Package,
   HardHat,
   Layers,
-  Filter
+  Filter,
+  Hash,
+  Tag
 } from 'lucide-react';
 import { TareaTipo, Cliente, Insumo, CategoriaManoDeObra } from '../../../core/types';
 import { normalizeString, CursorContextType, scoreSearchMatch } from './dslParser';
@@ -108,6 +110,53 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
           extraText: `${ins.categoria || ''} ${ins.marca || ''} ${ins.unidad || ''} ${ins.notas || ''}`
         });
       });
+
+      // Propiedades de Material (para escribir bajo un ítem como bloque YAML)
+      list.push({
+        id: 'prop-cantidad',
+        category: 'directiva',
+        title: 'cantidad: [valor]',
+        subtitle: 'Propiedad · Cantidad y unidad del material (ej: 25 m, 4 u)',
+        snippet: 'cantidad: ',
+        icon: Hash,
+        extraText: 'cantidad cant un unidad metros unidades'
+      });
+      list.push({
+        id: 'prop-producto',
+        category: 'directiva',
+        title: 'producto: [Nombre o Marca]',
+        subtitle: 'Propiedad · Producto comercial específico (ej: Prysmian Superplastic)',
+        snippet: 'producto: ',
+        icon: Tag,
+        extraText: 'producto marca modelo fabricante'
+      });
+      list.push({
+        id: 'prop-precio',
+        category: 'directiva',
+        title: 'precio: [Monto]',
+        subtitle: 'Propiedad · Precio unitario manual para este material (ej: 1250)',
+        snippet: 'precio: ',
+        icon: DollarSign,
+        extraText: 'precio costo valor'
+      });
+      list.push({
+        id: 'prop-marca',
+        category: 'directiva',
+        title: 'marca: [Marca]',
+        subtitle: 'Propiedad · Marca del fabricante',
+        snippet: 'marca: ',
+        icon: Tag,
+        extraText: 'marca fabricante'
+      });
+      list.push({
+        id: 'prop-unidad',
+        category: 'directiva',
+        title: 'unidad: [u, m, kg...]',
+        subtitle: 'Propiedad · Unidad de medida técnica',
+        snippet: 'unidad: ',
+        icon: Hash,
+        extraText: 'unidad medida u m kg'
+      });
     }
 
     // 2. Categorías de Mano de Obra
@@ -122,6 +171,26 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
           icon: HardHat,
           extraText: `mano de obra ${mo.nombre}`
         });
+      });
+
+      // Propiedades de Mano de Obra
+      list.push({
+        id: 'prop-mo-horas',
+        category: 'directiva',
+        title: 'cantidad: [Horas]',
+        subtitle: 'Propiedad · Horas estimadas de mano de obra (ej: 4 h)',
+        snippet: 'cantidad: ',
+        icon: Hash,
+        extraText: 'cantidad horas tiempo dedicacion'
+      });
+      list.push({
+        id: 'prop-mo-precio',
+        category: 'directiva',
+        title: 'precio: [Costo Hora]',
+        subtitle: 'Propiedad · Costo por hora manual de la categoría',
+        snippet: 'precio: ',
+        icon: DollarSign,
+        extraText: 'precio valor costo hora'
       });
     }
 

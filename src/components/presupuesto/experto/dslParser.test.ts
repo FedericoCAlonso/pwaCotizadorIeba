@@ -9,7 +9,8 @@ import {
   detectSuggestTrigger,
   formatSlashCommandReplacement,
   handleYamlSmartEnter,
-  scoreSearchMatch
+  scoreSearchMatch,
+  preprocessYamlText
 } from './dslParser';
 import { Cliente, TareaTipo, Insumo, CategoriaManoDeObra, ItemPresupuesto, CapituloPresupuesto } from '../../../core/types';
 
@@ -763,6 +764,166 @@ Instalación Eléctrica:
       });
 
       expect(serialized).toContain('- 30 m Cable Unipolar 2.5 mm² [Prysmian] : $ 1.200');
+    });
+  });
+
+  describe('Ingreso y Edición Fluida de Cantidades de Materiales (Propiedades y Autocompletado)', () => {
+    it('preprocessYamlText añade ":" al material si el usuario escribió propiedades indentadas debajo sin dos puntos', () => {
+      const raw = `
+Instalación:
+  - Tablero:
+      materiales:
+        - Cable Unipolar 1.5 mm²
+            cantidad: 50 m
+            producto: Prysmian
+`;
+      const processed = preprocessYamlText(raw);
+      expect(processed).toContain('- Cable Unipolar 1.5 mm²:');
+      expect(processed).toContain('cantidad: 50 m');
+    });
+
+    it('preprocessYamlText no altera líneas que ya tienen dos puntos', () => {
+      const raw = `
+Instalación:
+  - Tablero:
+      materiales:
+        - nombre: Cable Unipolar 1.5 mm²
+          cantidad: 50 m
+        - Disyuntor Bipolar:
+            cantidad: 1 u
+`;
+      const processed = preprocessYamlText(raw);
+      expect(processed).toBe(raw);
+    });
+
+    it('parsea correctamente material cuando la cantidad está anidada omitiendo dos puntos en la cabecera', () => {
+      const dsl = `
+Instalación Eléctrica:
+  - Circuito 1:
+      materiales:
+        - Cable Unipolar 1.5 mm²
+            cantidad: 75 m
+            precio: 1200
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items.length).toBe(1);
+      const mat = res.items[0].insumosSnapshot![0];
+      expect(mat.nombre).toBe('Cable Unipolar 1.5 mm²');
+      expect(mat.cantidadTotal).toBe(75);
+      expect(mat.unidad).toBe('m');
+      expect(mat.precioUnitarioCongelado).toBe(1200);
+      expect(mat.subtotalInsumo).toBe(90000);
+    });
+
+    it('parsea correctamente material cuando las propiedades tienen guión de lista (- cantidad: 50 m)', () => {
+      const dsl = `
+Instalación Eléctrica:
+  - Circuito 1:
+      materiales:
+        - Cable Unipolar 1.5 mm²:
+            - cantidad: 50 m
+            - precio: 1250
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items.length).toBe(1);
+      const mat = res.items[0].insumosSnapshot![0];
+      expect(mat.nombre).toBe('Cable Unipolar 1.5 mm²');
+      expect(mat.cantidadTotal).toBe(50);
+      expect(mat.precioUnitarioCongelado).toBe(1250);
+    });
+
+    it('permite sobreescribir la cantidad por defecto con la propiedad "cantidad:" si la cabecera tenía "1 u"', () => {
+      const dsl = `
+Instalación Eléctrica:
+  - Circuito 1:
+      materiales:
+        - 1 u Cable Unipolar 1.5 mm²:
+            cantidad: 80 m
+            precio: 1300
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items.length).toBe(1);
+      const mat = res.items[0].insumosSnapshot![0];
+      expect(mat.nombre).toBe('Cable Unipolar 1.5 mm²');
+      expect(mat.cantidadTotal).toBe(80);
+      expect(mat.unidad).toBe('m');
+      expect(mat.precioUnitarioCongelado).toBe(1300);
+    });
+
+    it('handleYamlSmartEnter: al presionar Enter en "- Material:" sin cantidad, auto-genera "cantidad: "', () => {
+      const textBefore = `      materiales:\n        - Cable Unipolar 1.5 mm²:`;
+      const textAfter = '';
+      const { newText } = handleYamlSmartEnter({ textBefore, textAfter });
+
+      expect(newText).toBe(`      materiales:\n        - Cable Unipolar 1.5 mm²:\n            cantidad: `);
+    });
+
+    it('handleYamlSmartEnter: al presionar Enter en "- 1 u Material:", sangra 4 espacios sin viñeta para propiedades', () => {
+      const textBefore = `      materiales:\n        - 1 u Disyuntor 25A:`;
+      const textAfter = '';
+      const { newText } = handleYamlSmartEnter({ textBefore, textAfter });
+
+      expect(newText).toBe(`      materiales:\n        - 1 u Disyuntor 25A:\n            `);
+    });
+
+    it('handleYamlSmartEnter: al presionar Enter en renglón vacío tras propiedades, desindenta para el siguiente material', () => {
+      const textBefore = `      materiales:\n        - Cable 1.5 mm²:\n            cantidad: 50 m\n            `;
+      const textAfter = '';
+      const { newText } = handleYamlSmartEnter({ textBefore, textAfter });
+
+      expect(newText).toBe(`      materiales:\n        - Cable 1.5 mm²:\n            cantidad: 50 m\n        - `);
+    });
+
+    it('formatSlashCommandReplacement devuelve selectionRange sobre el "1" por defecto cuando el usuario no tipeó cantidad previa', () => {
+      const { replacementLine, selectionRange } = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '        - cab',
+        snippet: '- 1 u Cable Unipolar 2.5 mm\n'
+      });
+
+      expect(replacementLine).toBe('        - 1 u Cable Unipolar 2.5 mm\n');
+      expect(selectionRange).toBeDefined();
+      // En "        - 1 u ...", el "1" está en los índices 10 a 11
+      expect(replacementLine.slice(selectionRange!.start, selectionRange!.end)).toBe('1');
+    });
+
+    it('formatSlashCommandReplacement no define selectionRange si el usuario ya tipeó cantidad explícita previa', () => {
+      const { replacementLine, selectionRange } = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '        - 50 m cab',
+        snippet: '- 1 u Cable Unipolar 2.5 mm\n'
+      });
+
+      expect(replacementLine).toBe('        - 50 m Cable Unipolar 2.5 mm\n');
+      expect(selectionRange).toBeUndefined();
+    });
+
+    it('detectSuggestTrigger detecta palabras escritas en líneas indentadas de propiedades (ej: "    can")', () => {
+      const trigger = detectSuggestTrigger('            can');
+      expect(trigger).not.toBeNull();
+      expect(trigger?.query).toBe('can');
+      expect(trigger?.queryIndexInLine).toBe(12);
+    });
+
+    it('detectSuggestTrigger se cierra cuando la propiedad ya tiene dos puntos (ej: "    cantidad: 50")', () => {
+      const trigger = detectSuggestTrigger('            cantidad: 50');
+      expect(trigger).toBeNull();
     });
   });
 });

@@ -616,7 +616,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     const nextNewline = textAfterCursor.indexOf('\n');
     const restOfDoc = nextNewline >= 0 ? textAfterCursor.slice(nextNewline) : '';
 
-    const { replacementLine } = formatSlashCommandReplacement({
+    const { replacementLine, selectionRange } = formatSlashCommandReplacement({
       currentLineBeforeCursor,
       snippet
     });
@@ -636,8 +636,13 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
     setTimeout(() => {
       textarea.focus();
-      const newPos = lastLineStart + replacementLine.length;
-      textarea.selectionStart = textarea.selectionEnd = newPos;
+      if (selectionRange) {
+        textarea.selectionStart = lastLineStart + selectionRange.start;
+        textarea.selectionEnd = lastLineStart + selectionRange.end;
+      } else {
+        const newPos = lastLineStart + replacementLine.length;
+        textarea.selectionStart = textarea.selectionEnd = newPos;
+      }
     }, 10);
   };
 

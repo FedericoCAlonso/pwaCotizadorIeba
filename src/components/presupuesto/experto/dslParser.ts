@@ -367,7 +367,23 @@ function parseQuantityAndName(raw: string): {
   // Quitar asteriscos o comillas sobrantes si venía del DSL viejo
   str = str.replace(/^\*\s*/, '').replace(/^"|"$/g, '').trim();
 
-  // 3. Cantidad y Unidad al inicio (ej: "10 u ...", "25m ...", "4 ...")
+  // 3a. Cantidad y Unidad pura sin nombre (ej: "75 m", "50", "4 u", "1.5 hs")
+  const pureQtyMatch = str.match(/^([0-9]+(?:[.,][0-9]+)?)\s*([a-zA-ZáéíóúÁÉÍÓÚ²³]+)?$/);
+  if (pureQtyMatch) {
+    const parsedQty = parseLocalizedNumber(pureQtyMatch[1]);
+    const candidateUnit = (pureQtyMatch[2] || '').toLowerCase();
+    const unitToUse = candidateUnit && KNOWN_UNITS.has(candidateUnit) ? candidateUnit : (candidateUnit || 'u');
+    return {
+      cantidad: parsedQty > 0 ? parsedQty : 1,
+      unidad: unitToUse,
+      nombre: '',
+      marca,
+      condicion,
+      precioManual
+    };
+  }
+
+  // 3b. Cantidad y Unidad al inicio seguido de nombre (ej: "10 u ...", "25m ...", "4 ...")
   const match = str.match(/^([0-9]+(?:[.,][0-9]+)?)\s*([a-zA-ZáéíóúÁÉÍÓÚ²³]+)?\s+(.+)$/);
   if (match) {
     const parsedQty = parseLocalizedNumber(match[1]);
@@ -409,6 +425,35 @@ function parseQuantityAndName(raw: string): {
 }
 
 /**
+ * Preprocesa el texto YAML antes de enviarlo al parser oficial:
+ * - Detecta ítems de lista (ej: "- Cable 2.5 mm²" o "- 1 u Cable...") que tienen renglones de propiedades
+ *   indentadas debajo (ej: "cantidad: 20", "precio: 500", "producto: ...") pero a los que el usuario
+ *   olvidó colocarles los dos puntos ':' al final.
+ * - Les añade el ':' final sin alterar el número de renglones ni desfasar los números de línea para diagnósticos.
+ */
+export function preprocessYamlText(yamlText: string): string {
+  const lines = yamlText.split('\n');
+  for (let i = 0; i < lines.length - 1; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (trimmed.startsWith('- ') && !trimmed.includes(':')) {
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim() === '') j++;
+      if (j < lines.length) {
+        const nextLine = lines[j];
+        const nextTrimmed = nextLine.trim();
+        const nextIndent = (nextLine.match(/^\s*/)?.[0] || '').length;
+        const currentIndent = (line.match(/^\s*/)?.[0] || '').length;
+        if (nextIndent > currentIndent && /^(cantidad|precio|producto|marca|unidad|horas|notas):\s*/i.test(nextTrimmed)) {
+          lines[i] = line + ':';
+        }
+      }
+    }
+  }
+  return lines.join('\n');
+}
+
+/**
  * Parsea el texto YAML completo y construye el estado del Presupuesto
  */
 export function parseDSLToPresupuesto(
@@ -417,9 +462,11 @@ export function parseDSLToPresupuesto(
 ): ParseDSLResult {
   const diagnostics: DSLDiagnostic[] = [];
 
+  const preprocessed = preprocessYamlText(yamlText);
+
   let parsed: any = null;
   try {
-    parsed = YAML.parse(yamlText);
+    parsed = YAML.parse(preprocessed);
   } catch (err: any) {
     const lineNum = err.linePos?.[0]?.line || 1;
     const errMsg = err.message ? err.message.split('\n')[0] : 'Error de sintaxis en el archivo YAML';
@@ -746,7 +793,28 @@ function parseAndAddItem(
           if (typeof item === 'object' && item !== null) {
             const firstK = Object.keys(item)[0];
             if (Array.isArray(item[firstK])) {
-              materialesList.push(...item[firstK]);
+              const arr = item[firstK];
+              const isPropertyArray = arr.some(
+                (el: any) =>
+                  typeof el === 'object' &&
+                  el !== null &&
+                  (el.cantidad !== undefined ||
+                    el.precio !== undefined ||
+                    el.producto !== undefined ||
+                    el.marca !== undefined ||
+                    el.unidad !== undefined)
+              );
+              if (isPropertyArray) {
+                const mergedProps: any = {};
+                arr.forEach((el: any) => {
+                  if (typeof el === 'object' && el !== null) {
+                    Object.assign(mergedProps, el);
+                  }
+                });
+                materialesList.push({ [firstK]: mergedProps });
+              } else {
+                materialesList.push(...arr);
+              }
             } else {
               materialesList.push(item);
             }
@@ -771,7 +839,26 @@ function parseAndAddItem(
           if (typeof item === 'object' && item !== null) {
             const firstK = Object.keys(item)[0];
             if (Array.isArray(item[firstK])) {
-              manoObraList.push(...item[firstK]);
+              const arr = item[firstK];
+              const isPropertyArray = arr.some(
+                (el: any) =>
+                  typeof el === 'object' &&
+                  el !== null &&
+                  (el.cantidad !== undefined ||
+                    el.horas !== undefined ||
+                    el.precio !== undefined)
+              );
+              if (isPropertyArray) {
+                const mergedProps: any = {};
+                arr.forEach((el: any) => {
+                  if (typeof el === 'object' && el !== null) {
+                    Object.assign(mergedProps, el);
+                  }
+                });
+                manoObraList.push({ [firstK]: mergedProps });
+              } else {
+                manoObraList.push(...arr);
+              }
             } else {
               manoObraList.push(item);
             }
@@ -897,22 +984,23 @@ function buildCompositeItem(params: {
         mUn = parsedM.unidad;
         mPrecio = parsedM.precioManual;
 
-        if (typeof val === 'object' && val !== null) {
-          if (val.cantidad !== undefined) {
-            if (typeof val.cantidad === 'string') {
-              const parsedQ = parseQuantityAndName(val.cantidad);
-              mCant = parsedQ.cantidad;
-              if (parsedQ.unidad && parsedQ.unidad !== 'u') mUn = parsedQ.unidad;
-            } else {
-              mCant = parseLocalizedNumber(val.cantidad);
-            }
+        const propSource = (typeof val === 'object' && val !== null) ? val : mItem;
+        if (propSource.cantidad !== undefined) {
+          if (typeof propSource.cantidad === 'string') {
+            const parsedQ = parseQuantityAndName(propSource.cantidad);
+            mCant = parsedQ.cantidad;
+            if (parsedQ.unidad && parsedQ.unidad !== 'u') mUn = parsedQ.unidad;
+          } else {
+            mCant = parseLocalizedNumber(propSource.cantidad);
           }
-          if (val.unidad) mUn = String(val.unidad).trim();
-          if (val.producto || val.marca) {
-            mMarca = String(val.producto || val.marca).trim();
-          }
-          if (val.precio !== undefined) mPrecio = parseLocalizedNumber(val.precio);
-        } else if (val !== undefined && val !== null) {
+        }
+        if (propSource.unidad) mUn = String(propSource.unidad).trim();
+        if (propSource.producto || propSource.marca) {
+          mMarca = String(propSource.producto || propSource.marca).trim();
+        }
+        if (propSource.precio !== undefined) {
+          mPrecio = parseLocalizedNumber(propSource.precio);
+        } else if (val !== undefined && val !== null && typeof val !== 'object') {
           mPrecio = parseLocalizedNumber(val);
         }
       }
@@ -996,7 +1084,23 @@ function buildCompositeItem(params: {
       const parsedMo = parseQuantityAndName(moKey);
       moHoras = parsedMo.cantidad;
       moCatNombre = parsedMo.nombre;
-      moPrecio = parseLocalizedNumber(moItem[moKey]);
+      moPrecio = parsedMo.precioManual;
+      const val = moItem[moKey];
+      const propSource = (typeof val === 'object' && val !== null) ? val : moItem;
+      if (propSource.cantidad !== undefined || propSource.horas !== undefined) {
+        const rawHours = propSource.cantidad ?? propSource.horas;
+        if (typeof rawHours === 'string') {
+          const p = parseQuantityAndName(rawHours);
+          moHoras = p.cantidad;
+        } else {
+          moHoras = parseLocalizedNumber(rawHours);
+        }
+      }
+      if (propSource.precio !== undefined) {
+        moPrecio = parseLocalizedNumber(propSource.precio);
+      } else if (val !== undefined && val !== null && typeof val !== 'object') {
+        moPrecio = parseLocalizedNumber(val);
+      }
     }
 
     if (!moCatNombre) return;
@@ -1343,7 +1447,28 @@ export function detectSuggestTrigger(currentLineBeforeCursor: string): SuggestTr
     }
   }
 
+  // 3. IntelliSense automático en línea indentada de propiedades (ej: "            can", "            pre", "            prod")
+  // Detecta palabras de 2+ letras escritas tras una sangría de al menos 4 espacios sin guión
+  const propMatch = currentLineBeforeCursor.match(/^(\s{4,})([a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]{2,}[^\r\n]*)$/);
+  if (propMatch) {
+    const rawQuery = propMatch[2];
+    const isKeyword = /^(materiales|insumos|mano_obra|manoobra|mo):?$/i.test(rawQuery.trim());
+    if (!isKeyword && !rawQuery.includes(':')) {
+      return {
+        query: rawQuery,
+        queryIndexInLine: propMatch[1].length,
+        isExplicit: false
+      };
+    }
+  }
+
   return null;
+}
+
+export interface FormatReplacementResult {
+  replacementLine: string;
+  newCursorOffset: number;
+  selectionRange?: { start: number; end: number };
 }
 
 /**
@@ -1354,10 +1479,7 @@ export function detectSuggestTrigger(currentLineBeforeCursor: string): SuggestTr
 export function formatSlashCommandReplacement(params: {
   currentLineBeforeCursor: string;
   snippet: string;
-}): {
-  replacementLine: string;
-  newCursorOffset: number;
-} {
+}): FormatReplacementResult {
   const { currentLineBeforeCursor, snippet } = params;
   const lineIndent = currentLineBeforeCursor.match(/^\s*/)?.[0] || '';
 
@@ -1381,12 +1503,14 @@ export function formatSlashCommandReplacement(params: {
   }
 
   let replacementLine = '';
+  let selectionRange: { start: number; end: number } | undefined = undefined;
 
   if (snippet.startsWith('- ')) {
     // Snippet de ítem de lista: "- 1 u Cable Unipolar 2.5 mm\n" o "- 4 h Oficial\n"
     const snippetMatch = snippet.match(/^-\s*([0-9.,]+)\s*([a-zA-ZáéíóúÁÉÍÓÚñÑüÜ²³]+)\s+(.+?)(?:\n|$)/);
     if (snippetMatch) {
-      const defaultQtyUnit = `${snippetMatch[1]} ${snippetMatch[2]}`;
+      const defaultQtyNum = snippetMatch[1];
+      const defaultQtyUnit = `${defaultQtyNum} ${snippetMatch[2]}`;
       const defaultUnit = snippetMatch[2];
       const itemName = snippetMatch[3];
       let qtyUnitToUse = userQtyUnit || defaultQtyUnit;
@@ -1395,6 +1519,14 @@ export function formatSlashCommandReplacement(params: {
         qtyUnitToUse = `${userQtyUnit} ${defaultUnit}`;
       }
       replacementLine = `${lineIndent}- ${qtyUnitToUse} ${itemName}\n`;
+
+      // Si el usuario no había escrito cantidad previa, seleccionamos el número por defecto (ej: "1")
+      // para que al tipear un número, lo reemplace inmediatamente
+      if (!userQtyUnit) {
+        const qtyNumStart = lineIndent.length + 2; // tras "- "
+        const qtyNumEnd = qtyNumStart + defaultQtyNum.length;
+        selectionRange = { start: qtyNumStart, end: qtyNumEnd };
+      }
     } else {
       // Snippet complejo con guión (ej: APU compuesto)
       const afterDash = snippet.slice(2);
@@ -1408,7 +1540,8 @@ export function formatSlashCommandReplacement(params: {
 
   return {
     replacementLine,
-    newCursorOffset: replacementLine.length
+    newCursorOffset: replacementLine.length,
+    selectionRange
   };
 }
 
@@ -1424,9 +1557,10 @@ export interface SmartEnterResult {
  *    - Quita el guión inicial y sangra "materiales:" con 6 espacios bajo el ítem.
  *    - Genera en el nuevo renglón "        - " listo para listar insumos.
  * 2. Si el renglón actual es una viñeta vacía ("- "), desindenta y cancela la viñeta.
- * 3. Si el renglón termina en ':', auto-indenta el siguiente renglón con viñeta de lista ("- ").
- * 4. Si el renglón es un ítem de lista ("- algo"), continúa la lista con la misma sangría.
- * 5. Mantiene la sangría en líneas normales.
+ * 3. Si el renglón es un ítem con dos puntos ("- Cable:"), abre bloque de propiedades anidadas ("cantidad: ").
+ * 4. Si el renglón termina en ':', auto-indenta el siguiente renglón con viñeta de lista ("- ").
+ * 5. Si el renglón es un ítem de lista ("- algo"), continúa la lista con la misma sangría.
+ * 6. Si es un renglón vacío tras propiedades, desindenta para continuar con el siguiente ítem ("- ").
  */
 export function handleYamlSmartEnter(params: {
   textBefore: string;
@@ -1495,7 +1629,33 @@ export function handleYamlSmartEnter(params: {
     };
   }
 
-  // Caso 3: Renglón termina con dos puntos ':' (ej: "Tableros:", "cables:", "materiales:")
+  // Caso 2.5: Renglón vacío con sangría de propiedad (ej: "            " tras escribir propiedades)
+  // Al presionar Enter en una línea vacía después de escribir propiedades,
+  // desindenta 4 espacios y añade "- " para escribir el siguiente ítem de lista
+  if (trimmed === '' && leadingWhitespace.length >= 6) {
+    const unindentedDash = leadingWhitespace.length >= 4 ? leadingWhitespace.slice(4) + '- ' : leadingWhitespace;
+    const newText = textBefore.substring(0, lastLineStart) + unindentedDash + textAfter;
+    return {
+      newText,
+      newCursorPos: lastLineStart + unindentedDash.length
+    };
+  }
+
+  // Caso 3: Renglón es un ítem de lista que termina con dos puntos ':' (ej: "        - Cable Unipolar 1.5 mm²:" o "        - 1 u Disyuntor 25A:")
+  // Abre bloque de propiedades anidadas de ese ítem (como cantidad, producto, precio), NO una lista con viñetas "- "
+  if (trimmed.startsWith('- ') && trimmed.endsWith(':')) {
+    const propIndent = leadingWhitespace + '    ';
+    // Si no tenía cantidad en línea, sugerir directamente "cantidad: "
+    const hasInlineQty = /-\s*[0-9.,]+\s*[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ²³]*/.test(trimmed);
+    const nextLineContent = hasInlineQty ? propIndent : propIndent + 'cantidad: ';
+    const newText = textBefore + '\n' + nextLineContent + textAfter;
+    return {
+      newText,
+      newCursorPos: textBefore.length + 1 + nextLineContent.length
+    };
+  }
+
+  // Caso 4: Encabezado general que termina con dos puntos ':' (ej: "Tableros:", "cables:", "materiales:")
   // Si es un encabezado que espera una lista de ítems, auto-indenta con viñeta "- "
   if (trimmed.endsWith(':')) {
     const nextIndent = leadingWhitespace + '  - ';
@@ -1506,7 +1666,7 @@ export function handleYamlSmartEnter(params: {
     };
   }
 
-  // Caso 4: Renglón es un ítem de lista con contenido (ej: "  - 10 u Boca..." o "        - 1 u Cable...")
+  // Caso 5: Renglón es un ítem de lista con contenido (ej: "  - 10 u Boca..." o "        - 1 u Cable...")
   // Continúa automáticamente la lista en el siguiente renglón con la misma sangría y viñeta
   if (trimmed.startsWith('- ') && trimmed.length > 2) {
     const nextListItem = leadingWhitespace + '- ';
@@ -1517,7 +1677,7 @@ export function handleYamlSmartEnter(params: {
     };
   }
 
-  // Caso 5: Renglón normal -> Mantiene exactamente la sangría actual
+  // Caso 6: Renglón normal (ej: propiedad "cantidad: 20 m", "precio: 1000") -> Mantiene la sangría actual
   const nextIndent = leadingWhitespace;
   const newText = textBefore + '\n' + nextIndent + textAfter;
   return {
