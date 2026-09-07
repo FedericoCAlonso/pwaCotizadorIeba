@@ -13,12 +13,14 @@ import {
   Layers,
   Sparkles,
   Package,
-  HardHat
+  HardHat,
+  Plus
 } from 'lucide-react';
 import { TotalesPresupuestoResultado, formatARS, formatUSD } from '../../../core/calculations';
 import { DSLDiagnostic } from './dslParser';
 import { Cliente, TipoFactura, CapituloPresupuesto, ItemPresupuesto } from '../../../core/types';
 import { useToast } from '../../../contexts/ToastContext';
+import { OnlinePriceButton } from '../../OnlinePriceButton';
 
 interface ExpertInspectorProps {
   totales: TotalesPresupuestoResultado;
@@ -36,6 +38,12 @@ interface ExpertInspectorProps {
   onEmitirClick?: () => void;
   onLoadExample?: () => void;
   onCopyDSL?: () => void;
+  onAddMaterialToCatalog?: (data: {
+    nombre: string;
+    unidad: string;
+    precio: number | null;
+    marca?: string;
+  }) => void;
 }
 
 export const ExpertInspector: React.FC<ExpertInspectorProps> = ({
@@ -53,7 +61,8 @@ export const ExpertInspector: React.FC<ExpertInspectorProps> = ({
   diagnostics,
   onEmitirClick,
   onLoadExample,
-  onCopyDSL
+  onCopyDSL,
+  onAddMaterialToCatalog
 }) => {
   const { toast } = useToast();
 
@@ -67,6 +76,7 @@ export const ExpertInspector: React.FC<ExpertInspectorProps> = ({
     const list: Array<{
       id: string;
       nombre: string;
+      marca?: string;
       cantidadTotal: number;
       unidad: string;
       precioUnitario: number;
@@ -81,6 +91,7 @@ export const ExpertInspector: React.FC<ExpertInspectorProps> = ({
           list.push({
             id: ins.insumoId || '',
             nombre: ins.nombre,
+            marca: ins.marca,
             cantidadTotal: ins.cantidadTotal,
             unidad: ins.unidad,
             precioUnitario: ins.precioUnitarioCongelado,
@@ -279,13 +290,18 @@ export const ExpertInspector: React.FC<ExpertInspectorProps> = ({
             {insumosDetectados.map((ins, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between text-xs p-1.5 rounded-lg hover:bg-surface-container-highest/50 transition"
+                className="flex items-center justify-between text-xs p-1.5 rounded-lg hover:bg-surface-container-highest/50 transition gap-2"
               >
-                <div className="min-w-0 flex-1 pr-2">
-                  <div className="flex items-center gap-1.5">
+                <div className="min-w-0 flex-1 pr-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-bold text-on-surface truncate">
                       {ins.cantidadTotal} {ins.unidad} {ins.nombre}
                     </span>
+                    {ins.marca && (
+                      <span className="text-[10px] text-primary/90 bg-primary/10 px-1.5 py-0.2 rounded font-bold shrink-0 border border-primary/20">
+                        {ins.marca}
+                      </span>
+                    )}
                     {ins.enCatalogo ? (
                       <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded font-bold shrink-0">
                         ✓ Catálogo
@@ -305,8 +321,38 @@ export const ExpertInspector: React.FC<ExpertInspectorProps> = ({
                   </span>
                 </div>
 
-                <div className="text-right shrink-0 font-mono text-xs font-bold text-on-surface">
-                  {formatARS(ins.subtotal)}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Botón de búsqueda de precio online */}
+                  <OnlinePriceButton
+                    tipo="material"
+                    customNombre={`${ins.nombre} ${ins.marca || ''}`.trim()}
+                    size="xs"
+                    variant="icon"
+                  />
+
+                  {/* Botón para dar de alta al catálogo si es ad-hoc */}
+                  {!ins.enCatalogo && onAddMaterialToCatalog && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onAddMaterialToCatalog({
+                          nombre: ins.nombre,
+                          unidad: ins.unidad,
+                          precio: ins.precioUnitario > 0 ? ins.precioUnitario : null,
+                          marca: ins.marca
+                        })
+                      }
+                      title="Agregar material al catálogo"
+                      className="text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 font-bold transition shrink-0 cursor-pointer"
+                    >
+                      <Plus className="w-2.5 h-2.5" />
+                      Catálogo
+                    </button>
+                  )}
+
+                  <div className="text-right shrink-0 font-mono text-xs font-bold text-on-surface min-w-[50px]">
+                    {formatARS(ins.subtotal)}
+                  </div>
                 </div>
               </div>
             ))}

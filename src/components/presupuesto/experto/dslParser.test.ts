@@ -645,6 +645,126 @@ Instalación Eléctrica:
       expect(res3?.query).toBe('Caño 3/4');
     });
   });
+
+  describe('Soporte de Producto/Marca y Propiedades Estructuradas de Materiales', () => {
+    it('extrae marca entre corchetes "[Prysmian]" en línea rápida con cantidad y precio', () => {
+      const dsl = `
+Instalación Eléctrica:
+  - Tablero Principal:
+      materiales:
+        - 50 m Cable Unipolar 1.5 mm² [Prysmian]: $ 1.250
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items.length).toBe(1);
+      const compositeItem = res.items[0];
+      expect(compositeItem.insumosSnapshot?.length).toBe(1);
+      const mat = compositeItem.insumosSnapshot![0];
+      expect(mat.nombre).toBe('Cable Unipolar 1.5 mm²');
+      expect(mat.marca).toBe('Prysmian');
+      expect(mat.cantidadTotal).toBe(50);
+      expect(mat.unidad).toBe('m');
+      expect(mat.precioUnitarioCongelado).toBe(1250);
+      expect(mat.subtotalInsumo).toBe(62500);
+    });
+
+    it('parsea propiedades anidadas de material en YAML (cantidad, unidad, producto, precio)', () => {
+      const dsl = `
+Instalación Eléctrica:
+  - Tablero Seccional:
+      materiales:
+        - Gabinete DIN 24 módulos:
+            cantidad: 2 u
+            producto: Roker Práctico
+            precio: 28500
+        - Disyuntor Bipolar 25A:
+            cantidad: 1
+            unidad: u
+            marca: Schneider Acti9
+            precio: 35000
+        - nombre: Térmica 2x16
+          cantidad: 4 u
+          marca: Sica
+          precio: 9500
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items.length).toBe(1);
+      const item = res.items[0];
+      expect(item.insumosSnapshot?.length).toBe(3);
+
+      const mat1 = item.insumosSnapshot![0];
+      expect(mat1.nombre).toBe('Gabinete DIN 24 módulos');
+      expect(mat1.cantidadTotal).toBe(2);
+      expect(mat1.unidad).toBe('u');
+      expect(mat1.marca).toBe('Roker Práctico');
+      expect(mat1.precioUnitarioCongelado).toBe(28500);
+      expect(mat1.subtotalInsumo).toBe(57000);
+
+      const mat2 = item.insumosSnapshot![1];
+      expect(mat2.nombre).toBe('Disyuntor Bipolar 25A');
+      expect(mat2.cantidadTotal).toBe(1);
+      expect(mat2.marca).toBe('Schneider Acti9');
+      expect(mat2.precioUnitarioCongelado).toBe(35000);
+
+      const mat3 = item.insumosSnapshot![2];
+      expect(mat3.nombre).toBe('Térmica 2x16');
+      expect(mat3.cantidadTotal).toBe(4);
+      expect(mat3.marca).toBe('Sica');
+      expect(mat3.precioUnitarioCongelado).toBe(9500);
+      expect(mat3.subtotalInsumo).toBe(38000);
+    });
+
+    it('serializa insumos incluyendo marca entre corchetes si está presente', () => {
+      const item: ItemPresupuesto = {
+        id: 'it-test',
+        descripcion: 'Tablero Seccional',
+        cantidad: 1,
+        unidad: 'u',
+        costoUnitario: 50000,
+        costoDirectoTotal: 50000,
+        costoInsumos: 36000,
+        costoManoObra: 0,
+        precioVentaUnitario: 65000,
+        precioVentaTotal: 65000,
+        esAdHoc: true,
+        insumosSnapshot: [
+          {
+            insumoId: 'mat-1',
+            nombre: 'Cable Unipolar 2.5 mm²',
+            marca: 'Prysmian',
+            cantidadTotal: 30,
+            unidad: 'm',
+            precioUnitarioCongelado: 1200,
+            subtotalInsumo: 36000
+          }
+        ],
+        manoObraSnapshot: []
+      };
+
+      const serialized = serializePresupuestoToDSL({
+        clienteId: 'cli-1',
+        tipoFactura: 'Factura A',
+        validezDias: 15,
+        margenPorcentaje: 35,
+        clientes: mockClientes,
+        capitulos: [{ id: 'cap-1', nombre: 'Tableros', orden: 1 }],
+        items: [{ ...item, capituloId: 'cap-1' }]
+      });
+
+      expect(serialized).toContain('- 30 m Cable Unipolar 2.5 mm² [Prysmian] : $ 1.200');
+    });
+  });
 });
 
 

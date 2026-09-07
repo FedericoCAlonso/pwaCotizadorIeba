@@ -211,7 +211,7 @@ export function serializePresupuestoToDSL(data: {
   lines.push('');
 
   // 1. Directivas de Cabecera
-  const cliente = data.clientes.find((c) => c.id === data.clienteId);
+  const cliente = data.clientes?.find((c) => c.id === data.clienteId);
   lines.push(`cliente: ${cliente ? (cliente.razonSocial || cliente.nombre) : ''}`);
   lines.push(`obra: ${data.direccionObra?.trim() || ''}`);
   lines.push(`factura: ${data.tipoFactura || 'Factura A'}`);
@@ -291,7 +291,8 @@ function serializeSingleItem(it: ItemPresupuesto, lines: string[], indent: strin
       it.insumosSnapshot.forEach((ins) => {
         const cantUnit = `${ins.cantidadTotal} ${ins.unidad || 'u'}`;
         const priceStr = (ins.precioUnitarioCongelado || 0) > 0 ? ` : $ ${Math.round(ins.precioUnitarioCongelado).toLocaleString('es-AR')}` : '';
-        lines.push(`${indent}      - ${cantUnit} ${ins.nombre}${priceStr}`);
+        const brandStr = ins.marca ? ` [${ins.marca}]` : '';
+        lines.push(`${indent}      - ${cantUnit} ${ins.nombre}${brandStr}${priceStr}`);
       });
     }
 
@@ -333,6 +334,7 @@ function parseQuantityAndName(raw: string): {
   cantidad: number;
   unidad: string;
   nombre: string;
+  marca?: string;
   condicion?: 'normal' | 'dificultosa' | 'favorable';
   precioManual?: number;
 } {
@@ -354,6 +356,14 @@ function parseQuantityAndName(raw: string): {
     str = str.slice(0, priceMatch.index).trim();
   }
 
+  // 2b. Marca o Producto comercial entre corchetes (ej: "[Prysmian]", "[Schneider]")
+  let marca: string | undefined = undefined;
+  const brandMatch = str.match(/\[([^\]]+)\]/);
+  if (brandMatch) {
+    marca = brandMatch[1].trim();
+    str = str.replace(brandMatch[0], '').trim();
+  }
+
   // Quitar asteriscos o comillas sobrantes si venía del DSL viejo
   str = str.replace(/^\*\s*/, '').replace(/^"|"$/g, '').trim();
 
@@ -369,6 +379,7 @@ function parseQuantityAndName(raw: string): {
         cantidad: parsedQty > 0 ? parsedQty : 1,
         unidad: candidateUnit,
         nombre: restName,
+        marca,
         condicion,
         precioManual
       };
@@ -379,6 +390,7 @@ function parseQuantityAndName(raw: string): {
         cantidad: parsedQty > 0 ? parsedQty : 1,
         unidad: 'u',
         nombre: fullDesc,
+        marca,
         condicion,
         precioManual
       };
@@ -390,6 +402,7 @@ function parseQuantityAndName(raw: string): {
     cantidad: 1,
     unidad: 'u',
     nombre: str.replace(/^"|"$/g, ''),
+    marca,
     condicion,
     precioManual
   };
@@ -847,6 +860,7 @@ function buildCompositeItem(params: {
     let mCant = 1;
     let mUn = 'u';
     let mNombre = '';
+    let mMarca: string | undefined = undefined;
     let mPrecio: number | undefined = undefined;
 
     if (typeof mItem === 'string') {
@@ -854,23 +868,78 @@ function buildCompositeItem(params: {
       mCant = parsedM.cantidad;
       mUn = parsedM.unidad;
       mNombre = parsedM.nombre;
+      mMarca = parsedM.marca;
       mPrecio = parsedM.precioManual;
     } else if (typeof mItem === 'object' && mItem !== null) {
-      const mKey = Object.keys(mItem)[0];
-      const parsedM = parseQuantityAndName(mKey);
-      mCant = parsedM.cantidad;
-      mUn = parsedM.unidad;
-      mNombre = parsedM.nombre;
-      mPrecio = parseLocalizedNumber(mItem[mKey]);
+      if (mItem.nombre) {
+        // Formato estructurado explícito: { nombre: "...", cantidad: 2, marca: "...", precio: 1000 }
+        mNombre = String(mItem.nombre).trim();
+        mMarca = mItem.producto ? String(mItem.producto).trim() : (mItem.marca ? String(mItem.marca).trim() : undefined);
+        mPrecio = mItem.precio !== undefined ? parseLocalizedNumber(mItem.precio) : undefined;
+        if (mItem.cantidad !== undefined) {
+          if (typeof mItem.cantidad === 'string') {
+            const parsedQ = parseQuantityAndName(mItem.cantidad);
+            mCant = parsedQ.cantidad;
+            if (parsedQ.unidad && parsedQ.unidad !== 'u') mUn = parsedQ.unidad;
+          } else {
+            mCant = parseLocalizedNumber(mItem.cantidad);
+          }
+        }
+        if (mItem.unidad) mUn = String(mItem.unidad).trim();
+      } else {
+        // Formato clave-valor: { "Cable Unipolar": { cantidad: 25, marca: "Prysmian", precio: 1250 } } o { "Cable": 1250 }
+        const mKey = Object.keys(mItem)[0];
+        const val = mItem[mKey];
+        const parsedM = parseQuantityAndName(mKey);
+        mNombre = parsedM.nombre;
+        mMarca = parsedM.marca;
+        mCant = parsedM.cantidad;
+        mUn = parsedM.unidad;
+        mPrecio = parsedM.precioManual;
+
+        if (typeof val === 'object' && val !== null) {
+          if (val.cantidad !== undefined) {
+            if (typeof val.cantidad === 'string') {
+              const parsedQ = parseQuantityAndName(val.cantidad);
+              mCant = parsedQ.cantidad;
+              if (parsedQ.unidad && parsedQ.unidad !== 'u') mUn = parsedQ.unidad;
+            } else {
+              mCant = parseLocalizedNumber(val.cantidad);
+            }
+          }
+          if (val.unidad) mUn = String(val.unidad).trim();
+          if (val.producto || val.marca) {
+            mMarca = String(val.producto || val.marca).trim();
+          }
+          if (val.precio !== undefined) mPrecio = parseLocalizedNumber(val.precio);
+        } else if (val !== undefined && val !== null) {
+          mPrecio = parseLocalizedNumber(val);
+        }
+      }
     }
 
     if (!mNombre) return;
 
-    // Buscar insumo en el catálogo
+    // Buscar insumo en el catálogo (priorizando coincidencia por marca si se indicó)
     const normMat = normalizeString(mNombre);
-    const matchedInsumo = allInsumos.find(
-      (ins) => normalizeString(ins.nombre) === normMat || normalizeString(ins.nombre).includes(normMat)
-    );
+    const normMarca = mMarca ? normalizeString(mMarca) : '';
+
+    let matchedInsumo = allInsumos.find((ins) => {
+      const matchName = normalizeString(ins.nombre) === normMat || normalizeString(ins.nombre).includes(normMat);
+      if (!matchName) return false;
+      if (normMarca) {
+        const insMarca = normalizeString(ins.marca || '');
+        return insMarca.includes(normMarca) || normMarca.includes(insMarca);
+      }
+      return true;
+    });
+
+    if (!matchedInsumo && normMarca) {
+      // Fallback a coincidencia sólo por nombre técnico
+      matchedInsumo = allInsumos.find(
+        (ins) => normalizeString(ins.nombre) === normMat || normalizeString(ins.nombre).includes(normMat)
+      );
+    }
 
     let unitCost = 0;
     let insumoId = `mat-adhoc-${crypto.randomUUID().slice(0, 8)}`;
@@ -886,7 +955,7 @@ function buildCompositeItem(params: {
         diagnostics.push({
           line: 1,
           type: 'warning',
-          message: `⚠️ Material "${mNombre}" no está en catálogo ni tiene precio (ej: ": $ 4.500").`
+          message: `⚠️ Material "${mNombre}" no está en catálogo ni tiene precio (ej: ": $ 4.500" o "precio: 4500").`
         });
       }
     }
@@ -895,8 +964,11 @@ function buildCompositeItem(params: {
     const subtotal = roundMoney(totalQty * unitCost);
 
     insumosSnapshot.push({
+      materialId: matchedInsumo?.id,
       insumoId,
+      productoId: matchedInsumo?.productoId,
       nombre: finalNombre,
+      marca: mMarca || matchedInsumo?.marca,
       unidad: mUn || matchedInsumo?.unidad || 'u',
       cantidadTotal: totalQty,
       precioUnitarioCongelado: unitCost,

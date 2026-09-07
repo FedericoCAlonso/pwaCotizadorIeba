@@ -16,6 +16,7 @@ interface QuickCreateMaterialModalProps {
     alicuotaIVA?: number;
     modoPrecio?: 'con_iva' | 'neto';
     proveedorId: string;
+    marca?: string;
   };
   setFormDataQuickMat: React.Dispatch<
     React.SetStateAction<{
@@ -25,11 +26,12 @@ interface QuickCreateMaterialModalProps {
       alicuotaIVA?: number;
       modoPrecio?: 'con_iva' | 'neto';
       proveedorId: string;
+      marca?: string;
     }>
   >;
   proveedores: Contacto[];
-  modoCargaContinua: boolean;
-  setModoCargaContinua: (val: boolean) => void;
+  modoCargaContinua?: boolean;
+  setModoCargaContinua?: (val: boolean) => void;
   onSave: (e: React.FormEvent) => void;
 }
 
@@ -39,7 +41,7 @@ export const QuickCreateMaterialModal: React.FC<QuickCreateMaterialModalProps> =
   formDataQuickMat,
   setFormDataQuickMat,
   proveedores,
-  modoCargaContinua,
+  modoCargaContinua = false,
   setModoCargaContinua,
   onSave,
 }) => {
@@ -88,6 +90,19 @@ export const QuickCreateMaterialModal: React.FC<QuickCreateMaterialModalProps> =
               placeholder="Ej: Caño corrugado blanco 3/4, Cable unipolar 1.5..."
               required
               autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+              Marca o Producto Comercial (Opcional)
+            </label>
+            <input
+              type="text"
+              value={formDataQuickMat.marca || ''}
+              onChange={(e) => setFormDataQuickMat({ ...formDataQuickMat, marca: e.target.value })}
+              className={inputCls}
+              placeholder="Ej: Prysmian, Schneider, Kalop, Sica..."
             />
           </div>
 
@@ -189,17 +204,19 @@ export const QuickCreateMaterialModal: React.FC<QuickCreateMaterialModalProps> =
             </div>
           )}
 
-          <div className="pt-2 border-t border-outline-variant/20">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-amber-600 dark:text-amber-400">
-              <input
-                type="checkbox"
-                checked={modoCargaContinua}
-                onChange={(e) => setModoCargaContinua(e.target.checked)}
-                className="w-4 h-4 text-amber-500 rounded border-outline focus:ring-amber-500"
-              />
-              <span>⚡ Modo Carga Continua (Enter guarda y pasa al siguiente)</span>
-            </label>
-          </div>
+          {setModoCargaContinua && (
+            <div className="pt-2 border-t border-outline-variant/20">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-amber-600 dark:text-amber-400">
+                <input
+                  type="checkbox"
+                  checked={modoCargaContinua}
+                  onChange={(e) => setModoCargaContinua(e.target.checked)}
+                  className="w-4 h-4 text-amber-500 rounded border-outline focus:ring-amber-500"
+                />
+                <span>⚡ Modo Carga Continua (Enter guarda y pasa al siguiente)</span>
+              </label>
+            </div>
+          )}
 
           <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
             <button

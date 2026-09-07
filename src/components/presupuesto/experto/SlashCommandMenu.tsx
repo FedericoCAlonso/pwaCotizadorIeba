@@ -95,13 +95,15 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
     // 1. Insumos y Materiales del Catálogo
     if (insumosMap && (contextType === 'materiales' || contextType === 'general')) {
       insumosMap.forEach((ins) => {
+        const brandTag = ins.marca ? ` [${ins.marca}]` : '';
+        const brandSub = ins.marca ? ` · ${ins.marca}` : '';
         list.push({
           id: `ins-${ins.id}`,
           category: 'material',
           categoryTag: ins.categoria,
-          title: ins.nombre,
-          subtitle: `Material · $ ${Math.round(ins.precioActual || 0).toLocaleString('es-AR')} / ${ins.unidad || 'u'}${ins.categoria ? ` · ${ins.categoria}` : ''}`,
-          snippet: `- 1 ${ins.unidad || 'u'} ${ins.nombre}\n`,
+          title: ins.marca ? `${ins.nombre} [${ins.marca}]` : ins.nombre,
+          subtitle: `Material · $ ${Math.round(ins.precioActual || 0).toLocaleString('es-AR')} / ${ins.unidad || 'u'}${brandSub}${ins.categoria ? ` · ${ins.categoria}` : ''}`,
+          snippet: `- 1 ${ins.unidad || 'u'} ${ins.nombre}${brandTag}\n`,
           icon: Package,
           extraText: `${ins.categoria || ''} ${ins.marca || ''} ${ins.unidad || ''} ${ins.notas || ''}`
         });

@@ -25,9 +25,11 @@ import {
   GastoPresupuestoConfig,
   TipoFactura,
   NivelMargenRiesgo,
-  AppConfig
+  AppConfig,
+  Material,
+  Oferta
 } from '../../../core/types';
-import { TotalesPresupuestoResultado } from '../../../core/calculations';
+import { TotalesPresupuestoResultado, calcularPrecioNeto, calcularPrecioFinal } from '../../../core/calculations';
 import {
   serializePresupuestoToDSL,
   parseDSLToPresupuesto,
@@ -40,8 +42,11 @@ import {
   handleYamlSmartEnter,
   CursorContextType
 } from './dslParser';
+import { db } from '../../../db/database';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { MultiMaterialPickerModal } from './MultiMaterialPickerModal';
+import { QuickCreateMaterialModal } from '../../insumos/QuickCreateMaterialModal';
 import { ExpertInspector } from './ExpertInspector';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -213,6 +218,28 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
   // Modal de paleta rápida de materiales (Alt + M)
   const [showMultiMaterialModal, setShowMultiMaterialModal] = useState(false);
 
+  // Modal de alta rápida de material al catálogo (+ Catálogo)
+  const [isQuickCreateMatOpen, setIsQuickCreateMatOpen] = useState(false);
+  const [formDataQuickMat, setFormDataQuickMat] = useState<{
+    nombre: string;
+    unidadVenta: string;
+    precio: number | null;
+    alicuotaIVA?: number;
+    modoPrecio?: 'con_iva' | 'neto';
+    proveedorId: string;
+    marca?: string;
+  }>({
+    nombre: '',
+    unidadVenta: 'u',
+    precio: null,
+    alicuotaIVA: 21,
+    modoPrecio: 'con_iva',
+    proveedorId: '',
+    marca: ''
+  });
+
+  const proveedores = useLiveQuery(() => db.contactos.where('roles').equals('proveedor').toArray()) || [];
+
   const isInternalUpdateRef = useRef(false);
 
   // Parseo y sincronización del YAML con el ViewModel
@@ -334,6 +361,109 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     items,
     gastosConfig
   ]);
+
+  // Abrir modal de alta rápida de material pre-completado desde el YAML
+  const handleOpenQuickCreateMat = useCallback(
+    (data: { nombre: string; unidad: string; precio: number | null; marca?: string }) => {
+      setFormDataQuickMat({
+        nombre: data.nombre,
+        unidadVenta: data.unidad || 'u',
+        precio: data.precio,
+        alicuotaIVA: 21,
+        modoPrecio: 'con_iva',
+        proveedorId: proveedores[0]?.id || 'prov-general',
+        marca: data.marca || ''
+      });
+      setIsQuickCreateMatOpen(true);
+    },
+    [proveedores]
+  );
+
+  // Guardar material, producto (marca) y oferta en la base de datos Dexie
+  const handleSaveQuickMat = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!formDataQuickMat.nombre.trim()) return;
+
+      try {
+        const catSinCatId = 'cat-sin-categoria';
+        const catExists = await db.categoriasMaterial.get(catSinCatId);
+        if (!catExists) {
+          await db.categoriasMaterial.put({
+            id: catSinCatId,
+            nombre: 'Sin categoría (No asignado)',
+            atributosSugeridos: []
+          });
+        }
+
+        const now = new Date().toISOString();
+        const matId = `mat-${crypto.randomUUID()}`;
+        const newMat: Material = {
+          id: matId,
+          categoriaId: catSinCatId,
+          nombre: formDataQuickMat.nombre.trim(),
+          unidadVenta: formDataQuickMat.unidadVenta || 'u',
+          atributos: [],
+          activo: true,
+          fichaIncompleta: true,
+          createdAt: now,
+          updatedAt: now
+        };
+
+        await db.materiales.add(newMat);
+
+        // Si se especificó marca/producto, registrarlo en la tabla productos
+        let productoId: string | undefined = undefined;
+        if (formDataQuickMat.marca?.trim()) {
+          productoId = `prod-${crypto.randomUUID()}`;
+          await db.productos.add({
+            id: productoId,
+            materialId: matId,
+            marca: formDataQuickMat.marca.trim(),
+            modelo: '',
+            esPreferido: true,
+            activo: true,
+            createdAt: now,
+            updatedAt: now
+          });
+        }
+
+        // Si se indicó precio, registrar Oferta
+        if (formDataQuickMat.precio && formDataQuickMat.precio > 0) {
+          const p = formDataQuickMat.precio;
+          const modo = formDataQuickMat.modoPrecio || 'con_iva';
+          const alicuota = formDataQuickMat.alicuotaIVA ?? 21;
+          const precioNeto = modo === 'con_iva' ? calcularPrecioNeto(p, alicuota) : p;
+          const precioFinal = modo === 'con_iva' ? p : calcularPrecioFinal(p, alicuota);
+
+          const newOferta: Oferta = {
+            id: `oferta-${crypto.randomUUID()}`,
+            materialId: matId,
+            productoId,
+            proveedorId: formDataQuickMat.proveedorId || proveedores[0]?.id || 'prov-general',
+            precio: precioNeto,
+            precioNeto,
+            alicuotaIVA: alicuota,
+            precioFinal,
+            fecha: now,
+            fuente: 'manual'
+          };
+          await db.ofertas.add(newOferta);
+        }
+
+        toast.success(`Material "${newMat.nombre}" agregado al catálogo`);
+        setIsQuickCreateMatOpen(false);
+
+        // Disparar re-parseo tras un instante para reflejar el nuevo material en vivo
+        setTimeout(() => {
+          handleParseAndSync(dslText);
+        }, 60);
+      } catch (err: any) {
+        toast.error('Error al guardar material en catálogo: ' + (err?.message || 'Error desconocido'));
+      }
+    },
+    [formDataQuickMat, proveedores, toast, handleParseAndSync, dslText]
+  );
 
   // Atajo global para abrir paleta rápida de materiales (Alt + M, Alt + I, Ctrl + M)
   useEffect(() => {
@@ -791,6 +921,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
             onEmitirClick={onEmitirClick}
             onLoadExample={handleLoadExample}
             onCopyDSL={handleCopyDSL}
+            onAddMaterialToCatalog={handleOpenQuickCreateMat}
           />
         </div>
       </div>
@@ -802,6 +933,16 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
         insumosMap={insumosMap}
         onInsertMaterials={handleInsertMultipleMaterials}
         currentIndent={currentIndentForPalette}
+      />
+
+      {/* Modal de Alta Rápida de Material al Catálogo (+ Catálogo) */}
+      <QuickCreateMaterialModal
+        isOpen={isQuickCreateMatOpen}
+        onClose={() => setIsQuickCreateMatOpen(false)}
+        formDataQuickMat={formDataQuickMat}
+        setFormDataQuickMat={setFormDataQuickMat}
+        proveedores={proveedores}
+        onSave={handleSaveQuickMat}
       />
     </div>
   );
