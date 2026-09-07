@@ -1528,87 +1528,107 @@ export function detectCursorContext(textBeforeCursor: string): CursorContextResu
   const lines = textBeforeCursor.split('\n');
   const currentLine = lines[lines.length - 1] || '';
   const currentIndent = currentLine.match(/^\s*/)?.[0] || '';
+  const trimmedCurrent = currentLine.trim();
   const currentIndentLen = currentIndent.length;
 
-  // Escanear hacia atrás buscando el encabezado de bloque contenedor
-  for (let i = lines.length - 1; i >= 0; i--) {
+  const reservedRootKeys = new Set(['cliente', 'obra', 'factura', 'validez', 'margen', 'riesgo', 'dolar', 'gastos', 'totales']);
+
+  // Si estamos en nivel raíz (indent 0) y no es viñeta:
+  if (currentIndentLen === 0 && !trimmedCurrent.startsWith('-')) {
+    const currentKey = trimmedCurrent.replace(/:.*$/, '').trim().toLowerCase();
+    if (reservedRootKeys.has(currentKey)) {
+      return { contextType: 'general', currentIndent };
+    }
+    // Si la última línea no vacía anterior es una clave raíz reservada, seguimos en contexto general
+    for (let i = lines.length - 2; i >= 0; i--) {
+      const tr = lines[i].trim();
+      if (!tr || tr.startsWith('#')) continue;
+      const ind = (lines[i].match(/^\s*/)?.[0] || '').length;
+      if (ind === 0) {
+        const k = tr.replace(/:.*$/, '').trim().toLowerCase();
+        if (reservedRootKeys.has(k)) {
+          return { contextType: 'general', currentIndent };
+        }
+      }
+      break;
+    }
+    return { contextType: 'general', currentIndent };
+  }
+
+  // Escanear hacia arriba para encontrar la sección contenedora activa
+  // En la jerarquía:
+  // - Nivel 1 (indent 0): Capítulo / Directivas generales
+  // - Nivel 2 (indent 2-4): Partidas ("- 1 u Boca...", "- Partida...")
+  // - Nivel 3 (indent 4-6): Secciones de partida ("materiales:", "mano_obra:", "condicion:", etc.)
+  // - Nivel 4 (indent 6-10): Ítems de despiece ("- Cable...", "- 4h Oficial...")
+  // - Nivel 5 (indent >= 10): Propiedades de ítems ("cantidad:", "precio:", etc.)
+
+  for (let i = lines.length - 2; i >= 0; i--) {
     const rawLine = lines[i];
     const trimmed = rawLine.trim();
-
-    // Ignorar líneas vacías y comentarios completos (#)
-    if (!trimmed || trimmed.startsWith('#')) {
-      continue;
-    }
+    if (!trimmed || trimmed.startsWith('#')) continue;
 
     const lineIndent = (rawLine.match(/^\s*/)?.[0] || '').length;
 
-    // Solo nos interesa una línea ancestro: menor indentación que la actual,
-    // o si estamos en una línea recién creada después de un bloque que termina con ':'
-    const isAncestor = lineIndent < currentIndentLen || (i < lines.length - 1 && trimmed.endsWith(':') && lineIndent <= currentIndentLen);
+    // 1. Detectar si cruzamos una sección de partida ("materiales:" o "mano_obra:")
+    const secMatch = trimmed.match(/^(materiales|insumos|mano_obra|manoobra|mo)\s*:/i);
+    if (secMatch) {
+      const secType = /^(materiales|insumos)/i.test(secMatch[1]) ? 'materiales' : 'mano_obra';
 
-    if (isAncestor) {
-      if (/^-?\s*(materiales|insumos)\s*:?/i.test(trimmed)) {
-        return { contextType: 'materiales', currentIndent, parentHeader: 'materiales' };
+      // Si la línea actual está indentada más que la cabecera de sección (ej: 8 o 12 > 6),
+      // o está a la misma sangría pero empieza con "-" (usuario tipeando ítem de despiece)
+      if (currentIndentLen > lineIndent || (currentIndentLen === lineIndent && trimmedCurrent.startsWith('-'))) {
+        return { contextType: secType, currentIndent, parentHeader: secType };
       }
+      // Si la línea actual tiene sangría menor o igual a la sección y no empieza con "-",
+      // la sección ya cerró. Continuamos buscando el contenedor superior (partida o capítulo).
+    }
 
-      if (/^-?\s*(mano_obra|manoobra|mo)\s*:?/i.test(trimmed)) {
-        return { contextType: 'mano_obra', currentIndent, parentHeader: 'mano_obra' };
-      }
-
-      // Subcategoría bajo materiales (ej: "cables:" o "protecciones:")
-      if (trimmed.endsWith(':') && !trimmed.startsWith('-')) {
-        // Buscar el ancestro de esta subcategoría
-        for (let j = i - 1; j >= 0; j--) {
-          const ancRaw = lines[j];
-          const ancTrimmed = ancRaw.trim();
-          if (!ancTrimmed || ancTrimmed.startsWith('#')) continue;
-          const ancIndent = (ancRaw.match(/^\s*/)?.[0] || '').length;
-          if (ancIndent < lineIndent) {
-            if (/^(materiales|insumos):/i.test(ancTrimmed)) {
-              const catName = trimmed.replace(/:$/, '').trim();
-              return {
-                contextType: 'materiales',
-                currentIndent,
-                activeCategory: catName,
-                parentHeader: 'materiales'
-              };
-            }
-            break;
+    // 2. Subcategoría bajo materiales (ej: "cables:" o "protecciones:" dentro de materiales:)
+    if (trimmed.endsWith(':') && !trimmed.startsWith('-') && lineIndent > 4) {
+      for (let j = i - 1; j >= 0; j--) {
+        const ancRaw = lines[j];
+        const ancTr = ancRaw.trim();
+        if (!ancTr || ancTr.startsWith('#')) continue;
+        const ancInd = (ancRaw.match(/^\s*/)?.[0] || '').length;
+        if (ancInd < lineIndent && /^(materiales|insumos):/i.test(ancTr)) {
+          if (currentIndentLen > lineIndent || (currentIndentLen === lineIndent && trimmedCurrent.startsWith('-'))) {
+            return {
+              contextType: 'materiales',
+              currentIndent,
+              activeCategory: trimmed.replace(/:$/, '').trim(),
+              parentHeader: 'materiales'
+            };
           }
+          break;
         }
       }
+    }
 
-      // Si es "items:" o "partidas:"
-      if (/^(items|partidas):/i.test(trimmed)) {
-        return { contextType: 'tareas', currentIndent, parentHeader: 'items' };
-      }
-
-      // Si es "gastos:"
-      if (/^gastos\s*:?/i.test(trimmed)) {
-        return { contextType: 'general', currentIndent, parentHeader: 'gastos' };
-      }
-
-      // Si es un encabezado a nivel raíz (indent 0) con ':'
-      if (lineIndent === 0 && trimmed.endsWith(':') && !trimmed.startsWith('-')) {
-        const rootKey = trimmed.replace(/:$/, '').trim().toLowerCase();
-        const reservedRootKeys = ['cliente', 'obra', 'factura', 'validez', 'margen', 'riesgo', 'dolar', 'gastos', 'totales'];
-        if (!reservedRootKeys.includes(rootKey)) {
-          // Es un capítulo (ej: "Instalación Eléctrica:", "Tableros:")
-          return { contextType: 'tareas', currentIndent, parentHeader: trimmed.replace(/:$/, '').trim() };
-        }
-        break;
-      }
-
-      // Si el ancestro es un ítem de partida '- ' y no fue materiales ni mano de obra
-      if (trimmed.startsWith('- ')) {
+    // 3. Detectar si cruzamos una partida (línea que empieza con "- " con sangría <= 4)
+    if (trimmed.startsWith('- ') && lineIndent <= 4) {
+      if (currentIndentLen > lineIndent) {
         return { contextType: 'tareas', currentIndent, parentHeader: 'partida' };
       }
     }
+
+    // 4. Encabezados especiales: "gastos:"
+    if (/^gastos\s*:?/i.test(trimmed) && lineIndent === 0) {
+      return { contextType: 'general', currentIndent, parentHeader: 'gastos' };
+    }
+
+    // 5. Encabezado a nivel raíz (indent 0) con ":"
+    if (lineIndent === 0 && trimmed.endsWith(':') && !trimmed.startsWith('-')) {
+      const rootKey = trimmed.replace(/:$/, '').trim().toLowerCase();
+      if (!reservedRootKeys.has(rootKey)) {
+        return { contextType: 'tareas', currentIndent, parentHeader: trimmed.replace(/:$/, '').trim() };
+      }
+      break;
+    }
   }
 
-  // Si la línea actual empieza con '- ', y no fue capturada por materiales ni mano de obra:
-  // Es una partida/tarea (incluso si está antes de cualquier capítulo o al nivel raíz)
-  if (currentLine.trim().startsWith('- ')) {
+  // Si la línea actual es un ítem de lista ("- ") y no fue capturada por una subsección
+  if (trimmedCurrent.startsWith('- ')) {
     return { contextType: 'tareas', currentIndent };
   }
 
@@ -1670,8 +1690,8 @@ export function detectSuggestTrigger(currentLineBeforeCursor: string): SuggestTr
   }
 
   // 3. IntelliSense automático en línea indentada de propiedades (ej: "            can", "            pre", "            prod")
-  // Detecta palabras de 2+ letras escritas tras una sangría de al menos 4 espacios sin guión
-  const propMatch = currentLineBeforeCursor.match(/^(\s{4,})([a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]{2,}[^\r\n]*)$/);
+  // Detecta palabras escritas tras una sangría de al menos 4 espacios sin guión
+  const propMatch = currentLineBeforeCursor.match(/^(\s{4,})([a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]{1,}[^\r\n]*)$/);
   if (propMatch) {
     const rawQuery = propMatch[2];
     const isKeyword = /^(materiales|insumos|mano_obra|manoobra|mo):?$/i.test(rawQuery.trim());
@@ -1706,8 +1726,10 @@ export function formatSlashCommandReplacement(params: {
   const { currentLineBeforeCursor, snippet, contextType } = params;
   let lineIndent = currentLineBeforeCursor.match(/^\s*/)?.[0] || '';
 
-  // Garantizar sangría técnica según el contexto
-  if (contextType === 'materiales' || contextType === 'mano_obra') {
+  // Garantizar sangría técnica según el tipo de elemento y el contexto
+  if (/^(materiales|mano_obra|condicion|precio|parametros):/i.test(snippet.trim())) {
+    lineIndent = '      ';
+  } else if (contextType === 'materiales' || contextType === 'mano_obra') {
     if (snippet.trim().startsWith('- ') && lineIndent.length < 8) {
       lineIndent = '        ';
     } else if (/^(cantidad|precio|producto|marca|unidad|horas|notas):\s*/i.test(snippet.trim()) && lineIndent.length < 12) {

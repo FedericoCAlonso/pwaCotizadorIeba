@@ -1115,6 +1115,52 @@ dolar: USD Blue
       expect(contextType).toBe('materiales');
     });
 
+    it('detectCursorContext retiene contexto "materiales" en el siguiente ítem tras un material existente con propiedades y dos puntos', () => {
+      const textBefore = `Refacciones:
+  - 1 u Reparación de tablero:
+      materiales:
+        - Tablero Modular DIN 36 Módulos:
+            cantidad: 1
+            marca: Gabexel
+        - Cable Unipolar:
+            cantidad: 10
+            precio: 1510
+        - `;
+
+      const { contextType } = detectCursorContext(textBefore);
+      expect(contextType).toBe('materiales');
+    });
+
+    it('detectCursorContext retiene contexto "materiales" al escribir propiedades indentadas bajo un ítem', () => {
+      const textBefore = `Refacciones:
+  - 1 u Reparación de tablero:
+      materiales:
+        - Tablero Modular DIN 36 Módulos:
+            `;
+
+      const { contextType } = detectCursorContext(textBefore);
+      expect(contextType).toBe('materiales');
+    });
+
+    it('detectSuggestTrigger detecta disparadores de propiedades con un solo caracter (ej: "    c" o "    p")', () => {
+      const triggerC = detectSuggestTrigger('            c');
+      expect(triggerC).not.toBeNull();
+      expect(triggerC?.query).toBe('c');
+
+      const triggerP = detectSuggestTrigger('            p');
+      expect(triggerP).not.toBeNull();
+      expect(triggerP?.query).toBe('p');
+    });
+
+    it('formatSlashCommandReplacement formatea mano_obra: a exactamente 6 espacios sin importar la sangría del cursor', () => {
+      const { replacementLine } = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '        - mo',
+        snippet: 'mano_obra:\n  - ',
+        contextType: 'materiales'
+      });
+      expect(replacementLine.startsWith('      mano_obra:')).toBe(true);
+    });
+
     it('handleYamlSmartBackspace retrocede niveles jerárquicos automáticamente en líneas vacías y viñetas vacías', () => {
       // 1. Desde nivel 5 (12 espacios de propiedad vacía) retrocede a nivel 4 (8 espacios + viñeta)
       const res5 = handleYamlSmartBackspace({

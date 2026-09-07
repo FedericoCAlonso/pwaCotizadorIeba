@@ -181,6 +181,26 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
         icon: Hash,
         extraText: 'unidad medida u m kg'
       });
+
+      // Directivas de transición hacia Mano de Obra o Condición
+      list.push({
+        id: 'dir-mat-mano-obra',
+        category: 'directiva',
+        title: 'mano_obra:',
+        subtitle: 'Sección · Pasar a despiece de mano de obra y cuadrilla',
+        snippet: 'mano_obra:\n  - ',
+        icon: HardHat,
+        extraText: 'mano de obra mo cuadrilla horas operarios'
+      });
+      list.push({
+        id: 'dir-mat-condicion',
+        category: 'directiva',
+        title: 'condicion: [normal | dificultosa | favorable]',
+        subtitle: 'Propiedad · Coeficiente de dificultad de la partida',
+        snippet: 'condicion: normal\n',
+        icon: Tag,
+        extraText: 'condicion dificultad normal dificultosa favorable'
+      });
     }
 
     // 2. Categorías de Mano de Obra (ÚNICAMENTE en sección mano de obra)
@@ -215,6 +235,26 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
         snippet: 'precio: ',
         icon: DollarSign,
         extraText: 'precio valor costo hora'
+      });
+
+      // Directivas de transición hacia Materiales o Condición
+      list.push({
+        id: 'dir-mo-materiales',
+        category: 'directiva',
+        title: 'materiales:',
+        subtitle: 'Sección · Despiece de materiales e insumos',
+        snippet: 'materiales:\n  - ',
+        icon: Package,
+        extraText: 'materiales insumos lista componentes'
+      });
+      list.push({
+        id: 'dir-mo-condicion',
+        category: 'directiva',
+        title: 'condicion: [normal | dificultosa | favorable]',
+        subtitle: 'Propiedad · Coeficiente de dificultad de la partida',
+        snippet: 'condicion: normal\n',
+        icon: Tag,
+        extraText: 'condicion dificultad normal dificultosa favorable'
       });
     }
 
