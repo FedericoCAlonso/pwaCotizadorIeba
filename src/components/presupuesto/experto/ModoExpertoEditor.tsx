@@ -10,7 +10,8 @@ import {
   Truck,
   Copy,
   Keyboard,
-  RotateCcw
+  RotateCcw,
+  Zap
 } from 'lucide-react';
 import {
   Cliente,
@@ -407,7 +408,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
             <button
               type="button"
-              onClick={() => insertSnippet('\n- 1 u * ')}
+              onClick={() => insertSnippet('\n  - 1 u ')}
               className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface font-semibold flex items-center gap-1 border border-outline-variant/20 transition shrink-0 cursor-pointer min-h-[34px]"
             >
               <Plus className="w-3.5 h-3.5 text-primary" />
@@ -416,36 +417,30 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
             <button
               type="button"
-              onClick={() => insertSnippet('\n# ')}
+              onClick={() => insertSnippet('\n  - Tablero a Medida:\n      materiales:\n        - 1 u \n      mano_obra:\n        - 4 h Oficial\n')}
+              className="px-2.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl font-bold flex items-center gap-1 border border-primary/30 transition shrink-0 cursor-pointer min-h-[34px]"
+              title="Crea una partida a medida con cómputo de materiales y mano de obra"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>+ Partida a Medida (APU)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => insertSnippet('\nCapítulo Nuevo:\n  - 1 u ')}
               className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface font-semibold flex items-center gap-1 border border-outline-variant/20 transition shrink-0 cursor-pointer min-h-[34px]"
             >
               <FolderPlus className="w-3.5 h-3.5 text-secondary" />
-              <span># Capítulo</span>
+              <span>+ Capítulo</span>
             </button>
 
             <button
               type="button"
-              onClick={() => insertSnippet('\n@gasto: Flete = $ 35.000\n')}
+              onClick={() => insertSnippet('\ngastos:\n  - Viáticos: $ 15.000\n')}
               className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface font-semibold flex items-center gap-1 border border-outline-variant/20 transition shrink-0 cursor-pointer min-h-[34px]"
             >
               <Truck className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-              <span>@ Gasto</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => insertSnippet('\n@cliente: ')}
-              className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface font-semibold flex items-center gap-1 border border-outline-variant/20 transition shrink-0 cursor-pointer min-h-[34px]"
-            >
-              <span>@ Cliente</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => insertSnippet('\n@obra: ')}
-              className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface font-semibold flex items-center gap-1 border border-outline-variant/20 transition shrink-0 cursor-pointer min-h-[34px]"
-            >
-              <span>@ Obra</span>
+              <span>+ Gasto</span>
             </button>
           </div>
 
@@ -455,7 +450,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
               <div className="flex items-center gap-3">
                 <span className="font-bold flex items-center gap-1 text-primary">
                   <Code2 className="w-4 h-4" />
-                  <span>cotizacion.dsl</span>
+                  <span>cotizacion.yaml</span>
                 </span>
                 <span>•</span>
                 <span>{lineCount} líneas</span>
@@ -463,10 +458,10 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
               <div className="flex items-center gap-2 text-[11px]">
                 <kbd className="px-1.5 py-0.5 bg-surface-container rounded border border-outline-variant/20 font-mono">
-                  / para catálogo
+                  / catálogo y materiales
                 </kbd>
                 <kbd className="px-1.5 py-0.5 bg-surface-container rounded border border-outline-variant/20 font-mono">
-                  @ para directivas
+                  # comentarios
                 </kbd>
               </div>
             </div>
@@ -488,7 +483,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
                 onChange={handleTextChange}
                 onKeyDown={handleKeyDown}
                 rows={22}
-                placeholder={`@cliente: Nombre del Cliente\n@obra: Dirección de la Obra\n\n# Capítulo 1\n- 10 u * Boca de Iluminación\n- 5 u * Disyuntor 2x40A`}
+                placeholder={`cliente: Nombre del Cliente\nobra: Dirección de la Obra\nfactura: Factura A\n\nInstalación Eléctrica:\n  - 10 u Boca de Iluminación\n  - 5 u Tomacorriente Doble`}
                 spellCheck={false}
                 className="w-full p-4 bg-transparent text-on-surface font-mono text-xs sm:text-sm leading-6 resize-y focus:outline-none placeholder:text-on-surface-variant/30 min-h-[480px]"
               />
@@ -499,6 +494,8 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
                   query={slashMenuState.query}
                   tareasTipo={tareasTipo}
                   clientes={clientes}
+                  insumosMap={insumosMap}
+                  manoObraMap={manoObraMap}
                   onSelect={handleSelectSlashCommand}
                   onClose={() => setSlashMenuState((prev) => ({ ...prev, isOpen: false }))}
                 />

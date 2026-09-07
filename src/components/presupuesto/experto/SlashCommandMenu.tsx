@@ -10,14 +10,16 @@ import {
   ShieldAlert,
   DollarSign,
   Truck,
-  Plus
+  Package,
+  HardHat,
+  Layers
 } from 'lucide-react';
-import { TareaTipo, Cliente } from '../../../core/types';
+import { TareaTipo, Cliente, Insumo, CategoriaManoDeObra } from '../../../core/types';
 import { normalizeString } from './dslParser';
 
 export interface SlashCommandItem {
   id: string;
-  category: 'tarea' | 'capitulo' | 'directiva' | 'gasto';
+  category: 'tarea' | 'material' | 'mano_obra' | 'capitulo' | 'directiva' | 'gasto';
   title: string;
   subtitle?: string;
   snippet: string;
@@ -28,6 +30,8 @@ interface SlashCommandMenuProps {
   query: string;
   tareasTipo: TareaTipo[];
   clientes: Cliente[];
+  insumosMap?: Map<string, Insumo>;
+  manoObraMap?: Map<string, CategoriaManoDeObra>;
   onSelect: (snippet: string) => void;
   onClose: () => void;
   position?: { top: number; left: number };
@@ -37,6 +41,8 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   query,
   tareasTipo,
   clientes,
+  insumosMap,
+  manoObraMap,
   onSelect,
   onClose,
   position
@@ -56,97 +62,135 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
         id: `tarea-${t.id}`,
         category: 'tarea',
         title: t.nombre,
-        subtitle: `${t.categoria || 'Catálogo'} · /${t.unidad || 'u'}`,
-        snippet: `- 1 ${t.unidad || 'u'} * "${t.nombre}"\n`,
+        subtitle: `Tarea · /${t.unidad || 'u'} · ${t.categoria || 'Catálogo'}`,
+        snippet: `- 1 ${t.unidad || 'u'} ${t.nombre}\n`,
         icon: Zap
       });
     });
 
-    // 2. Estructura y Capítulos
+    // 2. Partida a Medida (Plantilla APU compuesta)
+    list.push({
+      id: 'cmd-partida-medida',
+      category: 'tarea',
+      title: '⚡ Partida a Medida (APU)',
+      subtitle: 'Crea un trabajo con despiece de materiales y mano de obra',
+      snippet: `- Tablero a Medida:\n    materiales:\n      - 1 u Gabinete DIN 24 módulos\n    mano_obra:\n      - 6 h Oficial\n`,
+      icon: Layers
+    });
+
+    // 3. Insumos y Materiales del Catálogo
+    if (insumosMap) {
+      insumosMap.forEach((ins) => {
+        list.push({
+          id: `ins-${ins.id}`,
+          category: 'material',
+          title: ins.nombre,
+          subtitle: `Material · $ ${Math.round(ins.precioActual || 0).toLocaleString('es-AR')} / ${ins.unidad || 'u'}`,
+          snippet: `- 1 ${ins.unidad || 'u'} ${ins.nombre}\n`,
+          icon: Package
+        });
+      });
+    }
+
+    // 4. Categorías de Mano de Obra
+    if (manoObraMap) {
+      manoObraMap.forEach((mo) => {
+        list.push({
+          id: `mo-${mo.id}`,
+          category: 'mano_obra',
+          title: `MO: ${mo.nombre}`,
+          subtitle: `Mano de Obra · $ ${Math.round(mo.costoHora || 0).toLocaleString('es-AR')} / hora`,
+          snippet: `- 4 h ${mo.nombre}\n`,
+          icon: HardHat
+        });
+      });
+    }
+
+    // 5. Estructura y Capítulos
     list.push({
       id: 'cmd-capitulo',
       category: 'capitulo',
-      title: '# Nuevo Capítulo',
+      title: 'Nuevo Capítulo',
       subtitle: 'Agrupa partidas bajo una sección de obra',
-      snippet: `# Capítulo Nuevo\n- 1 u * `,
+      snippet: `Capítulo Nuevo:\n  - 1 u `,
       icon: FolderPlus
     });
 
-    // 3. Directivas de Cotización
+    // 6. Directivas de Cotización en YAML
     list.push({
       id: 'cmd-cliente',
       category: 'directiva',
-      title: '@cliente: [Nombre]',
+      title: 'cliente: [Nombre]',
       subtitle: 'Asigna el comitente o estudio de arquitectura',
-      snippet: `@cliente: `,
+      snippet: `cliente: `,
       icon: Building2
     });
 
     list.push({
       id: 'cmd-obra',
       category: 'directiva',
-      title: '@obra: [Dirección]',
+      title: 'obra: [Dirección]',
       subtitle: 'Ubicación específica de la obra',
-      snippet: `@obra: `,
+      snippet: `obra: `,
       icon: MapPin
     });
 
     list.push({
       id: 'cmd-factura',
       category: 'directiva',
-      title: '@factura: [Factura A | B | C | Presupuesto X]',
-      subtitle: 'Encuadre fiscal de la oferta',
-      snippet: `@factura: Factura C\n`,
+      title: 'factura: [Factura A | B | C]',
+      subtitle: 'Encuadre fiscal de la cotización',
+      snippet: `factura: Factura A\n`,
       icon: FileSpreadsheet
     });
 
     list.push({
       id: 'cmd-validez',
       category: 'directiva',
-      title: '@validez: [15] dias',
-      subtitle: 'Plazo de validez de precios de la cotización',
-      snippet: `@validez: 15 dias\n`,
+      title: 'validez: [15] dias',
+      subtitle: 'Plazo de validez de la oferta',
+      snippet: `validez: 15 dias\n`,
       icon: Calendar
     });
 
     list.push({
       id: 'cmd-margen',
       category: 'directiva',
-      title: '@margen: [35]%',
-      subtitle: 'Margen de beneficio comercial aplicado',
-      snippet: `@margen: 35%\n`,
+      title: 'margen: [35]%',
+      subtitle: 'Margen de beneficio sobre costos',
+      snippet: `margen: 35%\n`,
       icon: Percent
     });
 
     list.push({
       id: 'cmd-riesgo',
       category: 'directiva',
-      title: '@riesgo: [bajo | medio | alto]',
-      subtitle: 'Fondo de contingencia para imprevistos de obra',
-      snippet: `@riesgo: medio\n`,
+      title: 'riesgo: [bajo | normal | alto]',
+      subtitle: 'Fondo de contingencia para imprevistos',
+      snippet: `riesgo: normal\n`,
       icon: ShieldAlert
     });
 
     list.push({
       id: 'cmd-dolar',
       category: 'directiva',
-      title: '@dolar: [Dólar MEP] = [1250]',
-      subtitle: 'Referencia equivalente en moneda extranjera',
-      snippet: `@dolar: Dólar MEP = 1250\n`,
+      title: 'dolar: [MEP 1350]',
+      subtitle: 'Cotización en moneda extranjera',
+      snippet: `dolar: MEP 1350\n`,
       icon: DollarSign
     });
 
     list.push({
       id: 'cmd-gasto',
       category: 'gasto',
-      title: '@gasto: Flete y Logística = $ 45.000',
-      subtitle: 'Costo operativo, fletes, andamios o seguros',
-      snippet: `@gasto: Flete y Logística = $ 45.000\n`,
+      title: 'gastos: Viáticos = $ 15.000',
+      subtitle: 'Costo logístico, fletes o traslados',
+      snippet: `gastos:\n  - Viáticos: $ 15.000\n`,
       icon: Truck
     });
 
     if (!cleanQuery) {
-      return list.slice(0, 12);
+      return list.slice(0, 15);
     }
 
     return list
@@ -155,8 +199,8 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
         const subNorm = normalizeString(it.subtitle || '');
         return tNorm.includes(cleanQuery) || subNorm.includes(cleanQuery);
       })
-      .slice(0, 15);
-  }, [cleanQuery, tareasTipo]);
+      .slice(0, 20);
+  }, [cleanQuery, tareasTipo, insumosMap, manoObraMap]);
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -204,14 +248,14 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   return (
     <div
       ref={containerRef}
-      className="absolute z-50 w-80 sm:w-96 max-h-80 bg-surface-container-high/95 backdrop-blur-md border border-outline-variant/40 rounded-2xl shadow-2xl overflow-y-auto p-1.5 animate-in fade-in zoom-in-95 duration-100"
+      className="absolute z-50 w-80 sm:w-96 max-h-84 bg-surface-container-high/95 backdrop-blur-md border border-outline-variant/40 rounded-2xl shadow-2xl overflow-y-auto p-1.5 animate-in fade-in zoom-in-95 duration-100"
       style={{
         top: position ? `${position.top}px` : '48px',
         left: position ? `${position.left}px` : '16px'
       }}
     >
       <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant flex items-center justify-between border-b border-outline-variant/15 mb-1">
-        <span>Comandos y Catálogo</span>
+        <span>Catálogo y Comandos YAML</span>
         <span className="font-mono text-[10px] text-primary">↑ ↓ Enter</span>
       </div>
 

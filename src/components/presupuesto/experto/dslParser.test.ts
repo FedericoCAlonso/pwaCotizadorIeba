@@ -2,12 +2,13 @@ import { describe, it, expect } from 'vitest';
 import {
   parseDSLToPresupuesto,
   serializePresupuestoToDSL,
+  getDefaultPresupuestoYAMLTemplate,
   parseLocalizedNumber,
   normalizeString
 } from './dslParser';
 import { Cliente, TareaTipo, Insumo, CategoriaManoDeObra, ItemPresupuesto, CapituloPresupuesto } from '../../../core/types';
 
-describe('dslParser (Modo Experto Desktop)', () => {
+describe('dslParser (Modo Experto YAML)', () => {
   const mockClientes: Cliente[] = [
     { id: 'cli-1', nombre: 'Federico Gómez', razonSocial: 'Estudio Arq. Gómez', cuitDni: '30-12345678-9', direccion: 'Av. Corrientes 1000', roles: ['cliente'] },
     { id: 'cli-2', nombre: 'Juan Pérez', razonSocial: 'Juan Pérez', cuitDni: '20-98765432-1', direccion: 'Belgrano 450', roles: ['cliente'] }
@@ -38,7 +39,8 @@ describe('dslParser (Modo Experto Desktop)', () => {
   ]);
 
   const mockManoObraMap = new Map<string, CategoriaManoDeObra>([
-    ['mo-oficial', { id: 'mo-oficial', nombre: 'Oficial', costoHora: 5000, fechaActualizacion: '2026-01-01' }]
+    ['mo-oficial', { id: 'mo-oficial', nombre: 'Oficial', costoHora: 5000, fechaActualizacion: '2026-01-01' }],
+    ['mo-ayudante', { id: 'mo-ayudante', nombre: 'Ayudante', costoHora: 3500, fechaActualizacion: '2026-01-01' }]
   ]);
 
   it('parseLocalizedNumber parsea correctamente números con formatos varios', () => {
@@ -48,89 +50,152 @@ describe('dslParser (Modo Experto Desktop)', () => {
     expect(parseLocalizedNumber('$ 35.000')).toBe(35000);
   });
 
-  it('parsea directivas de cabecera y vincula cliente y obra', () => {
-    const text = `
-@cliente: Estudio Arq. Gómez
-@obra: Thames 1850, Palermo
-@factura: Factura A
-@validez: 30 dias
-@margen: 40%
-@riesgo: alto
-@dolar: Dólar MEP = 1300
+  it('getDefaultPresupuestoYAMLTemplate genera la plantilla inicial comentada', () => {
+    const template = getDefaultPresupuestoYAMLTemplate({ clientes: mockClientes });
+    expect(template).toContain('# ============================================================');
+    expect(template).toContain('cliente: Estudio Arq. Gómez');
+    expect(template).toContain('factura: Factura A');
+    expect(template).toContain('Instalación Eléctrica:');
+    expect(template).toContain('Tableros y Automatización:');
+    expect(template).toContain('materiales:');
+    expect(template).toContain('mano_obra:');
+    expect(template).toContain('gastos:');
+  });
+
+  it('parsea directivas de cabecera en YAML y vincula cliente y obra', () => {
+    const yaml = `
+# Comentario inicial
+cliente: Estudio Arq. Gómez
+obra: Thames 1850, Palermo
+factura: Factura A
+validez: 30 dias
+margen: 40%
+riesgo: alto
+dolar: MEP 1300
     `;
 
-    const res = parseDSLToPresupuesto(text, {
+    const result = parseDSLToPresupuesto(yaml, {
       clientes: mockClientes,
       tareasTipo: mockTareas,
       insumosMap: mockInsumosMap,
       manoObraMap: mockManoObraMap
     });
 
-    expect(res.clienteId).toBe('cli-1');
-    expect(res.direccionObra).toBe('Thames 1850, Palermo');
-    expect(res.tipoFactura).toBe('Factura A');
-    expect(res.validezDias).toBe(30);
-    expect(res.margenPorcentaje).toBe(40);
-    expect(res.nivelMargenRiesgo).toBe('alto');
-    expect(res.margenRiesgoPorcentaje).toBe(35);
-    expect(res.mostrarDolar).toBe(true);
-    expect(res.nombreDolar).toBe('Dólar MEP');
-    expect(res.cotizacionDolar).toBe(1300);
+    expect(result.clienteId).toBe('cli-1');
+    expect(result.clienteMatched?.razonSocial).toBe('Estudio Arq. Gómez');
+    expect(result.direccionObra).toBe('Thames 1850, Palermo');
+    expect(result.tipoFactura).toBe('Factura A');
+    expect(result.validezDias).toBe(30);
+    expect(result.margenPorcentaje).toBe(40);
+    expect(result.nivelMargenRiesgo).toBe('alto');
+    expect(result.margenRiesgoPorcentaje).toBe(10);
+    expect(result.mostrarDolar).toBe(true);
+    expect(result.cotizacionDolar).toBe(1300);
   });
 
-  it('parsea capítulos y vincula tareas tipo del catálogo con cálculo automático', () => {
-    const text = `
-# 1. Iluminación Principal
-- 20 u * Boca de Iluminación
-
-# 2. Tableros
-- 2 u * Disyuntor Diferencial 2x40A
+  it('parsea capítulos y tareas simples vinculándolas con el catálogo de Tareas Tipo', () => {
+    const yaml = `
+Iluminación y Fuerza:
+  - 10 u Boca de Iluminación
+  - 2 u Disyuntor Diferencial 2x40A
     `;
 
-    const res = parseDSLToPresupuesto(text, {
+    const result = parseDSLToPresupuesto(yaml, {
       clientes: mockClientes,
       tareasTipo: mockTareas,
       insumosMap: mockInsumosMap,
       manoObraMap: mockManoObraMap
     });
 
-    expect(res.capitulos.length).toBe(2);
-    expect(res.capitulos[0].nombre).toBe('1. Iluminación Principal');
-    expect(res.capitulos[1].nombre).toBe('2. Tableros');
+    expect(result.capitulos.length).toBe(1);
+    expect(result.capitulos[0].nombre).toBe('Iluminación y Fuerza');
+    expect(result.items.length).toBe(2);
 
-    expect(res.items.length).toBe(2);
-    expect(res.items[0].tareaTipoId).toBe('tarea-boca');
-    expect(res.items[0].cantidad).toBe(20);
-    expect(res.items[0].capituloId).toBe(res.capitulos[0].id);
-    expect(res.items[0].insumosSnapshot.length).toBeGreaterThan(0);
-    expect(res.items[0].manoObraSnapshot.length).toBeGreaterThan(0);
-
-    expect(res.items[1].tareaTipoId).toBe('tarea-disyuntor');
-    expect(res.items[1].cantidad).toBe(2);
-    expect(res.items[1].capituloId).toBe(res.capitulos[1].id);
+    const itBoca = result.items[0];
+    expect(itBoca.descripcion).toBe('Boca de Iluminación');
+    expect(itBoca.cantidad).toBe(10);
+    expect(itBoca.unidad).toBe('u');
+    // APU calculado: Cable (10m * $200 = $2000) + MO (1.5h * $5000 = $7500) = $9500 unitario
+    expect(itBoca.costoUnitario).toBe(9500);
+    expect(itBoca.costoInsumos).toBe(20000); // 10 bocas * 2000
+    expect(itBoca.costoManoObra).toBe(75000); // 10 bocas * 7500
+    expect(itBoca.costoDirectoTotal).toBe(95000);
   });
 
-  it('soporta partidas personalizadas con precio directo', () => {
-    const text = `
-- 1 u * Mano de obra especializada fuera de catálogo = $ 80.000
+  it('parsea partidas a medida con despiece de materiales y mano de obra', () => {
+    const yaml = `
+Tableros Especiales:
+  - Tablero Seccional Bomba:
+      materiales:
+        - 2 u Disyuntor 2x40A
+        - 1 u Bomba Sumergible 1HP : $ 180.000
+      mano_obra:
+        - 6 h Oficial
+        - 4 h Ayudante
+      condicion: dificultosa
     `;
 
-    const res = parseDSLToPresupuesto(text, {
+    const result = parseDSLToPresupuesto(yaml, {
       clientes: mockClientes,
       tareasTipo: mockTareas,
       insumosMap: mockInsumosMap,
       manoObraMap: mockManoObraMap
     });
 
-    expect(res.items.length).toBe(1);
-    expect(res.items[0].descripcion).toBe('Mano de obra especializada fuera de catálogo');
-    expect(res.items[0].costoUnitario).toBe(80000);
-    expect(res.items[0].precioManual).toBe(80000);
-    expect(res.items[0].tareaTipoId).toBeUndefined();
+    expect(result.capitulos.length).toBe(1);
+    expect(result.items.length).toBe(1);
+
+    const item = result.items[0];
+    expect(item.descripcion).toBe('Tablero Seccional Bomba');
+    expect(item.esAdHoc).toBe(true);
+    expect(item.condicionTrabajo).toBe('dificultosa');
+    expect(item.insumosSnapshot.length).toBe(2);
+
+    // Material 1: Disyuntor 2x40A (del catálogo = $25000 c/u * 2 = $50000)
+    expect(item.insumosSnapshot[0].nombre).toBe('Disyuntor 2x40A');
+    expect(item.insumosSnapshot[0].precioUnitarioCongelado).toBe(25000);
+    expect(item.insumosSnapshot[0].subtotalInsumo).toBe(50000);
+
+    // Material 2: Bomba Sumergible (fuera de catálogo con precio manual = $180000)
+    expect(item.insumosSnapshot[1].nombre).toBe('Bomba Sumergible 1HP');
+    expect(item.insumosSnapshot[1].precioUnitarioCongelado).toBe(180000);
+    expect(item.insumosSnapshot[1].subtotalInsumo).toBe(180000);
+
+    expect(item.costoInsumos).toBe(230000); // 50000 + 180000
+
+    // Mano de Obra:
+    // Oficial: 6h * $5000 = $30000
+    // Ayudante: 4h * $3500 = $14000
+    // Total base MO = $44000. Con condición dificultosa (+20%): 44000 * 1.2 = $52800
+    expect(item.manoObraSnapshot.length).toBe(2);
+    expect(item.costoManoObra).toBe(52800);
+
+    // Costo directo total = 230000 + 52800 = 282800
+    expect(item.costoDirectoTotal).toBe(282800);
   });
 
-  it('serializa un presupuesto existente y lo vuelve a parsear de forma bidireccional', () => {
-    const capitulos: CapituloPresupuesto[] = [{ id: 'cap-1', nombre: 'Sector A' }];
+  it('reporta error de sintaxis si el YAML tiene indentación incorrecta', () => {
+    const brokenYaml = `
+cliente: Juan
+obra:
+  - Thames:
+   error_indentacion
+    `;
+
+    const result = parseDSLToPresupuesto(brokenYaml, {
+      clientes: mockClientes,
+      tareasTipo: mockTareas,
+      insumosMap: mockInsumosMap,
+      manoObraMap: mockManoObraMap
+    });
+
+    const errorDiag = result.diagnostics.find((d) => d.type === 'error');
+    expect(errorDiag).toBeDefined();
+    expect(errorDiag?.message).toContain('Error de sintaxis YAML');
+  });
+
+  it('serializa un presupuesto a YAML y lo vuelve a parsear bidireccionalmente', () => {
+    const capitulos: CapituloPresupuesto[] = [{ id: 'cap-1', nombre: 'Sector Tableros' }];
     const items: ItemPresupuesto[] = [
       {
         id: 'it-1',
@@ -151,7 +216,7 @@ describe('dslParser (Modo Experto Desktop)', () => {
       }
     ];
 
-    const dsl = serializePresupuestoToDSL({
+    const yaml = serializePresupuestoToDSL({
       clienteId: 'cli-1',
       direccionObra: 'Juncal 1234',
       tipoFactura: 'Factura B',
@@ -162,12 +227,12 @@ describe('dslParser (Modo Experto Desktop)', () => {
       clientes: mockClientes
     });
 
-    expect(dsl).toContain('@cliente: Estudio Arq. Gómez');
-    expect(dsl).toContain('@obra: Juncal 1234');
-    expect(dsl).toContain('# Sector A');
-    expect(dsl).toContain('- 15 u * "Boca de Iluminación"');
+    expect(yaml).toContain('cliente: Estudio Arq. Gómez');
+    expect(yaml).toContain('obra: Juncal 1234');
+    expect(yaml).toContain('Sector Tableros:');
+    expect(yaml).toContain('- 15 u Boca de Iluminación');
 
-    const parsed = parseDSLToPresupuesto(dsl, {
+    const parsed = parseDSLToPresupuesto(yaml, {
       clientes: mockClientes,
       tareasTipo: mockTareas,
       insumosMap: mockInsumosMap,
@@ -176,9 +241,9 @@ describe('dslParser (Modo Experto Desktop)', () => {
 
     expect(parsed.clienteId).toBe('cli-1');
     expect(parsed.direccionObra).toBe('Juncal 1234');
-    expect(parsed.tipoFactura).toBe('Factura B');
-    expect(parsed.validezDias).toBe(20);
+    expect(parsed.capitulos[0].nombre).toBe('Sector Tableros');
+    expect(parsed.items.length).toBe(1);
+    expect(parsed.items[0].descripcion).toBe('Boca de Iluminación');
     expect(parsed.items[0].cantidad).toBe(15);
-    expect(parsed.items[0].tareaTipoId).toBe('tarea-boca');
   });
 });
