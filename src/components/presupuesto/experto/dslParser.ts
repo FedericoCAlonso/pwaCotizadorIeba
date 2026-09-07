@@ -1165,11 +1165,11 @@ export function detectCursorContext(textBeforeCursor: string): CursorContextResu
     const isAncestor = lineIndent < currentIndentLen || (i < lines.length - 1 && trimmed.endsWith(':') && lineIndent <= currentIndentLen);
 
     if (isAncestor) {
-      if (/^(materiales|insumos):/i.test(trimmed)) {
+      if (/^-?\s*(materiales|insumos)\s*:?/i.test(trimmed)) {
         return { contextType: 'materiales', currentIndent, parentHeader: 'materiales' };
       }
 
-      if (/^(mano_obra|manoobra|mo):/i.test(trimmed)) {
+      if (/^-?\s*(mano_obra|manoobra|mo)\s*:?/i.test(trimmed)) {
         return { contextType: 'mano_obra', currentIndent, parentHeader: 'mano_obra' };
       }
 
@@ -1263,4 +1263,119 @@ export function formatSlashCommandReplacement(params: {
     newCursorOffset: replacementLine.length
   };
 }
+
+export interface SmartEnterResult {
+  newText: string;
+  newCursorPos: number;
+}
+
+/**
+ * Maneja el comportamiento inteligente de la tecla Enter en el editor YAML experto.
+ * 1. Si se escribe "materiales:" o "mano_obra:" debajo de un ítem:
+ *    - Le agrega ':' al ítem superior si no lo tenía.
+ *    - Quita el guión inicial y sangra "materiales:" con 6 espacios bajo el ítem.
+ *    - Genera en el nuevo renglón "        - " listo para listar insumos.
+ * 2. Si el renglón actual es una viñeta vacía ("- "), desindenta y cancela la viñeta.
+ * 3. Si el renglón termina en ':', auto-indenta el siguiente renglón con viñeta de lista ("- ").
+ * 4. Si el renglón es un ítem de lista ("- algo"), continúa la lista con la misma sangría.
+ * 5. Mantiene la sangría en líneas normales.
+ */
+export function handleYamlSmartEnter(params: {
+  textBefore: string;
+  textAfter: string;
+}): SmartEnterResult {
+  const { textBefore, textAfter } = params;
+  const lastLineStart = textBefore.lastIndexOf('\n') + 1;
+  const currentLine = textBefore.substring(lastLineStart);
+  const leadingWhitespace = currentLine.match(/^\s*/)?.[0] || '';
+  const trimmed = currentLine.trim();
+  const linesBefore = textBefore.split('\n');
+
+  // Caso 1: La línea actual es la palabra clave "materiales" o "mano_obra" (con o sin guión, con o sin ':')
+  const isMaterialesKeyword = /^-\s*(materiales|insumos)\s*:?$/i.test(trimmed) || /^(materiales|insumos)\s*:?$/i.test(trimmed);
+  const isManoObraKeyword = /^-\s*(mano_obra|manoobra|mo)\s*:?$/i.test(trimmed) || /^(mano_obra|manoobra|mo)\s*:?$/i.test(trimmed);
+
+  if (isMaterialesKeyword || isManoObraKeyword) {
+    const keyword = isMaterialesKeyword ? 'materiales:' : 'mano_obra:';
+
+    // Buscar hacia arriba el ítem de partida padre
+    let parentItemIndent = '  ';
+
+    for (let i = linesBefore.length - 2; i >= 0; i--) {
+      const raw = linesBefore[i];
+      const tr = raw.trim();
+      if (!tr || tr.startsWith('#')) continue;
+      const ind = raw.match(/^\s*/)?.[0] || '';
+
+      // Si encontramos un ítem de partida (ej: "  - 10 u Bocas...")
+      if (tr.startsWith('- ') && ind.length <= 4) {
+        parentItemIndent = ind;
+        if (!tr.endsWith(':')) {
+          linesBefore[i] = raw.trimEnd() + ':';
+        }
+        break;
+      }
+
+      // O si encontramos la clave "materiales:" previa (para alinear mano_obra)
+      if (/^\s*materiales:/i.test(raw)) {
+        parentItemIndent = ind.length >= 4 ? ind.slice(0, ind.length - 4) : '';
+        break;
+      }
+    }
+
+    const keywordIndent = parentItemIndent + '    ';
+    linesBefore[linesBefore.length - 1] = keywordIndent + keyword;
+
+    const childIndent = keywordIndent + '  ';
+    const nextLine = childIndent + '- ';
+
+    const updatedBefore = linesBefore.join('\n') + '\n' + nextLine;
+    return {
+      newText: updatedBefore + textAfter,
+      newCursorPos: updatedBefore.length
+    };
+  }
+
+  // Caso 2: Renglón con ítem de lista vacío (ej: "        - " o "  -")
+  // Al presionar Enter, se cancela la viñeta y se desindenta
+  if (/^-\s*$/.test(trimmed)) {
+    const lineWithoutDash = leadingWhitespace.length >= 2 ? leadingWhitespace.slice(2) : '';
+    const newText = textBefore.substring(0, lastLineStart) + lineWithoutDash + textAfter;
+    return {
+      newText,
+      newCursorPos: lastLineStart + lineWithoutDash.length
+    };
+  }
+
+  // Caso 3: Renglón termina con dos puntos ':' (ej: "Tableros:", "cables:", "materiales:")
+  // Si es un encabezado que espera una lista de ítems, auto-indenta con viñeta "- "
+  if (trimmed.endsWith(':')) {
+    const nextIndent = leadingWhitespace + '  - ';
+    const newText = textBefore + '\n' + nextIndent + textAfter;
+    return {
+      newText,
+      newCursorPos: textBefore.length + 1 + nextIndent.length
+    };
+  }
+
+  // Caso 4: Renglón es un ítem de lista con contenido (ej: "  - 10 u Boca..." o "        - 1 u Cable...")
+  // Continúa automáticamente la lista en el siguiente renglón con la misma sangría y viñeta
+  if (trimmed.startsWith('- ') && trimmed.length > 2) {
+    const nextListItem = leadingWhitespace + '- ';
+    const newText = textBefore + '\n' + nextListItem + textAfter;
+    return {
+      newText,
+      newCursorPos: textBefore.length + 1 + nextListItem.length
+    };
+  }
+
+  // Caso 5: Renglón normal -> Mantiene exactamente la sangría actual
+  const nextIndent = leadingWhitespace;
+  const newText = textBefore + '\n' + nextIndent + textAfter;
+  return {
+    newText,
+    newCursorPos: textBefore.length + 1 + nextIndent.length
+  };
+}
+
 

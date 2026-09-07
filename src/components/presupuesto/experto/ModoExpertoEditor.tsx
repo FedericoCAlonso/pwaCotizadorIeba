@@ -36,6 +36,7 @@ import {
   normalizeString,
   detectCursorContext,
   formatSlashCommandReplacement,
+  handleYamlSmartEnter,
   CursorContextType
 } from './dslParser';
 import { SlashCommandMenu } from './SlashCommandMenu';
@@ -382,8 +383,9 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       // 2. Detección automática tipo IntelliSense mientras escribe en un renglón de lista (-)
       // Ej: "- cab", "- 25 m cab", "- ofi", "- bo"
       const autoSuggestMatch = currentLine.match(/-\s*(?:[0-9.,]+\s*[a-zA-ZáéíóúÁÉÍÓÚ²³]*\s*)?([a-zA-ZáéíóúÁÉÍÓÚ]{2,}[a-zA-Z0-9áéíóúÁÉÍÓÚ\s]*)$/);
+      const isKeyword = autoSuggestMatch && /^(materiales|insumos|mano_obra|manoobra|mo):?$/i.test(autoSuggestMatch[1].trim());
 
-      if (autoSuggestMatch) {
+      if (autoSuggestMatch && !isKeyword) {
         const typedQuery = autoSuggestMatch[1].trim();
         const queryIndexInLine = currentLine.lastIndexOf(autoSuggestMatch[1]);
         const triggerIndex = lastLineStart + queryIndexInLine;
@@ -416,8 +418,8 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
   // Manejo de atajos de teclado en el editor (Enter con auto-indentación, Tab para sangría, Ctrl+Enter para guardar)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (slashMenuState.isOpen && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Enter')) {
-      // El SlashCommandMenu maneja las flechas y Enter
+    if (slashMenuState.isOpen && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      // El SlashCommandMenu maneja las flechas
       return;
     }
 
@@ -454,78 +456,25 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       return;
     }
 
-    // ENTER: Auto-indentación inteligente con memoria de nivel y continuidad de listas
+    // ENTER: Auto-indentación inteligente con memoria de nivel, continuidad de listas y reestructuración YAML
     if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      if (e.defaultPrevented) return;
       e.preventDefault();
       const textarea = e.currentTarget;
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
-      const text = dslText;
 
-      const textBefore = text.substring(0, start);
-      const textAfter = text.substring(end);
-      const lastLineStart = textBefore.lastIndexOf('\n') + 1;
-      const currentLine = textBefore.substring(lastLineStart);
+      const textBefore = dslText.substring(0, start);
+      const textAfter = dslText.substring(end);
 
-      const leadingWhitespace = currentLine.match(/^\s*/)?.[0] || '';
-      const trimmed = currentLine.trim();
+      const { newText, newCursorPos } = handleYamlSmartEnter({ textBefore, textAfter });
 
-      // Caso A: Renglón con ítem de lista vacío (ej: "        - " o "        -")
-      // Al presionar Enter, se cancela la lista y se desindenta
-      if (/^-\s*$/.test(trimmed)) {
-        const lineWithoutDash = leadingWhitespace.length >= 2 ? leadingWhitespace.slice(2) : '';
-        const newText = text.substring(0, lastLineStart) + lineWithoutDash + textAfter;
-        setDslText(newText);
-        handleParseAndSync(newText);
-        setTimeout(() => {
-          if (textareaRef.current) {
-            const newPos = lastLineStart + lineWithoutDash.length;
-            textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newPos;
-          }
-        }, 0);
-        return;
-      }
-
-      // Caso B: Renglón termina con dos puntos ':' (ej: "Tableros:", "materiales:")
-      // Auto-indenta 2 espacios adicionales
-      if (trimmed.endsWith(':')) {
-        const nextIndent = leadingWhitespace + '  ';
-        const newText = textBefore + '\n' + nextIndent + textAfter;
-        setDslText(newText);
-        handleParseAndSync(newText);
-        setTimeout(() => {
-          if (textareaRef.current) {
-            const newPos = start + 1 + nextIndent.length;
-            textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newPos;
-          }
-        }, 0);
-        return;
-      }
-
-      // Caso C: Renglón es un ítem de lista con contenido (ej: "        - 1 u Cable...")
-      // Continúa automáticamente la lista en el siguiente renglón con la misma sangría
-      if (trimmed.startsWith('- ') && trimmed.length > 2) {
-        const nextListItem = leadingWhitespace + '- ';
-        const newText = textBefore + '\n' + nextListItem + textAfter;
-        setDslText(newText);
-        handleParseAndSync(newText);
-        setTimeout(() => {
-          if (textareaRef.current) {
-            const newPos = start + 1 + nextListItem.length;
-            textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newPos;
-          }
-        }, 0);
-        return;
-      }
-
-      // Caso D: Renglón normal -> Mantiene exactamente la sangría actual
-      const newText = textBefore + '\n' + leadingWhitespace + textAfter;
       setDslText(newText);
       handleParseAndSync(newText);
+
       setTimeout(() => {
         if (textareaRef.current) {
-          const newPos = start + 1 + leadingWhitespace.length;
-          textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newPos;
+          textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newCursorPos;
         }
       }, 0);
       return;

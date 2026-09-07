@@ -266,18 +266,29 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
     }
   }, [selectedIndex]);
 
+  useEffect(() => {
+    if (items.length === 0 && !activeCategory) {
+      onClose();
+    }
+  }, [items.length, activeCategory, onClose]);
+
   // Manejo de teclado
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev + 1) % items.length);
+        if (items.length > 0) {
+          e.preventDefault();
+          setSelectedIndex((prev) => (prev + 1) % items.length);
+        }
       } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev - 1 + items.length) % items.length);
+        if (items.length > 0) {
+          e.preventDefault();
+          setSelectedIndex((prev) => (prev - 1 + items.length) % items.length);
+        }
       } else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (items[selectedIndex]) {
+        if (items.length > 0 && items[selectedIndex]) {
+          e.preventDefault();
+          e.stopPropagation();
           onSelect(items[selectedIndex].snippet);
         }
       } else if (e.key === 'Escape') {
@@ -286,8 +297,8 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown, true);
-    return () => window.removeEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [items, selectedIndex, onSelect, onClose]);
 
   // Cerrar al hacer clic fuera

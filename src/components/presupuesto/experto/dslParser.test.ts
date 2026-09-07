@@ -6,7 +6,8 @@ import {
   parseLocalizedNumber,
   normalizeString,
   detectCursorContext,
-  formatSlashCommandReplacement
+  formatSlashCommandReplacement,
+  handleYamlSmartEnter
 } from './dslParser';
 import { Cliente, TareaTipo, Insumo, CategoriaManoDeObra, ItemPresupuesto, CapituloPresupuesto } from '../../../core/types';
 
@@ -377,5 +378,67 @@ Instalación Eléctrica:
       expect(replacementLine).toBe('  - 1 u Boca de Iluminación\n');
     });
   });
+
+  describe('handleYamlSmartEnter', () => {
+    it('corrige la línea de materiales: quitando el guión, sangrando adecuadamente y preparando el siguiente renglón', () => {
+      const textBefore = `Instalación Eléctrica:\n  - 10 u Bocas de Iluminacion\n  - materiales:`;
+      const textAfter = '';
+
+      const { newText } = handleYamlSmartEnter({ textBefore, textAfter });
+
+      // Debe haberle agregado ':' a Bocas de Iluminacion
+      expect(newText).toContain('  - 10 u Bocas de Iluminacion:');
+      // Debe haber quitado el guión y sangrado materiales: a 6 espacios
+      expect(newText).toContain('      materiales:\n        - ');
+    });
+
+    it('corrige la línea cuando el usuario escribe sólo materiales sin guión ni dos puntos', () => {
+      const textBefore = `Instalación Eléctrica:\n  - Tablero Principal\nmateriales`;
+      const textAfter = '';
+
+      const { newText } = handleYamlSmartEnter({ textBefore, textAfter });
+
+      expect(newText).toContain('  - Tablero Principal:');
+      expect(newText).toContain('      materiales:\n        - ');
+    });
+
+    it('alinea mano_obra: con materiales: al presionar Enter', () => {
+      const textBefore = `Instalación Eléctrica:\n  - 10 u Bocas de Iluminacion:\n      materiales:\n        - 10 m Cable 2.5 mm\n        - mano_obra:`;
+      const textAfter = '';
+
+      const { newText } = handleYamlSmartEnter({ textBefore, textAfter });
+
+      expect(newText).toContain('      mano_obra:\n        - ');
+    });
+
+    it('cancela la viñeta y desindenta al presionar Enter en renglón de lista vacío', () => {
+      const textBefore = `Instalación Eléctrica:\n  - 10 u Bocas:\n      materiales:\n        - 10 m Cable\n        - `;
+      const textAfter = '';
+
+      const { newText } = handleYamlSmartEnter({ textBefore, textAfter });
+
+      // Debe haber desindentado de 8 espacios a 6 espacios (alineado con materiales)
+      expect(newText).toBe(`Instalación Eléctrica:\n  - 10 u Bocas:\n      materiales:\n        - 10 m Cable\n      `);
+    });
+
+    it('continúa la lista automáticamente al presionar Enter en ítem con contenido', () => {
+      const textBefore = `Instalación Eléctrica:\n  - 10 u Bocas`;
+      const textAfter = '';
+
+      const { newText } = handleYamlSmartEnter({ textBefore, textAfter });
+
+      expect(newText).toBe(`Instalación Eléctrica:\n  - 10 u Bocas\n  - `);
+    });
+
+    it('agrega viñeta de lista al presionar Enter después de un encabezado con dos puntos', () => {
+      const textBefore = `Tableros:`;
+      const textAfter = '';
+
+      const { newText } = handleYamlSmartEnter({ textBefore, textAfter });
+
+      expect(newText).toBe(`Tableros:\n  - `);
+    });
+  });
 });
+
 
