@@ -488,18 +488,106 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     [formDataQuickMat, proveedores, toast, handleParseAndSync, dslText]
   );
 
-  // Atajo global para abrir paleta rápida de materiales (Alt + M, Alt + I, Ctrl + M)
+  const [activeFieldInfo, setActiveFieldInfo] = useState<{ label: string; text: string } | null>(null);
+  const activeFieldTimeoutRef = useRef<any>(null);
+
+  // Navegación inteligente de campos a completar (Alt + Enter, AltGr + Enter, Tab)
+  const handleNavigateField = useCallback(
+    (direction: 'forward' | 'backward' = 'forward') => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      const currentText = textarea.value ?? dslText;
+      const isFocused = document.activeElement === textarea;
+      const currentPos = isFocused
+        ? (direction === 'forward' ? textarea.selectionEnd : textarea.selectionStart)
+        : (direction === 'forward' ? (cursorPosRef.current?.end ?? 0) : (cursorPosRef.current?.start ?? 0));
+
+      const nextField = findNextFillableField({
+        text: currentText,
+        cursorPos: currentPos,
+        direction
+      });
+
+      if (nextField) {
+        cursorPosRef.current = { start: nextField.start, end: nextField.end };
+
+        const targetSlice = currentText.slice(nextField.start, nextField.end);
+        const labelDisplay = nextField.label || 'Campo';
+        setActiveFieldInfo({
+          label: labelDisplay,
+          text: targetSlice || '(vacío)'
+        });
+
+        if (activeFieldTimeoutRef.current) {
+          clearTimeout(activeFieldTimeoutRef.current);
+        }
+        activeFieldTimeoutRef.current = setTimeout(() => {
+          setActiveFieldInfo(null);
+        }, 2200);
+
+        const applySelection = () => {
+          if (!textareaRef.current) return;
+          const el = textareaRef.current;
+          el.focus({ preventScroll: false });
+          try {
+            el.setSelectionRange(nextField.start, nextField.end);
+          } catch {
+            el.selectionStart = nextField.start;
+            el.selectionEnd = nextField.end;
+          }
+
+          // Asegurar visibilidad de scroll si el campo queda fuera de la pantalla visible
+          const textBefore = el.value.slice(0, nextField.start);
+          const lineIndex = textBefore.split('\n').length - 1;
+          const lineHeight = 24;
+          const targetY = lineIndex * lineHeight;
+          const visibleHeight = el.clientHeight;
+
+          if (targetY < el.scrollTop || targetY > el.scrollTop + visibleHeight - lineHeight * 2) {
+            el.scrollTop = Math.max(0, targetY - Math.floor(visibleHeight / 3));
+          }
+        };
+
+        applySelection();
+        requestAnimationFrame(applySelection);
+        setTimeout(applySelection, 20);
+      }
+    },
+    [dslText]
+  );
+
+  // Atajo global para el editor (Alt + Enter / AltGr + Enter para campos, Alt + M para catálogo)
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      // Detección robusta de Alt (Left Alt o Right Alt/AltGr) y Enter (Enter o NumpadEnter)
+      const isAlt = e.altKey || (typeof e.getModifierState === 'function' && (e.getModifierState('Alt') || e.getModifierState('AltGraph')));
+      const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter';
+
+      if (isAlt && isEnter) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleNavigateField(e.shiftKey ? 'backward' : 'forward');
+        return;
+      }
+
       const isM = e.key === 'm' || e.key === 'M';
       const isI = e.key === 'i' || e.key === 'I';
-      if ((e.altKey && (isM || isI)) || ((e.ctrlKey || e.metaKey) && isM)) {
+      if ((isAlt && (isM || isI)) || ((e.ctrlKey || e.metaKey) && isM)) {
         e.preventDefault();
         setShowMultiMaterialModal((prev) => !prev);
       }
     };
-    window.addEventListener('keydown', handleGlobalShortcuts);
-    return () => window.removeEventListener('keydown', handleGlobalShortcuts);
+
+    window.addEventListener('keydown', handleGlobalShortcuts, { capture: true });
+    return () => window.removeEventListener('keydown', handleGlobalShortcuts, { capture: true });
+  }, [handleNavigateField]);
+
+  // Auto-focus en el editor al montar en pantallas desktop
+  useEffect(() => {
+    if (window.innerWidth >= 768 && textareaRef.current) {
+      textareaRef.current.focus({ preventScroll: true });
+    }
   }, []);
 
   // Debounce para parsear mientras el usuario escribe fluido
@@ -572,46 +660,27 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     }, 250);
   };
 
-  // Navegación inteligente de campos a completar (Alt + Enter)
-  const handleNavigateField = useCallback(
-    (direction: 'forward' | 'backward' = 'forward') => {
-      if (!textareaRef.current) return;
-      const textarea = textareaRef.current;
-      const currentPos = direction === 'forward' ? textarea.selectionEnd : textarea.selectionStart;
-
-      const nextField = findNextFillableField({
-        text: dslText,
-        cursorPos: currentPos,
-        direction
-      });
-
-      if (nextField) {
-        cursorPosRef.current = { start: nextField.start, end: nextField.end };
-        textarea.focus({ preventScroll: true });
-        textarea.selectionStart = nextField.start;
-        textarea.selectionEnd = nextField.end;
-      }
-    },
-    [dslText]
-  );
-
-  // Manejo de atajos de teclado en el editor (Enter con auto-indentación, Tab para sangría, Ctrl+Enter para guardar)
+  // Manejo de atajos de teclado en el editor (Enter con auto-indentación, Tab para sangría o campo, Ctrl+Enter para guardar)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (slashMenuState.isOpen && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       // El SlashCommandMenu maneja las flechas
       return;
     }
 
-    // ALT + ENTER / ALT + SHIFT + ENTER: Navegación inteligente por campos a completar
-    if (e.altKey && e.key === 'Enter') {
+    // ALT + ENTER / ALT + SHIFT + ENTER / AltGr + Enter: Navegación inteligente por campos a completar
+    const isAlt = e.altKey || (typeof e.getModifierState === 'function' && (e.getModifierState('Alt') || e.getModifierState('AltGraph')));
+    const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter';
+
+    if (isAlt && isEnter) {
       e.preventDefault();
+      e.stopPropagation();
       handleNavigateField(e.shiftKey ? 'backward' : 'forward');
       return;
     }
 
     const isM = e.key === 'm' || e.key === 'M';
     const isI = e.key === 'i' || e.key === 'I';
-    if ((e.altKey && (isM || isI)) || ((e.ctrlKey || e.metaKey) && isM)) {
+    if ((isAlt && (isM || isI)) || ((e.ctrlKey || e.metaKey) && isM)) {
       e.preventDefault();
       setShowMultiMaterialModal(true);
       return;
@@ -624,9 +693,14 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       return;
     }
 
-    // Tab -> Inserta 2 espacios de indentación YAML
+    // Tab -> Navega entre campos si hay selección o Shift+Tab; de lo contrario inserta 2 espacios
     if (e.key === 'Tab') {
       e.preventDefault();
+      if (e.shiftKey || e.currentTarget.selectionStart !== e.currentTarget.selectionEnd) {
+        handleNavigateField(e.shiftKey ? 'backward' : 'forward');
+        return;
+      }
+
       const start = e.currentTarget.selectionStart;
       const end = e.currentTarget.selectionEnd;
       const text = dslText;
@@ -1204,10 +1278,24 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
                 </span>
                 <span>•</span>
                 <span>{lineCount} líneas</span>
+
+                {activeFieldInfo && (
+                  <span className="flex items-center gap-1.5 px-2.5 py-0.5 bg-primary/20 text-primary border border-primary/40 text-[11px] font-bold rounded-full animate-pulse transition-all">
+                    <span>📍 {activeFieldInfo.label}</span>
+                    {activeFieldInfo.text !== '(vacío)' && (
+                      <span className="opacity-90 font-mono text-[10px] truncate max-w-[140px]">
+                        "{activeFieldInfo.text}"
+                      </span>
+                    )}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-2 text-[11px]">
-                <kbd className="px-1.5 py-0.5 bg-surface-container rounded border border-outline-variant/20 font-mono">
+                <kbd
+                  className="px-1.5 py-0.5 bg-primary/10 text-primary border border-primary/30 rounded font-mono font-semibold"
+                  title="Navegar al siguiente campo (Alt+Enter o Tab si hay selección)"
+                >
                   Alt+Enter campo
                 </kbd>
                 <kbd className="px-1.5 py-0.5 bg-surface-container rounded border border-outline-variant/20 font-mono">

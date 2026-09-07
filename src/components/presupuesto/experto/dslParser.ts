@@ -2691,8 +2691,8 @@ export function getFieldStops(dslText: string): FieldStop[] {
           stops.push({ start: startIdx, end: startIdx + capName.length, label: 'capitulo' });
         }
       }
-      // 3. Variables o cálculos (ej: "  superficie: 120")
-      else if (/^\s{2,4}([a-zA-Z0-9_]+)\s*:\s*(.*)$/.test(line) && !line.trim().startsWith('-')) {
+      // 3. Variables, cálculos o propiedades de ítems (ej: "  superficie: 120" o "            cantidad: 1")
+      else if (/^\s{2,16}([a-zA-Z0-9_]+)\s*:\s*(.*)$/.test(line) && !line.trim().startsWith('-')) {
         const varMatch = line.match(/^(\s*)([a-zA-Z0-9_]+)\s*:\s*(.*)$/)!;
         const propName = varMatch[2].toLowerCase();
         const reservedTaskProps = new Set(['materiales', 'insumos', 'mano_obra', 'manoobra', 'mo', 'parametros', 'params', 'condicion']);
