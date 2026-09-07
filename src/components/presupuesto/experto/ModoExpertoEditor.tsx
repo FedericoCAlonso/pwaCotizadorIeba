@@ -616,7 +616,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     const nextNewline = textAfterCursor.indexOf('\n');
     const restOfDoc = nextNewline >= 0 ? textAfterCursor.slice(nextNewline) : '';
 
-    const { replacementLine, selectionRange } = formatSlashCommandReplacement({
+    const { replacementLine, selectionRange, newCursorOffset } = formatSlashCommandReplacement({
       currentLineBeforeCursor,
       snippet
     });
@@ -640,7 +640,8 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
         textarea.selectionStart = lastLineStart + selectionRange.start;
         textarea.selectionEnd = lastLineStart + selectionRange.end;
       } else {
-        const newPos = lastLineStart + replacementLine.length;
+        const offset = newCursorOffset !== undefined ? newCursorOffset : replacementLine.length;
+        const newPos = lastLineStart + offset;
         textarea.selectionStart = textarea.selectionEnd = newPos;
       }
     }, 10);

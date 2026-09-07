@@ -925,6 +925,119 @@ Instalación Eléctrica:
       const trigger = detectSuggestTrigger('            cantidad: 50');
       expect(trigger).toBeNull();
     });
+
+    it('formatSlashCommandReplacement indenta snippets multilínea y posiciona el cursor en "cantidad: " vacío', () => {
+      const blockSnippet = `- Cable Unipolar 2.5 mm:\n    cantidad: \n    producto: Prysmian\n    precio: 1250\n`;
+      const { replacementLine, selectionRange, newCursorOffset } = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '        - cab',
+        snippet: blockSnippet
+      });
+
+      expect(replacementLine).toBe(
+        '        - Cable Unipolar 2.5 mm:\n            cantidad: \n            producto: Prysmian\n            precio: 1250\n'
+      );
+      expect(selectionRange).toBeUndefined();
+      // El cursor debe estar justo después de "cantidad: "
+      const cantIndex = replacementLine.indexOf('cantidad: ');
+      expect(newCursorOffset).toBe(cantIndex + 'cantidad: '.length);
+    });
+
+    it('formatSlashCommandReplacement inyecta la cantidad previa del usuario en un bloque multilínea', () => {
+      const blockSnippet = `- Cable Unipolar 2.5 mm:\n    cantidad: \n    producto: Prysmian\n    precio: 1250\n`;
+      const { replacementLine } = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '        - 75 m cab',
+        snippet: blockSnippet
+      });
+
+      expect(replacementLine).toContain('cantidad: 75 m');
+    });
+
+    it('parseDSLToPresupuesto evalúa tareas tipo paramétricas y calcula dinámicamente según parametros en YAML', () => {
+      const mockTareaParametrica: TareaTipo = {
+        id: 'tt-param-prueba',
+        nombre: 'Instalación de Bocas y Circuitos',
+        categoria: 'Bocas',
+        unidad: 'u',
+        parametros: [
+          {
+            id: 'bocas',
+            nombre: 'Cantidad de Bocas',
+            tipo: 'numero',
+            valorDefault: 5
+          },
+          {
+            id: 'unifilar',
+            nombre: 'Plano Unifilar',
+            tipo: 'boolean',
+            valorDefault: 0,
+            condicion: 'bocas > 10'
+          }
+        ],
+        variables: [
+          {
+            id: 'metros_cable',
+            nombre: 'Metros de cable',
+            formula: 'bocas * 12',
+            unidad: 'm'
+          }
+        ],
+        insumos: [
+          {
+            nombreSlot: 'Cable 2.5 mm',
+            materialId: 'mat-cabl-25',
+            cantidad: 60,
+            formula: 'metros_cable'
+          }
+        ],
+        manoObra: [
+          {
+            categoriaId: 'mo-oficial',
+            horas: 5,
+            formula: 'bocas * 0.8'
+          }
+        ]
+      };
+
+      const insMap = new Map();
+      insMap.set('mat-cabl-25', {
+        id: 'mat-cabl-25',
+        nombre: 'Cable 2.5 mm',
+        precioActual: 100,
+        unidad: 'm'
+      });
+
+      const moMap = new Map();
+      moMap.set('mo-oficial', {
+        id: 'mo-oficial',
+        nombre: 'Oficial Electricista',
+        costoHora: 1000
+      });
+
+      const yaml = `Capítulo Prueba:
+  - Instalación de Bocas y Circuitos:
+      cantidad: 1 u
+      parametros:
+        bocas: 20
+`;
+
+      const result = parseDSLToPresupuesto(yaml, {
+        clientes: [],
+        tareasTipo: [mockTareaParametrica],
+        insumosMap: insMap,
+        manoObraMap: moMap
+      });
+
+      expect(result.items.length).toBe(1);
+      const item = result.items[0];
+      expect(item.tareaTipoId).toBe('tt-param-prueba');
+      expect(item.valoresParametros?.bocas).toBe(20);
+      expect(item.valoresVariables?.metros_cable).toBe(240); // 20 * 12
+      // Metros de cable = 240m * $100 = $24.000
+      expect(item.costoInsumos).toBe(24000);
+      // Horas oficial = 20 * 0.8 = 16hs * $1000 = $16.000
+      expect(item.costoManoObra).toBe(16000);
+      expect(item.costoDirectoTotal).toBe(40000);
+    });
   });
 });
 

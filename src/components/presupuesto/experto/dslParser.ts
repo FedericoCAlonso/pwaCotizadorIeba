@@ -15,6 +15,7 @@ import {
 } from '../../../core/types';
 import {
   calcularCostoTareaTipo,
+  calcularConsumosTareaTipo,
   roundMoney,
   safeNum
 } from '../../../core/calculations';
@@ -876,6 +877,37 @@ function parseAndAddItem(
         });
       }
 
+      // Extraer parámetros personalizados para Tareas Tipo paramétricas
+      const rawParametros = taskContent.parametros || taskContent.params;
+      const parametrosMap: Record<string, number> = {};
+      if (typeof rawParametros === 'object' && rawParametros !== null) {
+        if (Array.isArray(rawParametros)) {
+          rawParametros.forEach((p) => {
+            if (typeof p === 'object' && p !== null) {
+              Object.entries(p).forEach(([k, v]) => {
+                parametrosMap[k] = parseLocalizedNumber(v as any);
+              });
+            }
+          });
+        } else {
+          Object.entries(rawParametros).forEach(([k, v]) => {
+            parametrosMap[k] = parseLocalizedNumber(v as any);
+          });
+        }
+      }
+
+      // Además, capturar cualquier clave numérica directa en taskContent que no sea directiva reservada
+      const reservedTaskKeys = new Set([
+        'cantidad', 'unidad', 'condicion', 'condicionTrabajo', 'precio',
+        'materiales', 'insumos', 'mano_obra', 'manoObra', 'mo', 'parametros', 'params',
+        'tipo', 'descripcion', 'producto', 'marca'
+      ]);
+      Object.entries(taskContent).forEach(([k, v]) => {
+        if (!reservedTaskKeys.has(k) && (typeof v === 'number' || (typeof v === 'string' && /^-?\s*\$?\s*[0-9.,]+$/.test(v)))) {
+          parametrosMap[k] = parseLocalizedNumber(v as any);
+        }
+      });
+
       // Si tiene desglose de materiales o mano de obra -> Construir APU a medida
       if (materialesList.length > 0 || manoObraList.length > 0) {
         buildCompositeItem({
@@ -892,7 +924,7 @@ function parseAndAddItem(
           diagnostics
         });
       } else {
-        // Objeto sin despiece pero con configuración directa
+        // Objeto sin despiece pero con configuración directa o paramétrica
         buildAndPushItem({
           nombre: cleanName,
           cantidad,
@@ -902,7 +934,8 @@ function parseAndAddItem(
           capituloId,
           items,
           context,
-          diagnostics
+          diagnostics,
+          parametros: Object.keys(parametrosMap).length > 0 ? parametrosMap : undefined
         });
       }
     }
@@ -1150,13 +1183,22 @@ function buildCompositeItem(params: {
   const costoDirectoTotal = roundMoney(costoInsumos + costoManoObra);
   const costoUnitario = cantidad > 0 ? roundMoney(costoDirectoTotal / cantidad) : costoDirectoTotal;
 
+  const normTarget = normalizeString(nombre);
+  let matchedTarea = context.tareasTipo.find((t) => normalizeString(t.nombre) === normTarget);
+  if (!matchedTarea) {
+    matchedTarea = context.tareasTipo.find(
+      (t) => normalizeString(t.nombre).includes(normTarget) || normTarget.includes(normalizeString(t.nombre))
+    );
+  }
+
   const newItem: ItemPresupuesto = {
     id: `item-yaml-${crypto.randomUUID().slice(0, 8)}`,
     capituloId,
+    tareaTipoId: matchedTarea?.id,
     descripcion: nombre,
     cantidad,
-    unidad: unidad || 'u',
-    naturaleza: 'instalacion',
+    unidad: unidad || matchedTarea?.unidad || 'u',
+    naturaleza: matchedTarea?.naturaleza || 'instalacion',
     condicionTrabajo: condicion,
     costoUnitario,
     costoInsumos,
@@ -1169,6 +1211,7 @@ function buildCompositeItem(params: {
     precioVentaTotal: precioManual ? roundMoney(precioManual * cantidad) : 0,
     insumosSnapshot,
     manoObraSnapshot,
+    formulaHonorarios: matchedTarea?.formulaHonorarios,
     esAdHoc: true
   };
 
@@ -1193,6 +1236,7 @@ function buildAndPushItem(params: {
   items: ItemPresupuesto[];
   context: ParseDSLContext;
   diagnostics: DSLDiagnostic[];
+  parametros?: Record<string, number>;
 }) {
   const {
     nombre,
@@ -1203,7 +1247,8 @@ function buildAndPushItem(params: {
     capituloId,
     items,
     context,
-    diagnostics
+    diagnostics,
+    parametros
   } = params;
 
   const normTarget = normalizeString(nombre);
@@ -1217,21 +1262,41 @@ function buildAndPushItem(params: {
   }
 
   if (matchedTarea) {
-    // Cálculo APU desde el motor de cálculo
-    const costData = calcularCostoTareaTipo(
+    // Si tiene parámetros personalizados o definidos en la tarea:
+    const paramsMap: Record<string, number> = {};
+    if (matchedTarea.parametros) {
+      matchedTarea.parametros.forEach((p) => {
+        paramsMap[p.id] = p.valorDefault ?? 1;
+      });
+    }
+    if (parametros) {
+      Object.entries(parametros).forEach(([k, v]) => {
+        paramsMap[k] = safeNum(v);
+      });
+    }
+
+    const options = {
+      tipoFactura: context.config?.tipoFacturaPorDefecto || 'Factura A',
+      alicuotaIVADefault: context.config?.alicuotaIVAPorDefecto || context.config?.porcentajeIVAPorDefecto || 21
+    };
+
+    const consumos = calcularConsumosTareaTipo(
       matchedTarea,
+      paramsMap,
       context.insumosMap,
-      context.manoObraMap
+      context.manoObraMap,
+      options
     );
 
     let multMO = 1.0;
     if (condicion === 'dificultosa') multMO = 1.2;
     if (condicion === 'favorable') multMO = 0.9;
 
-    const costoInsumos = costData.costoInsumosUnitario || 0;
-    const costoMO = roundMoney((costData.costoManoObraUnitario || 0) * multMO);
-    const costoServicios = costData.costoServiciosUnitario || 0;
-    const costoUnitarioDirecto = roundMoney(costoInsumos + costoMO + costoServicios);
+    const costoInsumos = consumos.costoInsumosTotal || 0;
+    const costoMO = roundMoney((consumos.costoManoObraTotal || 0) * multMO);
+    const costoServicios = consumos.costoServiciosTotal || 0;
+    const costoFijo = consumos.costoFijoOperativo || 0;
+    const costoUnitarioDirecto = roundMoney(costoInsumos + costoMO + costoServicios + costoFijo);
 
     const newItem: ItemPresupuesto = {
       id: `item-yaml-${crypto.randomUUID().slice(0, 8)}`,
@@ -1246,19 +1311,23 @@ function buildAndPushItem(params: {
       costoInsumos: roundMoney(costoInsumos * cantidad),
       costoManoObra: roundMoney(costoMO * cantidad),
       costoServicios: roundMoney(costoServicios * cantidad),
+      costoFijoOperativo: costoFijo,
       formulaHonorarios: matchedTarea.formulaHonorarios,
       costoDirectoTotal: roundMoney(costoUnitarioDirecto * cantidad),
       costoTotal: roundMoney(costoUnitarioDirecto * cantidad),
       precioManual,
       precioVentaUnitario: precioManual || 0,
       precioVentaTotal: precioManual ? roundMoney(precioManual * cantidad) : 0,
-      insumosSnapshot: costData.insumosSnapshotUnitario.map((i) => ({
+      valoresParametros: consumos.valoresParametros,
+      valoresVariables: consumos.valoresVariables,
+      clausulaExclusiones: consumos.clausulaExclusiones,
+      insumosSnapshot: consumos.insumosSnapshot.map((i) => ({
         ...i,
         cantidadTotal: roundMoney(i.cantidadTotal * cantidad),
         subtotalInsumo: roundMoney(i.subtotalInsumo * cantidad),
         subtotalInsumoFinal: roundMoney((i.subtotalInsumoFinal ?? i.subtotalInsumo) * cantidad)
       })),
-      manoObraSnapshot: costData.manoObraSnapshotUnitario.map((m) => ({
+      manoObraSnapshot: consumos.manoObraSnapshot.map((m) => ({
         ...m,
         horasTotales: roundMoney(m.horasTotales * cantidad),
         subtotalManoObra: roundMoney(m.subtotalManoObra * cantidad)
@@ -1266,10 +1335,13 @@ function buildAndPushItem(params: {
     };
 
     items.push(newItem);
+    const isParametric = (matchedTarea.parametros && matchedTarea.parametros.length > 0) || (parametros && Object.keys(parametros).length > 0);
     diagnostics.push({
       line: 1,
       type: 'info',
-      message: `✓ Catálogo vinculado: "${matchedTarea.nombre}" (${cantidad} ${newItem.unidad})`
+      message: isParametric
+        ? `✓ Tarea paramétrica calculada: "${matchedTarea.nombre}" (${cantidad} ${newItem.unidad})`
+        : `✓ Catálogo vinculado: "${matchedTarea.nombre}" (${cantidad} ${newItem.unidad})`
     });
   } else {
     // Ítem directo o libre
@@ -1504,9 +1576,65 @@ export function formatSlashCommandReplacement(params: {
 
   let replacementLine = '';
   let selectionRange: { start: number; end: number } | undefined = undefined;
+  let newCursorOffset: number | undefined = undefined;
 
-  if (snippet.startsWith('- ')) {
-    // Snippet de ítem de lista: "- 1 u Cable Unipolar 2.5 mm\n" o "- 4 h Oficial\n"
+  const isMultiLine = snippet.trim().includes('\n');
+
+  if (isMultiLine) {
+    let processedSnippet = snippet;
+
+    // Si el usuario ya tipeó cantidad previa y el snippet tiene propiedad `cantidad:`, inyectarla
+    if (userQtyUnit) {
+      if (/cantidad:\s*(\n|$)/.test(processedSnippet)) {
+        processedSnippet = processedSnippet.replace(/cantidad:\s*(\n|$)/, `cantidad: ${userQtyUnit}\n`);
+      } else if (/cantidad:\s*([0-9.,]+)\s*([a-zA-ZáéíóúÁÉÍÓÚñÑüÜ²³]+)?/.test(processedSnippet)) {
+        processedSnippet = processedSnippet.replace(
+          /cantidad:\s*([0-9.,]+)\s*([a-zA-ZáéíóúÁÉÍÓÚñÑüÜ²³]+)?/,
+          `cantidad: ${userQtyUnit}`
+        );
+      }
+    }
+
+    // Indentar línea por línea según la sangría actual
+    const lines = processedSnippet.split('\n');
+    const indented = lines.map((l, idx) => {
+      if (!l.trim() && idx === lines.length - 1) return '';
+      return `${lineIndent}${l}`;
+    });
+    replacementLine = indented.join('\n');
+
+    // Ubicar el cursor: si hay `cantidad: `, colocarlo justo allí
+    const cantMatch = replacementLine.match(/cantidad:\s*([^\n\r]*)/);
+    if (cantMatch && cantMatch.index !== undefined) {
+      const matchIndex = cantMatch.index;
+      const colonIndex = cantMatch[0].indexOf(':');
+      const valPart = cantMatch[1].trim();
+
+      if (!userQtyUnit && !valPart) {
+        // Campo cantidad en blanco: cursor inmediatamente después de "cantidad: "
+        const afterColon = matchIndex + colonIndex + (cantMatch[0].includes(': ') ? 2 : 1);
+        newCursorOffset = afterColon;
+        selectionRange = undefined;
+      } else if (!userQtyUnit && valPart) {
+        // Tiene un valor por defecto (ej: "1 u"): seleccionar el número inicial
+        const numMatch = valPart.match(/^([0-9.,]+)/);
+        if (numMatch) {
+          const numStart = matchIndex + colonIndex + cantMatch[0].slice(colonIndex).indexOf(numMatch[1]);
+          const numEnd = numStart + numMatch[1].length;
+          selectionRange = { start: numStart, end: numEnd };
+          newCursorOffset = numEnd;
+        } else {
+          newCursorOffset = matchIndex + colonIndex + 2;
+        }
+      } else {
+        // Cantidad ya fue rellenada con userQtyUnit
+        newCursorOffset = replacementLine.length;
+      }
+    } else {
+      newCursorOffset = replacementLine.length;
+    }
+  } else if (snippet.startsWith('- ')) {
+    // Snippet de ítem de lista de una sola línea
     const snippetMatch = snippet.match(/^-\s*([0-9.,]+)\s*([a-zA-ZáéíóúÁÉÍÓÚñÑüÜ²³]+)\s+(.+?)(?:\n|$)/);
     if (snippetMatch) {
       const defaultQtyNum = snippetMatch[1];
@@ -1527,20 +1655,27 @@ export function formatSlashCommandReplacement(params: {
         const qtyNumEnd = qtyNumStart + defaultQtyNum.length;
         selectionRange = { start: qtyNumStart, end: qtyNumEnd };
       }
+      newCursorOffset = replacementLine.length;
     } else {
-      // Snippet complejo con guión (ej: APU compuesto)
-      const afterDash = snippet.slice(2);
-      replacementLine = `${lineIndent}- ${afterDash}`;
+      // Snippet simple sin cantidad inline (ej: "- Cable Unipolar [Prysmian]\n")
+      const afterDash = snippet.slice(2).trim();
+      if (userQtyUnit) {
+        replacementLine = `${lineIndent}- ${userQtyUnit} ${afterDash}\n`;
+      } else {
+        replacementLine = `${lineIndent}- ${afterDash}\n`;
+      }
+      newCursorOffset = replacementLine.length;
     }
   } else {
     // Directiva o encabezado
     const cleanSnippet = snippet.replace(/^[\/@]/, '');
     replacementLine = `${lineIndent}${cleanSnippet}`;
+    newCursorOffset = replacementLine.length;
   }
 
   return {
     replacementLine,
-    newCursorOffset: replacementLine.length,
+    newCursorOffset: newCursorOffset ?? replacementLine.length,
     selectionRange
   };
 }

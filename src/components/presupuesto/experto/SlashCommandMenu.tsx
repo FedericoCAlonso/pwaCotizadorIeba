@@ -99,15 +99,39 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
       insumosMap.forEach((ins) => {
         const brandTag = ins.marca ? ` [${ins.marca}]` : '';
         const brandSub = ins.marca ? ` · ${ins.marca}` : '';
+        const priceStr = Math.round(ins.precioActual || 0).toLocaleString('es-AR');
+
+        // Snippet primario estructurado (bloque con propiedades, dejando cursor en cantidad)
+        let blockSnippet = `- ${ins.nombre}:\n    cantidad: \n`;
+        if (ins.marca) {
+          blockSnippet += `    producto: ${ins.marca}\n`;
+        }
+        if (ins.precioActual && ins.precioActual > 0) {
+          blockSnippet += `    precio: ${Math.round(ins.precioActual)}\n`;
+        }
+
+        // Opción 1: Bloque con propiedades prellenadas
         list.push({
           id: `ins-${ins.id}`,
           category: 'material',
           categoryTag: ins.categoria,
           title: ins.marca ? `${ins.nombre} [${ins.marca}]` : ins.nombre,
-          subtitle: `Material · $ ${Math.round(ins.precioActual || 0).toLocaleString('es-AR')} / ${ins.unidad || 'u'}${brandSub}${ins.categoria ? ` · ${ins.categoria}` : ''}`,
-          snippet: `- 1 ${ins.unidad || 'u'} ${ins.nombre}${brandTag}\n`,
+          subtitle: `Material · Bloque con propiedades · $ ${priceStr} / ${ins.unidad || 'u'}${brandSub}${ins.categoria ? ` · ${ins.categoria}` : ''}`,
+          snippet: blockSnippet,
           icon: Package,
-          extraText: `${ins.categoria || ''} ${ins.marca || ''} ${ins.unidad || ''} ${ins.notas || ''}`
+          extraText: `${ins.categoria || ''} ${ins.marca || ''} ${ins.unidad || ''} ${ins.notas || ''} bloque propiedades cantidad producto precio`
+        });
+
+        // Opción 2: Línea compacta
+        list.push({
+          id: `ins-line-${ins.id}`,
+          category: 'material',
+          categoryTag: ins.categoria,
+          title: `${ins.nombre}${brandTag} (Línea simple)`,
+          subtitle: `Inserción rápida en un renglón · $ ${priceStr} / ${ins.unidad || 'u'}`,
+          snippet: `- ${ins.nombre}${brandTag}\n`,
+          icon: Package,
+          extraText: `${ins.categoria || ''} ${ins.marca || ''} ${ins.unidad || ''} linea simple directa`
         });
       });
 
@@ -197,15 +221,110 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
     // 3. Tareas Tipo de Catálogo (en contexto tareas o general)
     if (contextType === 'tareas' || contextType === 'general') {
       tareasTipo.forEach((t) => {
-        list.push({
-          id: `tarea-${t.id}`,
-          category: 'tarea',
-          title: t.nombre,
-          subtitle: `Tarea Catálogo · /${t.unidad || 'u'} · ${t.categoria || 'General'}`,
-          snippet: `- 1 ${t.unidad || 'u'} ${t.nombre}\n`,
-          icon: Zap,
-          extraText: `${t.categoria || ''} ${t.notasTecnicas || ''} ${t.unidad || ''}`
-        });
+        const isParametric = t.parametros && t.parametros.length > 0;
+        const hasApuBreakdown = !isParametric && ((t.insumos && t.insumos.length > 0) || (t.manoObra && t.manoObra.length > 0));
+
+        if (isParametric) {
+          // Generar snippet paramétrico con valores por defecto y comentarios condicionales
+          let paramSnippet = `- ${t.nombre}:\n    cantidad: 1 ${t.unidad || 'u'}\n    parametros:\n`;
+          t.parametros!.forEach((p) => {
+            const commentParts: string[] = [];
+            if (p.nombre && p.nombre !== p.id) commentParts.push(p.nombre);
+            if (p.unidad) commentParts.push(p.unidad);
+            const commentStr = commentParts.length > 0 ? `  # ${commentParts.join(', ')}` : '';
+
+            if (p.condicion && p.condicion.trim()) {
+              paramSnippet += `      # ${p.id}: ${p.valorDefault ?? 1}${commentStr} (si ${p.condicion})\n`;
+            } else {
+              paramSnippet += `      ${p.id}: ${p.valorDefault ?? 1}${commentStr}\n`;
+            }
+          });
+
+          // Opción 1: Tarea paramétrica completa
+          list.push({
+            id: `tarea-${t.id}`,
+            category: 'tarea',
+            title: `⚡ ${t.nombre} (Paramétrica)`,
+            subtitle: `Carga parámetros editables por defecto · /${t.unidad || 'u'} · ${t.categoria || 'General'}`,
+            snippet: paramSnippet,
+            icon: Zap,
+            extraText: `${t.categoria || ''} ${t.notasTecnicas || ''} ${t.unidad || ''} parametros formula condicionales`
+          });
+
+          // Opción 2: Línea simple
+          list.push({
+            id: `tarea-line-${t.id}`,
+            category: 'tarea',
+            title: `${t.nombre} (Línea simple)`,
+            subtitle: `Inserción rápida vinculada al catálogo · - 1 ${t.unidad || 'u'}`,
+            snippet: `- 1 ${t.unidad || 'u'} ${t.nombre}\n`,
+            icon: Zap,
+            extraText: `${t.categoria || ''} ${t.notasTecnicas || ''} linea simple directa`
+          });
+        } else if (hasApuBreakdown) {
+          // Generar snippet APU con materiales y mano de obra precargados
+          let apuSnippet = `- ${t.nombre}:\n    cantidad: 1 ${t.unidad || 'u'}\n`;
+          if (t.insumos && t.insumos.length > 0) {
+            apuSnippet += `    materiales:\n`;
+            t.insumos.forEach((item) => {
+              let matName = item.nombreSlot || item.filtroMaterial?.etiqueta;
+              let matUnit = 'u';
+              let matBrand = '';
+              const targetId = item.materialId || item.insumoId;
+              if (targetId && insumosMap?.has(targetId)) {
+                const realMat = insumosMap.get(targetId)!;
+                matName = realMat.nombre;
+                matUnit = realMat.unidad || 'u';
+                if (realMat.marca) matBrand = ` [${realMat.marca}]`;
+              }
+              const nameToUse = matName || 'Material';
+              apuSnippet += `      - ${item.cantidad || 1} ${matUnit} ${nameToUse}${matBrand}\n`;
+            });
+          }
+          if (t.manoObra && t.manoObra.length > 0) {
+            apuSnippet += `    mano_obra:\n`;
+            t.manoObra.forEach((mo) => {
+              let catName = 'Oficial';
+              if (manoObraMap?.has(mo.categoriaId)) {
+                catName = manoObraMap.get(mo.categoriaId)!.nombre;
+              }
+              apuSnippet += `      - ${mo.horas || 1} h ${catName}\n`;
+            });
+          }
+
+          // Opción 1: Tarea APU con despiece
+          list.push({
+            id: `tarea-${t.id}`,
+            category: 'tarea',
+            title: `⚡ ${t.nombre} (Despiece APU)`,
+            subtitle: `Carga desglose completo de materiales y mano de obra · /${t.unidad || 'u'}`,
+            snippet: apuSnippet,
+            icon: Layers,
+            extraText: `${t.categoria || ''} ${t.notasTecnicas || ''} ${t.unidad || ''} apu materiales mano de obra despiece`
+          });
+
+          // Opción 2: Línea simple
+          list.push({
+            id: `tarea-line-${t.id}`,
+            category: 'tarea',
+            title: `${t.nombre} (Línea simple)`,
+            subtitle: `Inserción rápida vinculada al catálogo · - 1 ${t.unidad || 'u'}`,
+            snippet: `- 1 ${t.unidad || 'u'} ${t.nombre}\n`,
+            icon: Zap,
+            extraText: `${t.categoria || ''} ${t.notasTecnicas || ''} linea simple directa`
+          });
+        } else {
+          // Tarea simple sin desglose
+          list.push({
+            id: `tarea-${t.id}`,
+            category: 'tarea',
+            title: t.nombre,
+            subtitle: `Tarea Catálogo · /${t.unidad || 'u'} · ${t.categoria || 'General'}`,
+            snippet: `- 1 ${t.unidad || 'u'} ${t.nombre}\n`,
+            icon: Zap,
+            extraText: `${t.categoria || ''} ${t.notasTecnicas || ''} ${t.unidad || ''}`
+          });
+        }
       });
 
       // Partida a Medida (Plantilla APU compuesta)
