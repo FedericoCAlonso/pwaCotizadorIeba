@@ -726,8 +726,55 @@ function parseAndAddItem(
         (taskContent.condicion || taskContent.condicionTrabajo || 'normal').toLowerCase();
       const precioManual = taskContent.precio ? parseLocalizedNumber(taskContent.precio) : undefined;
 
-      const materialesList = taskContent.materiales || taskContent.insumos || [];
-      const manoObraList = taskContent.mano_obra || taskContent.manoObra || taskContent.mo || [];
+      const rawMateriales = taskContent.materiales || taskContent.insumos || [];
+      const materialesList: any[] = [];
+      if (Array.isArray(rawMateriales)) {
+        rawMateriales.forEach((item) => {
+          if (typeof item === 'object' && item !== null) {
+            const firstK = Object.keys(item)[0];
+            if (Array.isArray(item[firstK])) {
+              materialesList.push(...item[firstK]);
+            } else {
+              materialesList.push(item);
+            }
+          } else {
+            materialesList.push(item);
+          }
+        });
+      } else if (typeof rawMateriales === 'object' && rawMateriales !== null) {
+        Object.values(rawMateriales).forEach((val) => {
+          if (Array.isArray(val)) {
+            materialesList.push(...val);
+          } else if (val) {
+            materialesList.push(val);
+          }
+        });
+      }
+
+      const rawMo = taskContent.mano_obra || taskContent.manoObra || taskContent.mo || [];
+      const manoObraList: any[] = [];
+      if (Array.isArray(rawMo)) {
+        rawMo.forEach((item) => {
+          if (typeof item === 'object' && item !== null) {
+            const firstK = Object.keys(item)[0];
+            if (Array.isArray(item[firstK])) {
+              manoObraList.push(...item[firstK]);
+            } else {
+              manoObraList.push(item);
+            }
+          } else {
+            manoObraList.push(item);
+          }
+        });
+      } else if (typeof rawMo === 'object' && rawMo !== null) {
+        Object.values(rawMo).forEach((val) => {
+          if (Array.isArray(val)) {
+            manoObraList.push(...val);
+          } else if (val) {
+            manoObraList.push(val);
+          }
+        });
+      }
 
       // Si tiene desglose de materiales o mano de obra -> Construir APU a medida
       if (materialesList.length > 0 || manoObraList.length > 0) {

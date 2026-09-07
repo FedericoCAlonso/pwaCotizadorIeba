@@ -246,4 +246,34 @@ obra:
     expect(parsed.items[0].descripcion).toBe('Boca de Iluminación');
     expect(parsed.items[0].cantidad).toBe(15);
   });
+
+  it('parsea partidas a medida con materiales agrupados por sub-categorías', () => {
+    const yaml = `
+Tableros:
+  - Tablero Categorizado:
+      materiales:
+        cables:
+          - 20 m Cable 2.5mm
+        protecciones:
+          - 1 u Disyuntor 2x40A
+      mano_obra:
+        - 4 h Oficial
+    `;
+
+    const result = parseDSLToPresupuesto(yaml, {
+      clientes: mockClientes,
+      tareasTipo: mockTareas,
+      insumosMap: mockInsumosMap,
+      manoObraMap: mockManoObraMap
+    });
+
+    expect(result.items.length).toBe(1);
+    const item = result.items[0];
+    expect(item.insumosSnapshot.length).toBe(2);
+    expect(item.insumosSnapshot[0].nombre).toBe('Cable 2.5mm');
+    expect(item.insumosSnapshot[0].cantidadTotal).toBe(20);
+    expect(item.insumosSnapshot[1].nombre).toBe('Disyuntor 2x40A');
+    expect(item.insumosSnapshot[1].cantidadTotal).toBe(1);
+    expect(item.manoObraSnapshot.length).toBe(1);
+  });
 });
