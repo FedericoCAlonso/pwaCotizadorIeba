@@ -6,6 +6,7 @@ import {
   parseLocalizedNumber,
   normalizeString,
   detectCursorContext,
+  detectSuggestTrigger,
   formatSlashCommandReplacement,
   handleYamlSmartEnter,
   scoreSearchMatch
@@ -378,6 +379,33 @@ Instalación Eléctrica:
 
       expect(replacementLine).toBe('  - 1 u Boca de Iluminación\n');
     });
+
+    it('reemplaza limpiamente cuando el usuario busca con decimales "- cabl 1.5"', () => {
+      const { replacementLine } = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '        - cabl 1.5',
+        snippet: '- 1 m Cable Unipolar 1.5 mm² Marrón\n'
+      });
+
+      expect(replacementLine).toBe('        - 1 m Cable Unipolar 1.5 mm² Marrón\n');
+    });
+
+    it('preserva la cantidad si el usuario puso sólo número "- 25 cabl 1.5" y le asigna la unidad del catálogo', () => {
+      const { replacementLine } = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '        - 25 cabl 1.5',
+        snippet: '- 1 m Cable Unipolar 1.5 mm² Marrón\n'
+      });
+
+      expect(replacementLine).toBe('        - 25 m Cable Unipolar 1.5 mm² Marrón\n');
+    });
+
+    it('preserva cantidad y unidad explícitas "- 25 m cabl 1.5"', () => {
+      const { replacementLine } = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '        - 25 m cabl 1.5',
+        snippet: '- 1 m Cable Unipolar 1.5 mm² Marrón\n'
+      });
+
+      expect(replacementLine).toBe('        - 25 m Cable Unipolar 1.5 mm² Marrón\n');
+    });
   });
 
   describe('handleYamlSmartEnter', () => {
@@ -526,10 +554,95 @@ Instalación Eléctrica:
       expect(score).toBe(-1);
     });
 
-    it('devuelve 0 si la consulta está vacía o sólo contiene caracteres especiales', () => {
-      expect(scoreSearchMatch({ query: '', title: 'Cable' })).toBe(0);
-      expect(scoreSearchMatch({ query: '/', title: 'Cable' })).toBe(0);
-      expect(scoreSearchMatch({ query: '   ', title: 'Cable' })).toBe(0);
+    it('coincide y clasifica búsquedas numéricas y con decimales como "cabl 1.5" y "cable unipolar 1.5"', () => {
+      const title = 'Cable Unipolar 1.5 mm² Marrón (Fase) IRAM 247-3';
+      expect(scoreSearchMatch({ query: 'cabl 1.5', title })).toBeGreaterThan(0);
+      expect(scoreSearchMatch({ query: 'cable unipolar 1.5', title })).toBeGreaterThan(0);
+      expect(scoreSearchMatch({ query: 'cable unipolar 1.', title })).toBeGreaterThan(0);
+      expect(scoreSearchMatch({ query: '1.5 cable', title })).toBeGreaterThan(0);
+      expect(scoreSearchMatch({ query: 'cable 1,5', title })).toBeGreaterThan(0);
+    });
+  });
+
+  describe('detectSuggestTrigger (Detección inteligente de consultas e IntelliSense)', () => {
+    it('detecta consultas continuas con decimales y números como "cable unipolar 1.5" o "cabl 1.5"', () => {
+      const res1 = detectSuggestTrigger('        - cable unipolar 1.5');
+      expect(res1).not.toBeNull();
+      expect(res1?.query).toBe('cable unipolar 1.5');
+      expect(res1?.isExplicit).toBe(false);
+
+      const res2 = detectSuggestTrigger('        - cabl 1.5');
+      expect(res2).not.toBeNull();
+      expect(res2?.query).toBe('cabl 1.5');
+
+      // Mientras el usuario va tipeando el punto "1." no debe cancelarse ni cerrarse
+      const res3 = detectSuggestTrigger('        - cable unipolar 1.');
+      expect(res3).not.toBeNull();
+      expect(res3?.query).toBe('cable unipolar 1.');
+    });
+
+    it('detecta consultas tras cantidad y unidad ("- 25 m cabl 1.5")', () => {
+      const res = detectSuggestTrigger('        - 25 m cabl 1.5');
+      expect(res).not.toBeNull();
+      expect(res?.query).toBe('cabl 1.5');
+    });
+
+    it('detecta consultas tras cantidad sin unidad ("- 25 cabl 1.5")', () => {
+      const res = detectSuggestTrigger('        - 25 cabl 1.5');
+      expect(res).not.toBeNull();
+      expect(res?.query).toBe('cabl 1.5');
+    });
+
+    it('detecta insumos con caracteres especiales como comillas y barras ("- 10 u caño corrugado 3/4\\"")', () => {
+      const res = detectSuggestTrigger('        - 10 u caño corrugado 3/4"');
+      expect(res).not.toBeNull();
+      expect(res?.query).toBe('caño corrugado 3/4"');
+    });
+
+    it('detecta especificaciones numéricas como "3x2.5" o "2x16 termica"', () => {
+      const res1 = detectSuggestTrigger('        - 3x2.5');
+      expect(res1).not.toBeNull();
+      expect(res1?.query).toBe('3x2.5');
+
+      const res2 = detectSuggestTrigger('        - 2x16 termica');
+      expect(res2).not.toBeNull();
+      expect(res2?.query).toBe('2x16 termica');
+    });
+
+    it('no activa autocompletado si el usuario está tipeando un número aislado o cantidad', () => {
+      expect(detectSuggestTrigger('        - 10')).toBeNull();
+      expect(detectSuggestTrigger('        - 10 ')).toBeNull();
+      expect(detectSuggestTrigger('        - 1.5')).toBeNull();
+      expect(detectSuggestTrigger('        - 1.5 ')).toBeNull();
+    });
+
+    it('no activa autocompletado para palabras clave YAML de estructura', () => {
+      expect(detectSuggestTrigger('        - materiales:')).toBeNull();
+      expect(detectSuggestTrigger('        - mano_obra:')).toBeNull();
+      expect(detectSuggestTrigger('        - mo:')).toBeNull();
+    });
+
+    it('detecta comandos explícitos con "/" o "@" sin confundir fracciones de medidas ("3/4")', () => {
+      const res1 = detectSuggestTrigger('/cable 1.5');
+      expect(res1).toEqual({
+        triggerChar: '/',
+        query: 'cable 1.5',
+        queryIndexInLine: 0,
+        isExplicit: true
+      });
+
+      const res2 = detectSuggestTrigger('        @oficial');
+      expect(res2).toEqual({
+        triggerChar: '@',
+        query: 'oficial',
+        queryIndexInLine: 8,
+        isExplicit: true
+      });
+
+      // Fracción "3/4" no debe interpretarse como comando slash
+      const res3 = detectSuggestTrigger('        - 1 u Caño 3/4');
+      expect(res3?.isExplicit).toBe(false);
+      expect(res3?.query).toBe('Caño 3/4');
     });
   });
 });

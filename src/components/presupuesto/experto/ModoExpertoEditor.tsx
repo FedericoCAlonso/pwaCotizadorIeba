@@ -35,6 +35,7 @@ import {
   DSLDiagnostic,
   normalizeString,
   detectCursorContext,
+  detectSuggestTrigger,
   formatSlashCommandReplacement,
   handleYamlSmartEnter,
   CursorContextType
@@ -363,33 +364,22 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     // Detectar contexto semántico de la línea actual
     const { contextType, activeCategory } = detectCursorContext(textBeforeCursor);
 
-    // 1. Detección explícita de "/" o "@"
-    const explicitTriggerMatch = currentLine.match(/([\/@])([a-zA-Z0-9áéíóúÁÉÍÓÚ\s]*)$/);
+    const trigger = detectSuggestTrigger(currentLine);
 
-    if (explicitTriggerMatch) {
-      const triggerChar = explicitTriggerMatch[1];
-      const queryStr = explicitTriggerMatch[2];
-      const triggerIndex = lastLineStart + (explicitTriggerMatch.index || 0);
+    if (trigger) {
+      const triggerIndex = lastLineStart + trigger.queryIndexInLine;
+      const typedQuery = trigger.query.trim();
 
-      setSlashMenuState({
-        isOpen: true,
-        query: `${triggerChar}${queryStr}`,
-        cursorPosition: cursorPos,
-        slashIndex: triggerIndex,
-        contextType: triggerChar === '@' ? 'general' : contextType,
-        replaceFullLine: false
-      });
-    } else {
-      // 2. Detección automática tipo IntelliSense mientras escribe en un renglón de lista (-)
-      // Ej: "- cab", "- 25 m cab", "- ofi", "- bo"
-      const autoSuggestMatch = currentLine.match(/-\s*(?:[0-9.,]+\s*[a-zA-ZáéíóúÁÉÍÓÚ²³]*\s*)?([a-zA-ZáéíóúÁÉÍÓÚ]{2,}[a-zA-Z0-9áéíóúÁÉÍÓÚ\s]*)$/);
-      const isKeyword = autoSuggestMatch && /^(materiales|insumos|mano_obra|manoobra|mo):?$/i.test(autoSuggestMatch[1].trim());
-
-      if (autoSuggestMatch && !isKeyword) {
-        const typedQuery = autoSuggestMatch[1].trim();
-        const queryIndexInLine = currentLine.lastIndexOf(autoSuggestMatch[1]);
-        const triggerIndex = lastLineStart + queryIndexInLine;
-
+      if (trigger.isExplicit) {
+        setSlashMenuState({
+          isOpen: true,
+          query: `${trigger.triggerChar}${trigger.query}`,
+          cursorPosition: cursorPos,
+          slashIndex: triggerIndex,
+          contextType: trigger.triggerChar === '@' ? 'general' : contextType,
+          replaceFullLine: false
+        });
+      } else {
         // Si hay una subcategoría activa en el bloque (ej: "cables:"), prefijarla para filtrar
         const queryWithCategory = activeCategory ? `${activeCategory}/${typedQuery}` : typedQuery;
 
@@ -401,10 +391,10 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
           contextType,
           replaceFullLine: false
         });
-      } else {
-        if (slashMenuState.isOpen) {
-          setSlashMenuState((prev) => ({ ...prev, isOpen: false }));
-        }
+      }
+    } else {
+      if (slashMenuState.isOpen) {
+        setSlashMenuState((prev) => ({ ...prev, isOpen: false }));
       }
     }
 

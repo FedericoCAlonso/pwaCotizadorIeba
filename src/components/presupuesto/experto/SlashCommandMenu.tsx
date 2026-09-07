@@ -69,7 +69,7 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   // Si el usuario tipeó "cables/" o "#cables" en la query, extraer la categoría
   const { inlineCategory, effectiveQuery } = useMemo(() => {
     const raw = query.replace(/^[\/@]/, '').trim();
-    const catSlashMatch = raw.match(/^([a-zA-Z0-9áéíóúÁÉÍÓÚ]+)[\/#:]\s*(.*)$/);
+    const catSlashMatch = raw.match(/^([a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ]+)[\/#:]\s*(.*)$/);
     if (catSlashMatch) {
       const candidateCat = normalizeString(catSlashMatch[1]);
       const matchedCat = materialCategories.find((c) => normalizeString(c) === candidateCat);

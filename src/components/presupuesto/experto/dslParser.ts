@@ -1217,6 +1217,63 @@ export function detectCursorContext(textBeforeCursor: string): CursorContextResu
   return { contextType: 'general', currentIndent };
 }
 
+export interface SuggestTriggerResult {
+  triggerChar?: string;
+  query: string;
+  queryIndexInLine: number;
+  isExplicit: boolean;
+}
+
+export const COMMON_UNITS = new Set([
+  'u', 'un', 'm', 'ml', 'm2', 'm²', 'm3', 'm³', 'h', 'hs', 'hora', 'horas',
+  'kg', 'l', 'lt', 'boca', 'bocas', 'puntos', 'punto', 'jgo', 'paq', 'caja',
+  'cajas', 'bolsa', 'bolsas', 'tira', 'tiras', 'rollo', 'rollos', 'sn', 'servicio', 'locales'
+]);
+
+/**
+ * Detecta si en la línea actual (hasta la posición del cursor) se debe abrir el menú de sugerencias.
+ * Soporta:
+ * 1. Disparadores explícitos ("/" o "@"), asegurando que no colisionen con fracciones como "3/4".
+ * 2. IntelliSense automático en ítems de lista ("- ") al escribir nombres de materiales,
+ *    incluyendo números con decimales (ej: "cabl 1.5", "cable unipolar 1.5", "3x2.5", "caño 3/4").
+ */
+export function detectSuggestTrigger(currentLineBeforeCursor: string): SuggestTriggerResult | null {
+  // 1. Detección explícita de "/" o "@"
+  // Debe estar al inicio de línea, precedido de espacio en blanco, o tras un guión de lista
+  const explicitMatch = currentLineBeforeCursor.match(/(?:^|[\s\-])([\/@])([^\r\n]*)$/);
+  if (explicitMatch) {
+    const triggerChar = explicitMatch[1];
+    const query = explicitMatch[2];
+    const sepOffset = explicitMatch[0].length - (triggerChar.length + query.length);
+    const queryIndexInLine = (explicitMatch.index ?? 0) + sepOffset;
+    return {
+      triggerChar,
+      query,
+      queryIndexInLine,
+      isExplicit: true
+    };
+  }
+
+  // 2. IntelliSense automático en renglón de lista (-)
+  // Detecta palabras de 2+ letras o dimensiones como 3x2.5, 2x16, permitiendo caracteres técnicos
+  // (. , / " ' - + etc.) para medidas y secciones
+  const autoMatch = currentLineBeforeCursor.match(/-\s*(?:[0-9.,]+\s*[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ²³]*\s+)?((?:[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]{2,}|\d+[xX][0-9.,]*)[^\r\n]*)$/);
+  if (autoMatch) {
+    const rawQuery = autoMatch[1];
+    const isKeyword = /^(materiales|insumos|mano_obra|manoobra|mo):?$/i.test(rawQuery.trim());
+    if (!isKeyword) {
+      const queryIndexInLine = currentLineBeforeCursor.lastIndexOf(rawQuery);
+      return {
+        query: rawQuery,
+        queryIndexInLine,
+        isExplicit: false
+      };
+    }
+  }
+
+  return null;
+}
+
 /**
  * Reemplaza de forma segura la línea de edición al seleccionar una sugerencia o comando slash,
  * evitando duplicación de guiones (- -), preservando cantidades escritas por el usuario,
@@ -1233,19 +1290,38 @@ export function formatSlashCommandReplacement(params: {
   const lineIndent = currentLineBeforeCursor.match(/^\s*/)?.[0] || '';
 
   // Detectar si el usuario ya escribió cantidad / unidad antes de la query
-  // Ejemplos: "        - 25 m ", "        - 10 ", "        - 1.5 hs "
-  const userQtyUnitMatch = currentLineBeforeCursor.match(/^\s*-\s*([0-9.,]+(?:\s*[a-zA-ZáéíóúÁÉÍÓÚ²³]+)?)\s+/);
-  const userQtyUnit = userQtyUnitMatch ? userQtyUnitMatch[1].trim() : null;
+  // Ejemplos: "        - 25 m ", "        - 10 ", "        - 1.5 hs ", "        - 25 cabl" (solo cantidad 25)
+  const userQtyMatch = currentLineBeforeCursor.match(/^\s*-\s*([0-9.,]+)(?:\s+([a-zA-ZáéíóúÁÉÍÓÚñÑüÜ²³]+))?\s+/);
+  let userQtyUnit: string | null = null;
+  if (userQtyMatch) {
+    const num = userQtyMatch[1];
+    const possibleUnit = userQtyMatch[2];
+    if (possibleUnit) {
+      if (COMMON_UNITS.has(possibleUnit.toLowerCase())) {
+        userQtyUnit = `${num} ${possibleUnit}`;
+      } else {
+        // La palabra era parte del término buscado (ej: "- 25 cabl 1.5"), preservamos solo el número
+        userQtyUnit = num;
+      }
+    } else {
+      userQtyUnit = num;
+    }
+  }
 
   let replacementLine = '';
 
   if (snippet.startsWith('- ')) {
     // Snippet de ítem de lista: "- 1 u Cable Unipolar 2.5 mm\n" o "- 4 h Oficial\n"
-    const snippetMatch = snippet.match(/^-\s*([0-9.,]+)\s*([a-zA-ZáéíóúÁÉÍÓÚ²³]+)\s+(.+?)(?:\n|$)/);
+    const snippetMatch = snippet.match(/^-\s*([0-9.,]+)\s*([a-zA-ZáéíóúÁÉÍÓÚñÑüÜ²³]+)\s+(.+?)(?:\n|$)/);
     if (snippetMatch) {
       const defaultQtyUnit = `${snippetMatch[1]} ${snippetMatch[2]}`;
+      const defaultUnit = snippetMatch[2];
       const itemName = snippetMatch[3];
-      const qtyUnitToUse = userQtyUnit || defaultQtyUnit;
+      let qtyUnitToUse = userQtyUnit || defaultQtyUnit;
+      // Si el usuario solo puso número pero no unidad, añadir la unidad por defecto del catálogo
+      if (userQtyUnit && /^[0-9.,]+$/.test(userQtyUnit)) {
+        qtyUnitToUse = `${userQtyUnit} ${defaultUnit}`;
+      }
       replacementLine = `${lineIndent}- ${qtyUnitToUse} ${itemName}\n`;
     } else {
       // Snippet complejo con guión (ej: APU compuesto)
