@@ -229,7 +229,7 @@ export function processCalculationBlock(
 }
 
 /**
- * Genera una plantilla inicial en formato YAML para comenzar una cotización desde cero
+ * Genera una plantilla inicial en formato YAML para comenzar una cotización desde cero (limpia, sin datos de relleno)
  */
 export function getDefaultPresupuestoYAMLTemplate(context?: {
   clientes?: Cliente[];
@@ -242,24 +242,52 @@ export function getDefaultPresupuestoYAMLTemplate(context?: {
 
   return `# ============================================================
 # COTIZACIÓN INTELIGENTE - MODO EXPERTO (YAML)
+# ============================================================
+
+cliente: ${clienteNombre}
+obra: ${obra}
+factura: Factura C
+validez: 15 dias
+margen: 35%
+riesgo: normal
+dolar: no
+
+Capítulo 1:
+  - 1 u 
+`;
+}
+
+/**
+ * Genera un ejemplo rico y completo con materiales, mano de obra y variables para aprender la sintaxis
+ */
+export function generateExampleDSL(cliente?: Cliente): string {
+  const clienteNombre = cliente ? (cliente.razonSocial || cliente.nombre) : 'Federico';
+
+  return `# ============================================================
+# COTIZACIÓN INTELIGENTE - MODO EXPERTO (YAML)
 # Podés escribir directamente, usar comentarios '#' y comandos '/'
 # ============================================================
 
 # Datos Principales de la Cotización
 cliente: ${clienteNombre}
-obra: ${obra}
+obra: Av. Corrientes 1234, CABA
 factura: Factura C          # Opciones: Factura A, Factura B, Factura C o Presupuesto X
 validez: 15 dias
 margen: 35%                 # Margen de beneficio sobre costos
 riesgo: bajo                # Opciones: bajo, normal, alto
 dolar: USD Blue             # Opcional (ej: USD Blue, USD MEP, USD Oficial o cotización)
 
+# Celdas de cálculo y variables reactivas
+calculos:
+  superficie: 120
+  bocas: =ceil(superficie / 6)
+  cable_m: =bocas * 12
+
 # ------------------------------------------------------------
 # CAPÍTULOS Y PARTIDAS
-# Podés listar Tareas del catálogo o Partidas a medida con despiece
 # ------------------------------------------------------------
 Instalación Eléctrica:
-  - 10 u Boca de Iluminación: $ 12.500
+  - =bocas u Boca de Iluminación: $ 12.500
   - 4 u Tomacorriente Doble: $ 9.800
 
 Tableros y Automatización:
@@ -287,13 +315,6 @@ gastos:
   - Viáticos: $ 15.000
   - Flete y Logística: $ 10.000
 `;
-}
-
-export function generateExampleDSL(cliente?: Cliente): string {
-  return getDefaultPresupuestoYAMLTemplate({
-    clientes: cliente ? [cliente] : undefined,
-    clienteId: cliente?.id
-  });
 }
 
 /**
@@ -2620,6 +2641,151 @@ export function scoreSearchMatch(params: SearchMatchParams): number {
 
   return Math.round(score);
 }
+
+export interface FieldStop {
+  start: number;
+  end: number;
+  label?: string;
+}
+
+/**
+ * Identifica todos los puntos de parada semánticos editables en el documento YAML
+ * (campos de cabecera, nombres de capítulos, cantidades, nombres de partidas y propiedades).
+ */
+export function getFieldStops(dslText: string): FieldStop[] {
+  const stops: FieldStop[] = [];
+  const lines = dslText.split('\n');
+  let offset = 0;
+
+  const reservedRootKeys = new Set([
+    'cliente', 'obra', 'factura', 'validez', 'margen', 'riesgo', 'dolar', 'gastos', 'totales', 'calculos', 'variables', 'capitulos', 'partidas'
+  ]);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (trimmed && !trimmed.startsWith('#')) {
+      // 1. Directivas de cabecera (cliente:, obra:, factura:, validez:, margen:, riesgo:, dolar:)
+      const headerMatch = line.match(/^(\s*)(cliente|obra|factura|validez|margen|riesgo|dolar)\s*:\s*(.*)$/i);
+      if (headerMatch) {
+        const colonIdx = line.indexOf(':');
+        const valPart = line.slice(colonIdx + 1);
+        const cleanVal = valPart.replace(/#.*$/, '').trim();
+
+        if (!cleanVal) {
+          const cursorStart = offset + colonIdx + 1 + (valPart.startsWith(' ') ? 1 : 0);
+          stops.push({ start: cursorStart, end: cursorStart, label: headerMatch[2] });
+        } else {
+          const valStart = offset + line.indexOf(cleanVal, colonIdx + 1);
+          stops.push({ start: valStart, end: valStart + cleanVal.length, label: headerMatch[2] });
+        }
+      }
+      // 2. Capítulos a nivel raíz (ej: "Capítulo 1:")
+      else if (/^[^\s\-#][^:]*:\s*(#.*)?$/.test(line)) {
+        const colonIdx = line.indexOf(':');
+        const capName = line.slice(0, colonIdx).trim();
+        const lowerKey = capName.toLowerCase();
+        if (!reservedRootKeys.has(lowerKey)) {
+          const startIdx = offset + line.indexOf(capName);
+          stops.push({ start: startIdx, end: startIdx + capName.length, label: 'capitulo' });
+        }
+      }
+      // 3. Variables o cálculos (ej: "  superficie: 120")
+      else if (/^\s{2,4}([a-zA-Z0-9_]+)\s*:\s*(.*)$/.test(line) && !line.trim().startsWith('-')) {
+        const varMatch = line.match(/^(\s*)([a-zA-Z0-9_]+)\s*:\s*(.*)$/)!;
+        const propName = varMatch[2].toLowerCase();
+        const reservedTaskProps = new Set(['materiales', 'insumos', 'mano_obra', 'manoobra', 'mo', 'parametros', 'params', 'condicion']);
+        if (!reservedTaskProps.has(propName)) {
+          const colonIdx = line.indexOf(':');
+          const valPart = line.slice(colonIdx + 1);
+          const cleanVal = valPart.replace(/#.*$/, '').trim();
+          if (!cleanVal) {
+            const cursorStart = offset + colonIdx + 1 + (valPart.startsWith(' ') ? 1 : 0);
+            stops.push({ start: cursorStart, end: cursorStart, label: varMatch[2] });
+          } else {
+            const valStart = offset + line.indexOf(cleanVal, colonIdx + 1);
+            stops.push({ start: valStart, end: valStart + cleanVal.length, label: varMatch[2] });
+          }
+        }
+      }
+      // 4. Ítems de lista (ej: "  - 10 u Boca de Iluminación: $ 12.500" o "  - 1 u ")
+      else if (/^\s*-\s+/.test(line)) {
+        const dashIdx = line.indexOf('-');
+        const afterDash = line.slice(dashIdx + 1);
+
+        // Buscar cantidad y unidad al inicio: ej: " 10 u " o " =bocas u " o " 1 "
+        const qtyUnitMatch = afterDash.match(/^\s*([0-9.,]+|\=[a-zA-Z0-9_]+)\s*([a-zA-ZáéíóúÁÉÍÓÚ²³]+)?\s*/);
+        if (qtyUnitMatch) {
+          const qtyStr = qtyUnitMatch[1];
+          const qtyStart = offset + dashIdx + 1 + afterDash.indexOf(qtyStr);
+          stops.push({ start: qtyStart, end: qtyStart + qtyStr.length, label: 'cantidad' });
+
+          const afterQty = afterDash.slice(qtyUnitMatch[0].length);
+          const namePricePart = afterQty.replace(/#.*$/, '').trim();
+
+          if (namePricePart) {
+            // Separar posible precio al final (ej: "Boca de Iluminación: $ 12.500")
+            const priceMatch = namePricePart.match(/(?:[:=]\s*\$?\s*)([0-9.,]+|\=[a-zA-Z0-9_]+)\s*$/);
+            if (priceMatch && priceMatch.index !== undefined) {
+              const nameStr = namePricePart.slice(0, priceMatch.index).trim();
+              if (nameStr) {
+                const nameStart = offset + line.indexOf(nameStr, dashIdx + 1);
+                stops.push({ start: nameStart, end: nameStart + nameStr.length, label: 'nombre_item' });
+              }
+              const priceStr = priceMatch[1];
+              const priceStart = offset + line.indexOf(priceStr, dashIdx + 1 + qtyUnitMatch[0].length);
+              stops.push({ start: priceStart, end: priceStart + priceStr.length, label: 'precio_item' });
+            } else {
+              const nameClean = namePricePart.replace(/:$/, '').trim();
+              const nameStart = offset + line.indexOf(nameClean, dashIdx + 1);
+              stops.push({ start: nameStart, end: nameStart + nameClean.length, label: 'nombre_item' });
+            }
+          } else {
+            // Línea como "  - 1 u " donde aún no se escribió el nombre: cursor al final de la línea
+            const endOfLine = offset + line.length;
+            stops.push({ start: endOfLine, end: endOfLine, label: 'nombre_item_nuevo' });
+          }
+        } else {
+          // Ítem sin número (ej: "  - Tablero:")
+          const cleanName = afterDash.replace(/#.*$/, '').replace(/:$/, '').trim();
+          if (cleanName) {
+            const nameStart = offset + line.indexOf(cleanName, dashIdx + 1);
+            stops.push({ start: nameStart, end: nameStart + cleanName.length, label: 'nombre_item' });
+          }
+        }
+      }
+    }
+
+    offset += line.length + 1; // +1 por '\n'
+  }
+
+  // Ordenar y eliminar duplicados exactos
+  stops.sort((a, b) => a.start - b.start || a.end - b.end);
+  return stops.filter((s, idx) => idx === 0 || s.start !== stops[idx - 1].start || s.end !== stops[idx - 1].end);
+}
+
+/**
+ * Encuentra el siguiente punto de parada semántico editable hacia adelante o atrás
+ */
+export function findNextFillableField(params: {
+  text: string;
+  cursorPos: number;
+  direction?: 'forward' | 'backward';
+}): FieldStop | null {
+  const { text, cursorPos, direction = 'forward' } = params;
+  const stops = getFieldStops(text);
+  if (stops.length === 0) return null;
+
+  if (direction === 'forward') {
+    const next = stops.find((s) => s.start > cursorPos);
+    return next || stops[0];
+  } else {
+    const prev = [...stops].reverse().find((s) => s.start < cursorPos);
+    return prev || stops[stops.length - 1];
+  }
+}
+
 
 
 

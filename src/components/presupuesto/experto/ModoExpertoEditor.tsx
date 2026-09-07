@@ -42,7 +42,8 @@ import {
   handleYamlSmartEnter,
   handleYamlSmartBackspace,
   CursorContextType,
-  CalculatedCell
+  CalculatedCell,
+  findNextFillableField
 } from './dslParser';
 import { db } from '../../../db/database';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -571,10 +572,40 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     }, 250);
   };
 
+  // Navegación inteligente de campos a completar (Alt + Enter)
+  const handleNavigateField = useCallback(
+    (direction: 'forward' | 'backward' = 'forward') => {
+      if (!textareaRef.current) return;
+      const textarea = textareaRef.current;
+      const currentPos = direction === 'forward' ? textarea.selectionEnd : textarea.selectionStart;
+
+      const nextField = findNextFillableField({
+        text: dslText,
+        cursorPos: currentPos,
+        direction
+      });
+
+      if (nextField) {
+        cursorPosRef.current = { start: nextField.start, end: nextField.end };
+        textarea.focus({ preventScroll: true });
+        textarea.selectionStart = nextField.start;
+        textarea.selectionEnd = nextField.end;
+      }
+    },
+    [dslText]
+  );
+
   // Manejo de atajos de teclado en el editor (Enter con auto-indentación, Tab para sangría, Ctrl+Enter para guardar)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (slashMenuState.isOpen && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       // El SlashCommandMenu maneja las flechas
+      return;
+    }
+
+    // ALT + ENTER / ALT + SHIFT + ENTER: Navegación inteligente por campos a completar
+    if (e.altKey && e.key === 'Enter') {
+      e.preventDefault();
+      handleNavigateField(e.shiftKey ? 'backward' : 'forward');
       return;
     }
 
@@ -1151,6 +1182,16 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
             >
               #
             </button>
+
+            <button
+              type="button"
+              {...createToolbarAction(() => handleNavigateField('forward'))}
+              className="px-2.5 py-1 bg-primary/15 hover:bg-primary/25 text-primary rounded-lg font-bold text-[11px] border border-primary/30 transition shrink-0 cursor-pointer min-h-[32px] flex items-center gap-1"
+              title="Saltar al siguiente campo editable (Alt + Enter)"
+            >
+              <span>⏭ Campo</span>
+              <kbd className="hidden sm:inline text-[9px] opacity-75 font-mono">Alt+Enter</kbd>
+            </button>
           </div>
 
           {/* Lienzo del Editor con Números de Línea y Autocompletado */}
@@ -1166,6 +1207,9 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
               </div>
 
               <div className="flex items-center gap-2 text-[11px]">
+                <kbd className="px-1.5 py-0.5 bg-surface-container rounded border border-outline-variant/20 font-mono">
+                  Alt+Enter campo
+                </kbd>
                 <kbd className="px-1.5 py-0.5 bg-surface-container rounded border border-outline-variant/20 font-mono">
                   Enter auto-indenta
                 </kbd>

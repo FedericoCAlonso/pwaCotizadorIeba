@@ -3,6 +3,9 @@ import {
   parseDSLToPresupuesto,
   serializePresupuestoToDSL,
   getDefaultPresupuestoYAMLTemplate,
+  generateExampleDSL,
+  getFieldStops,
+  findNextFillableField,
   parseLocalizedNumber,
   normalizeString,
   detectCursorContext,
@@ -57,19 +60,20 @@ describe('dslParser (Modo Experto YAML)', () => {
     expect(parseLocalizedNumber('$ 35.000')).toBe(35000);
   });
 
-  it('getDefaultPresupuestoYAMLTemplate genera la plantilla inicial comentada', () => {
+  it('getDefaultPresupuestoYAMLTemplate genera la plantilla inicial limpia sin datos de relleno', () => {
     const template = getDefaultPresupuestoYAMLTemplate({ clientes: mockClientes });
     expect(template).toContain('# ============================================================');
     expect(template).toContain('cliente: Estudio Arq. Gómez');
     expect(template).toContain('factura: Factura C');
-    expect(template).toContain('Instalación Eléctrica:');
-    expect(template).toContain('Tableros y Automatización:');
-    expect(template).toContain('materiales:');
-    expect(template).toContain('mano_obra:');
-    expect(template).toContain('gastos:');
+    expect(template).toContain('Capítulo 1:');
+    expect(template).toContain('- 1 u');
+    // Debe ser limpio: NO tener tareas ni materiales de ejemplo precargados
+    expect(template).not.toContain('Instalación Eléctrica:');
+    expect(template).not.toContain('Tableros y Automatización:');
+    expect(template).not.toContain('materiales:');
   });
 
-  it('getDefaultPresupuestoYAMLTemplate se parsea sin errores ni advertencias de sintaxis', () => {
+  it('getDefaultPresupuestoYAMLTemplate se parsea sin errores de sintaxis', () => {
     const template = getDefaultPresupuestoYAMLTemplate({ clientes: mockClientes });
     const result = parseDSLToPresupuesto(template, {
       clientes: mockClientes,
@@ -81,8 +85,27 @@ describe('dslParser (Modo Experto YAML)', () => {
     const errors = result.diagnostics.filter((d) => d.type === 'error');
     expect(errors).toHaveLength(0);
     expect(result.tipoFactura).toBe('Factura C');
-    expect(result.mostrarDolar).toBe(true);
-    expect(result.nombreDolar).toBe('USD Blue');
+    expect(result.mostrarDolar).toBe(false);
+  });
+
+  it('generateExampleDSL genera el ejemplo enriquecido con materiales, mano de obra y variables', () => {
+    const example = generateExampleDSL(mockClientes[0]);
+    expect(example).toContain('cliente: Estudio Arq. Gómez');
+    expect(example).toContain('calculos:');
+    expect(example).toContain('Instalación Eléctrica:');
+    expect(example).toContain('Tableros y Automatización:');
+    expect(example).toContain('materiales:');
+    expect(example).toContain('mano_obra:');
+    expect(example).toContain('gastos:');
+
+    const result = parseDSLToPresupuesto(example, {
+      clientes: mockClientes,
+      tareasTipo: mockTareas,
+      insumosMap: mockInsumosMap,
+      manoObraMap: mockManoObraMap
+    });
+    const errors = result.diagnostics.filter((d) => d.type === 'error');
+    expect(errors).toHaveLength(0);
     expect(result.items.length).toBeGreaterThan(0);
     expect(result.gastosConfig.length).toBe(2);
   });
@@ -1570,6 +1593,122 @@ Instalacion:
         snippet: '=bocas'
       });
       expect(res.replacementLine).toBe('    cantidad: =bocas ');
+    });
+  });
+
+  describe('Navegación inteligente por campos (Alt+Enter / getFieldStops / findNextFillableField)', () => {
+    it('detecta correctamente los puntos de parada en una plantilla básica', () => {
+      const yaml = `cliente: Estudio Arq. Gómez
+obra: Thames 1850
+factura: Factura C
+validez: 15 dias
+
+Capítulo 1:
+  - 1 u `;
+
+      const stops = getFieldStops(yaml);
+      expect(stops.length).toBeGreaterThanOrEqual(6);
+
+      // Primer campo debe ser el valor de cliente
+      const clienteStop = stops.find((s) => s.label === 'cliente');
+      expect(clienteStop).toBeDefined();
+      expect(yaml.slice(clienteStop!.start, clienteStop!.end)).toBe('Estudio Arq. Gómez');
+
+      // Obra
+      const obraStop = stops.find((s) => s.label === 'obra');
+      expect(obraStop).toBeDefined();
+      expect(yaml.slice(obraStop!.start, obraStop!.end)).toBe('Thames 1850');
+
+      // Capítulo
+      const capStop = stops.find((s) => s.label === 'capitulo');
+      expect(capStop).toBeDefined();
+      expect(yaml.slice(capStop!.start, capStop!.end)).toBe('Capítulo 1');
+
+      // Cantidad del ítem
+      const qtyStop = stops.find((s) => s.label === 'cantidad');
+      expect(qtyStop).toBeDefined();
+      expect(yaml.slice(qtyStop!.start, qtyStop!.end)).toBe('1');
+
+      // Nombre del ítem nuevo (vacío, al final de la línea)
+      const newItemStop = stops.find((s) => s.label === 'nombre_item_nuevo');
+      expect(newItemStop).toBeDefined();
+      expect(newItemStop!.start).toBe(newItemStop!.end);
+    });
+
+    it('navega hacia adelante con findNextFillableField', () => {
+      const yaml = `cliente: Estudio Arq. Gómez
+obra: Thames 1850
+Capítulo 1:
+  - 1 u `;
+
+      const stops = getFieldStops(yaml);
+      expect(stops.length).toBeGreaterThanOrEqual(3);
+
+      // Desde el inicio del documento (cursor = 0), debe ir al primer campo
+      const first = findNextFillableField({ text: yaml, cursorPos: 0, direction: 'forward' });
+      expect(first).not.toBeNull();
+      expect(first?.start).toBe(stops[0].start);
+
+      // Desde el fin del primer campo, debe saltar al segundo
+      const second = findNextFillableField({ text: yaml, cursorPos: stops[0].end, direction: 'forward' });
+      expect(second).not.toBeNull();
+      expect(second?.start).toBe(stops[1].start);
+    });
+
+    it('hace wrap-around hacia el inicio al llegar al final', () => {
+      const yaml = `cliente: Pérez
+obra: Rivadavia 100`;
+
+      const stops = getFieldStops(yaml);
+      const lastStop = stops[stops.length - 1];
+
+      // Desde después del último campo, debe dar la vuelta al primero
+      const wrapped = findNextFillableField({ text: yaml, cursorPos: lastStop.end + 5, direction: 'forward' });
+      expect(wrapped).not.toBeNull();
+      expect(wrapped?.start).toBe(stops[0].start);
+    });
+
+    it('navega hacia atrás con direction: backward y wrap-around al final', () => {
+      const yaml = `cliente: Pérez
+obra: Rivadavia 100`;
+
+      const stops = getFieldStops(yaml);
+      const firstStop = stops[0];
+      const lastStop = stops[stops.length - 1];
+
+      // Hacia atrás desde el segundo campo, debe ir al primero
+      const prev = findNextFillableField({ text: yaml, cursorPos: lastStop.start, direction: 'backward' });
+      expect(prev).not.toBeNull();
+      expect(prev?.start).toBe(firstStop.start);
+
+      // Hacia atrás desde el primer campo, debe dar la vuelta al último
+      const wrappedBack = findNextFillableField({ text: yaml, cursorPos: 0, direction: 'backward' });
+      expect(wrappedBack).not.toBeNull();
+      expect(wrappedBack?.start).toBe(lastStop.start);
+    });
+
+    it('extrae campos de ítems completos con precio y variables de cálculo', () => {
+      const yaml = `calculos:
+  superficie: 120
+Instalación:
+  - 10 u Boca de Iluminación: $ 12.500`;
+
+      const stops = getFieldStops(yaml);
+      const varStop = stops.find((s) => s.label === 'superficie');
+      expect(varStop).toBeDefined();
+      expect(yaml.slice(varStop!.start, varStop!.end)).toBe('120');
+
+      const qtyStop = stops.find((s) => s.label === 'cantidad');
+      expect(qtyStop).toBeDefined();
+      expect(yaml.slice(qtyStop!.start, qtyStop!.end)).toBe('10');
+
+      const nameStop = stops.find((s) => s.label === 'nombre_item');
+      expect(nameStop).toBeDefined();
+      expect(yaml.slice(nameStop!.start, nameStop!.end)).toBe('Boca de Iluminación');
+
+      const priceStop = stops.find((s) => s.label === 'precio_item');
+      expect(priceStop).toBeDefined();
+      expect(yaml.slice(priceStop!.start, priceStop!.end)).toBe('12.500');
     });
   });
 });
