@@ -1038,6 +1038,81 @@ Instalación Eléctrica:
       expect(item.costoManoObra).toBe(16000);
       expect(item.costoDirectoTotal).toBe(40000);
     });
+
+    it('preprocessYamlText y parseDSLToPresupuesto procesan partidas huérfanas sin capítulo explícito sin error de sintaxis', () => {
+      const userYaml = `# ============================================================
+# COTIZACIÓN INTELIGENTE - MODO EXPERTO (YAML)
+# ============================================================
+
+cliente: Federico
+obra: 
+factura: Factura C
+validez: 15 dias
+margen: 35%
+riesgo: bajo
+dolar: USD Blue  
+
+
+
+  - 1 u Reparación de tablero:
+      materiales:
+        - Tablero Modular DIN 24 Módulos Superficie Chapa Metálica Puerta Ciega IP40:
+            cantidad: 1
+            marca: Gabexel
+`;
+
+      const preprocessed = preprocessYamlText(userYaml);
+      expect(preprocessed).toContain('Trabajos:');
+
+      const result = parseDSLToPresupuesto(userYaml, {
+        clientes: [],
+        tareasTipo: [],
+        insumosMap: new Map(),
+        manoObraMap: new Map()
+      });
+
+      // No debe contener errores de sintaxis
+      const errorDiag = result.diagnostics.filter((d) => d.type === 'error');
+      expect(errorDiag).toHaveLength(0);
+
+      // Debe haber creado el capítulo Trabajos por defecto
+      expect(result.capitulos.length).toBeGreaterThanOrEqual(1);
+      expect(result.capitulos[0].nombre).toBe('Trabajos');
+
+      // Debe haber parseado la partida y su material
+      expect(result.items.length).toBe(1);
+      expect(result.items[0].descripcion).toBe('Reparación de tablero');
+      expect(result.items[0].insumosSnapshot.length).toBe(1);
+      expect(result.items[0].insumosSnapshot[0].nombre).toContain('Tablero Modular DIN 24');
+      expect(result.items[0].insumosSnapshot[0].marca).toBe('Gabexel');
+    });
+
+    it('detectCursorContext infiere contexto "tareas" al tipear en una partida aunque no haya capítulo explícito', () => {
+      const textBefore = `cliente: Federico
+dolar: USD Blue
+
+  - 1 u Rep`;
+
+      const { contextType } = detectCursorContext(textBefore);
+      expect(contextType).toBe('tareas');
+    });
+
+    it('detectCursorContext infiere contexto "tareas" al escribir propiedades indentadas bajo una partida', () => {
+      const textBefore = `  - 1 u Reparación de tablero:
+      mat`;
+
+      const { contextType } = detectCursorContext(textBefore);
+      expect(contextType).toBe('tareas');
+    });
+
+    it('detectCursorContext infiere contexto "materiales" únicamente cuando el ancestro es "materiales:"', () => {
+      const textBefore = `  - 1 u Reparación de tablero:
+      materiales:
+        - Tab`;
+
+      const { contextType } = detectCursorContext(textBefore);
+      expect(contextType).toBe('materiales');
+    });
   });
 });
 

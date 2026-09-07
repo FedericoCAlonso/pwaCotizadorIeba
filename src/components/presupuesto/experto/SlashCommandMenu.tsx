@@ -94,8 +94,8 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   const items: SlashCommandItem[] = useMemo(() => {
     const list: SlashCommandItem[] = [];
 
-    // 1. Insumos y Materiales del Catálogo
-    if (insumosMap && (contextType === 'materiales' || contextType === 'general')) {
+    // 1. Insumos y Materiales del Catálogo (ÚNICAMENTE en sección de materiales)
+    if (insumosMap && contextType === 'materiales') {
       insumosMap.forEach((ins) => {
         const brandTag = ins.marca ? ` [${ins.marca}]` : '';
         const brandSub = ins.marca ? ` · ${ins.marca}` : '';
@@ -183,8 +183,8 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
       });
     }
 
-    // 2. Categorías de Mano de Obra
-    if (manoObraMap && (contextType === 'mano_obra' || contextType === 'general')) {
+    // 2. Categorías de Mano de Obra (ÚNICAMENTE en sección mano de obra)
+    if (manoObraMap && contextType === 'mano_obra') {
       manoObraMap.forEach((mo) => {
         list.push({
           id: `mo-${mo.id}`,
@@ -218,7 +218,7 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
       });
     }
 
-    // 3. Tareas Tipo de Catálogo (en contexto tareas o general)
+    // 3. Tareas Tipo de Catálogo y Partidas a Medida
     if (contextType === 'tareas' || contextType === 'general') {
       tareasTipo.forEach((t) => {
         const isParametric = t.parametros && t.parametros.length > 0;
@@ -336,6 +336,71 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
         snippet: `- Tablero a Medida:\n    materiales:\n      - 1 u Gabinete DIN 24 módulos\n    mano_obra:\n      - 6 h Oficial\n`,
         icon: Layers,
         extraText: 'apu partida a medida despiece materiales mano de obra'
+      });
+
+      // Directivas y propiedades de Partida (para escribir despiece estructurado)
+      list.push({
+        id: 'prop-partida-materiales',
+        category: 'directiva',
+        title: 'materiales:',
+        subtitle: 'Sección · Despiece de materiales e insumos de la partida',
+        snippet: 'materiales:\n  - ',
+        icon: Package,
+        extraText: 'materiales insumos lista despiece componentes'
+      });
+      list.push({
+        id: 'prop-partida-mano-obra',
+        category: 'directiva',
+        title: 'mano_obra:',
+        subtitle: 'Sección · Horas y categorías de mano de obra técnica',
+        snippet: 'mano_obra:\n  - ',
+        icon: HardHat,
+        extraText: 'mano de obra horas mo oficiales ayudantes rubros'
+      });
+      list.push({
+        id: 'prop-partida-condicion',
+        category: 'directiva',
+        title: 'condicion: [normal | dificultosa | favorable]',
+        subtitle: 'Propiedad · Coeficiente de dificultad para mano de obra',
+        snippet: 'condicion: normal\n',
+        icon: Tag,
+        extraText: 'condicion trabajo dificultosa favorable normal multiplicador'
+      });
+      list.push({
+        id: 'prop-partida-precio',
+        category: 'directiva',
+        title: 'precio: [Monto]',
+        subtitle: 'Propiedad · Precio unitario manual cerrado para la partida',
+        snippet: 'precio: ',
+        icon: DollarSign,
+        extraText: 'precio valor costo manual monto cerrado'
+      });
+      list.push({
+        id: 'prop-partida-parametros',
+        category: 'directiva',
+        title: 'parametros:',
+        subtitle: 'Sección · Parámetros de cálculo para tarea paramétrica',
+        snippet: 'parametros:\n  ',
+        icon: Hash,
+        extraText: 'parametros params variables formula calculada'
+      });
+      list.push({
+        id: 'prop-partida-cantidad',
+        category: 'directiva',
+        title: 'cantidad: [Número]',
+        subtitle: 'Propiedad · Cantidad de unidades de la partida',
+        snippet: 'cantidad: ',
+        icon: Hash,
+        extraText: 'cantidad cant unidades computo'
+      });
+      list.push({
+        id: 'prop-partida-unidad',
+        category: 'directiva',
+        title: 'unidad: [u | m | gl | boca]',
+        subtitle: 'Propiedad · Unidad de medida técnica de la partida',
+        snippet: 'unidad: ',
+        icon: Hash,
+        extraText: 'unidad medida u m gl boca'
       });
     }
 

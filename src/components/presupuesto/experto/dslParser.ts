@@ -434,6 +434,8 @@ function parseQuantityAndName(raw: string): {
  */
 export function preprocessYamlText(yamlText: string): string {
   const lines = yamlText.split('\n');
+
+  // 1. Agregar ':' a ítems de lista con propiedades anidadas si el usuario lo olvidó
   for (let i = 0; i < lines.length - 1; i++) {
     const line = lines[i];
     const trimmed = line.trim();
@@ -451,6 +453,62 @@ export function preprocessYamlText(yamlText: string): string {
       }
     }
   }
+
+  // 2. Detectar si hay ítems de lista (- ) huérfanos antes de cualquier capítulo o sin encabezado de capítulo
+  const reservedRootKeysWithItems = new Set(['gastos', 'capitulos']);
+  const reservedScalarRootKeys = new Set(['cliente', 'obra', 'factura', 'validez', 'margen', 'riesgo', 'dolar', 'totales']);
+
+  let firstOrphanItemIndex = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    if (trimmed.startsWith('- ')) {
+      let hasParentChapter = false;
+      for (let k = i - 1; k >= 0; k--) {
+        const rawPrev = lines[k];
+        const trPrev = rawPrev.trim();
+        if (!trPrev || trPrev.startsWith('#')) continue;
+        const indPrev = (rawPrev.match(/^\s*/)?.[0] || '').length;
+        if (indPrev === 0 && trPrev.endsWith(':') && !trPrev.startsWith('-')) {
+          const key = trPrev.replace(/:$/, '').trim().toLowerCase();
+          if (reservedRootKeysWithItems.has(key)) {
+            hasParentChapter = true;
+            break;
+          }
+          if (!reservedScalarRootKeys.has(key)) {
+            hasParentChapter = true;
+            break;
+          }
+          hasParentChapter = false;
+          break;
+        }
+      }
+
+      if (!hasParentChapter) {
+        firstOrphanItemIndex = i;
+        break;
+      }
+    }
+  }
+
+  if (firstOrphanItemIndex !== -1) {
+    // Si hay una línea en blanco previa, reemplazarla por "Trabajos:" para no alterar los números de línea
+    let replacedBlank = false;
+    for (let k = firstOrphanItemIndex - 1; k >= 0; k--) {
+      if (lines[k].trim() === '') {
+        lines[k] = 'Trabajos:';
+        replacedBlank = true;
+        break;
+      }
+    }
+    if (!replacedBlank) {
+      lines.splice(firstOrphanItemIndex, 0, 'Trabajos:');
+    }
+  }
+
   return lines.join('\n');
 }
 
@@ -1449,17 +1507,33 @@ export function detectCursorContext(textBeforeCursor: string): CursorContextResu
         return { contextType: 'tareas', currentIndent, parentHeader: 'items' };
       }
 
+      // Si es "gastos:"
+      if (/^gastos\s*:?/i.test(trimmed)) {
+        return { contextType: 'general', currentIndent, parentHeader: 'gastos' };
+      }
+
       // Si es un encabezado a nivel raíz (indent 0) con ':'
       if (lineIndent === 0 && trimmed.endsWith(':') && !trimmed.startsWith('-')) {
         const rootKey = trimmed.replace(/:$/, '').trim().toLowerCase();
         const reservedRootKeys = ['cliente', 'obra', 'factura', 'validez', 'margen', 'riesgo', 'dolar', 'gastos', 'totales'];
         if (!reservedRootKeys.includes(rootKey)) {
-          // Es un capítulo (ej: "Instalación Eléctrica:")
+          // Es un capítulo (ej: "Instalación Eléctrica:", "Tableros:")
           return { contextType: 'tareas', currentIndent, parentHeader: trimmed.replace(/:$/, '').trim() };
         }
         break;
       }
+
+      // Si el ancestro es un ítem de partida '- ' y no fue materiales ni mano de obra
+      if (trimmed.startsWith('- ')) {
+        return { contextType: 'tareas', currentIndent, parentHeader: 'partida' };
+      }
     }
+  }
+
+  // Si la línea actual empieza con '- ', y no fue capturada por materiales ni mano de obra:
+  // Es una partida/tarea (incluso si está antes de cualquier capítulo o al nivel raíz)
+  if (currentLine.trim().startsWith('- ')) {
+    return { contextType: 'tareas', currentIndent };
   }
 
   return { contextType: 'general', currentIndent };
