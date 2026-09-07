@@ -435,7 +435,74 @@ function parseQuantityAndName(raw: string): {
 export function preprocessYamlText(yamlText: string): string {
   const lines = yamlText.split('\n');
 
-  // 1. Agregar ':' a ítems de lista con propiedades anidadas si el usuario lo olvidó
+  // 1. Normalizar sangría de ítems de despiece dentro de materiales o mano_obra
+  // Si un ítem de lista "- " está al mismo nivel de sangría que la cabecera "materiales:" o "mano_obra:"
+  // (ej: 6 espacios en vez de 8 espacios), re-indentarlo a (sectionIndent + 2) junto con sus propiedades anidadas.
+  let currentSubSection: {
+    name: string;
+    sectionIndent: number;
+    expectedItemIndent: number;
+  } | null = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const indent = (line.match(/^\s*/)?.[0] || '').length;
+
+    const secMatch = trimmed.match(/^(materiales|insumos|mano_obra|manoobra|mo)\s*:/i);
+    if (secMatch) {
+      currentSubSection = {
+        name: secMatch[1].toLowerCase(),
+        sectionIndent: indent,
+        expectedItemIndent: indent + 2
+      };
+      continue;
+    }
+
+    if (currentSubSection) {
+      // Si la línea tiene sangría menor o igual a la sección y NO es un ítem de lista (- ), la subsección terminó
+      if (indent <= currentSubSection.sectionIndent && !trimmed.startsWith('- ')) {
+        currentSubSection = null;
+        const nextSecMatch = trimmed.match(/^(materiales|insumos|mano_obra|manoobra|mo)\s*:/i);
+        if (nextSecMatch) {
+          currentSubSection = {
+            name: nextSecMatch[1].toLowerCase(),
+            sectionIndent: indent,
+            expectedItemIndent: indent + 2
+          };
+        }
+        continue;
+      }
+
+      // Si encontramos un ítem de lista con sangría igual o menor a la sección (ej: 6 espacios)
+      if (trimmed.startsWith('- ') && indent <= currentSubSection.sectionIndent) {
+        const delta = currentSubSection.expectedItemIndent - indent;
+        lines[i] = ' '.repeat(currentSubSection.expectedItemIndent) + trimmed;
+
+        let j = i + 1;
+        while (j < lines.length) {
+          const nextLine = lines[j];
+          const nextTrimmed = nextLine.trim();
+          if (!nextTrimmed || nextTrimmed.startsWith('#')) {
+            j++;
+            continue;
+          }
+          const nextIndent = (nextLine.match(/^\s*/)?.[0] || '').length;
+          // Si encontramos una línea con sangría <= sección, ya no pertenece a este ítem
+          if (nextIndent <= currentSubSection.sectionIndent) break;
+          // Si encontramos otro ítem de lista con sangría <= expectedItemIndent, es el siguiente ítem
+          if (nextTrimmed.startsWith('- ') && nextIndent <= currentSubSection.expectedItemIndent) break;
+
+          lines[j] = ' '.repeat(nextIndent + delta) + nextTrimmed;
+          j++;
+        }
+      }
+    }
+  }
+
+  // 2. Agregar ':' a ítems de lista con propiedades anidadas si el usuario lo olvidó
   for (let i = 0; i < lines.length - 1; i++) {
     const line = lines[i];
     const trimmed = line.trim();
@@ -1104,7 +1171,10 @@ function buildCompositeItem(params: {
     const normMarca = mMarca ? normalizeString(mMarca) : '';
 
     let matchedInsumo = allInsumos.find((ins) => {
-      const matchName = normalizeString(ins.nombre) === normMat || normalizeString(ins.nombre).includes(normMat);
+      const matchName =
+        normalizeString(ins.nombre) === normMat ||
+        normalizeString(ins.nombre).includes(normMat) ||
+        normMat.includes(normalizeString(ins.nombre));
       if (!matchName) return false;
       if (normMarca) {
         const insMarca = normalizeString(ins.marca || '');
@@ -1116,7 +1186,10 @@ function buildCompositeItem(params: {
     if (!matchedInsumo && normMarca) {
       // Fallback a coincidencia sólo por nombre técnico
       matchedInsumo = allInsumos.find(
-        (ins) => normalizeString(ins.nombre) === normMat || normalizeString(ins.nombre).includes(normMat)
+        (ins) =>
+          normalizeString(ins.nombre) === normMat ||
+          normalizeString(ins.nombre).includes(normMat) ||
+          normMat.includes(normalizeString(ins.nombre))
       );
     }
 
@@ -1198,7 +1271,10 @@ function buildCompositeItem(params: {
 
     const normCat = normalizeString(moCatNombre);
     const matchedMo = allMo.find(
-      (m) => normalizeString(m.nombre) === normCat || normalizeString(m.nombre).includes(normCat)
+      (m) =>
+        normalizeString(m.nombre) === normCat ||
+        normalizeString(m.nombre).includes(normCat) ||
+        normCat.includes(normalizeString(m.nombre))
     );
 
     let costoHora = 0;
@@ -1625,9 +1701,23 @@ export interface FormatReplacementResult {
 export function formatSlashCommandReplacement(params: {
   currentLineBeforeCursor: string;
   snippet: string;
+  contextType?: 'general' | 'capitulo' | 'tareas' | 'materiales' | 'mano_obra';
 }): FormatReplacementResult {
-  const { currentLineBeforeCursor, snippet } = params;
-  const lineIndent = currentLineBeforeCursor.match(/^\s*/)?.[0] || '';
+  const { currentLineBeforeCursor, snippet, contextType } = params;
+  let lineIndent = currentLineBeforeCursor.match(/^\s*/)?.[0] || '';
+
+  // Garantizar sangría técnica según el contexto
+  if (contextType === 'materiales' || contextType === 'mano_obra') {
+    if (snippet.trim().startsWith('- ') && lineIndent.length < 8) {
+      lineIndent = '        ';
+    } else if (/^(cantidad|precio|producto|marca|unidad|horas|notas):\s*/i.test(snippet.trim()) && lineIndent.length < 12) {
+      lineIndent = '            ';
+    }
+  } else if (contextType === 'tareas') {
+    if (snippet.trim().startsWith('- ') && lineIndent.length < 2) {
+      lineIndent = '  ';
+    }
+  }
 
   // Detectar si el usuario ya escribió cantidad / unidad antes de la query
   // Ejemplos: "        - 25 m ", "        - 10 ", "        - 1.5 hs ", "        - 25 cabl" (solo cantidad 25)
@@ -1828,25 +1918,49 @@ export function handleYamlSmartEnter(params: {
   }
 
   // Caso 2: Renglón con ítem de lista vacío (ej: "        - " o "  -")
-  // Al presionar Enter, se cancela la viñeta y se desindenta
+  // Al presionar Enter, se cancela la viñeta y se desindenta un nivel hacia afuera
   if (/^-\s*$/.test(trimmed)) {
-    const lineWithoutDash = leadingWhitespace.length >= 2 ? leadingWhitespace.slice(2) : '';
-    const newText = textBefore.substring(0, lastLineStart) + lineWithoutDash + textAfter;
+    let unindented = '';
+    if (leadingWhitespace.length >= 7) {
+      // De nivel 4 (8 espacios + "- ") a nivel 3 (6 espacios)
+      unindented = '      ';
+    } else if (leadingWhitespace.length >= 5) {
+      // De nivel 3 (6 espacios + "- ") a nivel 2 (2 espacios + "- ")
+      unindented = '  - ';
+    } else {
+      // De nivel 2 (2 espacios + "- ") a nivel 1 (raíz)
+      unindented = '';
+    }
+
+    const newText = textBefore.substring(0, lastLineStart) + unindented + textAfter;
     return {
       newText,
-      newCursorPos: lastLineStart + lineWithoutDash.length
+      newCursorPos: lastLineStart + unindented.length
     };
   }
 
-  // Caso 2.5: Renglón vacío con sangría de propiedad (ej: "            " tras escribir propiedades)
-  // Al presionar Enter en una línea vacía después de escribir propiedades,
-  // desindenta 4 espacios y añade "- " para escribir el siguiente ítem de lista
-  if (trimmed === '' && leadingWhitespace.length >= 6) {
-    const unindentedDash = leadingWhitespace.length >= 4 ? leadingWhitespace.slice(4) + '- ' : leadingWhitespace;
-    const newText = textBefore.substring(0, lastLineStart) + unindentedDash + textAfter;
+  // Caso 2.5: Renglón vacío con sangría (ej: "            " tras escribir propiedades o "      " tras una sección)
+  // Al presionar Enter en una línea vacía, desindenta un nivel hacia afuera en la jerarquía YAML
+  if (trimmed === '' && leadingWhitespace.length >= 2) {
+    let unindented = '';
+    if (leadingWhitespace.length >= 10) {
+      // De nivel 5 (12 espacios de propiedades) a nivel 4 (8 espacios + viñeta "- ")
+      unindented = '        - ';
+    } else if (leadingWhitespace.length >= 7) {
+      // De nivel 4 (8 espacios) a nivel 3 (6 espacios)
+      unindented = '      ';
+    } else if (leadingWhitespace.length >= 5) {
+      // De nivel 3 (6 espacios) a nivel 2 (2 espacios + viñeta "- ")
+      unindented = '  - ';
+    } else {
+      // De nivel 2 (2 a 4 espacios) a nivel 1 (raíz)
+      unindented = '';
+    }
+
+    const newText = textBefore.substring(0, lastLineStart) + unindented + textAfter;
     return {
       newText,
-      newCursorPos: lastLineStart + unindentedDash.length
+      newCursorPos: lastLineStart + unindented.length
     };
   }
 
@@ -1893,6 +2007,86 @@ export function handleYamlSmartEnter(params: {
     newText,
     newCursorPos: textBefore.length + 1 + nextIndent.length
   };
+}
+
+export interface SmartBackspaceResult {
+  newText: string;
+  newCursorPos: number;
+}
+
+/**
+ * Manejo inteligente de la tecla Backspace para retroceder niveles jerárquicos
+ * sin tener que borrar espacios uno a uno.
+ * Retorna null si el cursor está dentro de texto real para permitir el borrado de caracteres estándar.
+ */
+export function handleYamlSmartBackspace(params: {
+  textBefore: string;
+  textAfter: string;
+}): SmartBackspaceResult | null {
+  const { textBefore, textAfter } = params;
+  const lastLineStart = textBefore.lastIndexOf('\n') + 1;
+  const currentLine = textBefore.substring(lastLineStart);
+  const trimmed = currentLine.trim();
+  const leadingWhitespace = currentLine.match(/^\s*/)?.[0] || '';
+
+  // Solo intervenimos si la línea actual contiene únicamente espacios en blanco
+  // o si es una viñeta vacía (ej: "        - " o "  -")
+  const isEmptyLine = trimmed === '';
+  const isEmptyBullet = /^-\s*$/.test(trimmed);
+
+  if (!isEmptyLine && !isEmptyBullet) {
+    return null;
+  }
+
+  // 1. Si es una viñeta vacía ("- "):
+  if (isEmptyBullet) {
+    let targetIndent = '';
+    if (leadingWhitespace.length >= 7) {
+      // De nivel 4 (8 espacios + "- ") retrocede a nivel 3 (6 espacios)
+      targetIndent = '      ';
+    } else if (leadingWhitespace.length >= 5) {
+      // De nivel 3 (6 espacios + "- ") retrocede a nivel 2 (2 espacios + "- ")
+      targetIndent = '  - ';
+    } else {
+      // De nivel 2 (2 espacios + "- ") retrocede a nivel 1 (raíz)
+      targetIndent = '';
+    }
+
+    const newText = textBefore.substring(0, lastLineStart) + targetIndent + textAfter;
+    return {
+      newText,
+      newCursorPos: lastLineStart + targetIndent.length
+    };
+  }
+
+  // 2. Si es una línea vacía con sangría ("            " o "        " o "      " o "  "):
+  if (isEmptyLine) {
+    let targetLine = '';
+    if (leadingWhitespace.length >= 10) {
+      // De nivel 5 (12 espacios de propiedad) retrocede a nivel 4 (8 espacios + "- ")
+      targetLine = '        - ';
+    } else if (leadingWhitespace.length >= 7) {
+      // De nivel 4 (8 espacios) retrocede a nivel 3 (6 espacios)
+      targetLine = '      ';
+    } else if (leadingWhitespace.length >= 5) {
+      // De nivel 3 (6 espacios) retrocede a nivel 2 (2 espacios + "- ")
+      targetLine = '  - ';
+    } else if (leadingWhitespace.length >= 2) {
+      // De nivel 2 (2 a 4 espacios) retrocede a nivel 1 (raíz)
+      targetLine = '';
+    } else {
+      // Sangría 0 o 1: dejar actuar al Backspace normal del navegador (une con línea anterior)
+      return null;
+    }
+
+    const newText = textBefore.substring(0, lastLineStart) + targetLine + textAfter;
+    return {
+      newText,
+      newCursorPos: lastLineStart + targetLine.length
+    };
+  }
+
+  return null;
 }
 
 export interface SearchMatchParams {

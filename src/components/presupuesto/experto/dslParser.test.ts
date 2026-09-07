@@ -9,6 +9,7 @@ import {
   detectSuggestTrigger,
   formatSlashCommandReplacement,
   handleYamlSmartEnter,
+  handleYamlSmartBackspace,
   scoreSearchMatch,
   preprocessYamlText
 } from './dslParser';
@@ -1112,6 +1113,151 @@ dolar: USD Blue
 
       const { contextType } = detectCursorContext(textBefore);
       expect(contextType).toBe('materiales');
+    });
+
+    it('handleYamlSmartBackspace retrocede niveles jerárquicos automáticamente en líneas vacías y viñetas vacías', () => {
+      // 1. Desde nivel 5 (12 espacios de propiedad vacía) retrocede a nivel 4 (8 espacios + viñeta)
+      const res5 = handleYamlSmartBackspace({
+        textBefore: '            ',
+        textAfter: ''
+      });
+      expect(res5).not.toBeNull();
+      expect(res5?.newText).toBe('        - ');
+
+      // 2. Desde nivel 4 (viñeta vacía de material "        - ") retrocede a nivel 3 (6 espacios de sección)
+      const res4 = handleYamlSmartBackspace({
+        textBefore: '        - ',
+        textAfter: ''
+      });
+      expect(res4).not.toBeNull();
+      expect(res4?.newText).toBe('      ');
+
+      // 3. Desde nivel 3 (6 espacios de sección vacía) retrocede a nivel 2 (2 espacios + viñeta de partida)
+      const res3 = handleYamlSmartBackspace({
+        textBefore: '      ',
+        textAfter: ''
+      });
+      expect(res3).not.toBeNull();
+      expect(res3?.newText).toBe('  - ');
+
+      // 4. Desde nivel 2 (viñeta de partida vacía "  - ") retrocede a nivel 1 (raíz)
+      const res2 = handleYamlSmartBackspace({
+        textBefore: '  - ',
+        textAfter: ''
+      });
+      expect(res2).not.toBeNull();
+      expect(res2?.newText).toBe('');
+
+      // 5. En texto con contenido (ej: "cantidad: 10"), retorna null para permitir borrado estándar de caracter
+      const resText = handleYamlSmartBackspace({
+        textBefore: '            cantidad: 10',
+        textAfter: ''
+      });
+      expect(resText).toBeNull();
+    });
+
+    it('handleYamlSmartEnter escala hacia afuera en la jerarquía al presionar Enter en líneas y viñetas vacías', () => {
+      // 1. Enter en línea vacía de propiedades (12 espacios) genera viñeta de siguiente ítem (8 espacios + "- ")
+      const enterFromProp = handleYamlSmartEnter({
+        textBefore: 'Refacciones:\n  - Partida:\n      materiales:\n        - Cable:\n            cantidad: 1\n            ',
+        textAfter: ''
+      });
+      expect(enterFromProp.newText.endsWith('        - ')).toBe(true);
+
+      // 2. Enter en viñeta vacía de ítem (8 espacios + "- ") desindenta a nivel sección (6 espacios)
+      const enterFromItemBullet = handleYamlSmartEnter({
+        textBefore: 'Refacciones:\n  - Partida:\n      materiales:\n        - ',
+        textAfter: ''
+      });
+      expect(enterFromItemBullet.newText.endsWith('      ')).toBe(true);
+
+      // 3. Enter en línea de sección vacía (6 espacios) desindenta a siguiente partida (2 espacios + "- ")
+      const enterFromSection = handleYamlSmartEnter({
+        textBefore: 'Refacciones:\n  - Partida:\n      ',
+        textAfter: ''
+      });
+      expect(enterFromSection.newText.endsWith('  - ')).toBe(true);
+
+      // 4. Enter en viñeta de partida vacía ("  - ") desindenta a nivel raíz ("")
+      const enterFromPartidaBullet = handleYamlSmartEnter({
+        textBefore: 'Refacciones:\n  - ',
+        textAfter: ''
+      });
+      expect(enterFromPartidaBullet.newText.endsWith('Refacciones:\n')).toBe(true);
+    });
+
+    it('formatSlashCommandReplacement ajusta automáticamente la sangría base si se inserta en contexto de materiales', () => {
+      const blockSnippet = `- Cable Unipolar 4 mm²:\n    cantidad: \n    precio: 1510\n`;
+      // Usuario estaba en 6 espacios (mismo nivel que materiales:), no en 8
+      const { replacementLine } = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '      - cab',
+        snippet: blockSnippet,
+        contextType: 'materiales'
+      });
+
+      // El ítem debe haberse normalizado a 8 espacios y las propiedades a 12 espacios
+      expect(replacementLine).toContain('        - Cable Unipolar 4 mm²:');
+      expect(replacementLine).toContain('            cantidad: ');
+      expect(replacementLine).toContain('            precio: 1510');
+    });
+
+    it('parseDSLToPresupuesto parsea sin errores la cotización con despiece de prueba del usuario (Refacciones)', () => {
+      const userYaml = `Refacciones:
+  - 1 u Reparación de tablero:
+      materiales:
+        - Tablero Modular DIN 36 Módulos Embutir Plástico Puerta Fumé IP40:
+            cantidad: 1
+            marca: Gabexel
+      - Cable Unipolar 4 mm² Marrón (Fase) IRAM 247-3:
+          cantidad: 10
+          precio: 1510 
+
+      mano_obra:
+        - 4h Oficial Electricista
+
+        - 4 h Ayudante Electricista
+`;
+
+      const result = parseDSLToPresupuesto(userYaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      // No debe contener errores de sintaxis YAML
+      const syntaxErrors = result.diagnostics.filter((d) => d.type === 'error');
+      expect(syntaxErrors).toHaveLength(0);
+
+      // Debe haber creado el capítulo Refacciones
+      expect(result.capitulos).toHaveLength(1);
+      expect(result.capitulos[0].nombre).toBe('Refacciones');
+
+      // Debe haber creado la partida Reparación de tablero
+      expect(result.items).toHaveLength(1);
+      const item = result.items[0];
+      expect(item.descripcion).toBe('Reparación de tablero');
+      expect(item.cantidad).toBe(1);
+
+      // Debe haber registrado los 2 materiales en el desglose
+      expect(item.insumosSnapshot).toHaveLength(2);
+      expect(item.insumosSnapshot[0].nombre).toContain('Tablero Modular DIN 36');
+      expect(item.insumosSnapshot[0].cantidadTotal).toBe(1);
+      expect(item.insumosSnapshot[0].marca).toBe('Gabexel');
+
+      expect(item.insumosSnapshot[1].nombre).toContain('Cable Unipolar 4 mm²');
+      expect(item.insumosSnapshot[1].cantidadTotal).toBe(10);
+      expect(item.insumosSnapshot[1].precioUnitarioCongelado).toBe(1510);
+
+      // Debe haber registrado las 2 líneas de mano de obra (4h Oficial y 4 h Ayudante)
+      expect(item.manoObraSnapshot).toHaveLength(2);
+      expect(item.manoObraSnapshot[0].horasTotales).toBe(4);
+      expect(item.manoObraSnapshot[0].nombreCategoria).toBe('Oficial');
+      expect(item.manoObraSnapshot[0].costoHoraCongelado).toBe(5000); // Vinculado con mockManoObraMap mo-oficial
+
+      expect(item.manoObraSnapshot[1].horasTotales).toBe(4);
+      expect(item.manoObraSnapshot[1].nombreCategoria).toBe('Ayudante');
+      expect(item.manoObraSnapshot[1].costoHoraCongelado).toBe(3500); // Vinculado con mockManoObraMap mo-ayudante
     });
   });
 });

@@ -40,6 +40,7 @@ import {
   detectSuggestTrigger,
   formatSlashCommandReplacement,
   handleYamlSmartEnter,
+  handleYamlSmartBackspace,
   CursorContextType
 } from './dslParser';
 import { db } from '../../../db/database';
@@ -576,6 +577,33 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       return;
     }
 
+    // BACKSPACE: Navegación inteligente de niveles de indentación
+    if (e.key === 'Backspace' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+
+      // Solo si el cursor no tiene selección de texto
+      if (start === end) {
+        const textBefore = dslText.substring(0, start);
+        const textAfter = dslText.substring(end);
+
+        const smartBack = handleYamlSmartBackspace({ textBefore, textAfter });
+        if (smartBack) {
+          e.preventDefault();
+          setDslText(smartBack.newText);
+          handleParseAndSync(smartBack.newText);
+
+          setTimeout(() => {
+            if (textareaRef.current) {
+              textareaRef.current.selectionStart = textareaRef.current.selectionEnd = smartBack.newCursorPos;
+            }
+          }, 0);
+          return;
+        }
+      }
+    }
+
     // ENTER: Auto-indentación inteligente con memoria de nivel, continuidad de listas y reestructuración YAML
     if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       if (e.defaultPrevented) return;
@@ -618,7 +646,8 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
     const { replacementLine, selectionRange, newCursorOffset } = formatSlashCommandReplacement({
       currentLineBeforeCursor,
-      snippet
+      snippet,
+      contextType: slashMenuState.contextType
     });
 
     const newText = dslText.slice(0, lastLineStart) + replacementLine + restOfDoc;
