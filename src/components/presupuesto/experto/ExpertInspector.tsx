@@ -23,7 +23,7 @@ import {
   X
 } from 'lucide-react';
 import { TotalesPresupuestoResultado, formatARS, formatUSD } from '../../../core/calculations';
-import { DSLDiagnostic } from './dslParser';
+import { DSLDiagnostic, CalculatedCell } from './dslParser';
 import { Cliente, TipoFactura, CapituloPresupuesto, ItemPresupuesto } from '../../../core/types';
 import { useToast } from '../../../contexts/ToastContext';
 import { OnlinePriceButton } from '../../OnlinePriceButton';
@@ -41,6 +41,7 @@ interface ExpertInspectorProps {
   capitulos: CapituloPresupuesto[];
   items: ItemPresupuesto[];
   diagnostics: DSLDiagnostic[];
+  calculatedCells?: CalculatedCell[];
   clientes?: Cliente[];
   onSelectCliente?: (cliente: Cliente) => void;
   onOpenQuickClienteModal?: (initialName?: string) => void;
@@ -69,6 +70,7 @@ export const ExpertInspector: React.FC<ExpertInspectorProps> = ({
   capitulos,
   items,
   diagnostics,
+  calculatedCells = [],
   clientes = [],
   onSelectCliente,
   onOpenQuickClienteModal,
@@ -483,6 +485,65 @@ export const ExpertInspector: React.FC<ExpertInspectorProps> = ({
           </div>
         </div>
       </div>
+
+      {/* ─── Celdas de Cálculo y Variables en Vivo ─── */}
+      {calculatedCells && calculatedCells.length > 0 && (
+        <div className="bg-surface-container-low border border-outline-variant/30 rounded-3xl p-4 sm:p-5 shadow-xs space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-outline-variant/15">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-secondary/15 text-secondary flex items-center justify-center font-mono font-black text-xs">
+                =
+              </div>
+              <h4 className="text-xs font-bold text-on-surface uppercase tracking-wider">
+                Celdas de Cálculo ({calculatedCells.length})
+              </h4>
+            </div>
+            <span className="text-[10px] font-mono text-on-surface-variant">
+              Fórmulas en cascada
+            </span>
+          </div>
+
+          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+            {calculatedCells.map((cell, idx) => (
+              <div
+                key={idx}
+                className="flex items-center justify-between text-xs p-1.5 rounded-lg bg-surface-container-high/40 hover:bg-surface-container-highest/60 transition gap-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-mono font-bold text-primary">
+                      {cell.name}
+                    </span>
+                    {cell.isFormula ? (
+                      <span className="text-[10px] font-mono text-on-surface-variant truncate">
+                        = {cell.rawExpression.replace(/^=\s*/, '')}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-on-surface-variant">
+                        (constante)
+                      </span>
+                    )}
+                    {cell.scope === 'local' && (
+                      <span className="text-[9px] bg-secondary/15 text-secondary px-1 py-0.2 rounded font-bold">
+                        local
+                      </span>
+                    )}
+                  </div>
+                  {cell.error && (
+                    <span className="text-[10px] text-red-500 block truncate font-medium">
+                      ⚠️ {cell.error}
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-right shrink-0 font-mono text-xs font-black text-on-surface">
+                  {cell.evaluatedValue.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ─── 3. Insumos y Recursos Detectados en Vivo (Linting & Feedback) ─── */}
       {(insumosDetectados.length > 0 || manoObraDetectada.length > 0) && (

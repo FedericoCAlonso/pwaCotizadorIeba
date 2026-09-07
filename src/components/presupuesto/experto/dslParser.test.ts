@@ -1450,6 +1450,129 @@ obra: Av. Libertador 5000
       expect(resAt.replacementLine).toBe('cliente: Federico Gómez\n');
     });
   });
+
+  describe('Celdas de cálculo y variables (Motor reactivo)', () => {
+    it('evalúa bloque calculos: en cascada y resuelve variables globales', () => {
+      const yaml = `
+calculos:
+  superficie: 120
+  bocas: =ceil(superficie / 6)
+  cable_m: =bocas * 12
+
+Instalacion:
+  - =bocas u Boca de Iluminación
+`;
+      const res = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.calculatedCells).toBeDefined();
+      expect(res.calculatedCells?.length).toBe(3);
+      expect(res.calculatedCells?.find((c) => c.name === 'superficie')?.evaluatedValue).toBe(120);
+      expect(res.calculatedCells?.find((c) => c.name === 'bocas')?.evaluatedValue).toBe(20);
+      expect(res.calculatedCells?.find((c) => c.name === 'cable_m')?.evaluatedValue).toBe(240);
+
+      expect(res.items.length).toBe(1);
+      expect(res.items[0].cantidad).toBe(20);
+      expect(res.items[0].descripcion).toBe('Boca de Iluminación');
+    });
+
+    it('soporta fórmulas en línea con paréntesis =(expresion) u Nombre', () => {
+      const yaml = `
+calculos:
+  sup: 60
+
+Instalacion:
+  - =(sup / 6) u Boca de Iluminación
+`;
+      const res = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items.length).toBe(1);
+      expect(res.items[0].cantidad).toBe(10);
+    });
+
+    it('soporta cálculo local dentro de tareas y despiece APU paramétrico', () => {
+      const yaml = `
+calculos:
+  modulos_totales: 36
+
+Tableros:
+  - Tablero Principal:
+      cantidad: 1 u
+      calculos:
+        termicas: 8
+      materiales:
+        - =termicas u Disyuntor 2x40A:
+            precio: 25000
+      mano_obra:
+        - 4 h Oficial
+`;
+      const res = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items.length).toBe(1);
+      const tabItem = res.items[0];
+      expect(tabItem.descripcion).toBe('Tablero Principal');
+      expect(tabItem.insumosSnapshot?.length).toBe(1);
+      expect(tabItem.insumosSnapshot?.[0].cantidadTotal).toBe(8);
+      expect(tabItem.insumosSnapshot?.[0].precioUnitarioCongelado).toBe(25000);
+      expect(tabItem.insumosSnapshot?.[0].subtotalInsumo).toBe(200000);
+    });
+
+    it('omite ítems o insumos cuya cantidad evaluada sea <= 0 (condicionales)', () => {
+      const yaml = `
+calculos:
+  incluir_tue: 0
+  tue_qty: =incluir_tue ? 5 : 0
+
+Instalacion:
+  - 10 u Boca de Iluminación
+  - =tue_qty u Tomacorriente Especial
+`;
+      const res = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      // El ítem con tue_qty = 0 debe omitirse automáticamente
+      expect(res.items.length).toBe(1);
+      expect(res.items[0].descripcion).toBe('Boca de Iluminación');
+    });
+
+    it('detectSuggestTrigger detecta disparador = para sugerir variables', () => {
+      const trig1 = detectSuggestTrigger('cantidad: =');
+      expect(trig1).not.toBeNull();
+      expect(trig1?.triggerChar).toBe('=');
+
+      const trig2 = detectSuggestTrigger('  - =boc');
+      expect(trig2).not.toBeNull();
+      expect(trig2?.triggerChar).toBe('=');
+      expect(trig2?.query).toBe('boc');
+    });
+
+    it('formatSlashCommandReplacement autocompleta variables con prefijo =', () => {
+      const res = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '    cantidad: =boc',
+        snippet: '=bocas'
+      });
+      expect(res.replacementLine).toBe('    cantidad: =bocas ');
+    });
+  });
 });
+
 
 

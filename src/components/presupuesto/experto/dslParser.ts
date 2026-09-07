@@ -19,11 +19,21 @@ import {
   roundMoney,
   safeNum
 } from '../../../core/calculations';
+import { evaluateMathExpression, isFormulaString } from '../../../core/mathEvaluator';
 
 export interface DSLDiagnostic {
   line: number;
   type: 'info' | 'warning' | 'error';
   message: string;
+}
+
+export interface CalculatedCell {
+  name: string;
+  rawExpression: string;
+  evaluatedValue: number;
+  isFormula: boolean;
+  error?: string;
+  scope?: 'global' | 'local';
 }
 
 export interface ParseDSLResult {
@@ -43,6 +53,7 @@ export interface ParseDSLResult {
   items: ItemPresupuesto[];
   gastosConfig: GastoPresupuestoConfig[];
   diagnostics: DSLDiagnostic[];
+  calculatedCells?: CalculatedCell[];
 }
 
 export interface ParseDSLContext {
@@ -117,6 +128,104 @@ export function parseLocalizedNumber(valStr: string | number): number {
   }
 
   return parseFloat(cleaned) || 0;
+}
+
+/**
+ * Evalúa una expresión aritmética/fórmula o número localizado utilizando el scope de celdas de cálculo
+ */
+export function evaluateExpressionOrNumber(
+  expr: string | number,
+  scope?: Record<string, number>
+): number {
+  if (typeof expr === 'number') return isNaN(expr) ? 0 : expr;
+  if (!expr) return 0;
+  const str = String(expr).trim();
+  const cleanExpr = str.startsWith('=') ? str.substring(1).trim() : str;
+  if (!cleanExpr) return 0;
+
+  // Si no tiene caracteres de fórmula ni variables en scope, parsear directamente como número
+  const hasScopeMatch = scope && Object.keys(scope).some((k) => new RegExp(`\\b${k}\\b`, 'i').test(cleanExpr));
+  if (!isFormulaString(str) && !hasScopeMatch && !str.startsWith('=')) {
+    return parseLocalizedNumber(str);
+  }
+
+  const evalRes = evaluateMathExpression(cleanExpr, scope);
+  if (evalRes.isValid && evalRes.value !== null) {
+    return roundMoney(evalRes.value);
+  }
+  return parseLocalizedNumber(str);
+}
+
+/**
+ * Procesa un bloque de cálculo (`calculos:` o `variables:`) resolviendo fórmulas en cascada
+ */
+export function processCalculationBlock(
+  rawBlock: any,
+  scope: Record<string, number>,
+  scopeType: 'global' | 'local' = 'global'
+): CalculatedCell[] {
+  const cells: CalculatedCell[] = [];
+  if (!rawBlock) return cells;
+
+  const entries: [string, any][] = [];
+  if (Array.isArray(rawBlock)) {
+    rawBlock.forEach((item) => {
+      if (typeof item === 'object' && item !== null) {
+        Object.entries(item).forEach(([k, v]) => entries.push([k, v]));
+      } else if (typeof item === 'string') {
+        const colonIdx = item.indexOf(':');
+        if (colonIdx > 0) {
+          entries.push([item.slice(0, colonIdx).trim(), item.slice(colonIdx + 1).trim()]);
+        }
+      }
+    });
+  } else if (typeof rawBlock === 'object' && rawBlock !== null) {
+    Object.entries(rawBlock).forEach(([k, v]) => entries.push([k, v]));
+  }
+
+  for (const [varName, rawVal] of entries) {
+    const cleanName = varName.trim();
+    if (!cleanName) continue;
+
+    const rawStr = String(rawVal ?? '').trim();
+    let evalValue = 0;
+    let isFormula = false;
+    let errorMsg: string | undefined = undefined;
+
+    if (typeof rawVal === 'number') {
+      evalValue = isNaN(rawVal) ? 0 : rawVal;
+      scope[cleanName] = evalValue;
+    } else if (typeof rawVal === 'boolean') {
+      evalValue = rawVal ? 1 : 0;
+      scope[cleanName] = evalValue;
+    } else {
+      const cleanExpr = rawStr.startsWith('=') ? rawStr.substring(1).trim() : rawStr;
+      const evalRes = evaluateMathExpression(cleanExpr, scope);
+      if (evalRes.isValid && evalRes.value !== null) {
+        evalValue = roundMoney(evalRes.value);
+        isFormula = evalRes.isFormula || rawStr.startsWith('=');
+        scope[cleanName] = evalValue;
+      } else {
+        const parsedNum = parseLocalizedNumber(rawStr);
+        evalValue = parsedNum;
+        scope[cleanName] = evalValue;
+        if (evalRes.error && (rawStr.startsWith('=') || isFormulaString(rawStr))) {
+          errorMsg = evalRes.error;
+        }
+      }
+    }
+
+    cells.push({
+      name: cleanName,
+      rawExpression: rawStr,
+      evaluatedValue: evalValue,
+      isFormula,
+      error: errorMsg,
+      scope: scopeType
+    });
+  }
+
+  return cells;
 }
 
 /**
@@ -338,7 +447,10 @@ function serializeSingleItem(it: ItemPresupuesto, lines: string[], indent: strin
  * Parsea una línea de texto de ítem o insumo para extraer cantidad, unidad, nombre y precio
  * Ej: "10 u Boca de Iluminación" o "25 m Cable Sintenax 4x4 : $ 4.800"
  */
-function parseQuantityAndName(raw: string): {
+function parseQuantityAndName(
+  raw: string,
+  scope?: Record<string, number>
+): {
   cantidad: number;
   unidad: string;
   nombre: string;
@@ -356,11 +468,12 @@ function parseQuantityAndName(raw: string): {
     str = str.replace(condMatch[0], '').trim();
   }
 
-  // 2. Precio manual (: $ 15.000 o = $ 15.000 o : 15000)
+  // 2. Precio manual (: $ 15.000 o : $ =precio o : =precio o = $ 15.000 o : 15000)
   let precioManual: number | undefined = undefined;
-  const priceMatch = str.match(/(?:[:=]\s*\$?\s*)([0-9.,]+)\s*$/);
+  const priceMatch = str.match(/(?:[:=]\s*\$?\s*)(=(?:[^\n\r]+)|[0-9.,]+)\s*$/);
   if (priceMatch) {
-    precioManual = parseLocalizedNumber(priceMatch[1]);
+    const rawPrice = priceMatch[1].trim();
+    precioManual = evaluateExpressionOrNumber(rawPrice, scope);
     str = str.slice(0, priceMatch.index).trim();
   }
 
@@ -375,7 +488,99 @@ function parseQuantityAndName(raw: string): {
   // Quitar asteriscos o comillas sobrantes si venía del DSL viejo
   str = str.replace(/^\*\s*/, '').replace(/^"|"$/g, '').trim();
 
-  // 3a. Cantidad y Unidad pura sin nombre (ej: "75 m", "50", "4 u", "1.5 hs")
+  // 3a. Cantidad definida mediante celda o fórmula (=bocas, =(sup / 6), etc.)
+  if (str.startsWith('=')) {
+    const cleanStr = str.substring(1).trim();
+
+    // Comprobar si tiene paréntesis envolvente ej: "(sup / 6) u Boca"
+    if (cleanStr.startsWith('(')) {
+      let depth = 0;
+      let closeIdx = -1;
+      for (let i = 0; i < cleanStr.length; i++) {
+        if (cleanStr[i] === '(') depth++;
+        else if (cleanStr[i] === ')') {
+          depth--;
+          if (depth === 0) {
+            closeIdx = i;
+            break;
+          }
+        }
+      }
+      if (closeIdx > 0) {
+        const formulaPart = cleanStr.substring(1, closeIdx);
+        const rest = cleanStr.substring(closeIdx + 1).trim();
+        const evalQty = evaluateExpressionOrNumber(formulaPart, scope);
+
+        const restMatch = rest.match(/^([a-zA-ZáéíóúÁÉÍÓÚ²³]+)\s+(.+)$/);
+        if (restMatch && KNOWN_UNITS.has(restMatch[1].toLowerCase())) {
+          return {
+            cantidad: evalQty >= 0 ? evalQty : 0,
+            unidad: restMatch[1].toLowerCase(),
+            nombre: restMatch[2].trim(),
+            marca,
+            condicion,
+            precioManual
+          };
+        } else if (rest && KNOWN_UNITS.has(rest.toLowerCase())) {
+          return {
+            cantidad: evalQty >= 0 ? evalQty : 0,
+            unidad: rest.toLowerCase(),
+            nombre: '',
+            marca,
+            condicion,
+            precioManual
+          };
+        } else {
+          return {
+            cantidad: evalQty >= 0 ? evalQty : 0,
+            unidad: 'u',
+            nombre: rest,
+            marca,
+            condicion,
+            precioManual
+          };
+        }
+      }
+    }
+
+    // Sin paréntesis envolvente: buscar unidad conocida separada por espacio
+    const tokens = cleanStr.split(/\s+/);
+    let unitIdx = -1;
+    for (let i = 1; i < tokens.length; i++) {
+      if (KNOWN_UNITS.has(tokens[i].toLowerCase())) {
+        unitIdx = i;
+        break;
+      }
+    }
+
+    if (unitIdx > 0) {
+      const formulaPart = tokens.slice(0, unitIdx).join(' ');
+      const unitPart = tokens[unitIdx].toLowerCase();
+      const namePart = tokens.slice(unitIdx + 1).join(' ');
+      const evalQty = evaluateExpressionOrNumber(formulaPart, scope);
+      return {
+        cantidad: evalQty >= 0 ? evalQty : 0,
+        unidad: unitPart,
+        nombre: namePart,
+        marca,
+        condicion,
+        precioManual
+      };
+    } else {
+      // Expresión directa de cantidad (ej: en propiedad cantidad: "=bocas * 12")
+      const evalQty = evaluateExpressionOrNumber(cleanStr, scope);
+      return {
+        cantidad: evalQty >= 0 ? evalQty : 0,
+        unidad: 'u',
+        nombre: '',
+        marca,
+        condicion,
+        precioManual
+      };
+    }
+  }
+
+  // 3b. Cantidad y Unidad pura sin nombre (ej: "75 m", "50", "4 u", "1.5 hs")
   const pureQtyMatch = str.match(/^([0-9]+(?:[.,][0-9]+)?)\s*([a-zA-ZáéíóúÁÉÍÓÚ²³]+)?$/);
   if (pureQtyMatch) {
     const parsedQty = parseLocalizedNumber(pureQtyMatch[1]);
@@ -391,7 +596,7 @@ function parseQuantityAndName(raw: string): {
     };
   }
 
-  // 3b. Cantidad y Unidad al inicio seguido de nombre (ej: "10 u ...", "25m ...", "4 ...")
+  // 3c. Cantidad y Unidad al inicio seguido de nombre (ej: "10 u ...", "25m ...", "4 ...")
   const match = str.match(/^([0-9]+(?:[.,][0-9]+)?)\s*([a-zA-ZáéíóúÁÉÍÓÚ²³]+)?\s+(.+)$/);
   if (match) {
     const parsedQty = parseLocalizedNumber(match[1]);
@@ -421,7 +626,7 @@ function parseQuantityAndName(raw: string): {
     }
   }
 
-  // Si no tiene número al inicio, cantidad = 1
+  // Si no tiene número ni fórmula al inicio, cantidad = 1
   return {
     cantidad: 1,
     unidad: 'u',
@@ -526,11 +731,29 @@ export function preprocessYamlText(yamlText: string): string {
         }
       }
     }
+
+    // 2b. Proteger fórmulas no entrecomilladas que comiencen con '=' (ej: 'tue_qty: =incluir_tue ? 5 : 0')
+    // para evitar que ':' y '?' provoquen errores de mapeo anidado en YAML
+    const formulaMatch = line.match(/^(\s*(?:-\s*)?[-\w\.\sáéíóúÁÉÍÓÚñÑüÜ]+:\s*)(=.+)$/);
+    if (formulaMatch) {
+      const prefix = formulaMatch[1];
+      let val = formulaMatch[2].trim();
+      let comment = '';
+      const commentIdx = val.indexOf('#');
+      if (commentIdx > 0) {
+        comment = ' ' + val.substring(commentIdx);
+        val = val.substring(0, commentIdx).trim();
+      }
+      if (!val.startsWith('"') && !val.startsWith("'")) {
+        const escapedVal = val.replace(/"/g, '\\"');
+        lines[i] = `${prefix}"${escapedVal}"${comment}`;
+      }
+    }
   }
 
-  // 2. Detectar si hay ítems de lista (- ) huérfanos antes de cualquier capítulo o sin encabezado de capítulo
-  const reservedRootKeysWithItems = new Set(['gastos', 'capitulos']);
-  const reservedScalarRootKeys = new Set(['cliente', 'obra', 'factura', 'validez', 'margen', 'riesgo', 'dolar', 'totales']);
+  // 3. Detectar si hay ítems de lista (- ) huérfanos antes de cualquier capítulo o sin encabezado de capítulo
+  const reservedRootKeysWithItems = new Set(['gastos', 'capitulos', 'calculos', 'variables']);
+  const reservedScalarRootKeys = new Set(['cliente', 'obra', 'factura', 'validez', 'margen', 'riesgo', 'dolar', 'totales', 'calculos', 'variables']);
 
   let firstOrphanItemIndex = -1;
 
@@ -780,6 +1003,52 @@ export function parseDSLToPresupuesto(
     });
   }
 
+  // Celdas de cálculo y variables globales
+  const globalScope: Record<string, number> = {};
+  const rawCalculos = parsed.calculos || parsed.variables;
+  const calculatedCells: CalculatedCell[] = [];
+
+  if (rawCalculos) {
+    const cells = processCalculationBlock(rawCalculos, globalScope, 'global');
+    calculatedCells.push(...cells);
+    if (cells.length > 0) {
+      diagnostics.push({
+        line: 1,
+        type: 'info',
+        message: `✓ Celdas de cálculo evaluadas: ${cells.map((c) => `${c.name} = ${c.evaluatedValue}`).join(', ')}`
+      });
+    }
+  }
+
+  // Si los gastos usaban variables o fórmulas de cálculo, re-evaluar con globalScope
+  if (Array.isArray(parsed.gastos) && Object.keys(globalScope).length > 0) {
+    gastosConfig.length = 0;
+    parsed.gastos.forEach((g: any, gIdx: number) => {
+      let gNombre = `Gasto ${gIdx + 1}`;
+      let gMonto = 0;
+      if (typeof g === 'string') {
+        const parsedG = parseQuantityAndName(g, globalScope);
+        gNombre = parsedG.nombre;
+        gMonto = parsedG.precioManual || 0;
+      } else if (typeof g === 'object' && g !== null) {
+        const gKey = Object.keys(g)[0];
+        if (gKey) {
+          gNombre = gKey;
+          gMonto = evaluateExpressionOrNumber(g[gKey], globalScope);
+        }
+      }
+      if (gMonto > 0) {
+        gastosConfig.push({
+          id: `gasto-yaml-${gIdx}`,
+          nombre: gNombre,
+          modalidad: 'monto_fijo',
+          valor: gMonto,
+          aplica: true
+        });
+      }
+    });
+  }
+
   // 2. Capítulos y Partidas
   const capitulos: CapituloPresupuesto[] = [];
   const items: ItemPresupuesto[] = [];
@@ -795,13 +1064,15 @@ export function parseDSLToPresupuesto(
     'gastos',
     'condiciones_pago',
     'partidas',
-    'capitulos'
+    'capitulos',
+    'calculos',
+    'variables'
   ]);
 
   // Si hay partidas sin capítulo explícito bajo "partidas:"
   if (Array.isArray(parsed.partidas)) {
     parsed.partidas.forEach((rawItem: any) => {
-      parseAndAddItem(rawItem, undefined, items, context, diagnostics);
+      parseAndAddItem(rawItem, undefined, items, context, diagnostics, globalScope, calculatedCells);
     });
   }
 
@@ -814,7 +1085,7 @@ export function parseDSLToPresupuesto(
         capitulos.push({ id: capId, nombre: capNombre });
         if (Array.isArray(capObj.partidas)) {
           capObj.partidas.forEach((rawItem: any) => {
-            parseAndAddItem(rawItem, capId, items, context, diagnostics);
+            parseAndAddItem(rawItem, capId, items, context, diagnostics, globalScope, calculatedCells);
           });
         }
       }
@@ -831,7 +1102,7 @@ export function parseDSLToPresupuesto(
       capitulos.push({ id: capId, nombre: capNombre });
 
       parsed[key].forEach((rawItem: any) => {
-        parseAndAddItem(rawItem, capId, items, context, diagnostics);
+        parseAndAddItem(rawItem, capId, items, context, diagnostics, globalScope, calculatedCells);
       });
     }
   });
@@ -852,7 +1123,8 @@ export function parseDSLToPresupuesto(
     capitulos,
     items,
     gastosConfig,
-    diagnostics
+    diagnostics,
+    calculatedCells
   };
 }
 
@@ -864,13 +1136,16 @@ function parseAndAddItem(
   capituloId: string | undefined,
   items: ItemPresupuesto[],
   context: ParseDSLContext,
-  diagnostics: DSLDiagnostic[]
+  diagnostics: DSLDiagnostic[],
+  scope: Record<string, number> = {},
+  calculatedCellsCollector?: CalculatedCell[]
 ) {
   if (!rawItem) return;
 
-  // CASO 1: Ítem simple como string (ej: "- 10 u Boca de Iluminación")
+  // CASO 1: Ítem simple como string (ej: "- 10 u Boca de Iluminación" o "- =bocas u Boca...")
   if (typeof rawItem === 'string') {
-    const { cantidad, unidad, nombre, condicion, precioManual } = parseQuantityAndName(rawItem);
+    const { cantidad, unidad, nombre, condicion, precioManual } = parseQuantityAndName(rawItem, scope);
+    if (cantidad <= 0) return;
     buildAndPushItem({
       nombre,
       cantidad,
@@ -880,7 +1155,8 @@ function parseAndAddItem(
       capituloId,
       items,
       context,
-      diagnostics
+      diagnostics,
+      parametros: scope
     });
     return;
   }
@@ -893,11 +1169,26 @@ function parseAndAddItem(
     const taskTitleKey = keys[0];
     const taskContent = rawItem[taskTitleKey];
 
+    // Ámbito local de cálculo para la tarea (hereda el globalScope)
+    const taskScope: Record<string, number> = { ...scope };
+    const rawTaskCalculos =
+      typeof taskContent === 'object' && taskContent !== null
+        ? (taskContent.calculos || taskContent.variables)
+        : undefined;
+
+    if (rawTaskCalculos) {
+      const localCells = processCalculationBlock(rawTaskCalculos, taskScope, 'local');
+      if (calculatedCellsCollector) {
+        calculatedCellsCollector.push(...localCells);
+      }
+    }
+
     // 2.1 Si el contenido es un valor primitivo (ej: { "10 u Boca": "$ 15.000" } o { "Boca": "dicroica" })
     if (typeof taskContent === 'string' || typeof taskContent === 'number') {
       const isPrice = /^\s*\$?\s*[0-9.,]+$/.test(String(taskContent));
       if (isPrice) {
-        const { cantidad, unidad, nombre, condicion } = parseQuantityAndName(taskTitleKey);
+        const { cantidad, unidad, nombre, condicion } = parseQuantityAndName(taskTitleKey, taskScope);
+        if (cantidad <= 0) return;
         const precio = parseLocalizedNumber(taskContent);
         buildAndPushItem({
           nombre,
@@ -908,12 +1199,14 @@ function parseAndAddItem(
           capituloId,
           items,
           context,
-          diagnostics
+          diagnostics,
+          parametros: taskScope
         });
       } else {
         // String combinado
         const combined = `${taskTitleKey}: ${taskContent}`;
-        const { cantidad, unidad, nombre, condicion, precioManual } = parseQuantityAndName(combined);
+        const { cantidad, unidad, nombre, condicion, precioManual } = parseQuantityAndName(combined, taskScope);
+        if (cantidad <= 0) return;
         buildAndPushItem({
           nombre,
           cantidad,
@@ -923,7 +1216,8 @@ function parseAndAddItem(
           capituloId,
           items,
           context,
-          diagnostics
+          diagnostics,
+          parametros: taskScope
         });
       }
       return;
@@ -931,12 +1225,18 @@ function parseAndAddItem(
 
     // 2.2 Si el contenido es un objeto (Partida a medida compuesta con materiales y/o mano de obra)
     if (typeof taskContent === 'object' && taskContent !== null) {
-      const { cantidad: parsedQty, unidad: parsedUnit, nombre: cleanName } = parseQuantityAndName(taskTitleKey);
-      const cantidad = taskContent.cantidad ? parseLocalizedNumber(taskContent.cantidad) : parsedQty;
+      const { cantidad: parsedQty, unidad: parsedUnit, nombre: cleanName } = parseQuantityAndName(taskTitleKey, taskScope);
+      const cantidad = taskContent.cantidad !== undefined
+        ? evaluateExpressionOrNumber(taskContent.cantidad, taskScope)
+        : parsedQty;
+      if (cantidad <= 0) return;
+
       const unidad = taskContent.unidad ? String(taskContent.unidad).trim() : parsedUnit;
       const condicion: 'normal' | 'dificultosa' | 'favorable' =
         (taskContent.condicion || taskContent.condicionTrabajo || 'normal').toLowerCase();
-      const precioManual = taskContent.precio ? parseLocalizedNumber(taskContent.precio) : undefined;
+      const precioManual = taskContent.precio !== undefined
+        ? evaluateExpressionOrNumber(taskContent.precio, taskScope)
+        : undefined;
 
       const rawMateriales = taskContent.materiales || taskContent.insumos || [];
       const materialesList: any[] = [];
@@ -1030,19 +1330,19 @@ function parseAndAddItem(
 
       // Extraer parámetros personalizados para Tareas Tipo paramétricas
       const rawParametros = taskContent.parametros || taskContent.params;
-      const parametrosMap: Record<string, number> = {};
+      const parametrosMap: Record<string, number> = { ...taskScope };
       if (typeof rawParametros === 'object' && rawParametros !== null) {
         if (Array.isArray(rawParametros)) {
           rawParametros.forEach((p) => {
             if (typeof p === 'object' && p !== null) {
               Object.entries(p).forEach(([k, v]) => {
-                parametrosMap[k] = parseLocalizedNumber(v as any);
+                parametrosMap[k] = evaluateExpressionOrNumber(v as any, taskScope);
               });
             }
           });
         } else {
           Object.entries(rawParametros).forEach(([k, v]) => {
-            parametrosMap[k] = parseLocalizedNumber(v as any);
+            parametrosMap[k] = evaluateExpressionOrNumber(v as any, taskScope);
           });
         }
       }
@@ -1051,11 +1351,11 @@ function parseAndAddItem(
       const reservedTaskKeys = new Set([
         'cantidad', 'unidad', 'condicion', 'condicionTrabajo', 'precio',
         'materiales', 'insumos', 'mano_obra', 'manoObra', 'mo', 'parametros', 'params',
-        'tipo', 'descripcion', 'producto', 'marca'
+        'tipo', 'descripcion', 'producto', 'marca', 'calculos', 'variables'
       ]);
       Object.entries(taskContent).forEach(([k, v]) => {
-        if (!reservedTaskKeys.has(k) && (typeof v === 'number' || (typeof v === 'string' && /^-?\s*\$?\s*[0-9.,]+$/.test(v)))) {
-          parametrosMap[k] = parseLocalizedNumber(v as any);
+        if (!reservedTaskKeys.has(k) && (typeof v === 'number' || (typeof v === 'string' && (v.startsWith('=') || /^-?\s*\$?\s*[0-9.,]+$/.test(v))))) {
+          parametrosMap[k] = evaluateExpressionOrNumber(v as any, taskScope);
         }
       });
 
@@ -1072,7 +1372,8 @@ function parseAndAddItem(
           capituloId,
           items,
           context,
-          diagnostics
+          diagnostics,
+          scope: taskScope
         });
       } else {
         // Objeto sin despiece pero con configuración directa o paramétrica
@@ -1108,6 +1409,7 @@ function buildCompositeItem(params: {
   items: ItemPresupuesto[];
   context: ParseDSLContext;
   diagnostics: DSLDiagnostic[];
+  scope?: Record<string, number>;
 }) {
   const {
     nombre,
@@ -1120,7 +1422,8 @@ function buildCompositeItem(params: {
     capituloId,
     items,
     context,
-    diagnostics
+    diagnostics,
+    scope
   } = params;
 
   const insumosSnapshot: InsumoSnapshot[] = [];
@@ -1135,7 +1438,7 @@ function buildCompositeItem(params: {
     let mPrecio: number | undefined = undefined;
 
     if (typeof mItem === 'string') {
-      const parsedM = parseQuantityAndName(mItem);
+      const parsedM = parseQuantityAndName(mItem, scope);
       mCant = parsedM.cantidad;
       mUn = parsedM.unidad;
       mNombre = parsedM.nombre;
@@ -1146,14 +1449,14 @@ function buildCompositeItem(params: {
         // Formato estructurado explícito: { nombre: "...", cantidad: 2, marca: "...", precio: 1000 }
         mNombre = String(mItem.nombre).trim();
         mMarca = mItem.producto ? String(mItem.producto).trim() : (mItem.marca ? String(mItem.marca).trim() : undefined);
-        mPrecio = mItem.precio !== undefined ? parseLocalizedNumber(mItem.precio) : undefined;
+        mPrecio = mItem.precio !== undefined ? evaluateExpressionOrNumber(mItem.precio, scope) : undefined;
         if (mItem.cantidad !== undefined) {
           if (typeof mItem.cantidad === 'string') {
-            const parsedQ = parseQuantityAndName(mItem.cantidad);
+            const parsedQ = parseQuantityAndName(mItem.cantidad, scope);
             mCant = parsedQ.cantidad;
             if (parsedQ.unidad && parsedQ.unidad !== 'u') mUn = parsedQ.unidad;
           } else {
-            mCant = parseLocalizedNumber(mItem.cantidad);
+            mCant = evaluateExpressionOrNumber(mItem.cantidad, scope);
           }
         }
         if (mItem.unidad) mUn = String(mItem.unidad).trim();
@@ -1161,7 +1464,7 @@ function buildCompositeItem(params: {
         // Formato clave-valor: { "Cable Unipolar": { cantidad: 25, marca: "Prysmian", precio: 1250 } } o { "Cable": 1250 }
         const mKey = Object.keys(mItem)[0];
         const val = mItem[mKey];
-        const parsedM = parseQuantityAndName(mKey);
+        const parsedM = parseQuantityAndName(mKey, scope);
         mNombre = parsedM.nombre;
         mMarca = parsedM.marca;
         mCant = parsedM.cantidad;
@@ -1171,11 +1474,11 @@ function buildCompositeItem(params: {
         const propSource = (typeof val === 'object' && val !== null) ? val : mItem;
         if (propSource.cantidad !== undefined) {
           if (typeof propSource.cantidad === 'string') {
-            const parsedQ = parseQuantityAndName(propSource.cantidad);
+            const parsedQ = parseQuantityAndName(propSource.cantidad, scope);
             mCant = parsedQ.cantidad;
             if (parsedQ.unidad && parsedQ.unidad !== 'u') mUn = parsedQ.unidad;
           } else {
-            mCant = parseLocalizedNumber(propSource.cantidad);
+            mCant = evaluateExpressionOrNumber(propSource.cantidad, scope);
           }
         }
         if (propSource.unidad) mUn = String(propSource.unidad).trim();
@@ -1183,14 +1486,15 @@ function buildCompositeItem(params: {
           mMarca = String(propSource.producto || propSource.marca).trim();
         }
         if (propSource.precio !== undefined) {
-          mPrecio = parseLocalizedNumber(propSource.precio);
+          mPrecio = evaluateExpressionOrNumber(propSource.precio, scope);
         } else if (val !== undefined && val !== null && typeof val !== 'object') {
-          mPrecio = parseLocalizedNumber(val);
+          mPrecio = evaluateExpressionOrNumber(val, scope);
         }
       }
     }
 
     if (!mNombre) return;
+    if (mCant <= 0) return; // Si la cantidad calculada es <= 0, se omite el material
 
     // Buscar insumo en el catálogo (priorizando coincidencia por marca si se indicó)
     const normMat = normalizeString(mNombre);
@@ -1265,13 +1569,13 @@ function buildCompositeItem(params: {
     let moPrecio: number | undefined = undefined;
 
     if (typeof moItem === 'string') {
-      const parsedMo = parseQuantityAndName(moItem);
+      const parsedMo = parseQuantityAndName(moItem, scope);
       moHoras = parsedMo.cantidad;
       moCatNombre = parsedMo.nombre;
       moPrecio = parsedMo.precioManual;
     } else if (typeof moItem === 'object' && moItem !== null) {
       const moKey = Object.keys(moItem)[0];
-      const parsedMo = parseQuantityAndName(moKey);
+      const parsedMo = parseQuantityAndName(moKey, scope);
       moHoras = parsedMo.cantidad;
       moCatNombre = parsedMo.nombre;
       moPrecio = parsedMo.precioManual;
@@ -1280,20 +1584,21 @@ function buildCompositeItem(params: {
       if (propSource.cantidad !== undefined || propSource.horas !== undefined) {
         const rawHours = propSource.cantidad ?? propSource.horas;
         if (typeof rawHours === 'string') {
-          const p = parseQuantityAndName(rawHours);
+          const p = parseQuantityAndName(rawHours, scope);
           moHoras = p.cantidad;
         } else {
-          moHoras = parseLocalizedNumber(rawHours);
+          moHoras = evaluateExpressionOrNumber(rawHours, scope);
         }
       }
       if (propSource.precio !== undefined) {
-        moPrecio = parseLocalizedNumber(propSource.precio);
+        moPrecio = evaluateExpressionOrNumber(propSource.precio, scope);
       } else if (val !== undefined && val !== null && typeof val !== 'object') {
-        moPrecio = parseLocalizedNumber(val);
+        moPrecio = evaluateExpressionOrNumber(val, scope);
       }
     }
 
     if (!moCatNombre) return;
+    if (moHoras <= 0) return; // Si las horas calculadas son <= 0, se omite la mano de obra
 
     const normCat = normalizeString(moCatNombre);
     const matchedMo = allMo.find(
@@ -1557,7 +1862,7 @@ export function detectCursorContext(textBeforeCursor: string): CursorContextResu
   const trimmedCurrent = currentLine.trim();
   const currentIndentLen = currentIndent.length;
 
-  const reservedRootKeys = new Set(['cliente', 'obra', 'factura', 'validez', 'margen', 'riesgo', 'dolar', 'gastos', 'totales']);
+  const reservedRootKeys = new Set(['cliente', 'obra', 'factura', 'validez', 'margen', 'riesgo', 'dolar', 'gastos', 'totales', 'calculos', 'variables']);
 
   // Si estamos en nivel raíz (indent 0) y no es viñeta:
   if (currentIndentLen === 0 && !trimmedCurrent.startsWith('-')) {
@@ -1638,9 +1943,9 @@ export function detectCursorContext(textBeforeCursor: string): CursorContextResu
       }
     }
 
-    // 4. Encabezados especiales: "gastos:"
-    if (/^gastos\s*:?/i.test(trimmed) && lineIndent === 0) {
-      return { contextType: 'general', currentIndent, parentHeader: 'gastos' };
+    // 4. Encabezados especiales: "gastos:", "calculos:", "variables:"
+    if (/^(gastos|calculos|variables)\s*:?/i.test(trimmed) && lineIndent === 0) {
+      return { contextType: 'general', currentIndent, parentHeader: trimmed.replace(/:$/, '').trim() };
     }
 
     // 5. Encabezado a nivel raíz (indent 0) con ":"
@@ -1684,9 +1989,9 @@ export const COMMON_UNITS = new Set([
  *    incluyendo números con decimales (ej: "cabl 1.5", "cable unipolar 1.5", "3x2.5", "caño 3/4").
  */
 export function detectSuggestTrigger(currentLineBeforeCursor: string): SuggestTriggerResult | null {
-  // 1. Detección explícita de "/" o "@"
-  // Debe estar al inicio de línea, precedido de espacio en blanco, o tras un guión de lista
-  const explicitMatch = currentLineBeforeCursor.match(/(?:^|[\s\-])([\/@])([^\r\n]*)$/);
+  // 1. Detección explícita de "/", "@" o "="
+  // Debe estar al inicio de línea, precedido de espacio en blanco, o tras dos puntos/guión
+  const explicitMatch = currentLineBeforeCursor.match(/(?:^|[\s\-:=])([\/@=])([^\r\n]*)$/);
   if (explicitMatch) {
     const triggerChar = explicitMatch[1];
     const query = explicitMatch[2];
@@ -1797,6 +2102,22 @@ export function formatSlashCommandReplacement(params: {
     cleanVal = cleanVal.replace(/^[\/@]/, '').replace(/[\r\n]+$/, '');
 
     const replacementLine = `${indent}${dir}: ${cleanVal}\n`;
+    return {
+      replacementLine,
+      newCursorOffset: replacementLine.length,
+      selectionRange: undefined
+    };
+  }
+
+  // Detección de completado de variable de cálculo (ej: "=bocas")
+  if (snippet.startsWith('=')) {
+    const cleanVar = snippet.trim();
+    let baseLine = currentLineBeforeCursor;
+    const eqIdx = baseLine.lastIndexOf('=');
+    if (eqIdx >= 0) {
+      baseLine = baseLine.slice(0, eqIdx);
+    }
+    const replacementLine = `${baseLine}${cleanVar} `;
     return {
       replacementLine,
       newCursorOffset: replacementLine.length,

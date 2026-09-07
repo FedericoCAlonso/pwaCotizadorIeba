@@ -18,7 +18,7 @@ import {
   Tag
 } from 'lucide-react';
 import { TareaTipo, Cliente, Insumo, CategoriaManoDeObra } from '../../../core/types';
-import { normalizeString, CursorContextType, scoreSearchMatch } from './dslParser';
+import { normalizeString, CursorContextType, scoreSearchMatch, CalculatedCell } from './dslParser';
 
 export interface SlashCommandItem {
   id: string;
@@ -40,6 +40,7 @@ interface SlashCommandMenuProps {
   manoObraMap?: Map<string, CategoriaManoDeObra>;
   contextType?: CursorContextType;
   directiveType?: 'cliente' | 'obra' | 'factura' | 'validez' | 'margen' | 'riesgo' | 'dolar';
+  calculatedCells?: CalculatedCell[];
   onSelect: (snippet: string) => void;
   onClose: () => void;
   position?: { top: number; left: number };
@@ -54,6 +55,7 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   manoObraMap,
   contextType = 'general',
   directiveType,
+  calculatedCells = [],
   onSelect,
   onClose,
   position
@@ -96,6 +98,37 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
 
   // Lista consolidada de sugerencias
   const items: SlashCommandItem[] = useMemo(() => {
+    // 0a. Si la query empieza con "=", autocompletar variables de cálculo
+    if (query.startsWith('=')) {
+      const cleanVar = query.substring(1).trim().toLowerCase();
+      const varList: SlashCommandItem[] = [];
+
+      if (calculatedCells && calculatedCells.length > 0) {
+        calculatedCells.forEach((c) => {
+          varList.push({
+            id: `var-${c.name}`,
+            category: 'directiva',
+            title: `=${c.name}`,
+            subtitle: `Valor actual: ${c.evaluatedValue.toLocaleString('es-AR')} · ${c.isFormula ? c.rawExpression : 'constante'}`,
+            snippet: `=${c.name}`,
+            icon: Hash,
+            extraText: `variable calculo formula celda ${c.name} ${c.rawExpression}`
+          });
+        });
+      }
+
+      if (!cleanVar) return varList;
+
+      return varList
+        .map((it) => ({
+          item: it,
+          score: scoreSearchMatch({ query: cleanVar, title: it.title, extraText: it.extraText })
+        }))
+        .filter((r) => r.score >= 0)
+        .sort((a, b) => b.score - a.score)
+        .map((r) => r.item);
+    }
+
     // 0. Si hay una directiva activa de cabecera, mostrar opciones exclusivas
     if (directiveType === 'cliente' || query.startsWith('@')) {
       const clientList: SlashCommandItem[] = [];
@@ -743,6 +776,41 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
         snippet: `gastos:\n  - Viáticos: $ 15.000\n`,
         icon: Truck
       });
+
+      // Celdas de cálculo y Trabajo Tipo paramétrico
+      list.push({
+        id: 'cmd-calculos',
+        category: 'directiva',
+        title: 'calculos: [Celdas y Fórmulas]',
+        subtitle: 'Define variables y fórmulas de cómputo en cascada',
+        snippet: `calculos:\n  superficie: 120\n  bocas: =ceil(superficie / 6)\n  cable_m: =bocas * 12\n`,
+        icon: Hash,
+        extraText: 'calculos variables formulas celdas cascada computo matematica'
+      });
+
+      list.push({
+        id: 'cmd-trabajo-tipo',
+        category: 'tarea',
+        title: '⚡ Trabajo Tipo (Plantilla Paramétrica)',
+        subtitle: 'Plantilla de trabajo con variables locales, materiales y mano de obra',
+        snippet: `- Reparación y Armado de Tablero:\n    cantidad: 1 u\n    calculos:\n      modulos: 24\n      termicas: 6\n    materiales:\n      - 1 u Tablero Modular DIN =modulos Módulos Superficie Chapa Metálica Puerta Ciega IP40:\n          marca: Gabexel\n      - =termicas u Interruptor Termomagnético 2P\n    mano_obra:\n      - 4 h Oficial Electricista\n`,
+        icon: Layers,
+        extraText: 'trabajo tipo plantilla parametrica calculos materiales mano de obra partida'
+      });
+
+      if (calculatedCells && calculatedCells.length > 0) {
+        calculatedCells.forEach((c) => {
+          list.push({
+            id: `var-${c.name}`,
+            category: 'directiva',
+            title: `=${c.name} (${c.evaluatedValue})`,
+            subtitle: `Variable calculada · ${c.isFormula ? c.rawExpression : 'constante'}`,
+            snippet: `=${c.name} `,
+            icon: Hash,
+            extraText: `variable celda calculo formula ${c.name} ${c.rawExpression}`
+          });
+        });
+      }
     }
 
     // Filtrar por categoría activa

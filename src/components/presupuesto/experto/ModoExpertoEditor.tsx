@@ -41,7 +41,8 @@ import {
   formatSlashCommandReplacement,
   handleYamlSmartEnter,
   handleYamlSmartBackspace,
-  CursorContextType
+  CursorContextType,
+  CalculatedCell
 } from './dslParser';
 import { db } from '../../../db/database';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -161,6 +162,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
   });
 
   const [diagnostics, setDiagnostics] = useState<DSLDiagnostic[]>([]);
+  const [calculatedCells, setCalculatedCells] = useState<CalculatedCell[]>([]);
   const [clienteMatched, setClienteMatched] = useState<Cliente | undefined>(() => {
     return clientes.find((c) => c.id === clienteId);
   });
@@ -273,6 +275,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       });
 
       setDiagnostics(result.diagnostics);
+      setCalculatedCells(result.calculatedCells || []);
       setClienteMatched(result.clienteMatched);
       setClienteQuery(result.clienteQuery);
 
@@ -1089,6 +1092,18 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
               <span>+ Gasto</span>
             </button>
 
+            <button
+              type="button"
+              {...createToolbarAction(() =>
+                insertSnippet('\ncalculos:\n  superficie: 120\n  bocas: =ceil(superficie / 6)\n  cable_m: =bocas * 12\n')
+              )}
+              className="px-2.5 py-1.5 bg-secondary/10 hover:bg-secondary/20 text-secondary rounded-xl font-bold flex items-center gap-1 border border-secondary/30 transition shrink-0 cursor-pointer min-h-[34px]"
+              title="Define bloque de variables y fórmulas de cálculo en cascada"
+            >
+              <span className="font-mono text-sm font-black">=</span>
+              <span>+ Cálculos</span>
+            </button>
+
             {/* Accesorio de Teclado Rápido para móvil y tipeo ágil */}
             <div className="h-5 w-[1px] bg-outline-variant/30 shrink-0 mx-0.5" />
 
@@ -1117,6 +1132,15 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
               title="Insertar guión de lista"
             >
               -
+            </button>
+
+            <button
+              type="button"
+              {...createToolbarAction(() => insertSnippet('='))}
+              className="px-2 py-1 bg-surface-container-high hover:bg-surface-container-highest rounded-lg text-primary font-mono text-[11px] font-bold border border-outline-variant/30 transition shrink-0 cursor-pointer min-h-[32px]"
+              title="Insertar fórmula o variable"
+            >
+              =
             </button>
 
             <button
@@ -1211,6 +1235,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
                   manoObraMap={manoObraMap}
                   contextType={slashMenuState.contextType}
                   directiveType={slashMenuState.directiveType}
+                  calculatedCells={calculatedCells}
                   position={menuPosition}
                   onSelect={handleSelectSlashCommand}
                   onClose={() =>
@@ -1237,6 +1262,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
             capitulos={capitulos}
             items={items}
             diagnostics={diagnostics}
+            calculatedCells={calculatedCells}
             clientes={clientes}
             onSelectCliente={handleSelectClienteFromUI}
             onOpenQuickClienteModal={handleOpenQuickCliente}
