@@ -7,7 +7,8 @@ import {
   normalizeString,
   detectCursorContext,
   formatSlashCommandReplacement,
-  handleYamlSmartEnter
+  handleYamlSmartEnter,
+  scoreSearchMatch
 } from './dslParser';
 import { Cliente, TareaTipo, Insumo, CategoriaManoDeObra, ItemPresupuesto, CapituloPresupuesto } from '../../../core/types';
 
@@ -437,6 +438,98 @@ Instalación Eléctrica:
       const { newText } = handleYamlSmartEnter({ textBefore, textAfter });
 
       expect(newText).toBe(`Tableros:\n  - `);
+    });
+  });
+
+  describe('scoreSearchMatch (Búsqueda refinada multi-término y ranking)', () => {
+    it('prioriza "Cable Unipolar" sobre "Bandeja Portacables" al buscar "cable"', () => {
+      const scoreCable = scoreSearchMatch({
+        query: 'cable',
+        title: 'Cable Unipolar 2.5 mm² IRAM Normalizado',
+        category: 'Conductores y Cables'
+      });
+
+      const scoreBandeja = scoreSearchMatch({
+        query: 'cable',
+        title: 'Bandeja Portacables Perforada 100x50 mm',
+        category: 'Canalizaciones'
+      });
+
+      expect(scoreCable).toBeGreaterThan(0);
+      expect(scoreBandeja).toBeGreaterThan(0);
+      // El cable debe superar ampliamente a la bandeja portacables
+      expect(scoreCable).toBeGreaterThan(scoreBandeja);
+    });
+
+    it('permite refinar la búsqueda fuera de orden ("iram cable" encuentra cables IRAM y descarta bandejas)', () => {
+      const scoreCable = scoreSearchMatch({
+        query: 'iram cable',
+        title: 'Cable Unipolar 2.5 mm² IRAM Normalizado',
+        category: 'Conductores y Cables'
+      });
+
+      const scoreBandeja = scoreSearchMatch({
+        query: 'iram cable',
+        title: 'Bandeja Portacables Perforada 100x50 mm',
+        category: 'Canalizaciones'
+      });
+
+      // El cable coincide con ambos términos ("iram" y "cable")
+      expect(scoreCable).toBeGreaterThan(0);
+      // La bandeja NO contiene "iram", por lo que debe ser descartada completamente (-1)
+      expect(scoreBandeja).toBe(-1);
+    });
+
+    it('tolera comas o puntos decimales y superíndices ("cable 2.5" vs "2,5 mm²")', () => {
+      const scorePunto = scoreSearchMatch({
+        query: 'cable 2.5 iram',
+        title: 'Cable Unipolar 2,5 mm² IRAM',
+        category: 'Cables'
+      });
+
+      const scoreComa = scoreSearchMatch({
+        query: 'cable 2,5 iram',
+        title: 'Cable Unipolar 2.5 mm2 IRAM',
+        category: 'Cables'
+      });
+
+      expect(scorePunto).toBeGreaterThan(0);
+      expect(scoreComa).toBeGreaterThan(0);
+    });
+
+    it('soporta búsquedas de 3 o más términos en cualquier orden', () => {
+      const score1 = scoreSearchMatch({
+        query: 'cable unipolar 2.5 iram',
+        title: 'Cable Unipolar 2.5 mm² IRAM Normalizado',
+        category: 'Cables'
+      });
+
+      const score2 = scoreSearchMatch({
+        query: 'iram 2.5 cable unipolar',
+        title: 'Cable Unipolar 2.5 mm² IRAM Normalizado',
+        category: 'Cables'
+      });
+
+      expect(score1).toBeGreaterThan(0);
+      expect(score2).toBeGreaterThan(0);
+      // La búsqueda en orden exacto recibe un bonus de orden
+      expect(score1).toBeGreaterThan(score2);
+    });
+
+    it('devuelve -1 si falta al menos uno de los términos requeridos', () => {
+      const score = scoreSearchMatch({
+        query: 'cable sintenax termica',
+        title: 'Cable Sintenax 4x4 mm',
+        category: 'Cables'
+      });
+
+      expect(score).toBe(-1);
+    });
+
+    it('devuelve 0 si la consulta está vacía o sólo contiene caracteres especiales', () => {
+      expect(scoreSearchMatch({ query: '', title: 'Cable' })).toBe(0);
+      expect(scoreSearchMatch({ query: '/', title: 'Cable' })).toBe(0);
+      expect(scoreSearchMatch({ query: '   ', title: 'Cable' })).toBe(0);
     });
   });
 });

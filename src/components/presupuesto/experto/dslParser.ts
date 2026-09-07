@@ -72,7 +72,7 @@ const KNOWN_UNITS = new Set([
 export function normalizeString(str: string): string {
   return (str || '')
     .toLowerCase()
-    .normalize('NFD')
+    .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim();
 }
@@ -1377,5 +1377,117 @@ export function handleYamlSmartEnter(params: {
     newCursorPos: textBefore.length + 1 + nextIndent.length
   };
 }
+
+export interface SearchMatchParams {
+  query: string;
+  title: string;
+  category?: string;
+  extraText?: string;
+}
+
+/**
+ * Evalúa y puntúa la relevancia de un elemento para una búsqueda multi-término fuera de orden.
+ * - Requiere que todos los términos de búsqueda estén presentes en el texto del elemento.
+ * - Prioriza fuertemente coincidencias exactas de palabra sobre sub-cadenas internas (ej: "cable" prioriza "Cable Unipolar" sobre "portacable").
+ * - Da bonus a elementos cuyo título o categoría comienza con el término buscado.
+ * - Soporta términos en cualquier orden (ej: "cable iram 2.5" o "2.5 iram cable").
+ * - Retorna -1 si no coincide, o un número >= 0 que representa el puntaje de relevancia.
+ */
+export function scoreSearchMatch(params: SearchMatchParams): number {
+  const { query, title, category = '', extraText = '' } = params;
+  const cleanQuery = query.replace(/^[\/@]/, '').trim();
+  if (!cleanQuery) return 0;
+
+  // Normalizar comas entre números para que "2,5" y "2.5" sean equivalentes
+  const normalizeDecimals = (s: string) => s.replace(/(\d+),(\d+)/g, '$1.$2');
+
+  const queryNorm = normalizeDecimals(normalizeString(cleanQuery));
+  // Separar tokens por espacios y puntuación, manteniendo números con punto decimal intactos (ej: 2.5)
+  const tokens = queryNorm
+    .split(/[\s,+/;:!?"'()\[\]{}_-]+/)
+    .map((w) => w.replace(/^\.+|\.+$/g, ''))
+    .filter((t) => t.length > 0);
+
+  if (tokens.length === 0) return 0;
+
+  const titleNorm = normalizeDecimals(normalizeString(title));
+  const catNorm = normalizeDecimals(normalizeString(category));
+  const extraNorm = normalizeDecimals(normalizeString(extraText));
+  const combined = `${titleNorm} ${catNorm} ${extraNorm}`;
+
+  // 1. Todos los tokens deben estar presentes en algún lugar del texto combinado
+  const allTokensMatch = tokens.every((token) => combined.includes(token));
+  if (!allTokensMatch) {
+    return -1;
+  }
+
+  let score = 0;
+  const titleWords = titleNorm
+    .split(/[\s,+/;:!?"'()\[\]{}_-]+/)
+    .map((w) => w.replace(/^\.+|\.+$/g, ''))
+    .filter(Boolean);
+
+  // 2. Coincidencia exacta del título completo con la query
+  if (titleNorm === queryNorm) {
+    score += 1000;
+  } else if (titleNorm.startsWith(queryNorm)) {
+    score += 500;
+  }
+
+  // 3. El título comienza con el primer término buscado (ej: "cable" -> "Cable unipolar...")
+  if (tokens.length > 0 && (titleNorm.startsWith(tokens[0]) || (titleWords.length > 0 && titleWords[0] === tokens[0]))) {
+    score += 250;
+  }
+
+  // 4. Categoría coincide con alguno de los términos o con la búsqueda
+  if (catNorm) {
+    if (catNorm === tokens[0] || catNorm === queryNorm) {
+      score += 150;
+    } else if (catNorm.startsWith(tokens[0])) {
+      score += 100;
+    } else if (tokens.some((t) => catNorm.includes(t))) {
+      score += 40;
+    }
+  }
+
+  // 5. Calidad de coincidencia de cada token dentro del título (clave para evitar que "portacable" gane a "cable")
+  tokens.forEach((token) => {
+    const isExactWord = titleWords.some((w) => w === token);
+    const startsWord = titleWords.some((w) => w.startsWith(token));
+
+    if (isExactWord) {
+      score += 120; // Palabra exacta en el título
+    } else if (startsWord) {
+      score += 80;  // Comienza una palabra del título
+    } else if (titleNorm.includes(token)) {
+      score += 15;  // Está contenido dentro de otra palabra (ej: "portacable")
+    } else if (catNorm.includes(token)) {
+      score += 30;  // Está en la categoría
+    } else {
+      score += 10;  // Está en descripción/marca/atributos
+    }
+  });
+
+  // 6. Bonus si los tokens aparecen en el mismo orden en el título
+  let lastIndex = -1;
+  let inOrder = true;
+  for (const token of tokens) {
+    const idx = titleNorm.indexOf(token, lastIndex + 1);
+    if (idx === -1) {
+      inOrder = false;
+      break;
+    }
+    lastIndex = idx;
+  }
+  if (inOrder) {
+    score += 40;
+  }
+
+  // 7. Penalización suave por longitud (títulos más directos y específicos puntúan mejor)
+  score += Math.max(0, 30 - titleNorm.length * 0.15);
+
+  return Math.round(score);
+}
+
 
 

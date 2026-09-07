@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Search, X, Check, Package, Layers, Plus, Minus, CornerDownLeft } from 'lucide-react';
 import { Insumo } from '../../../core/types';
-import { normalizeString } from './dslParser';
+import { normalizeString, scoreSearchMatch } from './dslParser';
 
 interface MultiMaterialPickerModalProps {
   isOpen: boolean;
@@ -36,18 +36,27 @@ export const MultiMaterialPickerModal: React.FC<MultiMaterialPickerModalProps> =
 
   // Filtrado reactivo de insumos
   const filteredInsumos = useMemo(() => {
-    const queryNorm = normalizeString(searchTerm);
+    let pool = allInsumos;
+    if (selectedCategory) {
+      pool = pool.filter((ins) => ins.categoria === selectedCategory);
+    }
+    if (!searchTerm.trim()) {
+      return pool;
+    }
 
-    return allInsumos.filter((ins) => {
-      if (selectedCategory && ins.categoria !== selectedCategory) {
-        return false;
-      }
-      if (!queryNorm) return true;
-
-      const nameNorm = normalizeString(ins.nombre);
-      const catNorm = normalizeString(ins.categoria || '');
-      return nameNorm.includes(queryNorm) || catNorm.includes(queryNorm);
-    });
+    return pool
+      .map((ins) => ({
+        insumo: ins,
+        score: scoreSearchMatch({
+          query: searchTerm,
+          title: ins.nombre,
+          category: ins.categoria,
+          extraText: `${ins.marca || ''} ${ins.unidad || ''} ${ins.notas || ''}`
+        })
+      }))
+      .filter((item) => item.score >= 0)
+      .sort((a, b) => b.score - a.score)
+      .map((item) => item.insumo);
   }, [allInsumos, selectedCategory, searchTerm]);
 
   // Focus inicial

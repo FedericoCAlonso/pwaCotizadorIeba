@@ -16,7 +16,7 @@ import {
   Filter
 } from 'lucide-react';
 import { TareaTipo, Cliente, Insumo, CategoriaManoDeObra } from '../../../core/types';
-import { normalizeString, CursorContextType } from './dslParser';
+import { normalizeString, CursorContextType, scoreSearchMatch } from './dslParser';
 
 export interface SlashCommandItem {
   id: string;
@@ -25,6 +25,7 @@ export interface SlashCommandItem {
   subtitle?: string;
   snippet: string;
   categoryTag?: string;
+  extraText?: string;
   icon: React.FC<{ className?: string }>;
 }
 
@@ -75,13 +76,13 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
       if (matchedCat) {
         return {
           inlineCategory: matchedCat,
-          effectiveQuery: normalizeString(catSlashMatch[2])
+          effectiveQuery: catSlashMatch[2].trim()
         };
       }
     }
     return {
       inlineCategory: null,
-      effectiveQuery: normalizeString(raw)
+      effectiveQuery: raw
     };
   }, [query, materialCategories]);
 
@@ -101,7 +102,8 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
           title: ins.nombre,
           subtitle: `Material · $ ${Math.round(ins.precioActual || 0).toLocaleString('es-AR')} / ${ins.unidad || 'u'}${ins.categoria ? ` · ${ins.categoria}` : ''}`,
           snippet: `- 1 ${ins.unidad || 'u'} ${ins.nombre}\n`,
-          icon: Package
+          icon: Package,
+          extraText: `${ins.categoria || ''} ${ins.marca || ''} ${ins.unidad || ''} ${ins.notas || ''}`
         });
       });
     }
@@ -115,7 +117,8 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
           title: `MO: ${mo.nombre}`,
           subtitle: `Mano de Obra · $ ${Math.round(mo.costoHora || 0).toLocaleString('es-AR')} / hora`,
           snippet: `- 4 h ${mo.nombre}\n`,
-          icon: HardHat
+          icon: HardHat,
+          extraText: `mano de obra ${mo.nombre}`
         });
       });
     }
@@ -129,7 +132,8 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
           title: t.nombre,
           subtitle: `Tarea Catálogo · /${t.unidad || 'u'} · ${t.categoria || 'General'}`,
           snippet: `- 1 ${t.unidad || 'u'} ${t.nombre}\n`,
-          icon: Zap
+          icon: Zap,
+          extraText: `${t.categoria || ''} ${t.notasTecnicas || ''} ${t.unidad || ''}`
         });
       });
 
@@ -140,7 +144,8 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
         title: '⚡ Partida a Medida (APU)',
         subtitle: 'Crea un trabajo con despiece de materiales y mano de obra',
         snippet: `- Tablero a Medida:\n    materiales:\n      - 1 u Gabinete DIN 24 módulos\n    mano_obra:\n      - 6 h Oficial\n`,
-        icon: Layers
+        icon: Layers,
+        extraText: 'apu partida a medida despiece materiales mano de obra'
       });
     }
 
@@ -238,17 +243,24 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
     }
 
     // Filtrar por query de búsqueda
-    if (!effectiveQuery) {
+    if (!effectiveQuery || !effectiveQuery.trim()) {
       return filtered.slice(0, 20);
     }
 
     return filtered
-      .filter((it) => {
-        const tNorm = normalizeString(it.title);
-        const subNorm = normalizeString(it.subtitle || '');
-        return tNorm.includes(effectiveQuery) || subNorm.includes(effectiveQuery);
-      })
-      .slice(0, 25);
+      .map((it) => ({
+        item: it,
+        score: scoreSearchMatch({
+          query: effectiveQuery,
+          title: it.title,
+          category: it.categoryTag,
+          extraText: `${it.subtitle || ''} ${it.extraText || ''}`
+        })
+      }))
+      .filter((entry) => entry.score >= 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 25)
+      .map((entry) => entry.item);
   }, [effectiveQuery, activeCategory, contextType, tareasTipo, insumosMap, manoObraMap]);
 
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
