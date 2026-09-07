@@ -33,7 +33,10 @@ import {
   parseDSLToPresupuesto,
   generateExampleDSL,
   DSLDiagnostic,
-  normalizeString
+  normalizeString,
+  detectCursorContext,
+  formatSlashCommandReplacement,
+  CursorContextType
 } from './dslParser';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { MultiMaterialPickerModal } from './MultiMaterialPickerModal';
@@ -76,45 +79,6 @@ interface ModoExpertoEditorProps {
   onEmitirClick?: () => void;
   onSaveDraft: () => void;
   onToggleGuidedMode: () => void;
-}
-
-/**
- * Detecta el contexto semántico de la posición del cursor (si está dentro de materiales, mano de obra o general)
- */
-function detectCursorContext(textBeforeCursor: string): {
-  contextType: 'materiales' | 'mano_obra' | 'general';
-  currentIndent: string;
-  activeCategory?: string;
-} {
-  const lines = textBeforeCursor.split('\n');
-  const currentLine = lines[lines.length - 1] || '';
-  const currentIndent = currentLine.match(/^\s*/)?.[0] || '      ';
-
-  // Buscar hacia arriba el encabezado de bloque más cercano
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const l = lines[i].trim();
-    if (l.startsWith('materiales:') || l.startsWith('insumos:')) {
-      return { contextType: 'materiales', currentIndent };
-    }
-    if (l.startsWith('mano_obra:') || l.startsWith('manoObra:') || l.startsWith('mo:')) {
-      return { contextType: 'mano_obra', currentIndent };
-    }
-    // Si encontramos una subcategoría bajo materiales (ej: "cables:")
-    if (l.endsWith(':') && !l.startsWith('-') && i > 0) {
-      for (let j = i - 1; j >= Math.max(0, i - 4); j--) {
-        if (lines[j].trim().startsWith('materiales:')) {
-          const categoryName = l.replace(/:$/, '').trim();
-          return { contextType: 'materiales', currentIndent, activeCategory: categoryName };
-        }
-      }
-    }
-    // Si encontramos un nuevo capítulo o la raíz de un ítem, termina el scope de materiales
-    if (l.startsWith('#') || (l.endsWith(':') && !l.startsWith(' ') && !l.startsWith('\t'))) {
-      break;
-    }
-  }
-
-  return { contextType: 'general', currentIndent };
 }
 
 export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
@@ -188,7 +152,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     query: string;
     cursorPosition: number;
     slashIndex: number;
-    contextType: 'materiales' | 'mano_obra' | 'general';
+    contextType: CursorContextType;
     replaceFullLine?: boolean;
   }>({
     isOpen: false,
@@ -197,6 +161,52 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     slashIndex: -1,
     contextType: 'general'
   });
+
+  // Posición flotante dinámica del menú de autocompletado pegada al cursor
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 48, left: 16 });
+
+  // Recalcular dinámicamente la posición del popover flotante en relación al cursor
+  const updateMenuPosition = useCallback(() => {
+    if (!textareaRef.current) return;
+    const textarea = textareaRef.current;
+    const cursorPos = slashMenuState.cursorPosition;
+    const textBefore = dslText.slice(0, cursorPos);
+    const lines = textBefore.split('\n');
+    const lineIndex = lines.length - 1;
+    const currentLine = lines[lineIndex] || '';
+
+    const scrollTop = textarea.scrollTop;
+    const clientHeight = textarea.clientHeight;
+    const clientWidth = textarea.clientWidth;
+
+    // En font-mono leading-6 cada renglón mide 24px, padding superior textarea = 16px (p-4)
+    const lineHeight = 24;
+    const paddingTop = 16;
+    const cursorY = paddingTop + (lineIndex + 1) * lineHeight - scrollTop;
+
+    // Altura estimada del menú flotante
+    const menuEstimatedHeight = 280;
+    let top = cursorY + 4;
+    if (cursorY + menuEstimatedHeight > clientHeight && cursorY > menuEstimatedHeight) {
+      top = cursorY - lineHeight - menuEstimatedHeight - 8;
+    }
+
+    // Columna gutter de números de línea (~48px) + padding textarea (16px)
+    const gutterWidth = 48 + 16;
+    const approxCharWidth = 8.4;
+    let left = gutterWidth + currentLine.length * approxCharWidth;
+
+    const maxLeft = Math.max(48, clientWidth - 360);
+    left = Math.min(Math.max(48, left), maxLeft);
+
+    setMenuPosition({ top: Math.max(8, top), left });
+  }, [slashMenuState.cursorPosition, dslText]);
+
+  useEffect(() => {
+    if (slashMenuState.isOpen) {
+      updateMenuPosition();
+    }
+  }, [slashMenuState.isOpen, slashMenuState.cursorPosition, updateMenuPosition]);
 
   // Modal de paleta rápida de materiales (Alt + M)
   const [showMultiMaterialModal, setShowMultiMaterialModal] = useState(false);
@@ -323,10 +333,12 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     gastosConfig
   ]);
 
-  // Atajo global para abrir paleta rápida de materiales (Alt + M)
+  // Atajo global para abrir paleta rápida de materiales (Alt + M, Alt + I, Ctrl + M)
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
-      if (e.altKey && (e.key === 'm' || e.key === 'M')) {
+      const isM = e.key === 'm' || e.key === 'M';
+      const isI = e.key === 'i' || e.key === 'I';
+      if ((e.altKey && (isM || isI)) || ((e.ctrlKey || e.metaKey) && isM)) {
         e.preventDefault();
         setShowMultiMaterialModal((prev) => !prev);
       }
@@ -368,10 +380,10 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       });
     } else {
       // 2. Detección automática tipo IntelliSense mientras escribe en un renglón de lista (-)
-      // Ej: "- cab" o "- 25 m cab" o "- ofi"
+      // Ej: "- cab", "- 25 m cab", "- ofi", "- bo"
       const autoSuggestMatch = currentLine.match(/-\s*(?:[0-9.,]+\s*[a-zA-ZáéíóúÁÉÍÓÚ²³]*\s*)?([a-zA-ZáéíóúÁÉÍÓÚ]{2,}[a-zA-Z0-9áéíóúÁÉÍÓÚ\s]*)$/);
 
-      if (autoSuggestMatch && (contextType === 'materiales' || contextType === 'mano_obra')) {
+      if (autoSuggestMatch) {
         const typedQuery = autoSuggestMatch[1].trim();
         const queryIndexInLine = currentLine.lastIndexOf(autoSuggestMatch[1]);
         const triggerIndex = lastLineStart + queryIndexInLine;
@@ -406,6 +418,14 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (slashMenuState.isOpen && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Enter')) {
       // El SlashCommandMenu maneja las flechas y Enter
+      return;
+    }
+
+    const isM = e.key === 'm' || e.key === 'M';
+    const isI = e.key === 'i' || e.key === 'I';
+    if ((e.altKey && (isM || isI)) || ((e.ctrlKey || e.metaKey) && isM)) {
+      e.preventDefault();
+      setShowMultiMaterialModal(true);
       return;
     }
 
@@ -517,28 +537,22 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     if (!textareaRef.current) return;
 
     const textarea = textareaRef.current;
-    const { slashIndex, cursorPosition, contextType } = slashMenuState;
+    const { cursorPosition } = slashMenuState;
 
-    const before = dslText.slice(0, slashIndex);
-    const after = dslText.slice(cursorPosition);
+    const textBeforeCursor = dslText.slice(0, cursorPosition);
+    const lastLineStart = textBeforeCursor.lastIndexOf('\n') + 1;
+    const currentLineBeforeCursor = textBeforeCursor.slice(lastLineStart);
 
-    // Ajustar snippet según contexto si la línea ya contenía prefijos
-    let finalSnippet = snippet;
-    const lastLineStart = before.lastIndexOf('\n') + 1;
-    const lineBeforeTrigger = before.slice(lastLineStart);
+    const textAfterCursor = dslText.slice(cursorPosition);
+    const nextNewline = textAfterCursor.indexOf('\n');
+    const restOfDoc = nextNewline >= 0 ? textAfterCursor.slice(nextNewline) : '';
 
-    // Si ya tenía "- " o cantidad escrita en la línea, evitar duplicar el "- 1 u "
-    if (lineBeforeTrigger.trim().startsWith('-')) {
-      const matchSnippet = snippet.match(/^-\s*[0-9.,]+\s*[a-zA-ZáéíóúÁÉÍÓÚ²³]*\s+(.+)$/);
-      if (matchSnippet && lineBeforeTrigger.includes('-')) {
-        // Si el usuario ya puso "- 25 m ", insertar solo el nombre
-        if (lineBeforeTrigger.match(/-\s*[0-9.,]+/)) {
-          finalSnippet = `${matchSnippet[1]}`;
-        }
-      }
-    }
+    const { replacementLine } = formatSlashCommandReplacement({
+      currentLineBeforeCursor,
+      snippet
+    });
 
-    const newText = before + finalSnippet + after;
+    const newText = dslText.slice(0, lastLineStart) + replacementLine + restOfDoc;
 
     setDslText(newText);
     setSlashMenuState({
@@ -553,7 +567,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
     setTimeout(() => {
       textarea.focus();
-      const newPos = slashIndex + finalSnippet.length;
+      const newPos = lastLineStart + replacementLine.length;
       textarea.selectionStart = textarea.selectionEnd = newPos;
     }, 10);
   };
@@ -564,17 +578,48 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     const textarea = textareaRef.current;
     const cursor = textarea.selectionStart;
 
-    const before = dslText.slice(0, cursor);
-    const after = dslText.slice(cursor);
+    const textBefore = dslText.slice(0, cursor);
+    const textAfter = dslText.slice(cursor);
+    const lastLineStart = textBefore.lastIndexOf('\n') + 1;
+    const currentLine = textBefore.slice(lastLineStart);
 
-    const newText = before + (before.endsWith('\n') ? '' : '\n') + formattedYamlLines + after;
+    // Detectar contexto para decidir si envolver con "materiales:"
+    const { contextType, currentIndent } = detectCursorContext(textBefore);
+
+    let contentToInsert = formattedYamlLines;
+    if (contextType !== 'materiales') {
+      // Si el usuario no está dentro de un bloque materiales:, envolverlo prolijamente
+      const baseIndent = currentIndent.length > 0 ? currentIndent : '      ';
+      const childIndent = baseIndent + '  ';
+      const indentedLines = formattedYamlLines
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => `${childIndent}${l.trim()}`)
+        .join('\n') + '\n';
+      contentToInsert = `${baseIndent}materiales:\n${indentedLines}`;
+    }
+
+    let newText = '';
+    let newCursorPos = 0;
+
+    // Si la línea actual es un renglón de lista vacío o solo espacios, reemplazarlo
+    if (/^\s*(-?\s*)?$/.test(currentLine)) {
+      const nextNewline = textAfter.indexOf('\n');
+      const restAfterLine = nextNewline >= 0 ? textAfter.slice(nextNewline + 1) : '';
+      newText = dslText.slice(0, lastLineStart) + contentToInsert + restAfterLine;
+      newCursorPos = lastLineStart + contentToInsert.length;
+    } else {
+      const needsLeadingNewline = !textBefore.endsWith('\n');
+      newText = textBefore + (needsLeadingNewline ? '\n' : '') + contentToInsert + textAfter;
+      newCursorPos = cursor + (needsLeadingNewline ? 1 : 0) + contentToInsert.length;
+    }
+
     setDslText(newText);
     handleParseAndSync(newText);
 
     setTimeout(() => {
       textarea.focus();
-      const newPos = cursor + formattedYamlLines.length;
-      textarea.selectionStart = textarea.selectionEnd = newPos;
+      textarea.selectionStart = textarea.selectionEnd = newCursorPos;
     }, 10);
 
     toast.success('Insumos insertados correctamente en el YAML');
@@ -763,6 +808,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
                 value={dslText}
                 onChange={handleTextChange}
                 onKeyDown={handleKeyDown}
+                onScroll={updateMenuPosition}
                 rows={22}
                 placeholder={`cliente: Nombre del Cliente\nobra: Dirección de la Obra\nfactura: Factura A\n\nInstalación Eléctrica:\n  - 10 u Boca de Iluminación\n  - 5 u Tomacorriente Doble`}
                 spellCheck={false}
@@ -778,6 +824,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
                   insumosMap={insumosMap}
                   manoObraMap={manoObraMap}
                   contextType={slashMenuState.contextType}
+                  position={menuPosition}
                   onSelect={handleSelectSlashCommand}
                   onClose={() =>
                     setSlashMenuState((prev) => ({ ...prev, isOpen: false }))

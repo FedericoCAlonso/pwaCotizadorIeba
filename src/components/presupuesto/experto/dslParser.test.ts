@@ -4,7 +4,9 @@ import {
   serializePresupuestoToDSL,
   getDefaultPresupuestoYAMLTemplate,
   parseLocalizedNumber,
-  normalizeString
+  normalizeString,
+  detectCursorContext,
+  formatSlashCommandReplacement
 } from './dslParser';
 import { Cliente, TareaTipo, Insumo, CategoriaManoDeObra, ItemPresupuesto, CapituloPresupuesto } from '../../../core/types';
 
@@ -276,4 +278,104 @@ Tableros:
     expect(item.insumosSnapshot[1].cantidadTotal).toBe(1);
     expect(item.manoObraSnapshot.length).toBe(1);
   });
+
+  describe('detectCursorContext', () => {
+    it('detecta contexto materiales ignorando comentarios interpuestos', () => {
+      const text = `
+Instalación Eléctrica:
+  - Tablero Principal:
+      # Opcional: materiales incluidos en este ítem
+      materiales:
+        # Podes listar insumos directamente:
+        - 25 m Cable Unipolar 2.5 mm
+        # Otro comentario
+        - `;
+
+      const ctx = detectCursorContext(text);
+      expect(ctx.contextType).toBe('materiales');
+      expect(ctx.parentHeader).toBe('materiales');
+      expect(ctx.currentIndent).toBe('        ');
+    });
+
+    it('detecta contexto mano_obra', () => {
+      const text = `
+Instalación Eléctrica:
+  - Tablero Principal:
+      mano_obra:
+        - `;
+
+      const ctx = detectCursorContext(text);
+      expect(ctx.contextType).toBe('mano_obra');
+      expect(ctx.parentHeader).toBe('mano_obra');
+    });
+
+    it('detecta subcategoría activa bajo materiales', () => {
+      const text = `
+Instalación Eléctrica:
+  - Tablero:
+      materiales:
+        cables:
+          - `;
+
+      const ctx = detectCursorContext(text);
+      expect(ctx.contextType).toBe('materiales');
+      expect(ctx.activeCategory).toBe('cables');
+    });
+
+    it('detecta tareas bajo un capítulo', () => {
+      const text = `
+Instalación Eléctrica:
+  - `;
+
+      const ctx = detectCursorContext(text);
+      expect(ctx.contextType).toBe('tareas');
+      expect(ctx.parentHeader).toBe('Instalación Eléctrica');
+    });
+
+    it('detecta contexto general en la raíz o directivas', () => {
+      const text = `cliente: Juan\nobra: `;
+      const ctx = detectCursorContext(text);
+      expect(ctx.contextType).toBe('general');
+    });
+  });
+
+  describe('formatSlashCommandReplacement', () => {
+    it('reemplaza ítem simple sin duplicar guiones (- -)', () => {
+      const { replacementLine } = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '        - cab',
+        snippet: '- 1 u Cable Unipolar 2.5 mm\n'
+      });
+
+      expect(replacementLine).toBe('        - 1 u Cable Unipolar 2.5 mm\n');
+      expect(replacementLine).not.toContain('- -');
+    });
+
+    it('preserva la cantidad y unidad tipeadas por el usuario al reemplazar', () => {
+      const { replacementLine } = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '        - 50 m cab',
+        snippet: '- 1 u Cable Unipolar 2.5 mm\n'
+      });
+
+      expect(replacementLine).toBe('        - 50 m Cable Unipolar 2.5 mm\n');
+    });
+
+    it('inserta directivas limpiando barras o prefijos', () => {
+      const { replacementLine } = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '/cliente',
+        snippet: 'cliente: '
+      });
+
+      expect(replacementLine).toBe('cliente: ');
+    });
+
+    it('respeta la indentación existente al insertar tareas', () => {
+      const { replacementLine } = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '  - boc',
+        snippet: '- 1 u Boca de Iluminación\n'
+      });
+
+      expect(replacementLine).toBe('  - 1 u Boca de Iluminación\n');
+    });
+  });
 });
+

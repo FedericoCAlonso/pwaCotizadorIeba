@@ -16,7 +16,7 @@ import {
   Filter
 } from 'lucide-react';
 import { TareaTipo, Cliente, Insumo, CategoriaManoDeObra } from '../../../core/types';
-import { normalizeString } from './dslParser';
+import { normalizeString, CursorContextType } from './dslParser';
 
 export interface SlashCommandItem {
   id: string;
@@ -34,7 +34,7 @@ interface SlashCommandMenuProps {
   clientes: Cliente[];
   insumosMap?: Map<string, Insumo>;
   manoObraMap?: Map<string, CategoriaManoDeObra>;
-  contextType?: 'materiales' | 'mano_obra' | 'general';
+  contextType?: CursorContextType;
   onSelect: (snippet: string) => void;
   onClose: () => void;
   position?: { top: number; left: number };
@@ -120,8 +120,8 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
       });
     }
 
-    // 3. Tareas Tipo de Catálogo (solo en contexto general)
-    if (contextType === 'general') {
+    // 3. Tareas Tipo de Catálogo (en contexto tareas o general)
+    if (contextType === 'tareas' || contextType === 'general') {
       tareasTipo.forEach((t) => {
         list.push({
           id: `tarea-${t.id}`,
@@ -142,7 +142,9 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
         snippet: `- Tablero a Medida:\n    materiales:\n      - 1 u Gabinete DIN 24 módulos\n    mano_obra:\n      - 6 h Oficial\n`,
         icon: Layers
       });
+    }
 
+    if (contextType === 'general') {
       // Estructura y Capítulos
       list.push({
         id: 'cmd-capitulo',
@@ -249,9 +251,20 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
       .slice(0, 25);
   }, [effectiveQuery, activeCategory, contextType, tareasTipo, insumosMap, manoObraMap]);
 
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
   useEffect(() => {
     setSelectedIndex(0);
   }, [items.length]);
+
+  useEffect(() => {
+    if (itemRefs.current[selectedIndex]) {
+      itemRefs.current[selectedIndex]?.scrollIntoView({
+        block: 'nearest',
+        inline: 'nearest'
+      });
+    }
+  }, [selectedIndex]);
 
   // Manejo de teclado
   useEffect(() => {
@@ -314,6 +327,11 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
               <HardHat className="w-3.5 h-3.5 text-primary" />
               <span>Mano de Obra</span>
             </>
+          ) : contextType === 'tareas' ? (
+            <>
+              <Zap className="w-3.5 h-3.5 text-primary" />
+              <span>Partidas y Trabajos Tipo</span>
+            </>
           ) : (
             <span>Catálogo y Comandos YAML</span>
           )}
@@ -369,6 +387,9 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
             return (
               <button
                 key={item.id}
+                ref={(el) => {
+                  itemRefs.current[idx] = el;
+                }}
                 type="button"
                 onClick={() => onSelect(item.snippet)}
                 onMouseEnter={() => setSelectedIndex(idx)}

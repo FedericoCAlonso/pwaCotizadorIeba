@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Calculator,
   CheckCircle2,
@@ -11,7 +11,9 @@ import {
   FileSpreadsheet,
   Calendar,
   Layers,
-  Sparkles
+  Sparkles,
+  Package,
+  HardHat
 } from 'lucide-react';
 import { TotalesPresupuestoResultado, formatARS, formatUSD } from '../../../core/calculations';
 import { DSLDiagnostic } from './dslParser';
@@ -59,6 +61,64 @@ export const ExpertInspector: React.FC<ExpertInspectorProps> = ({
   const customItemsCount = items.filter((it) => !it.tareaTipoId).length;
 
   const warningDiagnostics = diagnostics.filter((d) => d.type === 'warning' || d.type === 'error');
+
+  // Despiece consolidado de insumos detectados en partidas a medida
+  const insumosDetectados = useMemo(() => {
+    const list: Array<{
+      id: string;
+      nombre: string;
+      cantidadTotal: number;
+      unidad: string;
+      precioUnitario: number;
+      subtotal: number;
+      partidaNombre: string;
+      enCatalogo: boolean;
+    }> = [];
+
+    items.forEach((it) => {
+      if (it.insumosSnapshot && it.insumosSnapshot.length > 0) {
+        it.insumosSnapshot.forEach((ins) => {
+          list.push({
+            id: ins.insumoId || '',
+            nombre: ins.nombre,
+            cantidadTotal: ins.cantidadTotal,
+            unidad: ins.unidad,
+            precioUnitario: ins.precioUnitarioCongelado,
+            subtotal: ins.subtotalInsumoFinal ?? ins.subtotalInsumo,
+            partidaNombre: it.descripcion,
+            enCatalogo: ins.precioUnitarioCongelado > 0 && !ins.insumoId?.startsWith('mat-adhoc-')
+          });
+        });
+      }
+    });
+    return list;
+  }, [items]);
+
+  // Mano de obra consolidada en partidas
+  const manoObraDetectada = useMemo(() => {
+    const list: Array<{
+      categoriaNombre: string;
+      horasTotales: number;
+      costoHora: number;
+      subtotal: number;
+      partidaNombre: string;
+    }> = [];
+
+    items.forEach((it) => {
+      if (it.manoObraSnapshot && it.manoObraSnapshot.length > 0) {
+        it.manoObraSnapshot.forEach((mo) => {
+          list.push({
+            categoriaNombre: mo.nombreCategoria,
+            horasTotales: mo.horasTotales,
+            costoHora: mo.costoHoraCongelado,
+            subtotal: mo.subtotalManoObra,
+            partidaNombre: it.descripcion
+          });
+        });
+      }
+    });
+    return list;
+  }, [items]);
 
   return (
     <div className="space-y-4">
@@ -200,7 +260,84 @@ export const ExpertInspector: React.FC<ExpertInspectorProps> = ({
         </div>
       </div>
 
-      {/* ─── 3. Diagnósticos y Avisos en Vivo ─── */}
+      {/* ─── 3. Insumos y Recursos Detectados en Vivo (Linting & Feedback) ─── */}
+      {(insumosDetectados.length > 0 || manoObraDetectada.length > 0) && (
+        <div className="bg-surface-container-low border border-outline-variant/30 rounded-3xl p-4 sm:p-5 shadow-xs space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-outline-variant/15">
+            <div className="flex items-center gap-2">
+              <Package className="w-4 h-4 text-primary" />
+              <h4 className="text-xs font-bold text-on-surface uppercase tracking-wider">
+                Despiece Detectado en YAML ({insumosDetectados.length})
+              </h4>
+            </div>
+            <span className="text-[10px] font-mono text-on-surface-variant font-bold">
+              {formatARS(totales.subtotalInsumos + totales.subtotalManoObra)}
+            </span>
+          </div>
+
+          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+            {insumosDetectados.map((ins, idx) => (
+              <div
+                key={idx}
+                className="flex items-center justify-between text-xs p-1.5 rounded-lg hover:bg-surface-container-highest/50 transition"
+              >
+                <div className="min-w-0 flex-1 pr-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-on-surface truncate">
+                      {ins.cantidadTotal} {ins.unidad} {ins.nombre}
+                    </span>
+                    {ins.enCatalogo ? (
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded font-bold shrink-0">
+                        ✓ Catálogo
+                      </span>
+                    ) : ins.precioUnitario > 0 ? (
+                      <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.2 rounded font-bold shrink-0">
+                        $ manual
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded font-bold shrink-0">
+                        ⚠️ Sin precio
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-on-surface-variant truncate block">
+                    en {ins.partidaNombre}
+                  </span>
+                </div>
+
+                <div className="text-right shrink-0 font-mono text-xs font-bold text-on-surface">
+                  {formatARS(ins.subtotal)}
+                </div>
+              </div>
+            ))}
+
+            {manoObraDetectada.map((mo, idx) => (
+              <div
+                key={`mo-${idx}`}
+                className="flex items-center justify-between text-xs p-1.5 rounded-lg hover:bg-surface-container-highest/50 transition border-t border-outline-variant/10"
+              >
+                <div className="min-w-0 flex-1 pr-2">
+                  <div className="flex items-center gap-1.5">
+                    <HardHat className="w-3 h-3 text-secondary shrink-0" />
+                    <span className="font-bold text-on-surface truncate">
+                      {mo.horasTotales} h {mo.categoriaNombre}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-on-surface-variant truncate block">
+                    en {mo.partidaNombre}
+                  </span>
+                </div>
+
+                <div className="text-right shrink-0 font-mono text-xs font-bold text-secondary">
+                  {formatARS(mo.subtotal)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── 4. Diagnósticos y Avisos en Vivo ─── */}
       {warningDiagnostics.length > 0 && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-3xl p-4 shadow-xs space-y-2 text-xs">
           <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-bold">

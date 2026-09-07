@@ -1127,3 +1127,140 @@ function buildAndPushItem(params: {
     });
   }
 }
+
+export type CursorContextType = 'materiales' | 'mano_obra' | 'tareas' | 'general';
+
+export interface CursorContextResult {
+  contextType: CursorContextType;
+  currentIndent: string;
+  activeCategory?: string;
+  parentHeader?: string;
+}
+
+/**
+ * Analiza el texto previo a la posición del cursor para inferir el contexto semántico YAML actual
+ * (materiales, mano de obra, tareas tipo / ítems de capítulo, o directivas generales).
+ * Tolera comentarios (#), líneas intermedias y respeta la jerarquía de indentación.
+ */
+export function detectCursorContext(textBeforeCursor: string): CursorContextResult {
+  const lines = textBeforeCursor.split('\n');
+  const currentLine = lines[lines.length - 1] || '';
+  const currentIndent = currentLine.match(/^\s*/)?.[0] || '';
+  const currentIndentLen = currentIndent.length;
+
+  // Escanear hacia atrás buscando el encabezado de bloque contenedor
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const rawLine = lines[i];
+    const trimmed = rawLine.trim();
+
+    // Ignorar líneas vacías y comentarios completos (#)
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+
+    const lineIndent = (rawLine.match(/^\s*/)?.[0] || '').length;
+
+    // Solo nos interesa una línea ancestro: menor indentación que la actual,
+    // o si estamos en una línea recién creada después de un bloque que termina con ':'
+    const isAncestor = lineIndent < currentIndentLen || (i < lines.length - 1 && trimmed.endsWith(':') && lineIndent <= currentIndentLen);
+
+    if (isAncestor) {
+      if (/^(materiales|insumos):/i.test(trimmed)) {
+        return { contextType: 'materiales', currentIndent, parentHeader: 'materiales' };
+      }
+
+      if (/^(mano_obra|manoobra|mo):/i.test(trimmed)) {
+        return { contextType: 'mano_obra', currentIndent, parentHeader: 'mano_obra' };
+      }
+
+      // Subcategoría bajo materiales (ej: "cables:" o "protecciones:")
+      if (trimmed.endsWith(':') && !trimmed.startsWith('-')) {
+        // Buscar el ancestro de esta subcategoría
+        for (let j = i - 1; j >= 0; j--) {
+          const ancRaw = lines[j];
+          const ancTrimmed = ancRaw.trim();
+          if (!ancTrimmed || ancTrimmed.startsWith('#')) continue;
+          const ancIndent = (ancRaw.match(/^\s*/)?.[0] || '').length;
+          if (ancIndent < lineIndent) {
+            if (/^(materiales|insumos):/i.test(ancTrimmed)) {
+              const catName = trimmed.replace(/:$/, '').trim();
+              return {
+                contextType: 'materiales',
+                currentIndent,
+                activeCategory: catName,
+                parentHeader: 'materiales'
+              };
+            }
+            break;
+          }
+        }
+      }
+
+      // Si es "items:" o "partidas:"
+      if (/^(items|partidas):/i.test(trimmed)) {
+        return { contextType: 'tareas', currentIndent, parentHeader: 'items' };
+      }
+
+      // Si es un encabezado a nivel raíz (indent 0) con ':'
+      if (lineIndent === 0 && trimmed.endsWith(':') && !trimmed.startsWith('-')) {
+        const rootKey = trimmed.replace(/:$/, '').trim().toLowerCase();
+        const reservedRootKeys = ['cliente', 'obra', 'factura', 'validez', 'margen', 'riesgo', 'dolar', 'gastos', 'totales'];
+        if (!reservedRootKeys.includes(rootKey)) {
+          // Es un capítulo (ej: "Instalación Eléctrica:")
+          return { contextType: 'tareas', currentIndent, parentHeader: trimmed.replace(/:$/, '').trim() };
+        }
+        break;
+      }
+    }
+  }
+
+  return { contextType: 'general', currentIndent };
+}
+
+/**
+ * Reemplaza de forma segura la línea de edición al seleccionar una sugerencia o comando slash,
+ * evitando duplicación de guiones (- -), preservando cantidades escritas por el usuario,
+ * y manteniendo el nivel de indentación YAML intacto.
+ */
+export function formatSlashCommandReplacement(params: {
+  currentLineBeforeCursor: string;
+  snippet: string;
+}): {
+  replacementLine: string;
+  newCursorOffset: number;
+} {
+  const { currentLineBeforeCursor, snippet } = params;
+  const lineIndent = currentLineBeforeCursor.match(/^\s*/)?.[0] || '';
+
+  // Detectar si el usuario ya escribió cantidad / unidad antes de la query
+  // Ejemplos: "        - 25 m ", "        - 10 ", "        - 1.5 hs "
+  const userQtyUnitMatch = currentLineBeforeCursor.match(/^\s*-\s*([0-9.,]+(?:\s*[a-zA-ZáéíóúÁÉÍÓÚ²³]+)?)\s+/);
+  const userQtyUnit = userQtyUnitMatch ? userQtyUnitMatch[1].trim() : null;
+
+  let replacementLine = '';
+
+  if (snippet.startsWith('- ')) {
+    // Snippet de ítem de lista: "- 1 u Cable Unipolar 2.5 mm\n" o "- 4 h Oficial\n"
+    const snippetMatch = snippet.match(/^-\s*([0-9.,]+)\s*([a-zA-ZáéíóúÁÉÍÓÚ²³]+)\s+(.+?)(?:\n|$)/);
+    if (snippetMatch) {
+      const defaultQtyUnit = `${snippetMatch[1]} ${snippetMatch[2]}`;
+      const itemName = snippetMatch[3];
+      const qtyUnitToUse = userQtyUnit || defaultQtyUnit;
+      replacementLine = `${lineIndent}- ${qtyUnitToUse} ${itemName}\n`;
+    } else {
+      // Snippet complejo con guión (ej: APU compuesto)
+      const afterDash = snippet.slice(2);
+      replacementLine = `${lineIndent}- ${afterDash}`;
+    }
+  } else {
+    // Directiva o encabezado
+    const cleanSnippet = snippet.replace(/^[\/@]/, '');
+    replacementLine = `${lineIndent}${cleanSnippet}`;
+  }
+
+  return {
+    replacementLine,
+    newCursorOffset: replacementLine.length
+  };
+}
+
