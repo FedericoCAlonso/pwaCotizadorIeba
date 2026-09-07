@@ -1,0 +1,261 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  FolderPlus,
+  Zap,
+  Building2,
+  MapPin,
+  FileSpreadsheet,
+  Calendar,
+  Percent,
+  ShieldAlert,
+  DollarSign,
+  Truck,
+  Plus
+} from 'lucide-react';
+import { TareaTipo, Cliente } from '../../../core/types';
+import { normalizeString } from './dslParser';
+
+export interface SlashCommandItem {
+  id: string;
+  category: 'tarea' | 'capitulo' | 'directiva' | 'gasto';
+  title: string;
+  subtitle?: string;
+  snippet: string;
+  icon: React.FC<{ className?: string }>;
+}
+
+interface SlashCommandMenuProps {
+  query: string;
+  tareasTipo: TareaTipo[];
+  clientes: Cliente[];
+  onSelect: (snippet: string) => void;
+  onClose: () => void;
+  position?: { top: number; left: number };
+}
+
+export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
+  query,
+  tareasTipo,
+  clientes,
+  onSelect,
+  onClose,
+  position
+}) => {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const cleanQuery = useMemo(() => normalizeString(query.replace(/^[\/@]/, '')), [query]);
+
+  // Lista consolidada de sugerencias
+  const items: SlashCommandItem[] = useMemo(() => {
+    const list: SlashCommandItem[] = [];
+
+    // 1. Tareas Tipo de Catálogo
+    tareasTipo.forEach((t) => {
+      list.push({
+        id: `tarea-${t.id}`,
+        category: 'tarea',
+        title: t.nombre,
+        subtitle: `${t.categoria || 'Catálogo'} · /${t.unidad || 'u'}`,
+        snippet: `- 1 ${t.unidad || 'u'} * "${t.nombre}"\n`,
+        icon: Zap
+      });
+    });
+
+    // 2. Estructura y Capítulos
+    list.push({
+      id: 'cmd-capitulo',
+      category: 'capitulo',
+      title: '# Nuevo Capítulo',
+      subtitle: 'Agrupa partidas bajo una sección de obra',
+      snippet: `# Capítulo Nuevo\n- 1 u * `,
+      icon: FolderPlus
+    });
+
+    // 3. Directivas de Cotización
+    list.push({
+      id: 'cmd-cliente',
+      category: 'directiva',
+      title: '@cliente: [Nombre]',
+      subtitle: 'Asigna el comitente o estudio de arquitectura',
+      snippet: `@cliente: `,
+      icon: Building2
+    });
+
+    list.push({
+      id: 'cmd-obra',
+      category: 'directiva',
+      title: '@obra: [Dirección]',
+      subtitle: 'Ubicación específica de la obra',
+      snippet: `@obra: `,
+      icon: MapPin
+    });
+
+    list.push({
+      id: 'cmd-factura',
+      category: 'directiva',
+      title: '@factura: [Factura A | B | C | Presupuesto X]',
+      subtitle: 'Encuadre fiscal de la oferta',
+      snippet: `@factura: Factura C\n`,
+      icon: FileSpreadsheet
+    });
+
+    list.push({
+      id: 'cmd-validez',
+      category: 'directiva',
+      title: '@validez: [15] dias',
+      subtitle: 'Plazo de validez de precios de la cotización',
+      snippet: `@validez: 15 dias\n`,
+      icon: Calendar
+    });
+
+    list.push({
+      id: 'cmd-margen',
+      category: 'directiva',
+      title: '@margen: [35]%',
+      subtitle: 'Margen de beneficio comercial aplicado',
+      snippet: `@margen: 35%\n`,
+      icon: Percent
+    });
+
+    list.push({
+      id: 'cmd-riesgo',
+      category: 'directiva',
+      title: '@riesgo: [bajo | medio | alto]',
+      subtitle: 'Fondo de contingencia para imprevistos de obra',
+      snippet: `@riesgo: medio\n`,
+      icon: ShieldAlert
+    });
+
+    list.push({
+      id: 'cmd-dolar',
+      category: 'directiva',
+      title: '@dolar: [Dólar MEP] = [1250]',
+      subtitle: 'Referencia equivalente en moneda extranjera',
+      snippet: `@dolar: Dólar MEP = 1250\n`,
+      icon: DollarSign
+    });
+
+    list.push({
+      id: 'cmd-gasto',
+      category: 'gasto',
+      title: '@gasto: Flete y Logística = $ 45.000',
+      subtitle: 'Costo operativo, fletes, andamios o seguros',
+      snippet: `@gasto: Flete y Logística = $ 45.000\n`,
+      icon: Truck
+    });
+
+    if (!cleanQuery) {
+      return list.slice(0, 12);
+    }
+
+    return list
+      .filter((it) => {
+        const tNorm = normalizeString(it.title);
+        const subNorm = normalizeString(it.subtitle || '');
+        return tNorm.includes(cleanQuery) || subNorm.includes(cleanQuery);
+      })
+      .slice(0, 15);
+  }, [cleanQuery, tareasTipo]);
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [items.length]);
+
+  // Manejo de teclado
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev + 1) % items.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev - 1 + items.length) % items.length);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (items[selectedIndex]) {
+          onSelect(items[selectedIndex].snippet);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [items, selectedIndex, onSelect, onClose]);
+
+  // Cerrar al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="absolute z-50 w-80 sm:w-96 max-h-80 bg-surface-container-high/95 backdrop-blur-md border border-outline-variant/40 rounded-2xl shadow-2xl overflow-y-auto p-1.5 animate-in fade-in zoom-in-95 duration-100"
+      style={{
+        top: position ? `${position.top}px` : '48px',
+        left: position ? `${position.left}px` : '16px'
+      }}
+    >
+      <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant flex items-center justify-between border-b border-outline-variant/15 mb-1">
+        <span>Comandos y Catálogo</span>
+        <span className="font-mono text-[10px] text-primary">↑ ↓ Enter</span>
+      </div>
+
+      <div className="space-y-0.5">
+        {items.map((item, idx) => {
+          const Icon = item.icon;
+          const isSelected = idx === selectedIndex;
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect(item.snippet)}
+              onMouseEnter={() => setSelectedIndex(idx)}
+              className={`w-full text-left px-3 py-2 rounded-xl flex items-center gap-3 transition-colors cursor-pointer ${
+                isSelected
+                  ? 'bg-primary text-on-primary shadow-xs'
+                  : 'text-on-surface hover:bg-surface-container-highest'
+              }`}
+            >
+              <div
+                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                  isSelected ? 'bg-on-primary/20 text-on-primary' : 'bg-primary/10 text-primary'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="text-xs sm:text-sm font-bold truncate">{item.title}</div>
+                {item.subtitle && (
+                  <div
+                    className={`text-[11px] truncate ${
+                      isSelected ? 'text-on-primary/80' : 'text-on-surface-variant'
+                    }`}
+                  >
+                    {item.subtitle}
+                  </div>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};

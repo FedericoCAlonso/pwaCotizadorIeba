@@ -17,8 +17,10 @@ import {
   MessageSquare,
   Check,
   Clock,
-  Calculator
+  Calculator,
+  Terminal
 } from 'lucide-react';
+import { ModoExpertoEditor } from './presupuesto/experto/ModoExpertoEditor';
 import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
 import { TareaEditorModal } from './tareasTipo/TareaEditorModal';
 import { MaterialPickerModal, StagedItemPayload } from './tareasTipo/MaterialPickerModal';
@@ -154,10 +156,12 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     handleAddCustomItem,
     handleAddServicioDirecto,
     capitulos,
+    setCapitulos,
     handleAddCapitulo,
     handleUpdateCapitulo,
     handleRemoveCapitulo,
     gastosConfig,
+    setGastosConfig,
     showGastoModal,
     setShowGastoModal,
     editingGasto,
@@ -215,10 +219,23 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     onDraftAutoSaved
   });
 
+  const [editorMode, setEditorMode] = useState<'guiado' | 'experto'>('guiado');
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [parametricGastoToAdjust, setParametricGastoToAdjust] = useState<GastoPresupuestoConfig | null>(null);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [showListaMaterialesModal, setShowListaMaterialesModal] = useState(false);
+
+  // Atajo global para alternar entre Modo Guiado y Modo Experto Desktop (Alt + E)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && (e.key === 'e' || e.key === 'E')) {
+        e.preventDefault();
+        setEditorMode((prev) => (prev === 'guiado' ? 'experto' : 'guiado'));
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   const selectedCliente = useMemo(() => {
     return clientes.find((c) => c.id === clienteId) || null;
@@ -1133,6 +1150,36 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
+          {/* Selector de Modo: Guiado vs Experto */}
+          <div className="bg-surface-container rounded-2xl p-1 border border-outline-variant/30 flex items-center gap-1 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setEditorMode('guiado')}
+              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer min-h-[36px] ${
+                editorMode === 'guiado'
+                  ? 'bg-surface-container-lowest text-primary shadow-xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              <span>Guiado</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setEditorMode('experto')}
+              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer min-h-[36px] ${
+                editorMode === 'experto'
+                  ? 'bg-primary text-on-primary shadow-xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+              title="Modo Experto Desktop: Composición por teclado sin mouse (Alt + E)"
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              <span>Experto</span>
+              <kbd className="hidden md:inline text-[10px] opacity-70 font-mono">Alt+E</kbd>
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={() => handleSavePresupuesto('borrador')}
@@ -1145,18 +1192,58 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         </div>
       </div>
 
-      {/* 4-Stage Navigation Bar */}
-      <PresupuestoEditorTabBar
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
-        clienteNombre={selectedCliente?.nombre}
-        itemsCount={items.length}
-        cuadrillaBadge={sinergiaManoObra?.sonCompatibles ? `${sinergiaManoObra.operarios || operariosCuadrilla} op` : undefined}
-        precioFinalFormatted={totales.precioFinalGlobal > 0 ? formatARS(totales.precioFinalGlobal) : undefined}
-      />
+      {editorMode === 'experto' ? (
+        <ModoExpertoEditor
+          clientes={clientes}
+          clienteId={clienteId}
+          setClienteId={setClienteId}
+          direccionObra={direccionObra}
+          setDireccionObra={setDireccionObra}
+          tipoFactura={tipoFactura}
+          setTipoFactura={handleTipoFacturaChange}
+          validezDias={validezDias}
+          setValidezDias={setValidezDias}
+          margenPorcentaje={margenPorcentaje}
+          setMargenPorcentaje={setMargenPorcentaje}
+          nivelMargenRiesgo={nivelMargenRiesgo}
+          setNivelMargenRiesgo={setNivelMargenRiesgo}
+          margenRiesgoPorcentaje={margenRiesgoPorcentaje}
+          setMargenRiesgoPorcentaje={setMargenRiesgoPorcentaje}
+          mostrarDolar={mostrarDolar}
+          setMostrarDolar={setMostrarDolar}
+          nombreDolar={nombreDolar}
+          setNombreDolar={setNombreDolar}
+          cotizacionDolar={cotizacionDolar}
+          setCotizacionDolar={setCotizacionDolar}
+          capitulos={capitulos}
+          setCapitulos={setCapitulos}
+          items={items}
+          setItems={setItems}
+          gastosConfig={gastosConfig}
+          setGastosConfig={setGastosConfig}
+          totales={totales}
+          tareasTipo={tareasTipo}
+          insumosMap={insumosMap}
+          manoObraMap={manoObraMap}
+          config={config}
+          onEmitirClick={() => setShowEmitirModal(true)}
+          onSaveDraft={() => handleSavePresupuesto('borrador')}
+          onToggleGuidedMode={() => setEditorMode('guiado')}
+        />
+      ) : (
+        <>
+          {/* 4-Stage Navigation Bar */}
+          <PresupuestoEditorTabBar
+            activeTab={activeTab}
+            onSelectTab={setActiveTab}
+            clienteNombre={selectedCliente?.nombre}
+            itemsCount={items.length}
+            cuadrillaBadge={sinergiaManoObra?.sonCompatibles ? `${sinergiaManoObra.operarios || operariosCuadrilla} op` : undefined}
+            precioFinalFormatted={totales.precioFinalGlobal > 0 ? formatARS(totales.precioFinalGlobal) : undefined}
+          />
 
-      {/* Stage Tab Content */}
-      <div className="min-h-[420px]">
+          {/* Stage Tab Content */}
+          <div className="min-h-[420px]">
         {activeTab === 'cliente' && (
           <ClienteTab
             clientes={clientes}
@@ -1305,6 +1392,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         onSelectTab={setActiveTab}
         onEmitirClick={() => setShowEmitirModal(true)}
       />
+    </>
+  )}
 
       {/* Item Picker Modal */}
       <ItemPickerModal
