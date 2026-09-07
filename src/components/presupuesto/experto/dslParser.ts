@@ -128,8 +128,8 @@ export function getDefaultPresupuestoYAMLTemplate(context?: {
   direccionObra?: string;
 }): string {
   const cliente = context?.clientes?.find((c) => c.id === context?.clienteId) || context?.clientes?.[0];
-  const clienteNombre = cliente ? (cliente.razonSocial || cliente.nombre) : 'Nombre o Estudio del Cliente';
-  const obra = context?.direccionObra || 'Dirección de la Obra';
+  const clienteNombre = cliente ? (cliente.razonSocial || cliente.nombre) : '';
+  const obra = context?.direccionObra || '';
 
   return `# ============================================================
 # COTIZACIÓN INTELIGENTE - MODO EXPERTO (YAML)
@@ -139,30 +139,36 @@ export function getDefaultPresupuestoYAMLTemplate(context?: {
 # Datos Principales de la Cotización
 cliente: ${clienteNombre}
 obra: ${obra}
-factura: Factura A          # Opciones: Factura A, Factura B, Factura C o Presupuesto X
+factura: Factura C          # Opciones: Factura A, Factura B, Factura C o Presupuesto X
 validez: 15 dias
 margen: 35%                 # Margen de beneficio sobre costos
-riesgo: normal              # Opciones: bajo, normal, alto
-dolar: MEP 1350             # Opcional (ej: Blue 1400)
+riesgo: bajo                # Opciones: bajo, normal, alto
+dolar: USD Blue             # Opcional (ej: USD Blue, USD MEP, USD Oficial o cotización)
 
 # ------------------------------------------------------------
 # CAPÍTULOS Y PARTIDAS
 # Podés listar Tareas del catálogo o Partidas a medida con despiece
 # ------------------------------------------------------------
 Instalación Eléctrica:
-  - 10 u Boca de Iluminación
-  - 4 u Tomacorriente Doble
+  - 10 u Boca de Iluminación: $ 12.500
+  - 4 u Tomacorriente Doble: $ 9.800
 
 Tableros y Automatización:
   # Partida a medida: despiece con cómputo automático de insumos y mano de obra
-  - Tablero Seccional Bombeo:
+  - 1 u Reparación y Armado de Tablero:
       materiales:
-        - 1 u Gabinete DIN 24 módulos
-        - 2 u Disyuntor Diferencial 2x40A
-        - 1 u Dispositivo especial a medida: $ 45.000  # Si no está en catálogo, poné ': $ precio'
+        - Tablero Modular DIN 24 Módulos Superficie Chapa Metálica Puerta Ciega IP40:
+            cantidad: 1
+            marca: Gabexel
+        - Interruptor Diferencial 2P 40A Sensibilidad 30mA:
+            cantidad: 1
+            precio: 45000
+        - Cable Unipolar 4 mm² Marrón (Fase) IRAM 247-3:
+            cantidad: 10
+            precio: 1510
       mano_obra:
-        - 6 h Oficial
-        - 4 h Ayudante
+        - 4 h Oficial Electricista
+        - 4 h Ayudante Electricista
       condicion: normal      # Opciones: normal, dificultosa, favorable
 
 # ------------------------------------------------------------
@@ -633,7 +639,7 @@ export function parseDSLToPresupuesto(
     const rawCli = String(parsed.cliente).trim();
     clienteQuery = rawCli;
     const normCli = normalizeString(rawCli);
-    if (normCli) {
+    if (normCli && normCli !== 'nombre o estudio del cliente') {
       // 1.1 Match exacto por nombre o razón social
       clienteMatched = context.clientes.find(
         (c) => normalizeString(c.nombre || '') === normCli || normalizeString(c.razonSocial || '') === normCli
@@ -727,16 +733,21 @@ export function parseDSLToPresupuesto(
 
   // Dólar
   let mostrarDolar = false;
-  let nombreDolar = 'Dólar MEP';
-  let cotizacionDolar = 1350;
-  if (parsed.dolar) {
-    const dStr = String(parsed.dolar);
-    const dNum = parseLocalizedNumber(dStr);
-    if (dNum > 0) {
+  let nombreDolar = context.config?.dolarReferenciaNombre || 'USD Blue';
+  let cotizacionDolar = context.config?.dolarReferenciaValor || 1400;
+  if (parsed.dolar !== undefined && parsed.dolar !== null) {
+    const dStr = String(parsed.dolar).trim();
+    const dLower = dStr.toLowerCase();
+    if (dStr && dLower !== 'no' && dLower !== 'false') {
       mostrarDolar = true;
-      cotizacionDolar = dNum;
+      const dNum = parseLocalizedNumber(dStr);
+      if (dNum > 0) {
+        cotizacionDolar = dNum;
+      }
       const cleanName = dStr.replace(/[0-9.,$:=]/g, '').trim();
-      if (cleanName) nombreDolar = cleanName;
+      if (cleanName) {
+        nombreDolar = cleanName;
+      }
     }
   }
 

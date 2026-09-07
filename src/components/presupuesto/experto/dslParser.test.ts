@@ -61,12 +61,50 @@ describe('dslParser (Modo Experto YAML)', () => {
     const template = getDefaultPresupuestoYAMLTemplate({ clientes: mockClientes });
     expect(template).toContain('# ============================================================');
     expect(template).toContain('cliente: Estudio Arq. Gómez');
-    expect(template).toContain('factura: Factura A');
+    expect(template).toContain('factura: Factura C');
     expect(template).toContain('Instalación Eléctrica:');
     expect(template).toContain('Tableros y Automatización:');
     expect(template).toContain('materiales:');
     expect(template).toContain('mano_obra:');
     expect(template).toContain('gastos:');
+  });
+
+  it('getDefaultPresupuestoYAMLTemplate se parsea sin errores ni advertencias de sintaxis', () => {
+    const template = getDefaultPresupuestoYAMLTemplate({ clientes: mockClientes });
+    const result = parseDSLToPresupuesto(template, {
+      clientes: mockClientes,
+      tareasTipo: mockTareas,
+      insumosMap: mockInsumosMap,
+      manoObraMap: mockManoObraMap
+    });
+
+    const errors = result.diagnostics.filter((d) => d.type === 'error');
+    expect(errors).toHaveLength(0);
+    expect(result.tipoFactura).toBe('Factura C');
+    expect(result.mostrarDolar).toBe(true);
+    expect(result.nombreDolar).toBe('USD Blue');
+    expect(result.items.length).toBeGreaterThan(0);
+    expect(result.gastosConfig.length).toBe(2);
+  });
+
+  it('parsea directiva dolar sólo con texto (ej: dolar: USD Blue) activando dolar con tasa por defecto', () => {
+    const yaml = `
+cliente: Estudio Arq. Gómez
+factura: Factura C
+dolar: USD Blue
+Instalación:
+  - 1 u Tarea Simple: $ 1000
+    `;
+    const result = parseDSLToPresupuesto(yaml, {
+      clientes: mockClientes,
+      tareasTipo: mockTareas,
+      insumosMap: mockInsumosMap,
+      manoObraMap: mockManoObraMap
+    });
+
+    expect(result.mostrarDolar).toBe(true);
+    expect(result.nombreDolar).toBe('USD Blue');
+    expect(result.cotizacionDolar).toBe(1400);
   });
 
   it('parsea directivas de cabecera en YAML y vincula cliente y obra', () => {

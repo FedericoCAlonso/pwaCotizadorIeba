@@ -129,6 +129,16 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 }) => {
   const { toast } = useToast();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const cursorPosRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
+  const isFocusedRef = useRef(false);
+  const lastTouchTimeRef = useRef(0);
+
+  const updateCursorPos = useCallback((el: HTMLTextAreaElement) => {
+    cursorPosRef.current = {
+      start: el.selectionStart,
+      end: el.selectionEnd
+    };
+  }, []);
 
   // Inicializar el texto desde el estado actual del presupuesto (o plantilla comentada)
   const [dslText, setDslText] = useState<string>(() => {
@@ -292,7 +302,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
       setTimeout(() => {
         isInternalUpdateRef.current = false;
-      }, 50);
+      }, 300);
     },
     [
       clientes,
@@ -329,9 +339,11 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     ]
   );
 
-  // Sincronizar desde cambios externos del ViewModel hacia el texto
+  // Sincronizar desde cambios externos del ViewModel hacia el texto (sólo si no está escribiendo en el editor)
   useEffect(() => {
     if (isInternalUpdateRef.current) return;
+    // Si el usuario tiene el foco activo en el editor, el editor es la fuente de la verdad
+    if (isFocusedRef.current || (textareaRef.current && document.activeElement === textareaRef.current)) return;
 
     const freshDSL = serializePresupuestoToDSL({
       clienteId,
@@ -492,6 +504,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
     const cursorPos = e.target.selectionStart;
+    cursorPosRef.current = { start: cursorPos, end: e.target.selectionEnd };
     setDslText(newText);
 
     const textBeforeCursor = newText.slice(0, cursorPos);
@@ -584,11 +597,13 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       const end = e.currentTarget.selectionEnd;
       const text = dslText;
       const newText = text.substring(0, start) + '  ' + text.substring(end);
+      cursorPosRef.current = { start: start + 2, end: start + 2 };
       setDslText(newText);
       handleParseAndSync(newText);
 
       setTimeout(() => {
         if (textareaRef.current) {
+          textareaRef.current.focus({ preventScroll: true });
           textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 2;
         }
       }, 0);
@@ -609,11 +624,13 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
         const smartBack = handleYamlSmartBackspace({ textBefore, textAfter });
         if (smartBack) {
           e.preventDefault();
+          cursorPosRef.current = { start: smartBack.newCursorPos, end: smartBack.newCursorPos };
           setDslText(smartBack.newText);
           handleParseAndSync(smartBack.newText);
 
           setTimeout(() => {
             if (textareaRef.current) {
+              textareaRef.current.focus({ preventScroll: true });
               textareaRef.current.selectionStart = textareaRef.current.selectionEnd = smartBack.newCursorPos;
             }
           }, 0);
@@ -635,11 +652,13 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
       const { newText, newCursorPos } = handleYamlSmartEnter({ textBefore, textAfter });
 
+      cursorPosRef.current = { start: newCursorPos, end: newCursorPos };
       setDslText(newText);
       handleParseAndSync(newText);
 
       setTimeout(() => {
         if (textareaRef.current) {
+          textareaRef.current.focus({ preventScroll: true });
           textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newCursorPos;
         }
       }, 0);
@@ -698,7 +717,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     handleParseAndSync(newText);
 
     setTimeout(() => {
-      textarea.focus();
+      textarea.focus({ preventScroll: true });
       if (selectionRange) {
         textarea.selectionStart = lastLineStart + selectionRange.start;
         textarea.selectionEnd = lastLineStart + selectionRange.end;
@@ -707,6 +726,10 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
         const newPos = lastLineStart + offset;
         textarea.selectionStart = textarea.selectionEnd = newPos;
       }
+      cursorPosRef.current = {
+        start: textarea.selectionStart,
+        end: textarea.selectionEnd
+      };
     }, 10);
   };
 
@@ -855,18 +878,98 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     toast.success('Texto YAML copiado al portapapeles');
   };
 
-  // Inserción de snippets rápidos desde la barra de herramientas
+  // Retención de foco y cursor en dispositivos móviles al abrir teclado virtual o rotar pantalla
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const vv = window.visualViewport;
+
+    const handleViewportChange = () => {
+      if (isFocusedRef.current && textareaRef.current) {
+        if (document.activeElement !== textareaRef.current) {
+          textareaRef.current.focus({ preventScroll: true });
+        }
+        if (cursorPosRef.current) {
+          textareaRef.current.selectionStart = cursorPosRef.current.start;
+          textareaRef.current.selectionEnd = cursorPosRef.current.end;
+        }
+        if (slashMenuState.isOpen) {
+          updateMenuPosition();
+        }
+      }
+    };
+
+    if (vv) {
+      vv.addEventListener('resize', handleViewportChange);
+      vv.addEventListener('scroll', handleViewportChange);
+    }
+    window.addEventListener('resize', handleViewportChange);
+
+    return () => {
+      if (vv) {
+        vv.removeEventListener('resize', handleViewportChange);
+        vv.removeEventListener('scroll', handleViewportChange);
+      }
+      window.removeEventListener('resize', handleViewportChange);
+    };
+  }, [slashMenuState.isOpen, updateMenuPosition]);
+
+  // Helper para botones de la barra que no deben robar foco ni cerrar el teclado virtual en móvil
+  const createToolbarAction = (action: () => void) => ({
+    onMouseDown: (e: React.MouseEvent) => {
+      e.preventDefault();
+    },
+    onTouchStart: (e: React.TouchEvent) => {
+      if (textareaRef.current) {
+        cursorPosRef.current = {
+          start: textareaRef.current.selectionStart,
+          end: textareaRef.current.selectionEnd
+        };
+      }
+    },
+    onTouchEnd: (e: React.TouchEvent) => {
+      e.preventDefault();
+      lastTouchTimeRef.current = Date.now();
+      action();
+      if (textareaRef.current) {
+        textareaRef.current.focus({ preventScroll: true });
+        if (cursorPosRef.current) {
+          textareaRef.current.selectionStart = cursorPosRef.current.start;
+          textareaRef.current.selectionEnd = cursorPosRef.current.end;
+        }
+      }
+    },
+    onClick: (e: React.MouseEvent) => {
+      if (Date.now() - lastTouchTimeRef.current < 450) {
+        e.preventDefault();
+        return;
+      }
+      action();
+      if (textareaRef.current) {
+        textareaRef.current.focus({ preventScroll: true });
+        if (cursorPosRef.current) {
+          textareaRef.current.selectionStart = cursorPosRef.current.start;
+          textareaRef.current.selectionEnd = cursorPosRef.current.end;
+        }
+      }
+    }
+  });
+
+  // Inserción de snippets rápidos desde la barra de herramientas sin perder foco ni posición
   const insertSnippet = (snippet: string) => {
     if (!textareaRef.current) return;
-    const start = textareaRef.current.selectionStart;
-    const end = textareaRef.current.selectionEnd;
+    const start = cursorPosRef.current.start ?? textareaRef.current.selectionStart;
+    const end = cursorPosRef.current.end ?? textareaRef.current.selectionEnd;
     const newText = dslText.substring(0, start) + snippet + dslText.substring(end);
+    const newPos = start + snippet.length;
+
+    cursorPosRef.current = { start: newPos, end: newPos };
     setDslText(newText);
     handleParseAndSync(newText);
+
     setTimeout(() => {
       if (textareaRef.current) {
-        textareaRef.current.focus();
-        textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + snippet.length;
+        textareaRef.current.focus({ preventScroll: true });
+        textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newPos;
       }
     }, 10);
   };
@@ -933,10 +1036,10 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
         {/* Columna Izquierda: Editor Textual Monospace */}
         <div className="lg:col-span-7 space-y-2">
           {/* Barra de Atajos Rápidos */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
+          <div className="expert-toolbar flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
             <button
               type="button"
-              onClick={() => insertSnippet('\n  - 1 u ')}
+              {...createToolbarAction(() => insertSnippet('\n  - 1 u '))}
               className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface font-semibold flex items-center gap-1 border border-outline-variant/20 transition shrink-0 cursor-pointer min-h-[34px]"
             >
               <Plus className="w-3.5 h-3.5 text-primary" />
@@ -945,28 +1048,32 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
             <button
               type="button"
-              onClick={() => insertSnippet('\n  - Tablero a Medida:\n      materiales:\n        - 1 u \n      mano_obra:\n        - 4 h Oficial\n')}
+              {...createToolbarAction(() =>
+                insertSnippet(
+                  '\n  - 1 u Reparación y Armado de Tablero:\n      materiales:\n        - Tablero Modular DIN 24 Módulos Superficie Chapa Metálica Puerta Ciega IP40:\n            cantidad: 1\n            marca: Gabexel\n      mano_obra:\n        - 4 h Oficial Electricista\n'
+                )
+              )}
               className="px-2.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl font-bold flex items-center gap-1 border border-primary/30 transition shrink-0 cursor-pointer min-h-[34px]"
               title="Crea una partida a medida con cómputo de materiales y mano de obra"
             >
               <Zap className="w-3.5 h-3.5" />
-              <span>+ Partida a Medida (APU)</span>
+              <span>+ Partida APU</span>
             </button>
 
             <button
               type="button"
-              onClick={() => setShowMultiMaterialModal(true)}
+              {...createToolbarAction(() => setShowMultiMaterialModal(true))}
               className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-xl text-primary font-bold flex items-center gap-1 border border-outline-variant/20 transition shrink-0 cursor-pointer min-h-[34px]"
               title="Abre la paleta para seleccionar múltiples insumos con cantidades (Alt + M)"
             >
               <Package className="w-3.5 h-3.5" />
-              <span>📦 Paleta de Insumos</span>
+              <span>📦 Paleta Insumos</span>
               <kbd className="hidden sm:inline text-[10px] opacity-70 font-mono">Alt+M</kbd>
             </button>
 
             <button
               type="button"
-              onClick={() => insertSnippet('\nCapítulo Nuevo:\n  - 1 u ')}
+              {...createToolbarAction(() => insertSnippet('\nCapítulo Nuevo:\n  - 1 u '))}
               className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface font-semibold flex items-center gap-1 border border-outline-variant/20 transition shrink-0 cursor-pointer min-h-[34px]"
             >
               <FolderPlus className="w-3.5 h-3.5 text-secondary" />
@@ -975,11 +1082,50 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
             <button
               type="button"
-              onClick={() => insertSnippet('\ngastos:\n  - Viáticos: $ 15.000\n')}
+              {...createToolbarAction(() => insertSnippet('\ngastos:\n  - Viáticos: $ 15.000\n'))}
               className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface font-semibold flex items-center gap-1 border border-outline-variant/20 transition shrink-0 cursor-pointer min-h-[34px]"
             >
               <Truck className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
               <span>+ Gasto</span>
+            </button>
+
+            {/* Accesorio de Teclado Rápido para móvil y tipeo ágil */}
+            <div className="h-5 w-[1px] bg-outline-variant/30 shrink-0 mx-0.5" />
+
+            <button
+              type="button"
+              {...createToolbarAction(() => insertSnippet('  '))}
+              className="px-2 py-1 bg-surface-container-high hover:bg-surface-container-highest rounded-lg text-on-surface font-mono text-[11px] font-bold border border-outline-variant/30 transition shrink-0 cursor-pointer min-h-[32px]"
+              title="Insertar sangría (2 espacios)"
+            >
+              Tab
+            </button>
+
+            <button
+              type="button"
+              {...createToolbarAction(() => insertSnippet(': '))}
+              className="px-2 py-1 bg-surface-container-high hover:bg-surface-container-highest rounded-lg text-on-surface font-mono text-[11px] font-bold border border-outline-variant/30 transition shrink-0 cursor-pointer min-h-[32px]"
+              title="Insertar dos puntos"
+            >
+              :
+            </button>
+
+            <button
+              type="button"
+              {...createToolbarAction(() => insertSnippet('- '))}
+              className="px-2 py-1 bg-surface-container-high hover:bg-surface-container-highest rounded-lg text-on-surface font-mono text-[11px] font-bold border border-outline-variant/30 transition shrink-0 cursor-pointer min-h-[32px]"
+              title="Insertar guión de lista"
+            >
+              -
+            </button>
+
+            <button
+              type="button"
+              {...createToolbarAction(() => insertSnippet('# '))}
+              className="px-2 py-1 bg-surface-container-high hover:bg-surface-container-highest rounded-lg text-on-surface font-mono text-[11px] font-bold border border-outline-variant/30 transition shrink-0 cursor-pointer min-h-[32px]"
+              title="Insertar comentario"
+            >
+              #
             </button>
           </div>
 
@@ -1010,7 +1156,15 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
             <div className="relative flex">
               {/* Números de Línea */}
-              <div className="py-4 pl-3 pr-2 select-none text-right font-mono text-xs text-on-surface-variant/40 bg-surface-container-lowest/50 border-r border-outline-variant/15 min-w-[3rem]">
+              <div
+                onMouseDown={(e) => e.preventDefault()}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  textareaRef.current?.focus({ preventScroll: true });
+                }}
+                onClick={() => textareaRef.current?.focus({ preventScroll: true })}
+                className="py-4 pl-3 pr-2 select-none text-right font-mono text-xs text-on-surface-variant/40 bg-surface-container-lowest/50 border-r border-outline-variant/15 min-w-[3rem] cursor-pointer"
+              >
                 {Array.from({ length: lineCount }).map((_, idx) => (
                   <div key={idx} className="leading-6">
                     {idx + 1}
@@ -1025,8 +1179,23 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
                 onChange={handleTextChange}
                 onKeyDown={handleKeyDown}
                 onScroll={updateMenuPosition}
+                onFocus={(e) => {
+                  isFocusedRef.current = true;
+                  updateCursorPos(e.currentTarget);
+                }}
+                onBlur={() => {
+                  setTimeout(() => {
+                    if (document.activeElement !== textareaRef.current) {
+                      isFocusedRef.current = false;
+                    }
+                  }, 200);
+                }}
+                onSelect={(e) => updateCursorPos(e.currentTarget)}
+                onClick={(e) => updateCursorPos(e.currentTarget)}
+                onKeyUp={(e) => updateCursorPos(e.currentTarget)}
+                onTouchEnd={(e) => updateCursorPos(e.currentTarget)}
                 rows={22}
-                placeholder={`cliente: Nombre del Cliente\nobra: Dirección de la Obra\nfactura: Factura A\n\nInstalación Eléctrica:\n  - 10 u Boca de Iluminación\n  - 5 u Tomacorriente Doble`}
+                placeholder={`cliente: Nombre del Cliente\nobra: Dirección de la Obra\nfactura: Factura C\n\nInstalación Eléctrica:\n  - 10 u Boca de Iluminación: $ 12.500\n  - 5 u Tomacorriente Doble: $ 9.800`}
                 spellCheck={false}
                 className="w-full p-4 bg-transparent text-on-surface font-mono text-xs sm:text-sm leading-6 resize-y focus:outline-none placeholder:text-on-surface-variant/30 min-h-[480px]"
               />

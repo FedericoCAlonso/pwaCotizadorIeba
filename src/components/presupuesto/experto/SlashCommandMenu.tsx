@@ -842,7 +842,8 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   return (
     <div
       ref={containerRef}
-      className="absolute z-50 w-80 sm:w-96 max-h-96 bg-surface-container-high/95 backdrop-blur-md border border-outline-variant/40 rounded-2xl shadow-2xl overflow-y-auto p-1.5 animate-in fade-in zoom-in-95 duration-100"
+      onMouseDown={(e) => e.preventDefault()}
+      className="slash-command-menu absolute z-50 w-80 sm:w-96 max-h-96 bg-surface-container-high/95 backdrop-blur-md border border-outline-variant/40 rounded-2xl shadow-2xl overflow-y-auto p-1.5 animate-in fade-in zoom-in-95 duration-100"
       style={{
         top: position ? `${position.top}px` : '48px',
         left: position ? `${position.left}px` : '16px'
@@ -913,6 +914,11 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
         <div className="px-2 py-1 flex items-center gap-1 overflow-x-auto pb-1.5 border-b border-outline-variant/10 text-[10px] scrollbar-none">
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              setSelectedCategory(null);
+            }}
             onClick={() => setSelectedCategory(null)}
             className={`px-2 py-0.5 rounded-md font-bold transition shrink-0 cursor-pointer ${
               activeCategory === null
@@ -928,6 +934,11 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
               <button
                 key={cat}
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  setSelectedCategory(isSelected ? null : cat);
+                }}
                 onClick={() => setSelectedCategory(isSelected ? null : cat)}
                 className={`px-2 py-0.5 rounded-md font-bold transition shrink-0 cursor-pointer capitalize ${
                   isSelected
@@ -960,6 +971,11 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
                   itemRefs.current[idx] = el;
                 }}
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  onSelect(item.snippet);
+                }}
                 onClick={() => onSelect(item.snippet)}
                 onMouseEnter={() => setSelectedIndex(idx)}
                 className={`w-full text-left px-3 py-2 rounded-xl flex items-center gap-3 transition-colors cursor-pointer ${
