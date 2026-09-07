@@ -29,6 +29,7 @@ export interface DSLDiagnostic {
 export interface ParseDSLResult {
   clienteId: string;
   clienteMatched?: Cliente;
+  clienteQuery?: string;
   direccionObra: string;
   tipoFactura: TipoFactura;
   validezDias: number;
@@ -627,21 +628,34 @@ export function parseDSLToPresupuesto(
   // Cliente
   let clienteId = '';
   let clienteMatched: Cliente | undefined = undefined;
-  if (parsed.cliente) {
+  let clienteQuery: string | undefined = undefined;
+  if (parsed.cliente !== undefined && parsed.cliente !== null) {
     const rawCli = String(parsed.cliente).trim();
+    clienteQuery = rawCli;
     const normCli = normalizeString(rawCli);
     if (normCli) {
-      // 1.1 Match exacto
+      // 1.1 Match exacto por nombre o razón social
       clienteMatched = context.clientes.find(
         (c) => normalizeString(c.nombre || '') === normCli || normalizeString(c.razonSocial || '') === normCli
       );
-      // 1.2 Match parcial
+
+      // 1.2 Match por CUIT / DNI si se ingresaron números (7+ dígitos)
+      const rawDigits = rawCli.replace(/\D/g, '');
+      if (!clienteMatched && rawDigits.length >= 7) {
+        clienteMatched = context.clientes.find((c) => {
+          const cDigits = (c.cuitDni || c.cuit || '').replace(/\D/g, '');
+          return cDigits && (cDigits === rawDigits || cDigits.includes(rawDigits));
+        });
+      }
+
+      // 1.3 Match parcial por nombre, razón social o nombre de fantasía
       if (!clienteMatched) {
         clienteMatched = context.clientes.find(
           (c) =>
             normalizeString(c.nombre || '').includes(normCli) ||
             normCli.includes(normalizeString(c.nombre || '')) ||
-            (c.razonSocial && normalizeString(c.razonSocial).includes(normCli))
+            (c.razonSocial && normalizeString(c.razonSocial).includes(normCli)) ||
+            (c.nombreFantasia && normalizeString(c.nombreFantasia).includes(normCli))
         );
       }
 
@@ -814,6 +828,7 @@ export function parseDSLToPresupuesto(
   return {
     clienteId,
     clienteMatched,
+    clienteQuery,
     direccionObra,
     tipoFactura,
     validezDias,
@@ -1640,6 +1655,7 @@ export interface SuggestTriggerResult {
   query: string;
   queryIndexInLine: number;
   isExplicit: boolean;
+  directiveType?: 'cliente' | 'obra' | 'factura' | 'validez' | 'margen' | 'riesgo' | 'dolar';
 }
 
 export const COMMON_UNITS = new Set([
@@ -1652,7 +1668,8 @@ export const COMMON_UNITS = new Set([
  * Detecta si en la línea actual (hasta la posición del cursor) se debe abrir el menú de sugerencias.
  * Soporta:
  * 1. Disparadores explícitos ("/" o "@"), asegurando que no colisionen con fracciones como "3/4".
- * 2. IntelliSense automático en ítems de lista ("- ") al escribir nombres de materiales,
+ * 2. Directivas de cabecera raíz ("cliente:", "obra:", "factura:", "validez:", "margen:", "riesgo:", "dolar:").
+ * 3. IntelliSense automático en ítems de lista ("- ") al escribir nombres de materiales,
  *    incluyendo números con decimales (ej: "cabl 1.5", "cable unipolar 1.5", "3x2.5", "caño 3/4").
  */
 export function detectSuggestTrigger(currentLineBeforeCursor: string): SuggestTriggerResult | null {
@@ -1672,7 +1689,33 @@ export function detectSuggestTrigger(currentLineBeforeCursor: string): SuggestTr
     };
   }
 
-  // 2. IntelliSense automático en renglón de lista (-)
+  // 2. Detección de directivas de cabecera raíz (cliente:, obra:, factura:, validez:, margen:, riesgo:, dolar:)
+  // Solo a nivel raíz (sangría de 0 a 3 espacios, no dentro de despieces de partidas)
+  const rootDirectiveMatch = currentLineBeforeCursor.match(/^(\s{0,3})(cliente|obra|factura|validez|margen|riesgo|dolar)\s*:\s*([^\r\n]*)$/i);
+  if (rootDirectiveMatch) {
+    const directive = rootDirectiveMatch[2].toLowerCase() as
+      | 'cliente'
+      | 'obra'
+      | 'factura'
+      | 'validez'
+      | 'margen'
+      | 'riesgo'
+      | 'dolar';
+    const query = rootDirectiveMatch[3];
+    // Si el usuario ya está escribiendo un comentario '#', no disparar autocompletado
+    if (!query.includes('#')) {
+      const queryIndexInLine = currentLineBeforeCursor.lastIndexOf(query);
+      return {
+        triggerChar: directive === 'cliente' ? '@' : ':',
+        query,
+        queryIndexInLine: queryIndexInLine >= 0 ? queryIndexInLine : currentLineBeforeCursor.length,
+        isExplicit: false,
+        directiveType: directive
+      };
+    }
+  }
+
+  // 3. IntelliSense automático en renglón de lista (-)
   // Detecta palabras de 2+ letras o dimensiones como 3x2.5, 2x16, permitiendo caracteres técnicos
   // (. , / " ' - + etc.) para medidas y secciones
   const autoMatch = currentLineBeforeCursor.match(/-\s*(?:[0-9.,]+\s*[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ²³]*\s+)?((?:[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]{2,}|\d+[xX][0-9.,]*)[^\r\n]*)$/);
@@ -1689,7 +1732,7 @@ export function detectSuggestTrigger(currentLineBeforeCursor: string): SuggestTr
     }
   }
 
-  // 3. IntelliSense automático en línea indentada de propiedades (ej: "            can", "            pre", "            prod")
+  // 4. IntelliSense automático en línea indentada de propiedades (ej: "            can", "            pre", "            prod")
   // Detecta palabras escritas tras una sangría de al menos 4 espacios sin guión
   const propMatch = currentLineBeforeCursor.match(/^(\s{4,})([a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]{1,}[^\r\n]*)$/);
   if (propMatch) {
@@ -1722,9 +1765,33 @@ export function formatSlashCommandReplacement(params: {
   currentLineBeforeCursor: string;
   snippet: string;
   contextType?: 'general' | 'capitulo' | 'tareas' | 'materiales' | 'mano_obra';
+  directiveType?: 'cliente' | 'obra' | 'factura' | 'validez' | 'margen' | 'riesgo' | 'dolar';
 }): FormatReplacementResult {
-  const { currentLineBeforeCursor, snippet, contextType } = params;
+  const { currentLineBeforeCursor, snippet, contextType, directiveType } = params;
   let lineIndent = currentLineBeforeCursor.match(/^\s*/)?.[0] || '';
+
+  // 0. Detección de directivas de cabecera raíz (cliente:, obra:, factura:, validez:, margen:, riesgo:, dolar:)
+  const rootDirectiveMatch = currentLineBeforeCursor.match(/^(\s{0,3})(cliente|obra|factura|validez|margen|riesgo|dolar)\s*:/i);
+  if (rootDirectiveMatch || (directiveType && directiveType !== 'obra' && currentLineBeforeCursor.trim().startsWith('@'))) {
+    const indent = rootDirectiveMatch ? rootDirectiveMatch[1] : '';
+    const dir = rootDirectiveMatch ? rootDirectiveMatch[2].toLowerCase() : (directiveType || 'cliente');
+
+    let cleanVal = snippet.trim();
+    // Si el snippet ya contiene la directiva prefijada (ej: "cliente: Juan Pérez\n"), extraer solo el valor
+    const prefixRegex = new RegExp(`^${dir}\\s*:\\s*`, 'i');
+    if (prefixRegex.test(cleanVal)) {
+      cleanVal = cleanVal.replace(prefixRegex, '');
+    }
+    // Asegurar que no empiece con / o @ y limpiar saltos de línea finales sobrantes
+    cleanVal = cleanVal.replace(/^[\/@]/, '').replace(/[\r\n]+$/, '');
+
+    const replacementLine = `${indent}${dir}: ${cleanVal}\n`;
+    return {
+      replacementLine,
+      newCursorOffset: replacementLine.length,
+      selectionRange: undefined
+    };
+  }
 
   // Garantizar sangría técnica según el tipo de elemento y el contexto
   if (/^(materiales|mano_obra|condicion|precio|parametros):/i.test(snippet.trim())) {

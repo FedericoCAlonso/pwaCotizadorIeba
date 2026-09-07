@@ -48,6 +48,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { MultiMaterialPickerModal } from './MultiMaterialPickerModal';
 import { QuickCreateMaterialModal } from '../../insumos/QuickCreateMaterialModal';
+import { QuickClienteModal } from '../QuickClienteModal';
 import { ExpertInspector } from './ExpertInspector';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -153,6 +154,9 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
   const [clienteMatched, setClienteMatched] = useState<Cliente | undefined>(() => {
     return clientes.find((c) => c.id === clienteId);
   });
+  const [clienteQuery, setClienteQuery] = useState<string | undefined>(undefined);
+  const [isQuickClienteOpen, setIsQuickClienteOpen] = useState(false);
+  const [quickClienteInitialName, setQuickClienteInitialName] = useState('');
 
   // Estado del menú flotante de autocompletado (/ o @ o IntelliSense automático)
   const [slashMenuState, setSlashMenuState] = useState<{
@@ -162,6 +166,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     slashIndex: number;
     contextType: CursorContextType;
     replaceFullLine?: boolean;
+    directiveType?: 'cliente' | 'obra' | 'factura' | 'validez' | 'margen' | 'riesgo' | 'dolar';
   }>({
     isOpen: false,
     query: '',
@@ -259,6 +264,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
       setDiagnostics(result.diagnostics);
       setClienteMatched(result.clienteMatched);
+      setClienteQuery(result.clienteQuery);
 
       isInternalUpdateRef.current = true;
 
@@ -501,14 +507,25 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       const triggerIndex = lastLineStart + trigger.queryIndexInLine;
       const typedQuery = trigger.query.trim();
 
-      if (trigger.isExplicit) {
+      if (trigger.directiveType) {
+        setSlashMenuState({
+          isOpen: true,
+          query: typedQuery,
+          cursorPosition: cursorPos,
+          slashIndex: triggerIndex,
+          contextType: trigger.directiveType === 'cliente' ? 'general' : contextType,
+          replaceFullLine: true,
+          directiveType: trigger.directiveType
+        });
+      } else if (trigger.isExplicit) {
         setSlashMenuState({
           isOpen: true,
           query: `${trigger.triggerChar}${trigger.query}`,
           cursorPosition: cursorPos,
           slashIndex: triggerIndex,
           contextType: trigger.triggerChar === '@' ? 'general' : contextType,
-          replaceFullLine: false
+          replaceFullLine: false,
+          directiveType: trigger.triggerChar === '@' ? 'cliente' : undefined
         });
       } else {
         // Si hay una subcategoría activa en el bloque (ej: "cables:"), prefijarla para filtrar
@@ -520,7 +537,8 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
           cursorPosition: cursorPos,
           slashIndex: triggerIndex,
           contextType,
-          replaceFullLine: false
+          replaceFullLine: false,
+          directiveType: undefined
         });
       }
     } else {
@@ -633,6 +651,21 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
   const handleSelectSlashCommand = (snippet: string) => {
     if (!textareaRef.current) return;
 
+    // Acción especial: Registrar nuevo cliente en modal rápido
+    if (snippet.startsWith('ACTION:NEW_CLIENT:')) {
+      const initialName = snippet.replace('ACTION:NEW_CLIENT:', '').trim();
+      setSlashMenuState({
+        isOpen: false,
+        query: '',
+        cursorPosition: 0,
+        slashIndex: -1,
+        contextType: 'general'
+      });
+      setQuickClienteInitialName(initialName);
+      setIsQuickClienteOpen(true);
+      return;
+    }
+
     const textarea = textareaRef.current;
     const { cursorPosition } = slashMenuState;
 
@@ -647,7 +680,8 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     const { replacementLine, selectionRange, newCursorOffset } = formatSlashCommandReplacement({
       currentLineBeforeCursor,
       snippet,
-      contextType: slashMenuState.contextType
+      contextType: slashMenuState.contextType,
+      directiveType: slashMenuState.directiveType
     });
 
     const newText = dslText.slice(0, lastLineStart) + replacementLine + restOfDoc;
@@ -675,6 +709,84 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       }
     }, 10);
   };
+
+  // Selección de cliente desde la UI (Inspector o Selector)
+  const handleSelectClienteFromUI = useCallback(
+    (cliente: Cliente) => {
+      const cliName = cliente.razonSocial || cliente.nombre || '';
+      let updatedDsl = dslText;
+
+      // 1. Actualizar directiva cliente:
+      if (/^cliente\s*:[^\r\n]*/mi.test(updatedDsl)) {
+        updatedDsl = updatedDsl.replace(/^cliente\s*:[^\r\n]*/mi, `cliente: ${cliName}`);
+      } else {
+        updatedDsl = `cliente: ${cliName}\n` + updatedDsl;
+      }
+
+      // 2. Si el cliente tiene dirección y la obra está vacía o genérica, vincularla
+      if (cliente.direccion && (!direccionObra || direccionObra === 'Dirección de la Obra')) {
+        const fullDir = `${cliente.direccion}${cliente.localidad ? `, ${cliente.localidad}` : ''}`;
+        if (/^obra\s*:[^\r\n]*/mi.test(updatedDsl)) {
+          updatedDsl = updatedDsl.replace(/^obra\s*:[^\r\n]*/mi, `obra: ${fullDir}`);
+        } else {
+          updatedDsl = updatedDsl.replace(/^cliente\s*:[^\r\n]*/mi, (match) => `${match}\nobra: ${fullDir}`);
+        }
+      }
+
+      // 3. Adecuar encuadre fiscal según condición IVA del cliente
+      if (cliente.condicionIVA) {
+        let suggestedFactura = '';
+        if (cliente.condicionIVA === 'Responsable Inscripto') suggestedFactura = 'Factura A';
+        else if (cliente.condicionIVA === 'Consumidor Final') suggestedFactura = 'Factura B';
+        else if (cliente.condicionIVA === 'Monotributo') suggestedFactura = 'Factura C';
+        else if (cliente.condicionIVA === 'Exento') suggestedFactura = 'Factura B';
+
+        if (suggestedFactura && /^factura\s*:[^\r\n]*/mi.test(updatedDsl)) {
+          updatedDsl = updatedDsl.replace(/^factura\s*:[^\r\n]*/mi, `factura: ${suggestedFactura}`);
+        }
+      }
+
+      setDslText(updatedDsl);
+      handleParseAndSync(updatedDsl);
+    },
+    [dslText, direccionObra, handleParseAndSync]
+  );
+
+  // Asignar domicilio a la directiva obra: en YAML
+  const handleSetDireccionObraFromUI = useCallback(
+    (direccion: string) => {
+      let updatedDsl = dslText;
+      if (/^obra\s*:[^\r\n]*/mi.test(updatedDsl)) {
+        updatedDsl = updatedDsl.replace(/^obra\s*:[^\r\n]*/mi, `obra: ${direccion}`);
+      } else {
+        updatedDsl = updatedDsl.replace(/^cliente\s*:[^\r\n]*/mi, (match) => `${match}\nobra: ${direccion}`);
+      }
+      setDslText(updatedDsl);
+      handleParseAndSync(updatedDsl);
+    },
+    [dslText, handleParseAndSync]
+  );
+
+  // Apertura de modal de cliente rápido
+  const handleOpenQuickCliente = useCallback((initialName?: string) => {
+    setQuickClienteInitialName(initialName || '');
+    setIsQuickClienteOpen(true);
+  }, []);
+
+  // Callback cuando el cliente rápido se crea exitosamente en Dexie
+  const handleClienteCreated = useCallback(
+    async (newClienteId: string) => {
+      try {
+        const created = await db.contactos.get(newClienteId);
+        if (created) {
+          handleSelectClienteFromUI(created);
+        }
+      } catch (e) {
+        console.error('Error al recuperar nuevo cliente creado:', e);
+      }
+    },
+    [handleSelectClienteFromUI]
+  );
 
   // Inserción masiva de materiales desde la paleta (Alt + M)
   const handleInsertMultipleMaterials = (formattedYamlLines: string) => {
@@ -925,9 +1037,11 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
                   query={slashMenuState.query}
                   tareasTipo={tareasTipo}
                   clientes={clientes}
+                  clienteMatched={clienteMatched}
                   insumosMap={insumosMap}
                   manoObraMap={manoObraMap}
                   contextType={slashMenuState.contextType}
+                  directiveType={slashMenuState.directiveType}
                   position={menuPosition}
                   onSelect={handleSelectSlashCommand}
                   onClose={() =>
@@ -949,10 +1063,15 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
             mostrarDolar={mostrarDolar}
             nombreDolar={nombreDolar}
             clienteMatched={clienteMatched}
+            clienteQuery={clienteQuery}
             direccionObra={direccionObra}
             capitulos={capitulos}
             items={items}
             diagnostics={diagnostics}
+            clientes={clientes}
+            onSelectCliente={handleSelectClienteFromUI}
+            onOpenQuickClienteModal={handleOpenQuickCliente}
+            onSetDireccionObra={handleSetDireccionObraFromUI}
             onEmitirClick={onEmitirClick}
             onLoadExample={handleLoadExample}
             onCopyDSL={handleCopyDSL}
@@ -978,6 +1097,14 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
         setFormDataQuickMat={setFormDataQuickMat}
         proveedores={proveedores}
         onSave={handleSaveQuickMat}
+      />
+
+      {/* Modal de Alta Rápida de Cliente en Contactos */}
+      <QuickClienteModal
+        isOpen={isQuickClienteOpen}
+        onClose={() => setIsQuickClienteOpen(false)}
+        initialName={quickClienteInitialName}
+        onClienteCreated={handleClienteCreated}
       />
     </div>
   );

@@ -35,9 +35,11 @@ interface SlashCommandMenuProps {
   query: string;
   tareasTipo: TareaTipo[];
   clientes: Cliente[];
+  clienteMatched?: Cliente;
   insumosMap?: Map<string, Insumo>;
   manoObraMap?: Map<string, CategoriaManoDeObra>;
   contextType?: CursorContextType;
+  directiveType?: 'cliente' | 'obra' | 'factura' | 'validez' | 'margen' | 'riesgo' | 'dolar';
   onSelect: (snippet: string) => void;
   onClose: () => void;
   position?: { top: number; left: number };
@@ -47,9 +49,11 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   query,
   tareasTipo,
   clientes,
+  clienteMatched,
   insumosMap,
   manoObraMap,
   contextType = 'general',
+  directiveType,
   onSelect,
   onClose,
   position
@@ -92,6 +96,218 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
 
   // Lista consolidada de sugerencias
   const items: SlashCommandItem[] = useMemo(() => {
+    // 0. Si hay una directiva activa de cabecera, mostrar opciones exclusivas
+    if (directiveType === 'cliente' || query.startsWith('@')) {
+      const clientList: SlashCommandItem[] = [];
+      clientes.forEach((cli) => {
+        const name = cli.razonSocial || cli.nombre || 'Sin nombre';
+        const cuitStr = (cli.cuitDni || cli.cuit) ? ` · CUIT: ${cli.cuitDni || cli.cuit}` : '';
+        const ivaStr = cli.condicionIVA ? ` · ${cli.condicionIVA}` : '';
+        const locStr = cli.localidad ? ` (${cli.localidad})` : '';
+        const dirStr = cli.direccion ? ` · ${cli.direccion}${locStr}` : '';
+        clientList.push({
+          id: `cli-${cli.id}`,
+          category: 'directiva',
+          title: name,
+          subtitle: `Cliente${cuitStr}${ivaStr}${dirStr}`,
+          snippet: `cliente: ${name}\n`,
+          icon: Building2,
+          extraText: `${cli.cuitDni || ''} ${cli.cuit || ''} ${cli.direccion || ''} ${cli.localidad || ''} ${cli.email || ''} ${cli.telefono || ''} ${cli.condicionIVA || ''} ${cli.nombreFantasia || ''}`
+        });
+      });
+
+      const cleanSearch = effectiveQuery.replace(/^@/, '').trim();
+      const actionItem: SlashCommandItem = {
+        id: 'cli-action-new',
+        category: 'directiva',
+        title: cleanSearch ? `+ Registrar "${cleanSearch}" en Contactos...` : '+ Registrar Nuevo Cliente...',
+        subtitle: 'Crear ficha con CUIT, condición fiscal y domicilio de obra',
+        snippet: `ACTION:NEW_CLIENT:${cleanSearch}`,
+        icon: Building2,
+        extraText: 'nuevo crear registrar contacto cliente comitente'
+      };
+
+      if (!cleanSearch) {
+        return [...clientList.slice(0, 20), actionItem];
+      }
+
+      const scored = clientList
+        .map((it) => ({
+          item: it,
+          score: scoreSearchMatch({
+            query: cleanSearch,
+            title: it.title,
+            extraText: it.extraText
+          })
+        }))
+        .filter((r) => r.score >= 0)
+        .sort((a, b) => b.score - a.score)
+        .map((r) => r.item);
+
+      scored.push(actionItem);
+      return scored.slice(0, 25);
+    }
+
+    if (directiveType === 'factura') {
+      const facturaOptions: SlashCommandItem[] = [
+        {
+          id: 'fac-a',
+          category: 'directiva',
+          title: 'Factura A',
+          subtitle: 'Responsable Inscripto (IVA discriminado)',
+          snippet: 'factura: Factura A\n',
+          icon: FileSpreadsheet,
+          extraText: 'factura a responsable inscripto iva ri'
+        },
+        {
+          id: 'fac-b',
+          category: 'directiva',
+          title: 'Factura B',
+          subtitle: 'Consumidor Final o Sujeto Exento',
+          snippet: 'factura: Factura B\n',
+          icon: FileSpreadsheet,
+          extraText: 'factura b consumidor final exento cf'
+        },
+        {
+          id: 'fac-c',
+          category: 'directiva',
+          title: 'Factura C',
+          subtitle: 'Régimen Simplificado (Monotributo)',
+          snippet: 'factura: Factura C\n',
+          icon: FileSpreadsheet,
+          extraText: 'factura c monotributo monotributista'
+        },
+        {
+          id: 'fac-x',
+          category: 'directiva',
+          title: 'Presupuesto X (Sin Factura)',
+          subtitle: 'Comercial interno sin comprobante fiscal',
+          snippet: 'factura: Presupuesto X (Sin Factura)\n',
+          icon: FileSpreadsheet,
+          extraText: 'factura x presupuesto sin factura informal'
+        }
+      ];
+      if (!effectiveQuery || !effectiveQuery.trim()) return facturaOptions;
+      return facturaOptions
+        .map((it) => ({
+          item: it,
+          score: scoreSearchMatch({ query: effectiveQuery, title: it.title, extraText: `${it.subtitle || ''} ${it.extraText || ''}` })
+        }))
+        .filter((r) => r.score >= 0)
+        .sort((a, b) => b.score - a.score)
+        .map((r) => r.item);
+    }
+
+    if (directiveType === 'validez') {
+      const validezOptions: SlashCommandItem[] = [
+        { id: 'val-15', category: 'directiva', title: '15 dias', subtitle: 'Plazo estándar habitual', snippet: 'validez: 15 dias\n', icon: Calendar, extraText: '15 dias estandar normal' },
+        { id: 'val-30', category: 'directiva', title: '30 dias', subtitle: 'Obras medianas o proyectos planificados', snippet: 'validez: 30 dias\n', icon: Calendar, extraText: '30 dias un mes' },
+        { id: 'val-7', category: 'directiva', title: '7 dias', subtitle: 'Precios con alta volatilidad', snippet: 'validez: 7 dias\n', icon: Calendar, extraText: '7 dias una semana corto' },
+        { id: 'val-60', category: 'directiva', title: '60 dias', subtitle: 'Licitaciones y grandes pliegos', snippet: 'validez: 60 dias\n', icon: Calendar, extraText: '60 dias dos meses' }
+      ];
+      if (!effectiveQuery || !effectiveQuery.trim()) return validezOptions;
+      return validezOptions
+        .map((it) => ({
+          item: it,
+          score: scoreSearchMatch({ query: effectiveQuery, title: it.title, extraText: `${it.subtitle || ''} ${it.extraText || ''}` })
+        }))
+        .filter((r) => r.score >= 0)
+        .sort((a, b) => b.score - a.score)
+        .map((r) => r.item);
+    }
+
+    if (directiveType === 'margen') {
+      const margenOptions: SlashCommandItem[] = [
+        { id: 'mar-35', category: 'directiva', title: '35%', subtitle: 'Margen estándar recomendado', snippet: 'margen: 35%\n', icon: Percent, extraText: '35 por ciento estandar recomendado' },
+        { id: 'mar-30', category: 'directiva', title: '30%', subtitle: 'Margen competitivo para obras grandes', snippet: 'margen: 30%\n', icon: Percent, extraText: '30 por ciento obra grande' },
+        { id: 'mar-40', category: 'directiva', title: '40%', subtitle: 'Margen para obras complejas o urgencias', snippet: 'margen: 40%\n', icon: Percent, extraText: '40 por ciento compleja' },
+        { id: 'mar-50', category: 'directiva', title: '50%', subtitle: 'Reparaciones pequeñas o alto valor agregado', snippet: 'margen: 50%\n', icon: Percent, extraText: '50 por ciento chico reparacion' },
+        { id: 'mar-25', category: 'directiva', title: '25%', subtitle: 'Margen ajustado por volumen', snippet: 'margen: 25%\n', icon: Percent, extraText: '25 por ciento bajo volumen' }
+      ];
+      if (!effectiveQuery || !effectiveQuery.trim()) return margenOptions;
+      return margenOptions
+        .map((it) => ({
+          item: it,
+          score: scoreSearchMatch({ query: effectiveQuery, title: it.title, extraText: `${it.subtitle || ''} ${it.extraText || ''}` })
+        }))
+        .filter((r) => r.score >= 0)
+        .sort((a, b) => b.score - a.score)
+        .map((r) => r.item);
+    }
+
+    if (directiveType === 'riesgo') {
+      const riesgoOptions: SlashCommandItem[] = [
+        { id: 'rie-normal', category: 'directiva', title: 'normal (5%)', subtitle: 'Riesgo estándar para reformas y trabajos habituales', snippet: 'riesgo: normal\n', icon: ShieldAlert, extraText: 'riesgo normal 5 por ciento estandar' },
+        { id: 'rie-bajo', category: 'directiva', title: 'bajo (2.5%)', subtitle: 'Riesgo mínimo (obra nueva con planos detallados)', snippet: 'riesgo: bajo\n', icon: ShieldAlert, extraText: 'riesgo bajo 2.5 por ciento plano nuevo' },
+        { id: 'rie-alto', category: 'directiva', title: 'alto (10%)', subtitle: 'Riesgo elevado (edificios antiguos, imprevistos o urgencias)', snippet: 'riesgo: alto\n', icon: ShieldAlert, extraText: 'riesgo alto 10 por ciento edificio viejo urgencia' }
+      ];
+      if (!effectiveQuery || !effectiveQuery.trim()) return riesgoOptions;
+      return riesgoOptions
+        .map((it) => ({
+          item: it,
+          score: scoreSearchMatch({ query: effectiveQuery, title: it.title, extraText: `${it.subtitle || ''} ${it.extraText || ''}` })
+        }))
+        .filter((r) => r.score >= 0)
+        .sort((a, b) => b.score - a.score)
+        .map((r) => r.item);
+    }
+
+    if (directiveType === 'dolar') {
+      const dolarOptions: SlashCommandItem[] = [
+        { id: 'dol-blue', category: 'directiva', title: 'USD Blue = 1400', subtitle: 'Cotización informal de mercado', snippet: 'dolar: USD Blue = 1400\n', icon: DollarSign, extraText: 'dolar usd blue 1400 informal' },
+        { id: 'dol-mep', category: 'directiva', title: 'USD MEP = 1350', subtitle: 'Cotización bursátil en blanco', snippet: 'dolar: USD MEP = 1350\n', icon: DollarSign, extraText: 'dolar usd mep 1350 bolsa bursatil' },
+        { id: 'dol-oficial', category: 'directiva', title: 'USD Oficial = 1050', subtitle: 'Tipo de cambio Banco Nación', snippet: 'dolar: USD Oficial = 1050\n', icon: DollarSign, extraText: 'dolar usd oficial 1050 banco nacion' }
+      ];
+      if (!effectiveQuery || !effectiveQuery.trim()) return dolarOptions;
+      return dolarOptions
+        .map((it) => ({
+          item: it,
+          score: scoreSearchMatch({ query: effectiveQuery, title: it.title, extraText: `${it.subtitle || ''} ${it.extraText || ''}` })
+        }))
+        .filter((r) => r.score >= 0)
+        .sort((a, b) => b.score - a.score)
+        .map((r) => r.item);
+    }
+
+    if (directiveType === 'obra') {
+      const obraOptions: SlashCommandItem[] = [];
+      if (clienteMatched?.direccion) {
+        const fullDir = `${clienteMatched.direccion}${clienteMatched.localidad ? `, ${clienteMatched.localidad}` : ''}`;
+        obraOptions.push({
+          id: 'obra-domicilio-cliente',
+          category: 'directiva',
+          title: fullDir,
+          subtitle: `Usar domicilio de ${clienteMatched.razonSocial || clienteMatched.nombre}`,
+          snippet: `obra: ${fullDir}\n`,
+          icon: MapPin,
+          extraText: `obra direccion domicilio ${fullDir} cliente ${clienteMatched.razonSocial || clienteMatched.nombre}`
+        });
+      }
+      clientes.forEach((cli) => {
+        if (cli.direccion && cli.id !== clienteMatched?.id) {
+          const fullDir = `${cli.direccion}${cli.localidad ? `, ${cli.localidad}` : ''}`;
+          obraOptions.push({
+            id: `obra-cli-${cli.id}`,
+            category: 'directiva',
+            title: fullDir,
+            subtitle: `Domicilio de ${cli.razonSocial || cli.nombre}`,
+            snippet: `obra: ${fullDir}\n`,
+            icon: MapPin,
+            extraText: `obra direccion domicilio ${fullDir} cliente ${cli.razonSocial || cli.nombre}`
+          });
+        }
+      });
+      if (!effectiveQuery || !effectiveQuery.trim()) return obraOptions.slice(0, 10);
+      return obraOptions
+        .map((it) => ({
+          item: it,
+          score: scoreSearchMatch({ query: effectiveQuery, title: it.title, extraText: `${it.subtitle || ''} ${it.extraText || ''}` })
+        }))
+        .filter((r) => r.score >= 0)
+        .sort((a, b) => b.score - a.score)
+        .map((r) => r.item);
+    }
+
     const list: SlashCommandItem[] = [];
 
     // 1. Insumos y Materiales del Catálogo (ÚNICAMENTE en sección de materiales)
@@ -635,7 +851,42 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
       {/* Cabecera del Menú */}
       <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant flex items-center justify-between border-b border-outline-variant/15 mb-1">
         <span className="flex items-center gap-1.5">
-          {contextType === 'materiales' ? (
+          {directiveType === 'cliente' || query.startsWith('@') ? (
+            <>
+              <Building2 className="w-3.5 h-3.5 text-primary" />
+              <span>Directorio de Clientes ({clientes.length})</span>
+            </>
+          ) : directiveType === 'factura' ? (
+            <>
+              <FileSpreadsheet className="w-3.5 h-3.5 text-primary" />
+              <span>Tipo de Factura</span>
+            </>
+          ) : directiveType === 'validez' ? (
+            <>
+              <Calendar className="w-3.5 h-3.5 text-primary" />
+              <span>Validez de Oferta</span>
+            </>
+          ) : directiveType === 'margen' ? (
+            <>
+              <Percent className="w-3.5 h-3.5 text-primary" />
+              <span>Margen de Ganancia</span>
+            </>
+          ) : directiveType === 'riesgo' ? (
+            <>
+              <ShieldAlert className="w-3.5 h-3.5 text-primary" />
+              <span>Fondo de Riesgo</span>
+            </>
+          ) : directiveType === 'dolar' ? (
+            <>
+              <DollarSign className="w-3.5 h-3.5 text-primary" />
+              <span>Dólar de Referencia</span>
+            </>
+          ) : directiveType === 'obra' ? (
+            <>
+              <MapPin className="w-3.5 h-3.5 text-primary" />
+              <span>Ubicación de la Obra</span>
+            </>
+          ) : contextType === 'materiales' ? (
             <>
               <Package className="w-3.5 h-3.5 text-primary" />
               <span>Insumos del Catálogo</span>
@@ -658,7 +909,7 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
       </div>
 
       {/* Barra de Filtro de Categorías para Materiales */}
-      {(contextType === 'materiales' || materialCategories.length > 0) && (
+      {contextType === 'materiales' && !directiveType && materialCategories.length > 0 && (
         <div className="px-2 py-1 flex items-center gap-1 overflow-x-auto pb-1.5 border-b border-outline-variant/10 text-[10px] scrollbar-none">
           <button
             type="button"

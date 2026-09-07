@@ -1306,6 +1306,112 @@ dolar: USD Blue
       expect(item.manoObraSnapshot[1].costoHoraCongelado).toBe(3500); // Vinculado con mockManoObraMap mo-ayudante
     });
   });
+
+  describe('Gestión de Clientes y Directivas de Cabecera en Modo Experto', () => {
+    it('parseDSLToPresupuesto vincula cliente por dígitos de CUIT/DNI', () => {
+      const yaml = `
+cliente: 30123456789
+obra: Obra CUIT
+`;
+      const result = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(result.clienteId).toBe('cli-1');
+      expect(result.clienteMatched?.id).toBe('cli-1');
+      expect(result.clienteMatched?.razonSocial).toBe('Estudio Arq. Gómez');
+      expect(result.clienteQuery).toBe('30123456789');
+    });
+
+    it('parseDSLToPresupuesto guarda clienteQuery incluso si el cliente no está registrado', () => {
+      const yaml = `
+cliente: Comitente Desconocido SRL
+obra: Av. Libertador 5000
+`;
+      const result = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(result.clienteId).toBe('');
+      expect(result.clienteMatched).toBeUndefined();
+      expect(result.clienteQuery).toBe('Comitente Desconocido SRL');
+      expect(result.diagnostics.some((d) => d.type === 'warning' && d.message.includes('Comitente Desconocido SRL'))).toBe(true);
+    });
+
+    it('detectSuggestTrigger reconoce directivas de cabecera raíz (cliente, factura, validez, margen, riesgo, dolar)', () => {
+      const trigCli = detectSuggestTrigger('cliente: ');
+      expect(trigCli?.directiveType).toBe('cliente');
+      expect(trigCli?.query).toBe('');
+
+      const trigCliSearch = detectSuggestTrigger('cliente: Fed');
+      expect(trigCliSearch?.directiveType).toBe('cliente');
+      expect(trigCliSearch?.query).toBe('Fed');
+
+      const trigFac = detectSuggestTrigger('factura: ');
+      expect(trigFac?.directiveType).toBe('factura');
+
+      const trigVal = detectSuggestTrigger('validez: 15');
+      expect(trigVal?.directiveType).toBe('validez');
+      expect(trigVal?.query).toBe('15');
+
+      const trigMar = detectSuggestTrigger('margen: 3');
+      expect(trigMar?.directiveType).toBe('margen');
+      expect(trigMar?.query).toBe('3');
+
+      const trigRie = detectSuggestTrigger('riesgo: no');
+      expect(trigRie?.directiveType).toBe('riesgo');
+      expect(trigRie?.query).toBe('no');
+
+      const trigDol = detectSuggestTrigger('dolar: ME');
+      expect(trigDol?.directiveType).toBe('dolar');
+      expect(trigDol?.query).toBe('ME');
+    });
+
+    it('detectSuggestTrigger ignora directivas si el usuario está escribiendo un comentario (#)', () => {
+      const trigComment = detectSuggestTrigger('factura: Factura A # com');
+      expect(trigComment).toBeNull();
+    });
+
+    it('formatSlashCommandReplacement formatea limpiamente directivas sin duplicar prefijos', () => {
+      // Directiva cliente:
+      const resCli = formatSlashCommandReplacement({
+        currentLineBeforeCursor: 'cliente: Fed',
+        snippet: 'cliente: Federico Gómez\n',
+        directiveType: 'cliente'
+      });
+      expect(resCli.replacementLine).toBe('cliente: Federico Gómez\n');
+
+      // Directiva factura:
+      const resFac = formatSlashCommandReplacement({
+        currentLineBeforeCursor: 'factura: ',
+        snippet: 'factura: Factura B\n',
+        directiveType: 'factura'
+      });
+      expect(resFac.replacementLine).toBe('factura: Factura B\n');
+
+      // Directiva validez:
+      const resVal = formatSlashCommandReplacement({
+        currentLineBeforeCursor: 'validez: 1',
+        snippet: 'validez: 30 dias\n',
+        directiveType: 'validez'
+      });
+      expect(resVal.replacementLine).toBe('validez: 30 dias\n');
+
+      // Reemplazo desde atajo @ en línea nueva
+      const resAt = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '@Fed',
+        snippet: 'cliente: Federico Gómez\n',
+        directiveType: 'cliente'
+      });
+      expect(resAt.replacementLine).toBe('cliente: Federico Gómez\n');
+    });
+  });
 });
 
 
