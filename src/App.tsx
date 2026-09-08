@@ -26,6 +26,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<string>('presupuestos');
   const [viewMode, setViewMode] = useState<'list' | 'editor' | 'detail'>('list');
   const [selectedPresupuestoId, setSelectedPresupuestoId] = useState<string | undefined>(undefined);
+  const [activeEditingPresupuestoId, setActiveEditingPresupuestoId] = useState<string | undefined>(undefined);
   const [initialClienteId, setInitialClienteId] = useState<string | undefined>(undefined);
   const [materialFilterContext, setMaterialFilterContext] = useState<MaterialFilterContext | null>(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -55,6 +56,7 @@ export function App() {
 
   const handleNewPresupuesto = () => {
     setSelectedPresupuestoId(undefined);
+    setActiveEditingPresupuestoId(undefined);
     setInitialClienteId(undefined);
     setViewMode('editor');
   };
@@ -77,10 +79,16 @@ export function App() {
       }
       if (materialFilterContext.returnPresupuestoId) {
         setSelectedPresupuestoId(materialFilterContext.returnPresupuestoId);
+        setActiveEditingPresupuestoId(materialFilterContext.returnPresupuestoId);
       }
     } else {
       setActiveTab('presupuestos');
-      setViewMode('list');
+      if (activeEditingPresupuestoId) {
+        setSelectedPresupuestoId(activeEditingPresupuestoId);
+        setViewMode('editor');
+      } else {
+        setViewMode('list');
+      }
     }
     setMaterialFilterContext(null);
   };
@@ -102,6 +110,7 @@ export function App() {
 
   const handleNewPresupuestoForCliente = (clienteId: string) => {
     setSelectedPresupuestoId(undefined);
+    setActiveEditingPresupuestoId(undefined);
     setInitialClienteId(clienteId);
     setActiveTab('presupuestos');
     setViewMode('editor');
@@ -115,6 +124,7 @@ export function App() {
 
   const handleEditPresupuestoFromClientes = (id: string) => {
     setSelectedPresupuestoId(id);
+    setActiveEditingPresupuestoId(id);
     setActiveTab('presupuestos');
     setViewMode('editor');
   };
@@ -126,6 +136,7 @@ export function App() {
 
   const handleEditPresupuesto = (id: string) => {
     setSelectedPresupuestoId(id);
+    setActiveEditingPresupuestoId(id);
     setViewMode('editor');
   };
 
@@ -149,10 +160,12 @@ export function App() {
 
     await db.presupuestos.add(duplicated);
     setSelectedPresupuestoId(duplicated.id);
+    setActiveEditingPresupuestoId(duplicated.id);
     setViewMode('detail');
   };
 
   const handleSavedPresupuesto = (id: string) => {
+    setActiveEditingPresupuestoId(undefined);
     setSelectedPresupuestoId(id);
     setViewMode('detail');
   };
@@ -164,7 +177,16 @@ export function App() {
         activeTab={activeTab}
         setActiveTab={(tab) => {
           setActiveTab(tab);
-          setViewMode('list');
+          if (tab === 'presupuestos') {
+            if (activeEditingPresupuestoId) {
+              setSelectedPresupuestoId(activeEditingPresupuestoId);
+              setViewMode('editor');
+            } else {
+              setViewMode('list');
+            }
+          } else {
+            setViewMode('list');
+          }
         }}
         config={config}
         onOpenConfig={() => setShowConfigModal(true)}
@@ -198,9 +220,16 @@ export function App() {
                   presupuestoId={selectedPresupuestoId}
                   initialClienteId={initialClienteId}
                   config={config}
-                  onBack={() => setViewMode('list')}
+                  onBack={() => {
+                    setActiveEditingPresupuestoId(undefined);
+                    setSelectedPresupuestoId(undefined);
+                    setViewMode('list');
+                  }}
                   onSaved={handleSavedPresupuesto}
-                  onDraftAutoSaved={(id) => setSelectedPresupuestoId(id)}
+                  onDraftAutoSaved={(id) => {
+                    setSelectedPresupuestoId(id);
+                    setActiveEditingPresupuestoId(id);
+                  }}
                   onViewMaterialsInCatalog={handleViewMaterialsInCatalog}
                 />
               )}

@@ -272,32 +272,36 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                       )}
                     </div>
                   </div>
-                                <div className="flex items-center gap-1.5 pt-2 border-t border-outline-variant/10">
-                    {p.estado === 'borrador' ? (
-                      <button
-                        type="button"
-                        onClick={() => onEdit(p.id)}
-                        className="flex-1 min-h-[42px] flex items-center justify-center gap-2 px-3 py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl text-xs sm:text-sm font-bold transition-colors shadow-2xs"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                        <span>Continuar Editando</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => onSelect(p.id)}
-                        className="flex-1 min-h-[42px] flex items-center justify-center gap-2 px-3 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-xl text-xs sm:text-sm font-bold transition-colors shadow-2xs"
-                      >
-                        <Eye className="w-4 h-4" />
-                        <span>Ver Detalle</span>
-                      </button>
-                    )}
+                                <div className="flex flex-col gap-2 pt-2 border-t border-outline-variant/10">
+                  {/* Fila 1: Acción Principal destacada */}
+                  {p.estado === 'borrador' ? (
+                    <button
+                      type="button"
+                      onClick={() => onEdit(p.id)}
+                      className="w-full min-h-[40px] flex items-center justify-center gap-2 px-3 py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl text-xs sm:text-sm font-bold transition-colors shadow-2xs"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      <span>Continuar Editando</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onSelect(p.id)}
+                      className="w-full min-h-[40px] flex items-center justify-center gap-2 px-3 py-2 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container rounded-xl text-xs sm:text-sm font-bold transition-colors shadow-2xs"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>Ver Detalle</span>
+                    </button>
+                  )}
 
+                  {/* Fila 2: Barra de utilidades y exportación (5 columnas balanceadas) */}
+                  <div className="grid grid-cols-5 gap-1.5">
                     <button
                       type="button"
                       onClick={() => exportPresupuestoToPDF(p, cliente, config)}
-                      className="min-w-[42px] min-h-[42px] flex items-center justify-center text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0 border border-primary/20"
+                      className="min-h-[38px] flex items-center justify-center text-primary hover:bg-primary/10 rounded-xl transition-colors border border-primary/20"
                       title="Descargar cotización en PDF"
+                      aria-label="Descargar cotización en PDF"
                     >
                       <Download className="w-4 h-4" />
                     </button>
@@ -305,8 +309,9 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                     <button
                       type="button"
                       onClick={() => exportPresupuestoToXLSX(p, cliente, config)}
-                      className="min-w-[42px] min-h-[42px] flex items-center justify-center text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-colors shrink-0 border border-emerald-500/20"
+                      className="min-h-[38px] flex items-center justify-center text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-colors border border-emerald-500/20"
                       title="Exportar a Excel (XLSX)"
+                      aria-label="Exportar a Excel (XLSX)"
                     >
                       <FileSpreadsheet className="w-4 h-4" />
                     </button>
@@ -314,8 +319,9 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                     <button
                       type="button"
                       onClick={() => setPresupuestoForWhatsApp(p)}
-                      className="min-w-[42px] min-h-[42px] flex items-center justify-center text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-colors shrink-0 border border-emerald-500/30"
+                      className="min-h-[38px] flex items-center justify-center text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-colors border border-emerald-500/30"
                       title="Compartir por WhatsApp con formato inteligente"
+                      aria-label="Compartir por WhatsApp"
                     >
                       <MessageSquare className="w-4 h-4" />
                     </button>
@@ -324,8 +330,9 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelect(p.id)}
-                        className="min-w-[42px] min-h-[42px] flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors shrink-0 border border-outline-variant/20"
+                        className="min-h-[38px] flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors border border-outline-variant/20"
                         title="Ver resumen y detalle del borrador"
+                        aria-label="Ver resumen y detalle del borrador"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
@@ -333,8 +340,9 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                       <button
                         type="button"
                         onClick={() => onEdit(p.id)}
-                        className="min-w-[42px] min-h-[42px] flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors shrink-0 border border-outline-variant/20"
+                        className="min-h-[38px] flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-xl transition-colors border border-outline-variant/20"
                         title="Editar presupuesto"
+                        aria-label="Editar presupuesto"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -343,12 +351,14 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                     <button
                       type="button"
                       onClick={() => handleDelete(p.id)}
-                      className="min-w-[42px] min-h-[42px] flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-xl transition-colors shrink-0 border border-outline-variant/20"
+                      className="min-h-[38px] flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-xl transition-colors border border-outline-variant/20"
                       title="Eliminar presupuesto"
+                      aria-label="Eliminar presupuesto"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
+                </div>
                 </div>
               </div>
             );

@@ -8,15 +8,23 @@ import {
   findNextFillableField,
   parseLocalizedNumber,
   normalizeString,
+  normalizeGastoDestino,
+  parseGastoValueString,
+  parseGastoItem,
   detectCursorContext,
   detectSuggestTrigger,
   formatSlashCommandReplacement,
   handleYamlSmartEnter,
   handleYamlSmartBackspace,
+  handleYamlSmartTab,
+  normalizePastedYaml,
+  validateYamlStructure,
+  extractCalculosBlockFromDsl,
   scoreSearchMatch,
   preprocessYamlText
 } from './dslParser';
-import { Cliente, TareaTipo, Insumo, CategoriaManoDeObra, ItemPresupuesto, CapituloPresupuesto } from '../../../core/types';
+import { Cliente, TareaTipo, Insumo, CategoriaManoDeObra, ItemPresupuesto, CapituloPresupuesto, CostoIndirecto } from '../../../core/types';
+import { calcularTotalesPresupuesto } from '../../../core/calculations';
 
 describe('dslParser (Modo Experto YAML)', () => {
   const mockClientes: Cliente[] = [
@@ -480,8 +488,8 @@ Instalación Eléctrica:
 
       // Debe haberle agregado ':' a Bocas de Iluminacion
       expect(newText).toContain('  - 10 u Bocas de Iluminacion:');
-      // Debe haber quitado el guión y sangrado materiales: a 6 espacios
-      expect(newText).toContain('      materiales:\n        - ');
+      // Debe haber quitado el guión y sangrado materiales: a 4 espacios (nivel semántico 2)
+      expect(newText).toContain('    materiales:\n      - ');
     });
 
     it('corrige la línea cuando el usuario escribe sólo materiales sin guión ni dos puntos', () => {
@@ -491,7 +499,7 @@ Instalación Eléctrica:
       const { newText } = handleYamlSmartEnter({ textBefore, textAfter });
 
       expect(newText).toContain('  - Tablero Principal:');
-      expect(newText).toContain('      materiales:\n        - ');
+      expect(newText).toContain('    materiales:\n      - ');
     });
 
     it('alinea mano_obra: con materiales: al presionar Enter', () => {
@@ -1185,12 +1193,12 @@ dolar: USD Blue
       expect(contextType).toBe('tareas');
     });
 
-    it('detectCursorContext infiere contexto "tareas" al escribir propiedades indentadas bajo una partida', () => {
+    it('detectCursorContext infiere contexto "item" al escribir propiedades o subsecciones indentadas bajo una partida', () => {
       const textBefore = `  - 1 u Reparación de tablero:
       mat`;
 
       const { contextType } = detectCursorContext(textBefore);
-      expect(contextType).toBe('tareas');
+      expect(contextType).toBe('item');
     });
 
     it('detectCursorContext infiere contexto "materiales" únicamente cuando el ancestro es "materiales:"', () => {
@@ -1332,6 +1340,57 @@ dolar: USD Blue
       expect(replacementLine).toContain('        - Cable Unipolar 4 mm²:');
       expect(replacementLine).toContain('            cantidad: ');
       expect(replacementLine).toContain('            precio: 1510');
+    });
+
+    it('handleYamlSmartEnter desindenta correctamente al nivel del ítem al presionar Enter en una propiedad de material', () => {
+      // Caso 1: Terminar de completar cantidad en bloque con propiedades hermanas debajo (producto y precio)
+      const resWithSiblings = handleYamlSmartEnter({
+        textBefore: '      materiales:\n        - Cable Unipolar 1.5 mm²:\n            cantidad: 25 m',
+        textAfter: '\n            producto: Prysmian\n            precio: 1200\n        - Térmica:'
+      });
+
+      expect(resWithSiblings.newText).toContain('            cantidad: 25 m\n            producto: Prysmian\n            precio: 1200\n        - \n        - Térmica:');
+      expect(resWithSiblings.newText.indexOf('        - \n')).toBeGreaterThan(0);
+
+      // Caso 2: Terminar de completar cantidad en bloque sin más propiedades debajo
+      const resWithoutSiblings = handleYamlSmartEnter({
+        textBefore: '      materiales:\n        - Cable Unipolar 1.5 mm²:\n            cantidad: 25 m',
+        textAfter: ''
+      });
+
+      expect(resWithoutSiblings.newText.endsWith('        - ')).toBe(true);
+
+      // Caso 3: Terminar de completar cantidad cuando el cursor está en el número o antes de la unidad
+      const resCursorInQty = handleYamlSmartEnter({
+        textBefore: '      materiales:\n        - Cable Unipolar 1.5 mm²:\n            cantidad: 25',
+        textAfter: ' m\n            producto: Prysmian\n            precio: 1200'
+      });
+
+      expect(resCursorInQty.newText).toContain('            cantidad: 25 m\n            producto: Prysmian\n            precio: 1200\n        - ');
+    });
+
+    it('handleYamlSmartEnter no divide la línea al completar cantidad en ítem de material inline', () => {
+      const resInline = handleYamlSmartEnter({
+        textBefore: '      materiales:\n        - 25',
+        textAfter: ' m Cable Unipolar 1.5 mm²\n        - 2 u Térmica'
+      });
+
+      expect(resInline.newText).toBe('      materiales:\n        - 25 m Cable Unipolar 1.5 mm²\n        - \n        - 2 u Térmica');
+      expect(resInline.newCursorPos).toBe('      materiales:\n        - 25 m Cable Unipolar 1.5 mm²\n        - '.length);
+    });
+
+    it('detectSuggestTrigger dispara sugerencias desde la primera letra tipeada tras una viñeta', () => {
+      const trigger1 = detectSuggestTrigger('        - c');
+      expect(trigger1).not.toBeNull();
+      expect(trigger1?.query).toBe('c');
+
+      const trigger2 = detectSuggestTrigger('        - 10 u c');
+      expect(trigger2).not.toBeNull();
+      expect(trigger2?.query).toBe('c');
+
+      const trigger3 = detectSuggestTrigger('  - b');
+      expect(trigger3).not.toBeNull();
+      expect(trigger3?.query).toBe('b');
     });
 
     it('parseDSLToPresupuesto parsea sin errores la cotización con despiece de prueba del usuario (Refacciones)', () => {
@@ -1842,8 +1901,985 @@ Iluminación:
       expect(serialized).toContain('coef: 1.15');
       expect(serialized).toContain('- =bocas u Puntos y Tomas: $ 10.000');
     });
+
+    it('interpreta bloque "calculo:" (singular) y "cálculos:" correctamente', () => {
+      const dsl = `cliente: Federico Gómez
+obra: Casa Central
+
+calculo:
+  bocas: 24
+  precio_boca: 5000
+  total: = bocas * precio_boca
+
+Instalación:
+  - 1 u Tablero Principal: $ 150.000`;
+
+      const parsed = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(parsed.calculatedCells).toBeDefined();
+      expect(parsed.calculatedCells!.length).toBe(3);
+      expect(parsed.calculatedCells!.find((c) => c.name === 'bocas')?.evaluatedValue).toBe(24);
+      expect(parsed.calculatedCells!.find((c) => c.name === 'total')?.evaluatedValue).toBe(120000);
+      expect(parsed.calculosVariables?.bocas).toBe(24);
+      // "calculo" NO debe haber sido tratado como un capítulo
+      expect(parsed.capitulos.some((c) => c.nombre.toLowerCase() === 'calculo')).toBe(false);
+    });
+
+    it('interpreta asignaciones "variable = expresion" sin dos puntos dentro de calculos:', () => {
+      const dsl = `calculos:
+  bocas = 24
+  costo_hora = 12000
+  horas = 10
+  mano_obra = bocas * 2000`;
+
+      const parsed = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(parsed.calculatedCells?.find((c) => c.name === 'bocas')?.evaluatedValue).toBe(24);
+      expect(parsed.calculatedCells?.find((c) => c.name === 'costo_hora')?.evaluatedValue).toBe(12000);
+      expect(parsed.calculatedCells?.find((c) => c.name === 'mano_obra')?.evaluatedValue).toBe(48000);
+    });
+
+    it('interpreta "cant: = bocas" y "calculo: = ..." dentro de una partida', () => {
+      const dsl = `calculos:
+  bocas: 20
+
+Iluminación:
+  - Bocas de Iluminacion:
+      cant: = bocas
+      precio: 8500
+  - Armado de Tablero:
+      calculo: = bocas / 5
+      precio: 35000`;
+
+      const parsed = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(parsed.items.length).toBe(2);
+      expect(parsed.items[0].cantidad).toBe(20);
+      expect(parsed.items[0].precioManual).toBe(8500);
+      expect(parsed.items[1].cantidad).toBe(4);
+      expect(parsed.items[1].precioManual).toBe(35000);
+    });
+
+    it('Problema 1: no crea un ítem falso ni vincula con el primer trabajo tipo cuando hay un renglón vacío o "- 1 u "', () => {
+      const dsl = `
+Capítulo 1:
+  - 1 u 
+  - 
+  - "":
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items.length).toBe(0);
+    });
+
+    it('Problema 2: permite escribir partidas libres sin que coincidan por subcadenas parciales con tareas del catálogo', () => {
+      const dsl = `
+Capítulo 1:
+  - 1 u Arreglar cable bajo mesada: $ 15.000
+  - 1 u Tablero para quincho con térmicas: $ 45.000
+  - 1 u Colocación de artefacto en pared
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items.length).toBe(3);
+
+      // Primer ítem: contiene la palabra "cable", pero no debe convertirse en tarea de catálogo
+      expect(res.items[0].tareaTipoId).toBeUndefined();
+      expect(res.items[0].descripcion).toBe('Arreglar cable bajo mesada');
+      expect(res.items[0].precioManual).toBe(15000);
+      expect(res.items[0].costoUnitario).toBe(15000);
+
+      // Segundo ítem: contiene "Tablero", pero no debe convertirse en tarea de catálogo
+      expect(res.items[1].tareaTipoId).toBeUndefined();
+      expect(res.items[1].descripcion).toBe('Tablero para quincho con térmicas');
+      expect(res.items[1].precioManual).toBe(45000);
+
+      // Tercer ítem: texto libre sin precio aún
+      expect(res.items[2].tareaTipoId).toBeUndefined();
+      expect(res.items[2].descripcion).toBe('Colocación de artefacto en pared');
+    });
+
+    it('vincula con trabajo tipo cuando el nombre coincide exactamente (ignorando mayúsculas y acentos)', () => {
+      const dsl = `
+Capítulo 1:
+  - 10 u Boca de Iluminacion
+  - 2 u disyuntor diferencial 2x40a
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items.length).toBe(2);
+      expect(res.items[0].tareaTipoId).toBe('tarea-boca');
+      expect(res.items[0].descripcion).toBe('Boca de Iluminación');
+      expect(res.items[1].tareaTipoId).toBe('tarea-disyuntor');
+      expect(res.items[1].descripcion).toBe('Disyuntor Diferencial 2x40A');
+    });
+
+    it('parsea servicios y subcontratos dentro de una partida a medida', () => {
+      const dsl = `
+Montajes Especiales:
+  - Tendido Aéreo con Grúa:
+      materiales:
+        - 50 m Cable Sintenax 4x6: $ 5000
+      mano_obra:
+        - 8 h Oficial
+      servicios:
+        - 1 u Hidroelevador con operador: $ 60000
+        - Alquiler de andamios: $ 25000
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items.length).toBe(1);
+      const item = res.items[0];
+      expect(item.descripcion).toBe('Tendido Aéreo con Grúa');
+      expect(item.costoInsumos).toBe(250000); // 50 * 5000
+      expect(item.costoManoObra).toBe(40000); // 8h * 5000
+      expect(item.costoServicios).toBe(85000); // 60000 + 25000
+      expect(item.costoDirectoTotal).toBe(375000); // 250000 + 40000 + 85000
+    });
+
+    it('soporta cálculos multilínea en YAML con > y |', () => {
+      const dsl = `
+calculos:
+  superficie: 120
+  computo_folded: >
+    (superficie * 10)
+    + 200
+  computo_literal: |
+    (superficie * 2)
+    + 50
+Capítulo 1:
+  - =computo_folded u Cable unipolar 2.5
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      const foldedCell = res.calculatedCells?.find((c) => c.name === 'computo_folded');
+      expect(foldedCell).toBeDefined();
+      expect(foldedCell?.evaluatedValue).toBe(1400); // (120 * 10) + 200
+
+      const literalCell = res.calculatedCells?.find((c) => c.name === 'computo_literal');
+      expect(literalCell).toBeDefined();
+      expect(literalCell?.evaluatedValue).toBe(290); // (120 * 2) + 50
+    });
+
+    it('detecta correctamente los contextos del cursor: tareas, item, servicios, gastos y calculos', () => {
+      // 1. Contexto bajo capítulo (tareas)
+      const textChapter = `Capítulo 1:\n  - `;
+      expect(detectCursorContext(textChapter).contextType).toBe('tareas');
+
+      // 2. Contexto dentro de un ítem
+      const textInsideItem = `Capítulo 1:\n  - Tablero Seccional:\n      `;
+      expect(detectCursorContext(textInsideItem).contextType).toBe('item');
+
+      // 3. Contexto dentro de servicios
+      const textServices = `Capítulo 1:\n  - Tablero Seccional:\n      servicios:\n        - `;
+      expect(detectCursorContext(textServices).contextType).toBe('servicios');
+
+      // 4. Contexto dentro de gastos
+      const textGastos = `gastos:\n  - `;
+      expect(detectCursorContext(textGastos).contextType).toBe('gastos');
+
+      // 5. Contexto dentro de calculos
+      const textCalculos = `calculos:\n  `;
+      expect(detectCursorContext(textCalculos).contextType).toBe('calculos');
+    });
+
+    it('normaliza destinos de gasto correctamente con normalizeGastoDestino', () => {
+      expect(normalizeGastoDestino('mano_obra')).toBe('mano_obra');
+      expect(normalizeGastoDestino('mano de obra')).toBe('mano_obra');
+      expect(normalizeGastoDestino('mo')).toBe('mano_obra');
+      expect(normalizeGastoDestino('labor')).toBe('mano_obra');
+
+      expect(normalizeGastoDestino('materiales')).toBe('materiales');
+      expect(normalizeGastoDestino('material')).toBe('materiales');
+      expect(normalizeGastoDestino('insumos')).toBe('materiales');
+
+      expect(normalizeGastoDestino('servicios')).toBe('servicios');
+      expect(normalizeGastoDestino('subcontratos')).toBe('servicios');
+      expect(normalizeGastoDestino('alquileres')).toBe('servicios');
+
+      expect(normalizeGastoDestino('costo_directo')).toBe('costo_indirecto');
+      expect(normalizeGastoDestino('costos directos')).toBe('costo_indirecto');
+      expect(normalizeGastoDestino('costo directo')).toBe('costo_indirecto');
+      expect(normalizeGastoDestino('directo')).toBe('costo_indirecto');
+      expect(normalizeGastoDestino('total')).toBe('costo_indirecto');
+      expect(normalizeGastoDestino('costo_indirecto')).toBe('costo_indirecto');
+      expect(normalizeGastoDestino(undefined)).toBeUndefined();
+    });
+
+    it('parsea valores y expresiones de gasto con parseGastoValueString', () => {
+      // Porcentual con destino
+      const p1 = parseGastoValueString('8% sobre mano_obra');
+      expect(p1.modalidad).toBe('porcentual');
+      expect(p1.valor).toBe(8);
+      expect(p1.destino).toBe('mano_obra');
+
+      const p2 = parseGastoValueString('5% s/ materiales');
+      expect(p2.modalidad).toBe('porcentual');
+      expect(p2.valor).toBe(5);
+      expect(p2.destino).toBe('materiales');
+
+      const p3 = parseGastoValueString('10% sobre costo_directo');
+      expect(p3.modalidad).toBe('porcentual');
+      expect(p3.valor).toBe(10);
+      expect(p3.destino).toBe('costo_indirecto');
+
+      // Porcentual sin destino especificado -> default costo_indirecto
+      const p4 = parseGastoValueString('12.5%');
+      expect(p4.modalidad).toBe('porcentual');
+      expect(p4.valor).toBe(12.5);
+      expect(p4.destino).toBe('costo_indirecto');
+
+      // Monto fijo en pesos
+      const f1 = parseGastoValueString('$ 25.000');
+      expect(f1.modalidad).toBe('monto_fijo');
+      expect(f1.valor).toBe(25000);
+
+      const f2 = parseGastoValueString(15000);
+      expect(f2.modalidad).toBe('monto_fijo');
+      expect(f2.valor).toBe(15000);
+
+      // Expresión paramétrica
+      const param = parseGastoValueString('=dias * 5000');
+      expect(param.modalidad).toBe('parametrico');
+      expect(param.formula).toBe('dias * 5000');
+    });
+
+    it('parsea gastos porcentuales y fijos en parseDSLToPresupuesto', () => {
+      const yaml = `
+gastos:
+  - Seguro ART: 8% sobre mano_obra
+  - Merma Insumos: 5% sobre materiales
+  - Coordinación: 5% sobre servicios
+  - Gastos Generales: 10% sobre costo_directo
+  - Fondo Contingencia: 3%
+  - Flete y Logística: $ 25.000
+      `;
+
+      const result = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(result.gastosConfig).toHaveLength(6);
+
+      const art = result.gastosConfig.find((g) => g.nombre === 'Seguro ART');
+      expect(art?.modalidad).toBe('porcentual');
+      expect(art?.valor).toBe(8);
+      expect(art?.destino).toBe('mano_obra');
+
+      const merma = result.gastosConfig.find((g) => g.nombre === 'Merma Insumos');
+      expect(merma?.modalidad).toBe('porcentual');
+      expect(merma?.valor).toBe(5);
+      expect(merma?.destino).toBe('materiales');
+
+      const coord = result.gastosConfig.find((g) => g.nombre === 'Coordinación');
+      expect(coord?.modalidad).toBe('porcentual');
+      expect(coord?.valor).toBe(5);
+      expect(coord?.destino).toBe('servicios');
+
+      const generales = result.gastosConfig.find((g) => g.nombre === 'Gastos Generales');
+      expect(generales?.modalidad).toBe('porcentual');
+      expect(generales?.valor).toBe(10);
+      expect(generales?.destino).toBe('costo_indirecto');
+
+      const contingencia = result.gastosConfig.find((g) => g.nombre === 'Fondo Contingencia');
+      expect(contingencia?.modalidad).toBe('porcentual');
+      expect(contingencia?.valor).toBe(3);
+      expect(contingencia?.destino).toBe('costo_indirecto');
+
+      const flete = result.gastosConfig.find((g) => g.nombre === 'Flete y Logística');
+      expect(flete?.modalidad).toBe('monto_fijo');
+      expect(flete?.valor).toBe(25000);
+    });
+
+    it('parsea gastos estructurados en bloque YAML con porcentaje y aplica_a', () => {
+      const yaml = `
+gastos:
+  - Seguro ART:
+      porcentaje: 8%
+      aplica_a: mano_obra
+  - Flete de Materiales:
+      monto: 35000
+      `;
+
+      const result = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(result.gastosConfig).toHaveLength(2);
+
+      const art = result.gastosConfig.find((g) => g.nombre === 'Seguro ART');
+      expect(art?.modalidad).toBe('porcentual');
+      expect(art?.valor).toBe(8);
+      expect(art?.destino).toBe('mano_obra');
+
+      const flete = result.gastosConfig.find((g) => g.nombre === 'Flete de Materiales');
+      expect(flete?.modalidad).toBe('monto_fijo');
+      expect(flete?.valor).toBe(35000);
+    });
+
+    it('vincula gastos con el catálogo de CostosIndirectos y permite sobreescribir valores', () => {
+      const catalogMock: CostoIndirecto[] = [
+        {
+          id: 'ci-art-catalog',
+          nombre: 'Seguro de Accidentes Personales (ART)',
+          modalidad: 'porcentual',
+          valor: 8,
+          destino: 'mano_obra'
+        },
+        {
+          id: 'ci-flete-catalog',
+          nombre: 'Flete y Movilidad Pesada',
+          modalidad: 'monto_fijo',
+          valor: 20000
+        }
+      ];
+
+      // Caso 1: Se escribe sólo el nombre del gasto del catálogo -> hereda configuración
+      const yaml1 = `
+gastos:
+  - Seguro de Accidentes Personales (ART)
+  - Flete y Movilidad Pesada
+      `;
+
+      const res1 = parseDSLToPresupuesto(yaml1, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap,
+        costosIndirectosCatalog: catalogMock
+      });
+
+      expect(res1.gastosConfig).toHaveLength(2);
+      const art1 = res1.gastosConfig.find((g) => g.nombre === 'Seguro de Accidentes Personales (ART)');
+      expect(art1?.costoIndirectoId).toBe('ci-art-catalog');
+      expect(art1?.modalidad).toBe('porcentual');
+      expect(art1?.valor).toBe(8);
+      expect(art1?.destino).toBe('mano_obra');
+
+      const flete1 = res1.gastosConfig.find((g) => g.nombre === 'Flete y Movilidad Pesada');
+      expect(flete1?.costoIndirectoId).toBe('ci-flete-catalog');
+      expect(flete1?.modalidad).toBe('monto_fijo');
+      expect(flete1?.valor).toBe(20000);
+
+      // Caso 2: Sobreescribe porcentaje manteniendo vínculo al catálogo
+      const yaml2 = `
+gastos:
+  - Seguro de Accidentes Personales (ART): 12% sobre mano_obra
+      `;
+      const res2 = parseDSLToPresupuesto(yaml2, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap,
+        costosIndirectosCatalog: catalogMock
+      });
+
+      const art2 = res2.gastosConfig[0];
+      expect(art2.costoIndirectoId).toBe('ci-art-catalog');
+      expect(art2.modalidad).toBe('porcentual');
+      expect(art2.valor).toBe(12);
+      expect(art2.destino).toBe('mano_obra');
+    });
+
+    it('serializa gastos con porcentajes, destinos y montos fijos en serializePresupuestoToDSL', () => {
+      const dsl = serializePresupuestoToDSL({
+        gastosConfig: [
+          { id: 'g1', nombre: 'Seguro ART', modalidad: 'porcentual', valor: 8, destino: 'mano_obra', aplica: true },
+          { id: 'g2', nombre: 'Merma Insumos', modalidad: 'porcentual', valor: 5, destino: 'materiales', aplica: true },
+          { id: 'g3', nombre: 'Coordinación', modalidad: 'porcentual', valor: 5, destino: 'servicios', aplica: true },
+          { id: 'g4', nombre: 'Gastos Generales', modalidad: 'porcentual', valor: 10, destino: 'costo_indirecto', aplica: true },
+          { id: 'g5', nombre: 'Flete', modalidad: 'monto_fijo', valor: 25000, aplica: true }
+        ]
+      });
+
+      expect(dsl).toContain('gastos:');
+      expect(dsl).toContain('- Seguro ART: 8% sobre mano_obra');
+      expect(dsl).toContain('- Merma Insumos: 5% sobre materiales');
+      expect(dsl).toContain('- Coordinación: 5% sobre servicios');
+      expect(dsl).toContain('- Gastos Generales: 10% sobre costo_directo');
+      expect(dsl).toContain('- Flete: $ 25.000');
+
+      // Roundtrip parsing
+      const reparsed = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(reparsed.gastosConfig).toHaveLength(5);
+      expect(reparsed.gastosConfig[0].valor).toBe(8);
+      expect(reparsed.gastosConfig[0].destino).toBe('mano_obra');
+      expect(reparsed.gastosConfig[1].valor).toBe(5);
+      expect(reparsed.gastosConfig[1].destino).toBe('materiales');
+      expect(reparsed.gastosConfig[4].valor).toBe(25000);
+      expect(reparsed.gastosConfig[4].modalidad).toBe('monto_fijo');
+    });
+
+    it('calcula correctamente los totales con gastos porcentuales sobre mano de obra y materiales', () => {
+      const yaml = `
+Instalación:
+  - 1 u Tarea Con Desglose:
+      materiales:
+        - 10 u Cable:
+            precio: 1000
+      mano_obra:
+        - 10 h Oficial:
+            precio: 2000
+gastos:
+  - Seguro ART: 10% sobre mano_obra
+  - Merma Materiales: 5% sobre materiales
+      `;
+
+      const parsed = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      const totales = calcularTotalesPresupuesto({
+        items: parsed.items,
+        gastosConfig: parsed.gastosConfig,
+        margenPorcentaje: 0,
+        tipoFactura: 'Presupuesto X (Sin Factura)',
+        impuestosDetalle: []
+      });
+
+      // Materiales: 10 * 1000 = 10,000
+      // Mano de obra: 10 * 2000 = 20,000
+      // Gasto ART: 10% sobre 20,000 MO = 2,000
+      // Gasto Merma: 5% sobre 10,000 Mat = 500
+      // Total direct cost = 10,000 + 20,000 + 2,000 + 500 = 32,500
+      expect(totales.subtotalInsumosBase).toBe(10000);
+      expect(totales.subtotalInsumos).toBe(10500);
+      expect(totales.subtotalManoObraBase).toBe(20000);
+      expect(totales.subtotalManoObra).toBe(22000);
+      expect(totales.gastosManoObraTotal).toBe(2000);
+      expect(totales.gastosMaterialesTotal).toBe(500);
+      expect(totales.subtotalCostosDirectos).toBe(32500);
+    });
+
+    it('selecciona automáticamente el valor numérico al insertar un gasto porcentual en formatSlashCommandReplacement', () => {
+      const snippet = `- Seguro ART: 8% sobre mano_obra\n`;
+      const result = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '  - seg',
+        snippet,
+        contextType: 'gastos'
+      });
+
+      expect(result.replacementLine).toBe('  - Seguro ART: 8% sobre mano_obra\n');
+      expect(result.selectionRange).toBeDefined();
+
+      const selected = result.replacementLine.substring(result.selectionRange!.start, result.selectionRange!.end);
+      expect(selected).toBe('8');
+    });
+
+    it('selecciona automáticamente el monto fijo al insertar un gasto en pesos en formatSlashCommandReplacement', () => {
+      const snippet = `- Flete y Logística: $ 25000\n`;
+      const result = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '  - fle',
+        snippet,
+        contextType: 'gastos'
+      });
+
+      expect(result.replacementLine).toBe('  - Flete y Logística: $ 25000\n');
+      expect(result.selectionRange).toBeDefined();
+
+      const selected = result.replacementLine.substring(result.selectionRange!.start, result.selectionRange!.end);
+      expect(selected).toBe('25000');
+    });
+  });
+
+  describe('Eliminar silencios en el lint (Diagnósticos y Números de Línea)', () => {
+    it('1a: detecta directivas raíz con typos y sugiere el nombre correcto', () => {
+      const yaml = `
+# Comentario inicial
+clente: Estudio Arq. Gómez
+margenn: 40
+factura: Factura A
+
+Capítulo 1:
+  - 5 u Boca de Iluminación
+`;
+      const res = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      const typoClientDiag = res.diagnostics.find((d) => d.message.includes("clente") && d.message.includes("cliente"));
+      expect(typoClientDiag).toBeDefined();
+      expect(typoClientDiag?.type).toBe('warning');
+      expect(typoClientDiag?.line).toBe(3);
+
+      const typoMargenDiag = res.diagnostics.find((d) => d.message.includes("margenn") && d.message.includes("margen"));
+      expect(typoMargenDiag).toBeDefined();
+      expect(typoMargenDiag?.type).toBe('warning');
+      expect(typoMargenDiag?.line).toBe(4);
+    });
+
+    it('1b: emite error visible ante cantidades no numéricas y NO descarta el ítem', () => {
+      const yaml = `
+cliente: Juan Pérez
+factura: Factura B
+
+Instalación:
+  - Boca de Iluminación:
+      cantidad: muchas
+      condicion: normal
+`;
+      const res = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      // El ítem NO debe ser omitido
+      expect(res.items.length).toBe(1);
+      expect(res.items[0].descripcion).toBe('Boca de Iluminación');
+      expect(res.items[0].cantidad).toBe(0);
+
+      // Debe existir un error de diagnóstico visible en la línea correspondiente
+      const errDiag = res.diagnostics.find((d) => d.type === 'error' && d.message.includes('muchas'));
+      expect(errDiag).toBeDefined();
+      expect(errDiag?.line).toBe(7);
+    });
+
+    it('1c: detecta propiedades de material mal escritas (cantiad: 10) y advierte el fallback', () => {
+      const yaml = `
+Capítulo 1:
+  - Tablero Principal:
+      materiales:
+        - Cable 2.5mm:
+            cantiad: 10
+            precio: 500
+`;
+      const res = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      const warn = res.diagnostics.find((d) => d.message.includes('cantiad') && d.message.includes('cantidad'));
+      expect(warn).toBeDefined();
+      expect(warn?.type).toBe('warning');
+      expect(warn?.line).toBe(6);
+    });
+
+    it('1d: detecta valores fuera de dominio en factura, riesgo y validez reportando el fallback', () => {
+      const yaml = `
+cliente: Juan Pérez
+factura: Factura Z
+riesgo: extremo
+validez: indefinida
+
+Capítulo 1:
+  - 1 u Boca de Iluminación
+`;
+      const res = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.tipoFactura).toBe('Factura A');
+      const facturaWarn = res.diagnostics.find((d) => d.message.includes('Factura Z') && d.message.includes('Factura A'));
+      expect(facturaWarn).toBeDefined();
+      expect(facturaWarn?.line).toBe(3);
+
+      expect(res.nivelMargenRiesgo).toBe('medio');
+      const riesgoWarn = res.diagnostics.find((d) => d.message.includes('extremo') && d.message.includes('medio'));
+      expect(riesgoWarn).toBeDefined();
+      expect(riesgoWarn?.line).toBe(4);
+
+      expect(res.validezDias).toBe(15);
+      const validezWarn = res.diagnostics.find((d) => d.message.includes('indefinida') && d.message.includes('15'));
+      expect(validezWarn).toBeDefined();
+      expect(validezWarn?.line).toBe(5);
+    });
+
+    it('1e: calcula números de línea reales y precisos en vez de line: 1', () => {
+      const yaml = `
+# Encabezado largo
+# Con varios comentarios
+# Para desplazar líneas
+
+cliente: Cliente Inexistente S.A.
+factura: Factura A
+
+Capítulo A:
+  - 5 u Boca de Iluminación
+`;
+      const res = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      // El warning de cliente no encontrado debe reportarse en la línea del cliente, NO en línea 1
+      const cliWarn = res.diagnostics.find((d) => d.message.includes('Cliente Inexistente S.A.'));
+      expect(cliWarn).toBeDefined();
+      expect(cliWarn?.line).toBe(6);
+
+      // La partida debe reportarse en su línea real
+      const itemInfo = res.diagnostics.find((d) => d.message.includes('Boca de Iluminación'));
+      expect(itemInfo).toBeDefined();
+      expect(itemInfo?.line).toBe(10);
+    });
+  });
+
+  describe('Garantizar integridad estructural (Jerarquía 0/2/4/6/8, Tab, Enter, Paste, Lint)', () => {
+    it('validateYamlStructure detecta bloques de despiece y atributos huérfanos o indentación impar', () => {
+      const yaml = `
+cliente: Federico Gómez
+materiales:
+  - 10 m Cable
+Capítulo 1:
+  cantidad: 20
+   - 10 u Boca de Iluminación
+`;
+      const diags = validateYamlStructure(yaml);
+      
+      // 1. materiales: a nivel raíz (huérfano)
+      const orphSec = diags.find((d) => d.message.includes('Bloque huérfano "materiales:" a nivel raíz'));
+      expect(orphSec).toBeDefined();
+      expect(orphSec?.line).toBe(3);
+
+      // 2. cantidad: bajo capítulo sin partida (huérfano)
+      const orphAttr = diags.find((d) => d.message.includes('Atributo huérfano "cantidad:"'));
+      expect(orphAttr).toBeDefined();
+      expect(orphAttr?.line).toBe(6);
+
+      // 3. Indentación impar (3 espacios)
+      const oddIndent = diags.find((d) => d.message.includes('Indentación impar (3 espacios)'));
+      expect(oddIndent).toBeDefined();
+      expect(oddIndent?.line).toBe(7);
+    });
+
+    it('handleYamlSmartEnter respeta estrictamente los niveles 0 -> 2 -> 4 -> 6 -> 8', () => {
+      // Nivel 0 (Capítulo) -> Siguiente renglón es partida (Nivel 1: "  - ")
+      const r1 = handleYamlSmartEnter({
+        textBefore: 'Capítulo 1:',
+        textAfter: ''
+      });
+      expect(r1.newText).toBe('Capítulo 1:\n  - ');
+
+      // Nivel 1 (Partida que termina en ':') -> Siguiente renglón es sub-bloque materiales (Nivel 2: "    materiales:")
+      const r2 = handleYamlSmartEnter({
+        textBefore: 'Capítulo 1:\n  - 10 u Boca de Iluminación:',
+        textAfter: ''
+      });
+      expect(r2.newText).toBe('Capítulo 1:\n  - 10 u Boca de Iluminación:\n    materiales:');
+
+      // Nivel 1 (Partida normal sin ':') -> Siguiente renglón es partida hermana (Nivel 1: "  - ")
+      const r3 = handleYamlSmartEnter({
+        textBefore: 'Capítulo 1:\n  - 10 u Boca de Iluminación',
+        textAfter: ''
+      });
+      expect(r3.newText).toBe('Capítulo 1:\n  - 10 u Boca de Iluminación\n  - ');
+
+      // Nivel 2 (Sub-bloque "    materiales:") -> Siguiente renglón es ítem de despiece (Nivel 3: "      - ")
+      const r4 = handleYamlSmartEnter({
+        textBefore: 'Capítulo 1:\n  - Boca:\n    materiales:',
+        textAfter: ''
+      });
+      expect(r4.newText).toBe('Capítulo 1:\n  - Boca:\n    materiales:\n      - ');
+
+      // Nivel 3 (Ítem de despiece con ':') -> Siguiente renglón es atributo (Nivel 4: "        cantidad: ")
+      const r5 = handleYamlSmartEnter({
+        textBefore: 'Capítulo 1:\n  - Boca:\n    materiales:\n      - Cable 2.5 mm²:',
+        textAfter: ''
+      });
+      expect(r5.newText).toBe('Capítulo 1:\n  - Boca:\n    materiales:\n      - Cable 2.5 mm²:\n        cantidad: ');
+
+      // Nivel 4 (Atributo "        cantidad: 20") -> Siguiente renglón desindenta a ítem hermano (Nivel 3: "      - ")
+      const r6 = handleYamlSmartEnter({
+        textBefore: 'Capítulo 1:\n  - Boca:\n    materiales:\n      - Cable 2.5 mm²:\n        cantidad: 20',
+        textAfter: ''
+      });
+      expect(r6.newText).toBe('Capítulo 1:\n  - Boca:\n    materiales:\n      - Cable 2.5 mm²:\n        cantidad: 20\n      - ');
+
+      // Viñeta vacía de nivel 3 ("      - ") -> Desindenta a nivel 2 ("    ")
+      const r7 = handleYamlSmartEnter({
+        textBefore: 'Capítulo 1:\n  - Boca:\n    materiales:\n      - ',
+        textAfter: ''
+      });
+      expect(r7.newText).toBe('Capítulo 1:\n  - Boca:\n    materiales:\n    ');
+    });
+
+    it('handleYamlSmartTab calcula niveles contextuales y cicla entre 0 -> 2 -> 4 -> 6 -> 8 -> 0', () => {
+      // 1. En renglón vacío debajo de un capítulo (Nivel 0): salta al nivel contextual de partida (Nivel 1: "  - ")
+      const t1 = handleYamlSmartTab({
+        textBefore: 'Capítulo 1:\n',
+        textAfter: ''
+      });
+      expect(t1.newText).toBe('Capítulo 1:\n  - ');
+
+      // 2. Presionar Tab sucesivamente cicla entre los niveles:
+      // Desde nivel 1 (2 espacios) cicla a nivel 2 (4 espacios)
+      const t2 = handleYamlSmartTab({
+        textBefore: 'Capítulo 1:\n  - ',
+        textAfter: ''
+      });
+      expect(t2.newText).toBe('Capítulo 1:\n    ');
+
+      // Desde nivel 2 (4 espacios) cicla a nivel 3 (6 espacios + "- ")
+      const t3 = handleYamlSmartTab({
+        textBefore: 'Capítulo 1:\n    ',
+        textAfter: ''
+      });
+      expect(t3.newText).toBe('Capítulo 1:\n      - ');
+
+      // Desde nivel 3 (6 espacios) cicla a nivel 4 (8 espacios)
+      const t4 = handleYamlSmartTab({
+        textBefore: 'Capítulo 1:\n      - ',
+        textAfter: ''
+      });
+      expect(t4.newText).toBe('Capítulo 1:\n        ');
+
+      // Desde nivel 4 (8 espacios) cicla a nivel 0 (0 espacios)
+      const t5 = handleYamlSmartTab({
+        textBefore: 'Capítulo 1:\n        ',
+        textAfter: ''
+      });
+      expect(t5.newText).toBe('Capítulo 1:\n');
+
+      // 3. Shift+Tab cicla hacia atrás:
+      const tBack = handleYamlSmartTab({
+        textBefore: 'Capítulo 1:\n        ',
+        textAfter: '',
+        shiftKey: true
+      });
+      expect(tBack.newText).toBe('Capítulo 1:\n      - ');
+    });
+
+    it('normalizePastedYaml remueve invisibles, convierte tabs a espacios y re-indenta según destino', () => {
+      // 1. Limpieza de invisibles (zero-width space \u200B y BOM \uFEFF) y tabs
+      const dirty = "\u200B\uFEFF- Cable 2.5 mm²:\t$ 1.500\n\tcantidad:\t10";
+      const cleaned = normalizePastedYaml(dirty, '');
+      expect(cleaned).not.toContain('\u200B');
+      expect(cleaned).not.toContain('\uFEFF');
+      expect(cleaned).not.toContain('\t');
+      expect(cleaned).toContain('  ');
+
+      // 2. Re-indentación multi-línea cuando el cursor está en una línea indentada (6 espacios)
+      const snippet = `- Cable:\n    cantidad: 10\n- Disyuntor:\n    cantidad: 1`;
+      const textBefore = `Capítulo 1:\n  - Boca:\n    materiales:\n      `; // 6 espacios
+      const reindented = normalizePastedYaml(snippet, textBefore);
+
+      // La primera línea se pega inmediatamente tras los 6 espacios existentes
+      const lines = reindented.split('\n');
+      expect(lines[0]).toBe('- Cable:');
+      // La segunda línea (cantidad: 10) debe quedar a 6 + 4 = 10 espacios
+      expect(lines[1]).toBe('          cantidad: 10');
+      // La tercera línea (- Disyuntor:) debe quedar a 6 espacios
+      expect(lines[2]).toBe('      - Disyuntor:');
+      // La cuarta línea (cantidad: 1) debe quedar a 10 espacios
+      expect(lines[3]).toBe('          cantidad: 1');
+    });
+  });
+
+  describe('Sincronización Guiado ↔ Experto (serializePresupuestoToDSL, preservación de calculos y campos)', () => {
+    it('extractCalculosBlockFromDsl extrae fielmente el bloque calculos: con variables, comentarios y fórmulas', () => {
+      const dsl = `cliente: Federico Gómez
+obra: Mitre 123
+
+# Bloque de fórmulas matemáticas
+calculos:
+  # Área principal
+  ancho: 12
+  largo: 10
+  superficie: =ancho * largo
+  bocas: =superficie / 3
+
+Iluminación:
+  - 10 u Boca de Iluminación
+`;
+      const extracted = extractCalculosBlockFromDsl(dsl);
+      expect(extracted).not.toBeNull();
+      expect(extracted).toContain('calculos:');
+      expect(extracted).toContain('ancho: 12');
+      expect(extracted).toContain('superficie: =ancho * largo');
+      expect(extracted).not.toContain('Iluminación:');
+      expect(extracted).not.toContain('cliente:');
+    });
+
+    it('serializePresupuestoToDSL regenera el YAML tras ediciones en modo guiado preservando el bloque calculos:', () => {
+      const originalDsl = `cliente: Federico Gómez
+obra: Mitre 123
+
+calculos:
+  factor_seguridad: 1.2
+  metros_cable: 150
+
+Iluminación:
+  - 10 u Boca de Iluminación: $ 12.000
+`;
+      // En modo guiado se agrega un nuevo ítem y se actualiza el cliente
+      const nuevoCliente: Cliente = {
+        id: 'cli-nuevo',
+        nombre: 'Nuevo Cliente S.A.',
+        razonSocial: 'Nuevo Cliente S.A.',
+        roles: ['cliente']
+      };
+
+      const updatedItems: Partial<ItemPresupuesto>[] = [
+        {
+          id: 'it-1',
+          descripcion: 'Boca de Iluminación',
+          cantidad: 10,
+          unidad: 'u',
+          costoUnitario: 12000,
+          precioManual: 12000,
+          capituloId: 'cap-1'
+        },
+        {
+          id: 'it-2',
+          descripcion: 'Tomacorriente Doble',
+          cantidad: 8,
+          unidad: 'u',
+          costoUnitario: 9500,
+          precioManual: 9500,
+          capituloId: 'cap-1'
+        }
+      ];
+
+      const capitulos: CapituloPresupuesto[] = [
+        { id: 'cap-1', nombre: 'Iluminación y Tomas', orden: 1 }
+      ];
+
+      const regeneratedDsl = serializePresupuestoToDSL({
+        clienteId: nuevoCliente.id,
+        direccionObra: 'Mitre 123',
+        tipoFactura: 'Factura A',
+        validezDias: 30,
+        margenPorcentaje: 35,
+        nivelMargenRiesgo: 'medio',
+        items: updatedItems as ItemPresupuesto[],
+        capitulos,
+        clientes: [nuevoCliente],
+        forceRegenerate: true,
+        preserveCalculosFromDsl: originalDsl
+      });
+
+      // 1. Debe contener el nuevo cliente
+      expect(regeneratedDsl).toContain('cliente: Nuevo Cliente S.A.');
+
+      // 2. Debe contener el bloque calculos: original preservado
+      expect(regeneratedDsl).toContain('calculos:');
+      expect(regeneratedDsl).toContain('factor_seguridad: 1.2');
+      expect(regeneratedDsl).toContain('metros_cable: 150');
+
+      // 3. Debe contener el nuevo ítem agregado en modo guiado
+      expect(regeneratedDsl).toContain('8 u Tomacorriente Doble');
+      expect(regeneratedDsl).toContain('10 u Boca de Iluminación');
+    });
+
+    it('serializePresupuestoToDSL genera la jerarquía semántica estándar 0/2/4/6/8 para ítems con despiece', () => {
+      const itemsConDespiece: Partial<ItemPresupuesto>[] = [
+        {
+          id: 'it-comp',
+          descripcion: 'Tablero Seccional Embutido',
+          cantidad: 1,
+          unidad: 'u',
+          esAdHoc: true,
+          capituloId: 'cap-tableros',
+          insumosSnapshot: [
+            {
+              insumoId: 'mat-gabinete',
+              nombre: 'Gabinete 24 Polos',
+              unidad: 'u',
+              cantidadTotal: 1,
+              precioUnitarioCongelado: 25000,
+              subtotalInsumo: 25000
+            }
+          ],
+          manoObraSnapshot: [
+            {
+              categoriaId: 'mo-oficial',
+              nombreCategoria: 'Oficial Electricista',
+              horasTotales: 6,
+              costoHoraCongelado: 4500,
+              subtotalManoObra: 27000
+            }
+          ]
+        }
+      ];
+
+      const dsl = serializePresupuestoToDSL({
+        items: itemsConDespiece as ItemPresupuesto[],
+        capitulos: [{ id: 'cap-tableros', nombre: 'Tableros', orden: 1 }],
+        forceRegenerate: true
+      });
+
+      // Nivel 0: Capítulo "Tableros:"
+      expect(dsl).toContain('Tableros:');
+      // Nivel 1: Partida "  - Tablero Seccional Embutido:" (2 espacios)
+      expect(dsl).toContain('  - Tablero Seccional Embutido:');
+      // Nivel 2: Sub-bloque "    materiales:" (4 espacios)
+      expect(dsl).toContain('    materiales:');
+      // Nivel 3: Despiece "      - 1 u Gabinete 24 Polos" (6 espacios + "- ")
+      expect(dsl).toContain('      - 1 u Gabinete 24 Polos');
+      // Nivel 2: Sub-bloque "    mano_obra:" (4 espacios)
+      expect(dsl).toContain('    mano_obra:');
+      // Nivel 3: Despiece "      - 6 h Oficial Electricista" (6 espacios + "- ")
+      expect(dsl).toContain('      - 6 h Oficial Electricista');
+    });
   });
 });
+
 
 
 

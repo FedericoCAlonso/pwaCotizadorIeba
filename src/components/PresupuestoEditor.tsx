@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   FileText,
   Plus,
@@ -215,7 +215,9 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     calculatedCells,
     setCalculatedCells,
     calculosVariables,
-    setCalculosVariables
+    setCalculosVariables,
+    isDslDirtyRef,
+    syncDslFromGuided
   } = usePresupuestoEditorViewModel({
     presupuestoId,
     initialClienteId,
@@ -225,23 +227,100 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     onDraftAutoSaved
   });
 
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
+
   const [editorMode, setEditorMode] = useState<'guiado' | 'experto'>('guiado');
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [parametricGastoToAdjust, setParametricGastoToAdjust] = useState<GastoPresupuestoConfig | null>(null);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [showListaMaterialesModal, setShowListaMaterialesModal] = useState(false);
 
+  // Detección y degradación en mobile: el modo experto requiere teclado físico y desktop
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile && editorMode === 'experto') {
+        setEditorMode('guiado');
+        toast.info('El modo experto requiere teclado físico y pantalla amplia. Se activó el modo guiado.');
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [editorMode, toast]);
+
+  useEffect(() => {
+    if (isMobile && editorMode === 'experto') {
+      setEditorMode('guiado');
+      toast.info('El modo experto requiere teclado físico y pantalla amplia. Se activó el modo guiado.');
+    }
+  }, []);
+
+  const handleToggleEditorMode = useCallback((target?: 'guiado' | 'experto') => {
+    const nextMode = target || (editorMode === 'guiado' ? 'experto' : 'guiado');
+    if (nextMode === 'experto') {
+      if (isMobile) {
+        toast.info('El modo experto requiere teclado físico y pantalla amplia (> 768px).');
+        return;
+      }
+      if (isDslDirtyRef.current || !dslText || dslText.trim().length === 0) {
+        syncDslFromGuided();
+      }
+    }
+    setEditorMode(nextMode);
+  }, [editorMode, isMobile, isDslDirtyRef, dslText, syncDslFromGuided, toast]);
+
   // Atajo global para alternar entre Modo Guiado y Modo Experto Desktop (Alt + E)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.altKey && (e.key === 'e' || e.key === 'E')) {
         e.preventDefault();
-        setEditorMode((prev) => (prev === 'guiado' ? 'experto' : 'guiado'));
+        handleToggleEditorMode();
       }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, []);
+  }, [handleToggleEditorMode]);
+
+  // Monitoreo de modificaciones en modo guiado para marcar dslText como desfasado
+  const prevItemsRef = useRef(items);
+  const prevCapitulosRef = useRef(capitulos);
+  const prevClienteRef = useRef(clienteId);
+  const prevGastosRef = useRef(gastosConfig);
+  const prevDireccionRef = useRef(direccionObra);
+  const prevFacturaRef = useRef(tipoFactura);
+  const prevMargenRef = useRef(margenPorcentaje);
+  const prevRiesgoRef = useRef(nivelMargenRiesgo);
+
+  useEffect(() => {
+    if (editorMode === 'guiado') {
+      if (
+        prevItemsRef.current !== items ||
+        prevCapitulosRef.current !== capitulos ||
+        prevClienteRef.current !== clienteId ||
+        prevGastosRef.current !== gastosConfig ||
+        prevDireccionRef.current !== direccionObra ||
+        prevFacturaRef.current !== tipoFactura ||
+        prevMargenRef.current !== margenPorcentaje ||
+        prevRiesgoRef.current !== nivelMargenRiesgo
+      ) {
+        isDslDirtyRef.current = true;
+      }
+    }
+    prevItemsRef.current = items;
+    prevCapitulosRef.current = capitulos;
+    prevClienteRef.current = clienteId;
+    prevGastosRef.current = gastosConfig;
+    prevDireccionRef.current = direccionObra;
+    prevFacturaRef.current = tipoFactura;
+    prevMargenRef.current = margenPorcentaje;
+    prevRiesgoRef.current = nivelMargenRiesgo;
+  }, [items, capitulos, clienteId, gastosConfig, direccionObra, tipoFactura, margenPorcentaje, nivelMargenRiesgo, editorMode, isDslDirtyRef]);
 
   const selectedCliente = useMemo(() => {
     return clientes.find((c) => c.id === clienteId) || null;
@@ -1160,7 +1239,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           <div className="bg-surface-container rounded-2xl p-1 border border-outline-variant/30 flex items-center gap-1 shadow-2xs">
             <button
               type="button"
-              onClick={() => setEditorMode('guiado')}
+              onClick={() => handleToggleEditorMode('guiado')}
               className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer min-h-[36px] ${
                 editorMode === 'guiado'
                   ? 'bg-surface-container-lowest text-primary shadow-xs'
@@ -1172,13 +1251,20 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
             <button
               type="button"
-              onClick={() => setEditorMode('experto')}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer min-h-[36px] ${
-                editorMode === 'experto'
-                  ? 'bg-primary text-on-primary shadow-xs'
-                  : 'text-on-surface-variant hover:text-on-surface'
+              onClick={() => handleToggleEditorMode('experto')}
+              disabled={isMobile}
+              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 min-h-[36px] ${
+                isMobile
+                  ? 'opacity-40 cursor-not-allowed text-on-surface-variant'
+                  : editorMode === 'experto'
+                  ? 'bg-primary text-on-primary shadow-xs cursor-pointer'
+                  : 'text-on-surface-variant hover:text-on-surface cursor-pointer'
               }`}
-              title="Modo Experto Desktop: Composición por teclado sin mouse (Alt + E)"
+              title={
+                isMobile
+                  ? 'El modo experto requiere teclado físico y pantalla amplia (> 768px)'
+                  : 'Modo Experto Desktop: Composición por teclado sin mouse (Alt + E)'
+              }
             >
               <Terminal className="w-3.5 h-3.5" />
               <span>Experto</span>
@@ -1240,7 +1326,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           config={config}
           onEmitirClick={() => setShowEmitirModal(true)}
           onSaveDraft={() => handleSavePresupuesto('borrador')}
-          onToggleGuidedMode={() => setEditorMode('guiado')}
+          onToggleGuidedMode={() => handleToggleEditorMode('guiado')}
         />
       ) : (
         <>

@@ -39,6 +39,8 @@ import {
   formatSlashCommandReplacement,
   handleYamlSmartEnter,
   handleYamlSmartBackspace,
+  handleYamlSmartTab,
+  normalizePastedYaml,
   CursorContextType,
   CalculatedCell,
   findNextFillableField
@@ -145,11 +147,18 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
   const isFocusedRef = useRef(false);
   const lastTouchTimeRef = useRef(0);
 
+  const [cursorLineCol, setCursorLineCol] = useState<{ line: number; col: number }>({ line: 1, col: 1 });
+  const gutterRef = useRef<HTMLDivElement>(null);
+
   const updateCursorPos = useCallback((el: HTMLTextAreaElement) => {
-    cursorPosRef.current = {
-      start: el.selectionStart,
-      end: el.selectionEnd
-    };
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    cursorPosRef.current = { start, end };
+    const textBefore = el.value.slice(0, start);
+    const lines = textBefore.split('\n');
+    const line = lines.length;
+    const col = lines[lines.length - 1].length + 1;
+    setCursorLineCol({ line, col });
   }, []);
 
   // Inicializar el texto desde el estado actual del presupuesto (o plantilla comentada)
@@ -195,16 +204,36 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     contextType: CursorContextType;
     replaceFullLine?: boolean;
     directiveType?: 'cliente' | 'obra' | 'factura' | 'validez' | 'margen' | 'riesgo' | 'dolar';
+    isExplicit?: boolean;
   }>({
     isOpen: false,
     query: '',
     cursorPosition: 0,
     slashIndex: -1,
-    contextType: 'general'
+    contextType: 'general',
+    isExplicit: false
   });
+
+  const dismissedLineRef = useRef<number | null>(null);
+  const dismissedLineTextRef = useRef<string | null>(null);
 
   // Posición flotante dinámica del menú de autocompletado pegada al cursor
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 48, left: 16 });
+
+  const [isMobileScreen, setIsMobileScreen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileScreen(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Recalcular dinámicamente la posición del popover flotante en relación al cursor
   const updateMenuPosition = useCallback(() => {
@@ -273,6 +302,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
   });
 
   const proveedores = useLiveQuery(() => db.contactos.where('roles').equals('proveedor').toArray()) || [];
+  const catalogCostosIndirectos = useLiveQuery(() => db.costosIndirectos.toArray()) || [];
 
   const isInternalUpdateRef = useRef(false);
 
@@ -287,7 +317,8 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
         config,
         existingItems: items,
         existingCapitulos: capitulos,
-        existingGastos: gastosConfig
+        existingGastos: gastosConfig,
+        costosIndirectosCatalog: catalogCostosIndirectos
       });
 
       setDiagnostics(result.diagnostics);
@@ -338,6 +369,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       items,
       capitulos,
       gastosConfig,
+      catalogCostosIndirectos,
       clienteId,
       direccionObra,
       tipoFactura,
@@ -640,6 +672,22 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     const textBeforeCursor = newText.slice(0, cursorPos);
     const lastLineStart = textBeforeCursor.lastIndexOf('\n') + 1;
     const currentLine = textBeforeCursor.slice(lastLineStart);
+    const currentLineIndex = textBeforeCursor.split('\n').length - 1;
+
+    setCursorLineCol({
+      line: currentLineIndex + 1,
+      col: currentLine.length + 1
+    });
+
+    // Si cambió de línea o el contenido de la línea descartada cambió, resetear el descarte
+    if (dismissedLineRef.current !== null && dismissedLineRef.current !== currentLineIndex) {
+      dismissedLineRef.current = null;
+      dismissedLineTextRef.current = null;
+    }
+    if (dismissedLineTextRef.current !== null && dismissedLineTextRef.current !== currentLine.trim()) {
+      dismissedLineTextRef.current = null;
+      dismissedLineRef.current = null;
+    }
 
     // Detectar contexto semántico de la línea actual
     const { contextType, activeCategory } = detectCursorContext(textBeforeCursor);
@@ -647,42 +695,57 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     const trigger = detectSuggestTrigger(currentLine);
 
     if (trigger) {
-      const triggerIndex = lastLineStart + trigger.queryIndexInLine;
-      const typedQuery = trigger.query.trim();
+      if (trigger.isExplicit || trigger.directiveType) {
+        dismissedLineRef.current = null;
+        dismissedLineTextRef.current = null;
+      }
 
-      if (trigger.directiveType) {
-        setSlashMenuState({
-          isOpen: true,
-          query: typedQuery,
-          cursorPosition: cursorPos,
-          slashIndex: triggerIndex,
-          contextType: trigger.directiveType === 'cliente' ? 'general' : contextType,
-          replaceFullLine: true,
-          directiveType: trigger.directiveType
-        });
-      } else if (trigger.isExplicit) {
-        setSlashMenuState({
-          isOpen: true,
-          query: `${trigger.triggerChar}${trigger.query}`,
-          cursorPosition: cursorPos,
-          slashIndex: triggerIndex,
-          contextType: trigger.triggerChar === '@' ? 'general' : contextType,
-          replaceFullLine: false,
-          directiveType: trigger.triggerChar === '@' ? 'cliente' : undefined
-        });
+      // Si el usuario descartó el menú con Escape en este renglón y el texto no ha cambiado, no molestar
+      if (!trigger.isExplicit && !trigger.directiveType && dismissedLineRef.current === currentLineIndex && dismissedLineTextRef.current === currentLine.trim()) {
+        if (slashMenuState.isOpen) {
+          setSlashMenuState((prev) => ({ ...prev, isOpen: false }));
+        }
       } else {
-        // Si hay una subcategoría activa en el bloque (ej: "cables:"), prefijarla para filtrar
-        const queryWithCategory = activeCategory ? `${activeCategory}/${typedQuery}` : typedQuery;
+        const triggerIndex = lastLineStart + trigger.queryIndexInLine;
+        const typedQuery = trigger.query.trim();
 
-        setSlashMenuState({
-          isOpen: true,
-          query: queryWithCategory,
-          cursorPosition: cursorPos,
-          slashIndex: triggerIndex,
-          contextType,
-          replaceFullLine: false,
-          directiveType: undefined
-        });
+        if (trigger.directiveType) {
+          setSlashMenuState({
+            isOpen: true,
+            query: typedQuery,
+            cursorPosition: cursorPos,
+            slashIndex: triggerIndex,
+            contextType: trigger.directiveType === 'cliente' ? 'general' : contextType,
+            replaceFullLine: true,
+            directiveType: trigger.directiveType,
+            isExplicit: true
+          });
+        } else if (trigger.isExplicit) {
+          setSlashMenuState({
+            isOpen: true,
+            query: `${trigger.triggerChar}${trigger.query}`,
+            cursorPosition: cursorPos,
+            slashIndex: triggerIndex,
+            contextType: trigger.triggerChar === '@' ? 'general' : contextType,
+            replaceFullLine: false,
+            directiveType: trigger.triggerChar === '@' ? 'cliente' : undefined,
+            isExplicit: true
+          });
+        } else {
+          // Si hay una subcategoría activa en el bloque (ej: "cables:"), prefijarla para filtrar
+          const queryWithCategory = activeCategory ? `${activeCategory}/${typedQuery}` : typedQuery;
+
+          setSlashMenuState({
+            isOpen: true,
+            query: queryWithCategory,
+            cursorPosition: cursorPos,
+            slashIndex: triggerIndex,
+            contextType,
+            replaceFullLine: false,
+            directiveType: undefined,
+            isExplicit: false
+          });
+        }
       }
     } else {
       if (slashMenuState.isOpen) {
@@ -700,8 +763,8 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
   // Manejo de atajos de teclado en el editor (Enter con auto-indentación, Tab para sangría o campo, Ctrl+Enter para guardar)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (slashMenuState.isOpen && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-      // El SlashCommandMenu maneja las flechas
+    if (slashMenuState.isOpen && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Tab')) {
+      // El SlashCommandMenu maneja las flechas y la tecla Tab para autocompletar
       return;
     }
 
@@ -731,26 +794,33 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       return;
     }
 
-    // Tab -> Navega entre campos si hay selección o Shift+Tab; de lo contrario inserta 2 espacios
+    // Tab -> Sangría inteligente contextual y ciclo de niveles semánticos (0 -> 2 -> 4 -> 6 -> 8 -> 0)
     if (e.key === 'Tab') {
       e.preventDefault();
-      if (e.shiftKey || e.currentTarget.selectionStart !== e.currentTarget.selectionEnd) {
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+
+      if (start !== end) {
         handleNavigateField(e.shiftKey ? 'backward' : 'forward');
         return;
       }
 
-      const start = e.currentTarget.selectionStart;
-      const end = e.currentTarget.selectionEnd;
-      const text = dslText;
-      const newText = text.substring(0, start) + '  ' + text.substring(end);
-      cursorPosRef.current = { start: start + 2, end: start + 2 };
-      setDslText(newText);
-      handleParseAndSync(newText);
+      const textBefore = dslText.substring(0, start);
+      const textAfter = dslText.substring(end);
+
+      const smartTab = handleYamlSmartTab({ textBefore, textAfter, shiftKey: e.shiftKey });
+      cursorPosRef.current = { start: smartTab.newCursorPos, end: smartTab.newCursorPos };
+      const tb = smartTab.newText.slice(0, smartTab.newCursorPos);
+      const lines = tb.split('\n');
+      setCursorLineCol({ line: lines.length, col: lines[lines.length - 1].length + 1 });
+      setDslText(smartTab.newText);
+      handleParseAndSync(smartTab.newText);
 
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.focus({ preventScroll: true });
-          textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 2;
+          textareaRef.current.selectionStart = textareaRef.current.selectionEnd = smartTab.newCursorPos;
         }
       }, 0);
       return;
@@ -771,6 +841,9 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
         if (smartBack) {
           e.preventDefault();
           cursorPosRef.current = { start: smartBack.newCursorPos, end: smartBack.newCursorPos };
+          const tb = smartBack.newText.slice(0, smartBack.newCursorPos);
+          const lines = tb.split('\n');
+          setCursorLineCol({ line: lines.length, col: lines[lines.length - 1].length + 1 });
           setDslText(smartBack.newText);
           handleParseAndSync(smartBack.newText);
 
@@ -799,6 +872,9 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       const { newText, newCursorPos } = handleYamlSmartEnter({ textBefore, textAfter });
 
       cursorPosRef.current = { start: newCursorPos, end: newCursorPos };
+      const tb = newText.slice(0, newCursorPos);
+      const lines = tb.split('\n');
+      setCursorLineCol({ line: lines.length, col: lines[lines.length - 1].length + 1 });
       setDslText(newText);
       handleParseAndSync(newText);
 
@@ -810,6 +886,38 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       }, 0);
       return;
     }
+  };
+
+  // Manejo de pegado en el editor: limpieza de caracteres invisibles, normalización de tabs y re-indentación contextual
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pastedText = e.clipboardData.getData('text');
+    if (!pastedText) return;
+
+    e.preventDefault();
+    const textarea = e.currentTarget;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    const textBefore = dslText.substring(0, start);
+    const textAfter = dslText.substring(end);
+
+    const normalized = normalizePastedYaml(pastedText, textBefore);
+    const newText = textBefore + normalized + textAfter;
+    const newCursorPos = start + normalized.length;
+
+    cursorPosRef.current = { start: newCursorPos, end: newCursorPos };
+    const tb = newText.slice(0, newCursorPos);
+    const lines = tb.split('\n');
+    setCursorLineCol({ line: lines.length, col: lines[lines.length - 1].length + 1 });
+    setDslText(newText);
+    handleParseAndSync(newText);
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus({ preventScroll: true });
+        textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newCursorPos;
+      }
+    }, 0);
   };
 
   // Inserción de comando desde el SlashCommandMenu
@@ -824,10 +932,24 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
         query: '',
         cursorPosition: 0,
         slashIndex: -1,
-        contextType: 'general'
+        contextType: 'general',
+        isExplicit: false
       });
       setQuickClienteInitialName(initialName);
       setIsQuickClienteOpen(true);
+      return;
+    }
+
+    // Acción especial: Mantener texto libre
+    if (snippet.startsWith('ACTION:FREE_TEXT:')) {
+      setSlashMenuState({
+        isOpen: false,
+        query: '',
+        cursorPosition: 0,
+        slashIndex: -1,
+        contextType: 'general',
+        isExplicit: false
+      });
       return;
     }
 
@@ -876,6 +998,9 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
         start: textarea.selectionStart,
         end: textarea.selectionEnd
       };
+      const textBefore = newText.slice(0, textarea.selectionStart);
+      const lines = textBefore.split('\n');
+      setCursorLineCol({ line: lines.length, col: lines[lines.length - 1].length + 1 });
     }, 10);
   };
 
@@ -1133,6 +1258,38 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Aviso de degradación en pantalla móvil / sin teclado físico */}
+      {isMobileScreen && (
+        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+            <HelpCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              <strong>Vista de sólo lectura:</strong> El modo experto requiere teclado físico. En dispositivos móviles se visualiza como consulta para no alterar el layout.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(dslText);
+                toast.success('Código YAML copiado al portapapeles');
+              }}
+              className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-xl text-on-surface font-semibold border border-outline-variant/30 flex items-center gap-1 cursor-pointer"
+            >
+              <Copy className="w-3.5 h-3.5 text-primary" />
+              <span>Copiar YAML</span>
+            </button>
+            <button
+              type="button"
+              onClick={onToggleGuidedMode}
+              className="px-3 py-1.5 bg-primary text-on-primary rounded-xl font-bold cursor-pointer"
+            >
+              Volver a Modo Guiado
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ─── Área Principal Split: Editor (7 cols) + Inspector en Vivo (5 cols) ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Columna Izquierda: Editor Textual Monospace */}
@@ -1272,6 +1429,10 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
                 </span>
                 <span>•</span>
                 <span>{lineCount} líneas</span>
+                <span>•</span>
+                <span className="font-semibold text-primary/90 bg-primary/10 px-2 py-0.5 rounded text-[10px] sm:text-xs">
+                  Fila {cursorLineCol.line}, Col {cursorLineCol.col}
+                </span>
 
                 {activeFieldInfo && (
                   <span className="flex items-center gap-1.5 px-2.5 py-0.5 bg-primary/20 text-primary border border-primary/40 text-[11px] font-bold rounded-full animate-pulse transition-all">
@@ -1307,19 +1468,29 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
             <div className="relative flex">
               {/* Números de Línea */}
               <div
+                ref={gutterRef}
                 onMouseDown={(e) => e.preventDefault()}
                 onTouchStart={(e) => {
                   e.preventDefault();
                   textareaRef.current?.focus({ preventScroll: true });
                 }}
                 onClick={() => textareaRef.current?.focus({ preventScroll: true })}
-                className="py-4 pl-3 pr-2 select-none text-right font-mono text-xs text-on-surface-variant/40 bg-surface-container-lowest/50 border-r border-outline-variant/15 min-w-[3rem] cursor-pointer"
+                className="py-4 pl-3 pr-2 select-none text-right font-mono text-xs text-on-surface-variant/40 bg-surface-container-lowest/50 border-r border-outline-variant/15 min-w-[3.25rem] cursor-pointer overflow-hidden"
               >
-                {Array.from({ length: lineCount }).map((_, idx) => (
-                  <div key={idx} className="leading-6">
-                    {idx + 1}
-                  </div>
-                ))}
+                {Array.from({ length: lineCount }).map((_, idx) => {
+                  const lineNum = idx + 1;
+                  const isActive = lineNum === cursorLineCol.line;
+                  return (
+                    <div
+                      key={idx}
+                      className={`leading-6 transition-colors px-1 -mx-1 rounded-sm ${
+                        isActive ? 'text-primary font-bold bg-primary/15' : ''
+                      }`}
+                    >
+                      {lineNum}
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Textarea Monospace */}
@@ -1328,7 +1499,14 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
                 value={dslText}
                 onChange={handleTextChange}
                 onKeyDown={handleKeyDown}
-                onScroll={updateMenuPosition}
+                onPaste={handlePaste}
+                readOnly={isMobileScreen}
+                onScroll={(e) => {
+                  updateMenuPosition();
+                  if (gutterRef.current) {
+                    gutterRef.current.scrollTop = e.currentTarget.scrollTop;
+                  }
+                }}
                 onFocus={(e) => {
                   isFocusedRef.current = true;
                   updateCursorPos(e.currentTarget);
@@ -1347,7 +1525,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
                 rows={22}
                 placeholder={`cliente: Nombre del Cliente\nobra: Dirección de la Obra\nfactura: Factura C\n\nInstalación Eléctrica:\n  - 10 u Boca de Iluminación: $ 12.500\n  - 5 u Tomacorriente Doble: $ 9.800`}
                 spellCheck={false}
-                className="w-full p-4 bg-transparent text-on-surface font-mono text-xs sm:text-sm leading-6 resize-y focus:outline-none placeholder:text-on-surface-variant/30 min-h-[480px]"
+                className="w-full p-4 bg-transparent text-on-surface font-mono text-xs sm:text-sm leading-6 resize-y focus:outline-none placeholder:text-on-surface-variant/30 min-h-[480px] whitespace-pre overflow-x-auto"
               />
 
               {/* Popover contextual de autocompletado */}
@@ -1359,14 +1537,23 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
                   clienteMatched={clienteMatched}
                   insumosMap={insumosMap}
                   manoObraMap={manoObraMap}
+                  costosIndirectos={catalogCostosIndirectos}
                   contextType={slashMenuState.contextType}
                   directiveType={slashMenuState.directiveType}
                   calculatedCells={calculatedCells}
                   position={menuPosition}
+                  isExplicit={slashMenuState.isExplicit}
                   onSelect={handleSelectSlashCommand}
-                  onClose={() =>
-                    setSlashMenuState((prev) => ({ ...prev, isOpen: false }))
-                  }
+                  onClose={() => {
+                    const cursorPos = textareaRef.current?.selectionStart ?? cursorPosRef.current.start;
+                    const textBeforeCursor = dslText.slice(0, cursorPos);
+                    const lastLineStart = textBeforeCursor.lastIndexOf('\n') + 1;
+                    const currentLine = textBeforeCursor.slice(lastLineStart);
+                    const currentLineIndex = textBeforeCursor.split('\n').length - 1;
+                    dismissedLineRef.current = currentLineIndex;
+                    dismissedLineTextRef.current = currentLine.trim();
+                    setSlashMenuState((prev) => ({ ...prev, isOpen: false }));
+                  }}
                 />
               )}
             </div>

@@ -51,6 +51,7 @@ import {
 import { useInsumosMap } from '../hooks/useInsumosMap';
 import { useToast } from '../contexts/ToastContext';
 import { TareaFormData } from '../components/tareasTipo/TareaEditorModal';
+import { serializePresupuestoToDSL } from '../components/presupuesto/experto/dslParser';
 function computeEditorStatePayload(state: {
   items: any[];
   clienteId: string;
@@ -76,6 +77,8 @@ function computeEditorStatePayload(state: {
   aplicarOptimizacionCuadrilla: boolean;
   estrategiaCuadrilla: string;
   dslText?: string;
+  notasInternas?: string;
+  notasCliente?: string;
 }): string {
   return JSON.stringify({
     items: state.items,
@@ -101,7 +104,9 @@ function computeEditorStatePayload(state: {
     nivelMargenRiesgo: state.nivelMargenRiesgo,
     aplicarOptimizacionCuadrilla: state.aplicarOptimizacionCuadrilla,
     estrategiaCuadrilla: state.estrategiaCuadrilla,
-    dslText: state.dslText || ''
+    dslText: state.dslText || '',
+    notasInternas: state.notasInternas || '',
+    notasCliente: state.notasCliente || ''
   });
 }
 
@@ -182,10 +187,20 @@ export function usePresupuestoEditorViewModel({
   const [dslText, setDslText] = useState<string | undefined>(undefined);
   const [calculatedCells, setCalculatedCells] = useState<CalculatedCell[] | undefined>(undefined);
   const [calculosVariables, setCalculosVariables] = useState<Record<string, number | string> | undefined>(undefined);
+  const [notasInternas, setNotasInternas] = useState<string>('');
+  const [notasCliente, setNotasCliente] = useState<string>('');
+  const isDslDirtyRef = useRef<boolean>(false);
 
-  const [activeTab, setActiveTab] = useState<PresupuestoEditorTab>(() => {
+  const [activeTab, setActiveTabState] = useState<PresupuestoEditorTab>(() => {
     return initialClienteId ? 'partidas' : 'cliente';
   });
+
+  const setActiveTab = useCallback((tab: PresupuestoEditorTab | ((prev: PresupuestoEditorTab) => PresupuestoEditorTab)) => {
+    if (isDirtyRef.current) {
+      latestAutoSaveRef.current();
+    }
+    setActiveTabState(tab);
+  }, []);
 
   const [showItemPickerModal, setShowItemPickerModal] = useState<boolean>(false);
   const [showEmitirModal, setShowEmitirModal] = useState<boolean>(false);
@@ -306,6 +321,12 @@ export function usePresupuestoEditorViewModel({
       }
       if (existingPresupuesto.dslText !== undefined) {
         setDslText(existingPresupuesto.dslText);
+      }
+      if (existingPresupuesto.notasInternas !== undefined) {
+        setNotasInternas(existingPresupuesto.notasInternas);
+      }
+      if (existingPresupuesto.notasCliente !== undefined) {
+        setNotasCliente(existingPresupuesto.notasCliente);
       }
       if (existingPresupuesto.calculatedCells !== undefined) {
         setCalculatedCells(existingPresupuesto.calculatedCells);
@@ -684,7 +705,14 @@ export function usePresupuestoEditorViewModel({
     }
 
     isDirtyRef.current = true;
-    const hasContent = items.length > 0 || Boolean(clienteId) || capitulos.length > 0 || Boolean(existingPresupuesto);
+    const hasContent =
+      items.length > 0 ||
+      Boolean(clienteId) ||
+      capitulos.length > 0 ||
+      Boolean(existingPresupuesto) ||
+      Boolean(dslText && dslText.trim().length > 0) ||
+      Boolean(direccionObra && direccionObra.trim().length > 0) ||
+      gastosConfig.length > 0;
     if (!hasContent) {
       return;
     }
@@ -1505,6 +1533,54 @@ export function usePresupuestoEditorViewModel({
     });
   };
 
+  const syncDslFromGuided = useCallback(() => {
+    const regenerated = serializePresupuestoToDSL({
+      clienteId,
+      direccionObra,
+      tipoFactura,
+      validezDias,
+      margenPorcentaje,
+      nivelMargenRiesgo,
+      margenRiesgoPorcentaje,
+      mostrarDolar,
+      nombreDolar,
+      cotizacionDolar,
+      capitulos,
+      items,
+      gastosConfig,
+      clientes,
+      calculosVariables,
+      calculatedCells,
+      forceRegenerate: true,
+      preserveCalculosFromDsl: dslText
+    });
+    setDslText(regenerated);
+    isDslDirtyRef.current = false;
+    return regenerated;
+  }, [
+    clienteId,
+    direccionObra,
+    tipoFactura,
+    validezDias,
+    margenPorcentaje,
+    nivelMargenRiesgo,
+    margenRiesgoPorcentaje,
+    mostrarDolar,
+    nombreDolar,
+    cotizacionDolar,
+    capitulos,
+    items,
+    gastosConfig,
+    clientes,
+    calculosVariables,
+    calculatedCells,
+    dslText
+  ]);
+
+  const markDslDirty = useCallback(() => {
+    isDslDirtyRef.current = true;
+  }, []);
+
   const handleSavePresupuesto = async (
     targetEstado: EstadoPresupuesto = 'borrador',
     emissionOptionsOverride?: OpcionesEmisionPresupuesto
@@ -1609,6 +1685,8 @@ export function usePresupuestoEditorViewModel({
       totalMonedaExtranjera: totales.totalMonedaExtranjera,
       condicionesPagoTexto: finalEmission.condicionesComerciales || condicionesPagoTexto,
       estado: targetEstado,
+      notasInternas: notasInternas || existingPresupuesto?.notasInternas,
+      notasCliente: notasCliente || existingPresupuesto?.notasCliente,
       dslText,
       calculatedCells,
       calculosVariables,
@@ -1643,7 +1721,9 @@ export function usePresupuestoEditorViewModel({
       nivelMargenRiesgo,
       aplicarOptimizacionCuadrilla,
       estrategiaCuadrilla,
-      dslText: dslText || ''
+      dslText: dslText || '',
+      notasInternas,
+      notasCliente
     });
     loadedPresupuestoIdRef.current = finalPresupuesto.id;
     isDirtyRef.current = false;
@@ -1882,6 +1962,15 @@ export function usePresupuestoEditorViewModel({
     calculatedCells,
     setCalculatedCells,
     calculosVariables,
-    setCalculosVariables
+    setCalculosVariables,
+    isDslDirtyRef,
+    syncDslFromGuided,
+    markDslDirty,
+
+    // Notas de documento
+    notasInternas,
+    setNotasInternas,
+    notasCliente,
+    setNotasCliente
   };
 }
