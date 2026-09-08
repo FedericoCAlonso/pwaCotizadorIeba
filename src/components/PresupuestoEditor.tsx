@@ -209,7 +209,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     setNivelMargenRiesgo,
     autoSaveStatus,
     lastAutoSaveTime,
-    flushAutoSave
+    flushAutoSave,
+    dslText,
+    setDslText,
+    calculatedCells,
+    setCalculatedCells,
+    calculosVariables,
+    setCalculosVariables
   } = usePresupuestoEditorViewModel({
     presupuestoId,
     initialClienteId,
@@ -1194,6 +1200,12 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
       {editorMode === 'experto' ? (
         <ModoExpertoEditor
+          initialDslText={dslText}
+          onDslTextChange={setDslText}
+          savedCalculatedCells={calculatedCells}
+          onCalculatedCellsChange={setCalculatedCells}
+          savedCalculosVariables={calculosVariables}
+          onCalculosVariablesChange={setCalculosVariables}
           clientes={clientes}
           clienteId={clienteId}
           setClienteId={setClienteId}

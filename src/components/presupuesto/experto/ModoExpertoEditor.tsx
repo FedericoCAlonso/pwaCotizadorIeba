@@ -55,6 +55,12 @@ import { ExpertInspector } from './ExpertInspector';
 import { useToast } from '../../../contexts/ToastContext';
 
 interface ModoExpertoEditorProps {
+  initialDslText?: string;
+  onDslTextChange?: (dsl: string) => void;
+  savedCalculatedCells?: CalculatedCell[];
+  onCalculatedCellsChange?: (cells: CalculatedCell[]) => void;
+  savedCalculosVariables?: Record<string, number | string>;
+  onCalculosVariablesChange?: (vars: Record<string, number | string>) => void;
   clientes: Cliente[];
   clienteId: string;
   setClienteId: (id: string) => void;
@@ -93,6 +99,12 @@ interface ModoExpertoEditorProps {
 }
 
 export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
+  initialDslText,
+  onDslTextChange,
+  savedCalculatedCells,
+  onCalculatedCellsChange,
+  savedCalculosVariables,
+  onCalculosVariablesChange,
   clientes,
   clienteId,
   setClienteId,
@@ -144,6 +156,9 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
   // Inicializar el texto desde el estado actual del presupuesto (o plantilla comentada)
   const [dslText, setDslText] = useState<string>(() => {
+    if (initialDslText && initialDslText.trim().length > 0) {
+      return initialDslText;
+    }
     return serializePresupuestoToDSL({
       clienteId,
       direccionObra,
@@ -158,7 +173,9 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       capitulos,
       items,
       gastosConfig,
-      clientes
+      clientes,
+      calculosVariables: savedCalculosVariables,
+      calculatedCells: savedCalculatedCells
     });
   });
 
@@ -280,6 +297,12 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       setClienteMatched(result.clienteMatched);
       setClienteQuery(result.clienteQuery);
 
+      onDslTextChange?.(textToParse);
+      onCalculatedCellsChange?.(result.calculatedCells || []);
+      if (result.calculosVariables) {
+        onCalculosVariablesChange?.(result.calculosVariables);
+      }
+
       isInternalUpdateRef.current = true;
 
       // Sincronizar hacia el ViewModel
@@ -339,9 +362,20 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       setCotizacionDolar,
       setCapitulos,
       setItems,
-      setGastosConfig
+      setGastosConfig,
+      onDslTextChange,
+      onCalculatedCellsChange,
+      onCalculosVariablesChange
     ]
   );
+
+  // Sincronizar hacia el editor si el documento se cargó desde la base de datos de manera asíncrona
+  useEffect(() => {
+    if (initialDslText && initialDslText.trim().length > 0 && initialDslText !== dslText && !isFocusedRef.current) {
+      setDslText(initialDslText);
+      handleParseAndSync(initialDslText);
+    }
+  }, [initialDslText]);
 
   // Sincronizar desde cambios externos del ViewModel hacia el texto (sólo si no está escribiendo en el editor)
   useEffect(() => {
@@ -363,7 +397,10 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       capitulos,
       items,
       gastosConfig,
-      clientes
+      clientes,
+      dslText: (initialDslText || dslText),
+      calculosVariables: savedCalculosVariables,
+      calculatedCells: savedCalculatedCells
     });
 
     if (freshDSL !== dslText) {
@@ -382,7 +419,10 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     cotizacionDolar,
     capitulos,
     items,
-    gastosConfig
+    gastosConfig,
+    initialDslText,
+    savedCalculosVariables,
+    savedCalculatedCells
   ]);
 
   // Abrir modal de alta rápida de material pre-completado desde el YAML

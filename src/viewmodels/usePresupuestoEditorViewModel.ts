@@ -25,7 +25,8 @@ import {
   EstimacionCuadrillaPorPlazoResultado,
   NivelMargenRiesgo,
   CapituloPresupuesto,
-  GastoPresupuestoConfig
+  GastoPresupuestoConfig,
+  CalculatedCell
 } from '../core/types';
 import {
   calcularTotalesPresupuesto,
@@ -74,6 +75,7 @@ function computeEditorStatePayload(state: {
   nivelMargenRiesgo: string;
   aplicarOptimizacionCuadrilla: boolean;
   estrategiaCuadrilla: string;
+  dslText?: string;
 }): string {
   return JSON.stringify({
     items: state.items,
@@ -98,7 +100,8 @@ function computeEditorStatePayload(state: {
     margenRiesgoPorcentaje: state.margenRiesgoPorcentaje,
     nivelMargenRiesgo: state.nivelMargenRiesgo,
     aplicarOptimizacionCuadrilla: state.aplicarOptimizacionCuadrilla,
-    estrategiaCuadrilla: state.estrategiaCuadrilla
+    estrategiaCuadrilla: state.estrategiaCuadrilla,
+    dslText: state.dslText || ''
   });
 }
 
@@ -175,6 +178,10 @@ export function usePresupuestoEditorViewModel({
     mostrarDetalleCostos: false,
     condicionesComerciales: ''
   });
+
+  const [dslText, setDslText] = useState<string | undefined>(undefined);
+  const [calculatedCells, setCalculatedCells] = useState<CalculatedCell[] | undefined>(undefined);
+  const [calculosVariables, setCalculosVariables] = useState<Record<string, number | string> | undefined>(undefined);
 
   const [activeTab, setActiveTab] = useState<PresupuestoEditorTab>(() => {
     return initialClienteId ? 'partidas' : 'cliente';
@@ -297,6 +304,15 @@ export function usePresupuestoEditorViewModel({
       if (existingPresupuesto.opcionesEmision) {
         setOpcionesEmision(existingPresupuesto.opcionesEmision);
       }
+      if (existingPresupuesto.dslText !== undefined) {
+        setDslText(existingPresupuesto.dslText);
+      }
+      if (existingPresupuesto.calculatedCells !== undefined) {
+        setCalculatedCells(existingPresupuesto.calculatedCells);
+      }
+      if (existingPresupuesto.calculosVariables !== undefined) {
+        setCalculosVariables(existingPresupuesto.calculosVariables);
+      }
       if (existingPresupuesto.planificacionCuadrilla) {
         if (existingPresupuesto.planificacionCuadrilla.estrategia) {
           setEstrategiaCuadrilla(existingPresupuesto.planificacionCuadrilla.estrategia);
@@ -331,7 +347,8 @@ export function usePresupuestoEditorViewModel({
         margenRiesgoPorcentaje: existingPresupuesto.margenRiesgoPorcentaje ?? (config.margenRiesgoDefaultPct ?? 0),
         nivelMargenRiesgo: existingPresupuesto.nivelMargenRiesgo || 'bajo',
         aplicarOptimizacionCuadrilla: existingPresupuesto.planificacionCuadrilla?.aplicarOptimizacionAlPresupuesto ?? existingPresupuesto.aplicarSinergiaManoObra ?? false,
-        estrategiaCuadrilla: existingPresupuesto.planificacionCuadrilla?.estrategia || 'equilibrada'
+        estrategiaCuadrilla: existingPresupuesto.planificacionCuadrilla?.estrategia || 'equilibrada',
+        dslText: existingPresupuesto.dslText || ''
       });
     } else {
       if (isInitializedRef.current) {
@@ -391,7 +408,8 @@ export function usePresupuestoEditorViewModel({
         margenRiesgoPorcentaje: config.margenRiesgoDefaultPct ?? 0,
         nivelMargenRiesgo: 'bajo',
         aplicarOptimizacionCuadrilla: false,
-        estrategiaCuadrilla: 'equilibrada'
+        estrategiaCuadrilla: 'equilibrada',
+        dslText: ''
       });
     }
   }, [existingPresupuesto, config, costosIndirectos]);
@@ -502,7 +520,8 @@ export function usePresupuestoEditorViewModel({
       margenRiesgoPorcentaje,
       nivelMargenRiesgo,
       aplicarOptimizacionCuadrilla,
-      estrategiaCuadrilla
+      estrategiaCuadrilla,
+      dslText: dslText || ''
     });
 
     // Si el contenido es idéntico a lo que ya está guardado en disco, NO volver a guardar
@@ -594,6 +613,9 @@ export function usePresupuestoEditorViewModel({
         totalMonedaExtranjera: totales.totalMonedaExtranjera,
         condicionesPagoTexto: finalEmission.condicionesComerciales || condicionesPagoTexto,
         estado: existingPresupuesto?.estado || 'borrador',
+        dslText,
+        calculatedCells,
+        calculosVariables,
         fechaModificacion: now,
         createdAt: existingPresupuesto?.createdAt || now,
         updatedAt: now,
@@ -618,7 +640,7 @@ export function usePresupuestoEditorViewModel({
     modoPlanificacionCuadrilla, diasObjetivoObra, margenRiesgoPorcentaje,
     nivelMargenRiesgo, aplicarOptimizacionCuadrilla, sinergiaManoObra, resultadoCuadrilla,
     margenPorcentaje, opcionesEmision, mostrarDolar, nombreDolar, cotizacionDolar,
-    condicionesPagoTexto, onDraftAutoSaved, estrategiaCuadrilla
+    condicionesPagoTexto, onDraftAutoSaved, estrategiaCuadrilla, dslText, calculatedCells, calculosVariables
   ]);
 
   const latestAutoSaveRef = useRef(executeAutoSave);
@@ -652,7 +674,8 @@ export function usePresupuestoEditorViewModel({
       margenRiesgoPorcentaje,
       nivelMargenRiesgo,
       aplicarOptimizacionCuadrilla,
-      estrategiaCuadrilla
+      estrategiaCuadrilla,
+      dslText: dslText || ''
     });
 
     // Si el contenido actual coincide con lo último guardado en disco, NO hacer nada ni marcar dirty
@@ -684,7 +707,7 @@ export function usePresupuestoEditorViewModel({
     condicionesPagoTexto, impuestosDetalle, opcionesEmision, operariosCuadrilla,
     horasJornadaCuadrilla, modoPlanificacionCuadrilla, diasObjetivoObra,
     margenRiesgoPorcentaje, nivelMargenRiesgo, aplicarOptimizacionCuadrilla,
-    estrategiaCuadrilla
+    estrategiaCuadrilla, dslText
   ]);
 
   useEffect(() => {
@@ -1586,6 +1609,9 @@ export function usePresupuestoEditorViewModel({
       totalMonedaExtranjera: totales.totalMonedaExtranjera,
       condicionesPagoTexto: finalEmission.condicionesComerciales || condicionesPagoTexto,
       estado: targetEstado,
+      dslText,
+      calculatedCells,
+      calculosVariables,
       fechaModificacion: now,
       createdAt: existingPresupuesto?.createdAt || now,
       updatedAt: now,
@@ -1616,7 +1642,8 @@ export function usePresupuestoEditorViewModel({
       margenRiesgoPorcentaje,
       nivelMargenRiesgo,
       aplicarOptimizacionCuadrilla,
-      estrategiaCuadrilla
+      estrategiaCuadrilla,
+      dslText: dslText || ''
     });
     loadedPresupuestoIdRef.current = finalPresupuesto.id;
     isDirtyRef.current = false;
@@ -1847,6 +1874,14 @@ export function usePresupuestoEditorViewModel({
     // Auto-Save States & Actions
     autoSaveStatus,
     lastAutoSaveTime,
-    flushAutoSave
+    flushAutoSave,
+
+    // Modo Experto & DSL Calculation Persistence
+    dslText,
+    setDslText,
+    calculatedCells,
+    setCalculatedCells,
+    calculosVariables,
+    setCalculosVariables
   };
 }

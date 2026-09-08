@@ -54,6 +54,7 @@ export interface ParseDSLResult {
   gastosConfig: GastoPresupuestoConfig[];
   diagnostics: DSLDiagnostic[];
   calculatedCells?: CalculatedCell[];
+  calculosVariables?: Record<string, number | string>;
 }
 
 export interface ParseDSLContext {
@@ -321,24 +322,45 @@ gastos:
  * Serializa el estado completo de una cotización en formato YAML limpio y estructurado
  */
 export function serializePresupuestoToDSL(data: {
-  clienteId: string;
+  clienteId?: string;
   direccionObra?: string;
-  tipoFactura: TipoFactura;
-  validezDias: number;
-  margenPorcentaje: number | null;
+  tipoFactura?: TipoFactura;
+  validezDias?: number;
+  margenPorcentaje?: number | null;
   nivelMargenRiesgo?: NivelMargenRiesgo;
   margenRiesgoPorcentaje?: number;
   mostrarDolar?: boolean;
   nombreDolar?: string;
   cotizacionDolar?: number;
-  capitulos: CapituloPresupuesto[];
-  items: ItemPresupuesto[];
+  capitulos?: CapituloPresupuesto[];
+  items?: ItemPresupuesto[];
   gastosConfig?: GastoPresupuestoConfig[];
-  clientes: Cliente[];
+  clientes?: Cliente[];
+  dslText?: string;
+  calculosVariables?: Record<string, number | string>;
+  calculatedCells?: CalculatedCell[];
 }): string {
+  // Si la cotización tiene un dslText persistido original, retornarlo directamente para preservar comentarios y orden exacto
+  if (data.dslText && data.dslText.trim()) {
+    return data.dslText;
+  }
+
+  const items = data.items || [];
+  const capitulos = data.capitulos || [];
+
   // Si la cotización está totalmente vacía, retornar plantilla por defecto comentada
-  if (data.items.length === 0 && !data.clienteId && !data.direccionObra) {
-    return getDefaultPresupuestoYAMLTemplate(data);
+  if (
+    items.length === 0 &&
+    !data.clienteId &&
+    !data.direccionObra &&
+    !data.calculosVariables &&
+    !data.calculatedCells
+  ) {
+    return getDefaultPresupuestoYAMLTemplate({
+      clientes: data.clientes,
+      clienteId: data.clienteId,
+      direccionObra: data.direccionObra
+    });
   }
 
   const lines: string[] = [];
@@ -361,11 +383,31 @@ export function serializePresupuestoToDSL(data: {
     lines.push(`dolar: ${data.nombreDolar || 'Dólar MEP'} = ${data.cotizacionDolar || 1350}`);
   }
 
+  // 1b. Bloque de Celdas de Cálculo y Variables reactivas persistidas
+  if (data.calculosVariables && Object.keys(data.calculosVariables).length > 0) {
+    lines.push('');
+    lines.push('# Celdas de cálculo y variables reactivas');
+    lines.push('calculos:');
+    Object.entries(data.calculosVariables).forEach(([k, v]) => {
+      lines.push(`  ${k}: ${v}`);
+    });
+  } else if (data.calculatedCells && data.calculatedCells.length > 0) {
+    const globalCells = data.calculatedCells.filter((c) => c.scope === 'global');
+    if (globalCells.length > 0) {
+      lines.push('');
+      lines.push('# Celdas de cálculo y variables reactivas');
+      lines.push('calculos:');
+      globalCells.forEach((c) => {
+        lines.push(`  ${c.name}: ${c.rawExpression}`);
+      });
+    }
+  }
+
   lines.push('');
 
   // 2. Partidas agrupadas por capítulos
   // Ítems huérfanos sin capítulo
-  const orphanItems = data.items.filter((it) => !it.capituloId);
+  const orphanItems = items.filter((it) => !it.capituloId);
   if (orphanItems.length > 0) {
     lines.push('Partidas Generales:');
     orphanItems.forEach((it) => serializeSingleItem(it, lines, '  '));
@@ -373,12 +415,12 @@ export function serializePresupuestoToDSL(data: {
   }
 
   // Capítulos con sus ítems
-  data.capitulos.forEach((cap) => {
+  capitulos.forEach((cap) => {
     lines.push(`# ------------------------------------------------------------`);
     lines.push(`# CAPÍTULO: ${cap.nombre}`);
     lines.push(`# ------------------------------------------------------------`);
     lines.push(`${cap.nombre}:`);
-    const capItems = data.items.filter((it) => it.capituloId === cap.id);
+    const capItems = items.filter((it) => it.capituloId === cap.id);
     if (capItems.length === 0) {
       lines.push('  # (Sin partidas aún - escribí una con / o -)');
     } else {
@@ -417,8 +459,9 @@ function serializeSingleItem(it: ItemPresupuesto, lines: string[], indent: strin
   if (hasCustomSnapshots) {
     // Tarea compuesta con despiece a medida
     lines.push(`${indent}- ${it.descripcion}:`);
-    if (it.cantidad && it.cantidad !== 1) {
-      lines.push(`${indent}    cantidad: ${it.cantidad}`);
+    const qtyDisplay = it.formulaCantidad || it.cantidad;
+    if (qtyDisplay && (it.formulaCantidad || it.cantidad !== 1)) {
+      lines.push(`${indent}    cantidad: ${qtyDisplay}`);
     }
     if (it.unidad && it.unidad !== 'u') {
       lines.push(`${indent}    unidad: ${it.unidad}`);
@@ -427,18 +470,20 @@ function serializeSingleItem(it: ItemPresupuesto, lines: string[], indent: strin
     if (it.insumosSnapshot && it.insumosSnapshot.length > 0) {
       lines.push(`${indent}    materiales:`);
       it.insumosSnapshot.forEach((ins) => {
-        const cantUnit = `${ins.cantidadTotal} ${ins.unidad || 'u'}`;
-        const priceStr = (ins.precioUnitarioCongelado || 0) > 0 ? ` : $ ${Math.round(ins.precioUnitarioCongelado).toLocaleString('es-AR')}` : '';
+        const cantDisplay = ins.formulaCantidad || ins.cantidadTotal;
+        const cantUnit = `${cantDisplay} ${ins.unidad || 'u'}`;
+        const priceStr = (ins.precioUnitarioCongelado || 0) > 0 ? `: $ ${Math.round(ins.precioUnitarioCongelado).toLocaleString('es-AR')}` : '';
         const brandStr = ins.marca ? ` [${ins.marca}]` : '';
-        lines.push(`${indent}      - ${cantUnit} ${ins.nombre}${brandStr}${priceStr}`);
+        lines.push(`${indent}      - ${cantUnit} ${ins.nombre}${brandStr}${priceStr ? ' ' + priceStr : ''}`);
       });
     }
 
     if (it.manoObraSnapshot && it.manoObraSnapshot.length > 0) {
       lines.push(`${indent}    mano_obra:`);
       it.manoObraSnapshot.forEach((mo) => {
-        const moPriceStr = (mo.costoHoraCongelado || 0) > 0 ? ` : $ ${Math.round(mo.costoHoraCongelado).toLocaleString('es-AR')}` : '';
-        lines.push(`${indent}      - ${mo.horasTotales} h ${mo.nombreCategoria}${moPriceStr}`);
+        const hsDisplay = mo.formulaHoras || mo.horasTotales;
+        const moPriceStr = (mo.costoHoraCongelado || 0) > 0 ? `: $ ${Math.round(mo.costoHoraCongelado).toLocaleString('es-AR')}` : '';
+        lines.push(`${indent}      - ${hsDisplay} h ${mo.nombreCategoria}${moPriceStr ? ' ' + moPriceStr : ''}`);
       });
     }
 
@@ -451,14 +496,15 @@ function serializeSingleItem(it: ItemPresupuesto, lines: string[], indent: strin
     }
   } else {
     // Tarea simple o directa
-    let line = `${indent}- ${it.cantidad || 1} ${it.unidad || 'u'} ${it.descripcion}`;
+    const qtyDisplay = it.formulaCantidad || (it.cantidad || 1);
+    let line = `${indent}- ${qtyDisplay} ${it.unidad || 'u'} ${it.descripcion}`;
     if (it.condicionTrabajo && it.condicionTrabajo !== 'normal') {
       line += ` @condicion: ${it.condicionTrabajo}`;
     }
     if (it.precioManual && it.precioManual > 0) {
-      line += ` : $ ${Math.round(it.precioManual).toLocaleString('es-AR')}`;
+      line += `: $ ${Math.round(it.precioManual).toLocaleString('es-AR')}`;
     } else if (!it.tareaTipoId && it.costoUnitario && it.costoUnitario > 0) {
-      line += ` : $ ${Math.round(it.costoUnitario).toLocaleString('es-AR')}`;
+      line += `: $ ${Math.round(it.costoUnitario).toLocaleString('es-AR')}`;
     }
     lines.push(line);
   }
@@ -473,6 +519,7 @@ function parseQuantityAndName(
   scope?: Record<string, number>
 ): {
   cantidad: number;
+  formulaCantidad?: string;
   unidad: string;
   nombre: string;
   marca?: string;
@@ -531,11 +578,13 @@ function parseQuantityAndName(
         const formulaPart = cleanStr.substring(1, closeIdx);
         const rest = cleanStr.substring(closeIdx + 1).trim();
         const evalQty = evaluateExpressionOrNumber(formulaPart, scope);
+        const formulaCantidad = `=(${formulaPart})`;
 
         const restMatch = rest.match(/^([a-zA-ZáéíóúÁÉÍÓÚ²³]+)\s+(.+)$/);
         if (restMatch && KNOWN_UNITS.has(restMatch[1].toLowerCase())) {
           return {
             cantidad: evalQty >= 0 ? evalQty : 0,
+            formulaCantidad,
             unidad: restMatch[1].toLowerCase(),
             nombre: restMatch[2].trim(),
             marca,
@@ -545,6 +594,7 @@ function parseQuantityAndName(
         } else if (rest && KNOWN_UNITS.has(rest.toLowerCase())) {
           return {
             cantidad: evalQty >= 0 ? evalQty : 0,
+            formulaCantidad,
             unidad: rest.toLowerCase(),
             nombre: '',
             marca,
@@ -554,6 +604,7 @@ function parseQuantityAndName(
         } else {
           return {
             cantidad: evalQty >= 0 ? evalQty : 0,
+            formulaCantidad,
             unidad: 'u',
             nombre: rest,
             marca,
@@ -581,6 +632,7 @@ function parseQuantityAndName(
       const evalQty = evaluateExpressionOrNumber(formulaPart, scope);
       return {
         cantidad: evalQty >= 0 ? evalQty : 0,
+        formulaCantidad: `=${formulaPart}`,
         unidad: unitPart,
         nombre: namePart,
         marca,
@@ -592,6 +644,7 @@ function parseQuantityAndName(
       const evalQty = evaluateExpressionOrNumber(cleanStr, scope);
       return {
         cantidad: evalQty >= 0 ? evalQty : 0,
+        formulaCantidad: `=${cleanStr}`,
         unidad: 'u',
         nombre: '',
         marca,
@@ -1028,8 +1081,28 @@ export function parseDSLToPresupuesto(
   const globalScope: Record<string, number> = {};
   const rawCalculos = parsed.calculos || parsed.variables;
   const calculatedCells: CalculatedCell[] = [];
+  const calculosVariables: Record<string, number | string> = {};
 
   if (rawCalculos) {
+    if (Array.isArray(rawCalculos)) {
+      rawCalculos.forEach((item) => {
+        if (typeof item === 'object' && item !== null) {
+          Object.entries(item).forEach(([k, v]) => {
+            calculosVariables[k.trim()] = v as any;
+          });
+        } else if (typeof item === 'string') {
+          const colonIdx = item.indexOf(':');
+          if (colonIdx > 0) {
+            calculosVariables[item.slice(0, colonIdx).trim()] = item.slice(colonIdx + 1).trim();
+          }
+        }
+      });
+    } else if (typeof rawCalculos === 'object') {
+      Object.entries(rawCalculos).forEach(([k, v]) => {
+        calculosVariables[k.trim()] = v as any;
+      });
+    }
+
     const cells = processCalculationBlock(rawCalculos, globalScope, 'global');
     calculatedCells.push(...cells);
     if (cells.length > 0) {
@@ -1145,7 +1218,8 @@ export function parseDSLToPresupuesto(
     items,
     gastosConfig,
     diagnostics,
-    calculatedCells
+    calculatedCells,
+    calculosVariables
   };
 }
 
@@ -1165,11 +1239,12 @@ function parseAndAddItem(
 
   // CASO 1: Ítem simple como string (ej: "- 10 u Boca de Iluminación" o "- =bocas u Boca...")
   if (typeof rawItem === 'string') {
-    const { cantidad, unidad, nombre, condicion, precioManual } = parseQuantityAndName(rawItem, scope);
+    const { cantidad, formulaCantidad, unidad, nombre, condicion, precioManual } = parseQuantityAndName(rawItem, scope);
     if (cantidad <= 0) return;
     buildAndPushItem({
       nombre,
       cantidad,
+      formulaCantidad,
       unidad,
       condicion: condicion || 'normal',
       precioManual,
@@ -1208,12 +1283,13 @@ function parseAndAddItem(
     if (typeof taskContent === 'string' || typeof taskContent === 'number') {
       const isPrice = /^\s*\$?\s*[0-9.,]+$/.test(String(taskContent));
       if (isPrice) {
-        const { cantidad, unidad, nombre, condicion } = parseQuantityAndName(taskTitleKey, taskScope);
+        const { cantidad, formulaCantidad, unidad, nombre, condicion } = parseQuantityAndName(taskTitleKey, taskScope);
         if (cantidad <= 0) return;
         const precio = parseLocalizedNumber(taskContent);
         buildAndPushItem({
           nombre,
           cantidad,
+          formulaCantidad,
           unidad,
           condicion: condicion || 'normal',
           precioManual: precio,
@@ -1226,11 +1302,12 @@ function parseAndAddItem(
       } else {
         // String combinado
         const combined = `${taskTitleKey}: ${taskContent}`;
-        const { cantidad, unidad, nombre, condicion, precioManual } = parseQuantityAndName(combined, taskScope);
+        const { cantidad, formulaCantidad, unidad, nombre, condicion, precioManual } = parseQuantityAndName(combined, taskScope);
         if (cantidad <= 0) return;
         buildAndPushItem({
           nombre,
           cantidad,
+          formulaCantidad,
           unidad,
           condicion: condicion || 'normal',
           precioManual,
@@ -1246,7 +1323,9 @@ function parseAndAddItem(
 
     // 2.2 Si el contenido es un objeto (Partida a medida compuesta con materiales y/o mano de obra)
     if (typeof taskContent === 'object' && taskContent !== null) {
-      const { cantidad: parsedQty, unidad: parsedUnit, nombre: cleanName } = parseQuantityAndName(taskTitleKey, taskScope);
+      const { cantidad: parsedQty, formulaCantidad: parsedQtyFormula, unidad: parsedUnit, nombre: cleanName } = parseQuantityAndName(taskTitleKey, taskScope);
+      const rawQtyStr = taskContent.cantidad !== undefined ? String(taskContent.cantidad).trim() : undefined;
+      const formulaCantidad = (rawQtyStr && rawQtyStr.startsWith('=')) ? rawQtyStr : parsedQtyFormula;
       const cantidad = taskContent.cantidad !== undefined
         ? evaluateExpressionOrNumber(taskContent.cantidad, taskScope)
         : parsedQty;
@@ -1385,6 +1464,7 @@ function parseAndAddItem(
         buildCompositeItem({
           nombre: cleanName,
           cantidad,
+          formulaCantidad,
           unidad,
           condicion,
           precioManual,
@@ -1401,6 +1481,7 @@ function parseAndAddItem(
         buildAndPushItem({
           nombre: cleanName,
           cantidad,
+          formulaCantidad,
           unidad,
           condicion,
           precioManual,
@@ -1421,6 +1502,7 @@ function parseAndAddItem(
 function buildCompositeItem(params: {
   nombre: string;
   cantidad: number;
+  formulaCantidad?: string;
   unidad: string;
   condicion: 'normal' | 'dificultosa' | 'favorable';
   precioManual?: number;
@@ -1435,6 +1517,7 @@ function buildCompositeItem(params: {
   const {
     nombre,
     cantidad,
+    formulaCantidad,
     unidad,
     condicion,
     precioManual,
@@ -1453,6 +1536,7 @@ function buildCompositeItem(params: {
   // 1. Procesar Materiales
   materialesList.forEach((mItem: any) => {
     let mCant = 1;
+    let mFormula: string | undefined = undefined;
     let mUn = 'u';
     let mNombre = '';
     let mMarca: string | undefined = undefined;
@@ -1461,6 +1545,7 @@ function buildCompositeItem(params: {
     if (typeof mItem === 'string') {
       const parsedM = parseQuantityAndName(mItem, scope);
       mCant = parsedM.cantidad;
+      mFormula = parsedM.formulaCantidad;
       mUn = parsedM.unidad;
       mNombre = parsedM.nombre;
       mMarca = parsedM.marca;
@@ -1475,6 +1560,7 @@ function buildCompositeItem(params: {
           if (typeof mItem.cantidad === 'string') {
             const parsedQ = parseQuantityAndName(mItem.cantidad, scope);
             mCant = parsedQ.cantidad;
+            mFormula = parsedQ.formulaCantidad;
             if (parsedQ.unidad && parsedQ.unidad !== 'u') mUn = parsedQ.unidad;
           } else {
             mCant = evaluateExpressionOrNumber(mItem.cantidad, scope);
@@ -1489,6 +1575,7 @@ function buildCompositeItem(params: {
         mNombre = parsedM.nombre;
         mMarca = parsedM.marca;
         mCant = parsedM.cantidad;
+        mFormula = parsedM.formulaCantidad;
         mUn = parsedM.unidad;
         mPrecio = parsedM.precioManual;
 
@@ -1497,6 +1584,7 @@ function buildCompositeItem(params: {
           if (typeof propSource.cantidad === 'string') {
             const parsedQ = parseQuantityAndName(propSource.cantidad, scope);
             mCant = parsedQ.cantidad;
+            mFormula = parsedQ.formulaCantidad;
             if (parsedQ.unidad && parsedQ.unidad !== 'u') mUn = parsedQ.unidad;
           } else {
             mCant = evaluateExpressionOrNumber(propSource.cantidad, scope);
@@ -1574,6 +1662,7 @@ function buildCompositeItem(params: {
       marca: mMarca || matchedInsumo?.marca,
       unidad: mUn || matchedInsumo?.unidad || 'u',
       cantidadTotal: totalQty,
+      formulaCantidad: mFormula,
       precioUnitarioCongelado: unitCost,
       subtotalInsumo: subtotal,
       subtotalInsumoFinal: subtotal
@@ -1586,18 +1675,21 @@ function buildCompositeItem(params: {
 
   manoObraList.forEach((moItem: any) => {
     let moHoras = 1;
+    let moFormula: string | undefined = undefined;
     let moCatNombre = '';
     let moPrecio: number | undefined = undefined;
 
     if (typeof moItem === 'string') {
       const parsedMo = parseQuantityAndName(moItem, scope);
       moHoras = parsedMo.cantidad;
+      moFormula = parsedMo.formulaCantidad;
       moCatNombre = parsedMo.nombre;
       moPrecio = parsedMo.precioManual;
     } else if (typeof moItem === 'object' && moItem !== null) {
       const moKey = Object.keys(moItem)[0];
       const parsedMo = parseQuantityAndName(moKey, scope);
       moHoras = parsedMo.cantidad;
+      moFormula = parsedMo.formulaCantidad;
       moCatNombre = parsedMo.nombre;
       moPrecio = parsedMo.precioManual;
       const val = moItem[moKey];
@@ -1607,6 +1699,7 @@ function buildCompositeItem(params: {
         if (typeof rawHours === 'string') {
           const p = parseQuantityAndName(rawHours, scope);
           moHoras = p.cantidad;
+          moFormula = p.formulaCantidad;
         } else {
           moHoras = evaluateExpressionOrNumber(rawHours, scope);
         }
@@ -1655,6 +1748,7 @@ function buildCompositeItem(params: {
       categoriaId,
       nombreCategoria: finalCatName,
       horasTotales: totalHoras,
+      formulaHoras: moFormula,
       costoHoraCongelado: costoHora,
       subtotalManoObra: subtotalMo
     });
@@ -1683,6 +1777,7 @@ function buildCompositeItem(params: {
     tareaTipoId: matchedTarea?.id,
     descripcion: nombre,
     cantidad,
+    formulaCantidad,
     unidad: unidad || matchedTarea?.unidad || 'u',
     naturaleza: matchedTarea?.naturaleza || 'instalacion',
     condicionTrabajo: condicion,
@@ -1715,6 +1810,7 @@ function buildCompositeItem(params: {
 function buildAndPushItem(params: {
   nombre: string;
   cantidad: number;
+  formulaCantidad?: string;
   unidad: string;
   condicion: 'normal' | 'dificultosa' | 'favorable';
   precioManual?: number;
@@ -1727,6 +1823,7 @@ function buildAndPushItem(params: {
   const {
     nombre,
     cantidad,
+    formulaCantidad,
     unidad,
     condicion,
     precioManual,
@@ -1790,6 +1887,7 @@ function buildAndPushItem(params: {
       tareaTipoId: matchedTarea.id,
       descripcion: matchedTarea.nombre,
       cantidad,
+      formulaCantidad,
       unidad: unidad || matchedTarea.unidad || 'u',
       naturaleza: matchedTarea.naturaleza || 'instalacion',
       condicionTrabajo: condicion,
@@ -1837,6 +1935,7 @@ function buildAndPushItem(params: {
       capituloId,
       descripcion: nombre,
       cantidad,
+      formulaCantidad,
       unidad: unidad || 'u',
       naturaleza: 'instalacion',
       condicionTrabajo: condicion,

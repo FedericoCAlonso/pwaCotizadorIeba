@@ -531,6 +531,7 @@ export interface InsumoSnapshot {
   esAdHoc?: boolean;
   requiereCotizacionDirecta?: boolean;
   parametrosEstimacion?: ParametrosEstimacionMaterial;
+  formulaCantidad?: string; // Fórmula original si provino de un cálculo reactivo (ej: "=circuitos * 2")
 }
 
 export interface ManoObraSnapshot {
@@ -540,6 +541,7 @@ export interface ManoObraSnapshot {
   horasTotales: number;
   costoHoraCongelado: number;
   subtotalManoObra: number;
+  formulaHoras?: string; // Fórmula original de horas si provino de un cálculo reactivo
 }
 
 export interface CostoIndirectoSnapshot {
@@ -776,6 +778,15 @@ export interface GastoPresupuestoConfig {
 
 export type CostoIndirectoItemConfig = GastoPresupuestoConfig;
 
+export interface CalculatedCell {
+  name: string;
+  rawExpression: string;
+  evaluatedValue: number;
+  isFormula: boolean;
+  error?: string;
+  scope?: 'global' | 'local';
+}
+
 export interface Presupuesto {
   id: string;
   numero: string;
@@ -849,6 +860,11 @@ export interface Presupuesto {
   estado: EstadoPresupuesto;
   notasInternas?: string;
   notasCliente?: string;
+
+  // ─── Modo Experto & Celdas de Cálculo ───
+  dslText?: string;
+  calculatedCells?: CalculatedCell[];
+  calculosVariables?: Record<string, number | string>;
 
   fechaModificacion: string;
   createdAt?: string;

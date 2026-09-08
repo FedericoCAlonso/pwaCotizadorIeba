@@ -1711,6 +1711,112 @@ Instalación:
       expect(yaml.slice(priceStop!.start, priceStop!.end)).toBe('12.500');
     });
   });
+
+  describe('Persistencia de Cálculos, Variables y Fórmulas en el Modelo de Datos', () => {
+    it('extrae y persiste calculosVariables, calculatedCells y formulaCantidad en parseDSLToPresupuesto', () => {
+      const yaml = `calculos:
+  bocas: 24
+  precio_unit: 5000
+  total_est: =bocas * precio_unit
+
+Capitulo 1:
+  - =bocas u Instalacion de Bocas: $ =precio_unit
+  - Tablero Principal:
+      cantidad: =bocas / 4
+      materiales:
+        - =bocas * 2 u Conectores: $ 250
+      mano_obra:
+        - Oficial Electricista:
+            horas: =bocas * 0.5
+            precio: 8500`;
+
+      const parsed = parseDSLToPresupuesto(yaml, {
+        clientes: [],
+        tareasTipo: [],
+        insumosMap: new Map(),
+        manoObraMap: new Map()
+      });
+
+      // 1. calculosVariables
+      expect(parsed.calculosVariables).toBeDefined();
+      expect(parsed.calculosVariables?.bocas).toBe(24);
+      expect(parsed.calculosVariables?.precio_unit).toBe(5000);
+      expect(parsed.calculosVariables?.total_est).toBe('=bocas * precio_unit');
+
+      // 2. calculatedCells
+      expect(parsed.calculatedCells).toBeDefined();
+      expect(parsed.calculatedCells!.length).toBeGreaterThanOrEqual(3);
+      const totalCell = parsed.calculatedCells!.find(c => c.name === 'total_est');
+      expect(totalCell?.evaluatedValue).toBe(120000);
+
+      // 3. Items con formulaCantidad
+      expect(parsed.items.length).toBe(2);
+      const itemSimple = parsed.items.find(it => it.descripcion.includes('Instalacion de Bocas'));
+      expect(itemSimple).toBeDefined();
+      expect(itemSimple?.cantidad).toBe(24);
+      expect(itemSimple?.formulaCantidad).toBe('=bocas');
+      expect(itemSimple?.precioManual).toBe(5000);
+
+      // 4. Item compuesto con formulaCantidad, materiales y mano de obra
+      const itemCompuesto = parsed.items.find(it => it.descripcion === 'Tablero Principal');
+      expect(itemCompuesto).toBeDefined();
+      expect(itemCompuesto?.cantidad).toBe(6);
+      expect(itemCompuesto?.formulaCantidad).toBe('=bocas / 4');
+
+      const mat = itemCompuesto?.insumosSnapshot?.[0];
+      expect(mat).toBeDefined();
+      expect(mat?.formulaCantidad).toBe('=bocas * 2');
+
+      const mo = itemCompuesto?.manoObraSnapshot?.[0];
+      expect(mo).toBeDefined();
+      expect(mo?.formulaHoras).toBe('=bocas * 0.5');
+    });
+
+    it('serializePresupuestoToDSL preserva dslText exactamente si está presente', () => {
+      const customDsl = `# Presupuesto de prueba con comentarios
+calculos:
+  ambientes: 3 # dormitorios
+  bocas: =ambientes * 8
+
+Iluminación:
+  - =bocas u Bocas de techo: $ 15.000`;
+
+      const serialized = serializePresupuestoToDSL({
+        items: [],
+        capitulos: [],
+        gastosConfig: [],
+        dslText: customDsl
+      });
+
+      expect(serialized).toBe(customDsl);
+    });
+
+    it('serializePresupuestoToDSL serializa calculosVariables y formulas si dslText no está provisto', () => {
+      const serialized = serializePresupuestoToDSL({
+        items: [
+          {
+            id: 'it1',
+            descripcion: 'Puntos y Tomas',
+            cantidad: 20,
+            formulaCantidad: '=bocas',
+            unidad: 'u',
+            precioManual: 10000
+          } as any
+        ],
+        capitulos: [],
+        gastosConfig: [],
+        calculosVariables: {
+          bocas: 20,
+          coef: 1.15
+        }
+      });
+
+      expect(serialized).toContain('calculos:');
+      expect(serialized).toContain('bocas: 20');
+      expect(serialized).toContain('coef: 1.15');
+      expect(serialized).toContain('- =bocas u Puntos y Tomas: $ 10.000');
+    });
+  });
 });
 
 
