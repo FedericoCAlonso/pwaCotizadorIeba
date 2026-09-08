@@ -28,7 +28,6 @@ import {
   Menu,
   ChevronRight,
   X,
-  ExternalLink,
   HelpCircle,
   Keyboard
 } from 'lucide-react';
@@ -36,7 +35,8 @@ import { exportDatabaseJSON, importDatabaseJSON } from '../db/database';
 import { AppConfig, ThemeMode } from '../core/types';
 import { useAuth } from '../contexts/AuthContext';
 import { AuthModal } from './AuthModal';
-import { ModalContainer } from './ModalContainer';
+import { SyncDetailsModal } from './header/SyncDetailsModal';
+import { MobileNavDrawer } from './header/MobileNavDrawer';
 
 interface HeaderProps {
   activeTab: string;
@@ -64,13 +64,10 @@ export const Header: React.FC<HeaderProps> = ({
     syncState,
     syncErrorMessage,
     lastSyncTime,
-    lastResult,
     activeProvider,
     hasPendingChanges,
-    setActiveProvider,
     logout,
-    triggerSync,
-    triggerCleanup
+    triggerSync
   } = useAuth();
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -92,16 +89,6 @@ export const Header: React.FC<HeaderProps> = ({
     };
   }, []);
 
-  useEffect(() => {
-    if (showMobileDrawer) {
-      document.body.classList.add('mobile-drawer-open');
-    } else {
-      document.body.classList.remove('mobile-drawer-open');
-    }
-    return () => {
-      document.body.classList.remove('mobile-drawer-open');
-    };
-  }, [showMobileDrawer]);
 
   const handleExportJSON = async () => {
     try {
@@ -557,109 +544,16 @@ export const Header: React.FC<HeaderProps> = ({
       </nav>
 
       {/* M3 Mobile Bottom Sheet Drawer for "Más" items */}
-      {showMobileDrawer && (
-        <div className="md:hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-end justify-center animate-in fade-in duration-200">
-          <div
-            className="fixed inset-0"
-            onClick={() => setShowMobileDrawer(false)}
-            aria-hidden="true"
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="drawer-title"
-            className="relative bg-surface-container border-t border-outline-variant/30 rounded-t-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh] z-10 pb-safe pb-8 animate-in slide-in-from-bottom duration-300"
-          >
-            {/* Drag handle pill */}
-            <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto mt-3 mb-2 shrink-0" />
-
-            <div className="px-5 py-3 border-b border-outline-variant/20 flex justify-between items-center bg-surface-container-low shrink-0">
-              <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-primary" aria-hidden="true" />
-                <h3 id="drawer-title" className="font-bold text-base text-on-surface">Herramientas & Módulos IEBA</h3>
-              </div>
-              <button
-                onClick={() => setShowMobileDrawer(false)}
-                className="p-1.5 rounded-full text-on-surface-variant hover:bg-surface-variant"
-                aria-label="Cerrar menú"
-              >
-                <X className="w-5 h-5" aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="p-4 overflow-y-auto space-y-4 touch-pan-y overscroll-contain">
-              {/* Navigation Grid */}
-              <div className="grid grid-cols-2 gap-2.5">
-                {navItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        setShowMobileDrawer(false);
-                      }}
-                      className={`flex items-center gap-3 p-3 rounded-2xl text-left transition-all min-h-[56px] border ${
-                        isActive
-                          ? 'bg-secondary-container text-on-secondary-container border-primary/30 shadow-xs'
-                          : 'bg-surface-container-low hover:bg-surface-container-high border-outline-variant/20 text-on-surface'
-                      }`}
-                    >
-                      <div className={`p-2 rounded-xl shrink-0 ${isActive ? 'bg-primary/20 text-primary' : 'bg-surface-variant text-on-surface-variant'}`}>
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <span className="text-xs font-semibold block truncate">{item.label}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Utility Actions */}
-              <div className="pt-3 border-t border-outline-variant/30 space-y-2">
-                <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider px-1">
-                  Acciones Rápidas
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => {
-                      handleExportJSON();
-                      setShowMobileDrawer(false);
-                    }}
-                    className="flex items-center gap-2 p-3 bg-surface-container-low hover:bg-surface-container-high rounded-2xl border border-outline-variant/20 text-xs font-medium text-on-surface min-h-[48px]"
-                  >
-                    <Download className="w-4 h-4 text-primary" />
-                    <span>Respaldar JSON</span>
-                  </button>
-
-                  <label className="flex items-center gap-2 p-3 bg-surface-container-low hover:bg-surface-container-high rounded-2xl border border-outline-variant/20 text-xs font-medium text-on-surface cursor-pointer min-h-[48px]">
-                    <Upload className="w-4 h-4 text-primary" />
-                    <span>Restaurar JSON</span>
-                    <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
-                  </label>
-                </div>
-
-                <button
-                  onClick={() => {
-                    onOpenConfig();
-                    setShowMobileDrawer(false);
-                  }}
-                  className="w-full flex items-center justify-between p-3.5 bg-surface-container-low hover:bg-surface-container-high rounded-2xl border border-outline-variant/20 text-xs font-semibold text-on-surface min-h-[48px]"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Settings className="w-4 h-4 text-primary" />
-                    <span>Configuración General & Moneda</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-on-surface-variant" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <MobileNavDrawer
+        isOpen={showMobileDrawer}
+        onClose={() => setShowMobileDrawer(false)}
+        navItems={navItems}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onExportJSON={handleExportJSON}
+        onImportJSON={handleImportJSON}
+        onOpenConfig={onOpenConfig}
+      />
 
       {showExportSuccess && (
         <div className="bg-tertiary-container text-on-tertiary-container text-sm font-medium px-4 py-2 text-center shadow-md">
@@ -671,214 +565,10 @@ export const Header: React.FC<HeaderProps> = ({
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
       {/* M3 Decentralized Sync Details Modal */}
-      <ModalContainer
+      <SyncDetailsModal
         isOpen={showSyncModal}
         onClose={() => setShowSyncModal(false)}
-        title="Sincronización Descentralizada (Offline-First)"
-        subtitle="Sincroniza tus datos mediante Google Drive personal, Archivo Local o Respaldo JSON"
-        icon={<Cloud className="w-5 h-5 text-primary" />}
-        maxWidth="md"
-      >
-        <div className="space-y-4 text-on-surface">
-          {/* Provider Selection Tabs */}
-          <div className="flex bg-surface-container-high p-1 rounded-2xl gap-1">
-            <button
-              type="button"
-              onClick={() => setActiveProvider('local_file')}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-                activeProvider === 'local_file'
-                  ? 'bg-surface text-primary shadow-sm'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              📁 Carpeta Local (PC)
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveProvider('google_drive')}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-                activeProvider === 'google_drive'
-                  ? 'bg-surface text-primary shadow-sm'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              ☁️ Google Drive
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveProvider('manual_json')}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-                activeProvider === 'manual_json'
-                  ? 'bg-surface text-primary shadow-sm'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              💾 Respaldo JSON
-            </button>
-          </div>
-
-          {/* Main Status Banner */}
-          <div
-            className={`p-4 rounded-2xl border flex items-start gap-3 ${
-              syncState === 'error'
-                ? 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200'
-                : syncState === 'pending'
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
-                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
-            }`}
-          >
-            {syncState === 'error' ? (
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-500" />
-            ) : syncState === 'pending' ? (
-              <Cloud className="w-5 h-5 shrink-0 mt-0.5 text-amber-500 animate-pulse" />
-            ) : (
-              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-emerald-500" />
-            )}
-
-            <div className="space-y-1 text-xs">
-              <h4 className="font-bold text-sm">
-                {syncState === 'error'
-                  ? 'Atención al Sincronizar'
-                  : syncState === 'syncing'
-                  ? 'Sincronizando registros...'
-                  : syncState === 'pending'
-                  ? 'Cambios locales pendientes de subir'
-                  : 'Almacenamiento Sincronizado'}
-              </h4>
-
-              <p className="leading-relaxed">
-                {syncState === 'error'
-                  ? (syncErrorMessage || 'Ocurrió un inconveniente al conectar con el proveedor seleccionado.')
-                  : syncState === 'pending'
-                  ? 'Tienes modificaciones guardadas localmente en este dispositivo que aún no se han subido a la nube. Se enviarán automáticamente o puedes sincronizar ahora.'
-                  : activeProvider === 'local_file'
-                  ? 'Los cambios se fusionan automáticamente (Last-Write-Wins) con el archivo maestro en tu disco local o carpeta sincronizada (Dropbox, OneDrive, Google Drive Sync).'
-                  : activeProvider === 'google_drive'
-                  ? 'Los cambios se sincronizan directamente en tu cuenta personal de Google Drive sin intermediarios ni cuotas limitadas.'
-                  : 'Puedes exportar o restaurar el archivo JSON maestro con fusión inteligente de cambios.'}
-              </p>
-
-              {syncState === 'error' && activeProvider === 'google_drive' && (
-                <div className="pt-2 flex flex-wrap gap-2">
-                  <a
-                    href="https://console.developers.google.com/apis/api/drive.googleapis.com/overview?project=1064181500067"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Habilitar Google Drive API en Google Cloud (1 clic)</span>
-                  </a>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setActiveProvider('local_file');
-                      try {
-                        await triggerSync('local_file');
-                      } catch {}
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container-highest hover:bg-surface-variant text-on-surface rounded-xl text-xs font-semibold transition border border-outline-variant/30"
-                  >
-                    <span>📁 Cambiar a Carpeta Local (Sin APIs)</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Merge Result Statistics */}
-          {lastResult && lastResult.stats && (
-            <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 space-y-2 text-xs">
-              <span className="font-bold text-on-surface block">Estadísticas de la última sincronización:</span>
-              <div className="grid grid-cols-2 gap-2 text-on-surface-variant font-mono text-xs">
-                <div>Tablas sincronizadas: <strong className="text-on-surface">{lastResult.stats.tablesProcessed}</strong></div>
-                <div>Actualizados en dispositivo: <strong className="text-emerald-600 dark:text-emerald-400">{lastResult.stats.localUpdatedCount + lastResult.stats.localAddedCount}</strong></div>
-                <div>Novedades enviadas: <strong className="text-primary">{lastResult.stats.localNewerCount}</strong></div>
-                <div>Registros idénticos: <strong className="text-on-surface">{lastResult.stats.identicalCount}</strong></div>
-              </div>
-            </div>
-          )}
-
-          {/* Maintenance / Data Purge Section */}
-          <div className="bg-surface-container-low p-3.5 rounded-2xl border border-dashed border-outline-variant/40 flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex flex-col gap-0.5 flex-1 min-w-[200px]">
-              <span className="text-xs font-bold text-on-surface flex items-center gap-1.5">
-                🧹 Depurar y Compactar Base de Datos
-              </span>
-              <span className="text-xs text-on-surface-variant leading-relaxed">
-                Elimina permanentemente de la nube y del dispositivo los contactos, clientes, cotizaciones y relevamientos borrados o residuales.
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={async () => {
-                if (!confirm('¿Deseas purgar de la nube y del dispositivo todos los contactos, cotizaciones y relevamientos borrados o residuales?\n\nEsta acción dejará únicamente los registros activos y saneará la base de datos maestra.')) {
-                  return;
-                }
-                try {
-                  const res = await triggerCleanup();
-                  alert(res.message);
-                } catch (err: any) {
-                  alert(err.message || 'Error al ejecutar la limpieza de datos');
-                }
-              }}
-              disabled={syncState === 'syncing'}
-              className="px-3.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 rounded-xl border border-rose-200 dark:border-rose-800 transition disabled:opacity-50 shrink-0 cursor-pointer"
-            >
-              {syncState === 'syncing' ? 'Depurando...' : 'Limpiar y Purgar'}
-            </button>
-          </div>
-
-          {/* Sync Stats Info */}
-          <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 space-y-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-on-surface-variant">Proveedor activo:</span>
-              <span className="font-semibold text-primary">
-                {activeProvider === 'local_file' ? '📁 Archivo en Disco Local' : activeProvider === 'google_drive' ? '☁️ Google Drive Personal' : '💾 Manual JSON'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-on-surface-variant">Última sincronización exitosa:</span>
-              <span className="font-mono text-on-surface">
-                {lastSyncTime ? lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Nunca'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-on-surface-variant">Motor de Fusión:</span>
-              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">Last-Write-Wins (LWW)</span>
-            </div>
-          </div>
-
-          {/* Manual Retry Action Button */}
-          <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setShowSyncModal(false)}
-              className="px-4 py-2 rounded-full text-xs font-semibold text-on-surface-variant hover:bg-surface-variant"
-            >
-              Cerrar
-            </button>
-
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  await triggerSync();
-                } catch {}
-              }}
-              disabled={syncState === 'syncing'}
-              className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-full text-xs shadow-sm active:scale-95 disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${syncState === 'syncing' ? 'animate-spin' : ''}`} />
-              <span>Sincronizar Ahora</span>
-            </button>
-          </div>
-        </div>
-      </ModalContainer>
+      />
     </header>
   );
 };

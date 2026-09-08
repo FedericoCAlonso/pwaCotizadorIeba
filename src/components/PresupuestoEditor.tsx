@@ -21,9 +21,6 @@ import {
   Terminal
 } from 'lucide-react';
 import { ModoExpertoEditor } from './presupuesto/experto/ModoExpertoEditor';
-import { SaveAsTareaTipoModal } from './SaveAsTareaTipoModal';
-import { TareaEditorModal } from './tareasTipo/TareaEditorModal';
-import { MaterialPickerModal, StagedItemPayload } from './tareasTipo/MaterialPickerModal';
 import {
   AppConfig,
   ItemPresupuesto,
@@ -36,32 +33,19 @@ import {
 } from '../core/types';
 import {
   formatARS,
-  formatUSD,
-  obtenerMultiplicadorCondicion,
-  roundMoney,
   safeNum
 } from '../core/calculations';
 import { useAppOptions } from '../hooks/useAppOptions';
 import { useToast } from '../contexts/ToastContext';
-import { ItemPickerModal } from './presupuesto/ItemPickerModal';
-import { EmisionPresupuestoModal } from './presupuesto/EmisionPresupuestoModal';
-import { WhatsAppShareModal } from './presupuesto/WhatsAppShareModal';
-import { ListaMaterialesModal } from './presupuesto/ListaMaterialesModal';
-import { ParametricJobModal } from './presupuesto/ParametricJobModal';
-import { ParametricMaterialModal } from './presupuesto/ParametricMaterialModal';
-import { GastoEditorModal } from './presupuesto/GastoEditorModal';
-import { GastoCatalogPickerModal } from './presupuesto/GastoCatalogPickerModal';
-import { ParametricGastoModal } from './presupuesto/ParametricGastoModal';
-import { ClienteCombobox } from './presupuesto/ClienteCombobox';
-import { ActualizarPreciosModal } from './presupuesto/ActualizarPreciosModal';
-import { MaterialBrandModal, ApplyBrandPayload } from './presupuesto/MaterialBrandModal';
 import { usePresupuestoEditorViewModel } from '../viewmodels/usePresupuestoEditorViewModel';
+import { usePresupuestoItemsOperations } from '../viewmodels/usePresupuestoItemsOperations';
 import { PresupuestoEditorTabBar } from './presupuesto/editor/PresupuestoEditorTabBar';
 import { ClienteTab } from './presupuesto/editor/ClienteTab';
 import { PartidasTab } from './presupuesto/editor/PartidasTab';
 import { CuadrillaTab } from './presupuesto/editor/CuadrillaTab';
 import { ComercialTab } from './presupuesto/editor/ComercialTab';
 import { PresupuestoLiveFooter } from './presupuesto/editor/PresupuestoLiveFooter';
+import { PresupuestoEditorModals, SaveAsTemplateData } from './presupuesto/editor/PresupuestoEditorModals';
 
 interface PresupuestoEditorProps {
   presupuestoId?: string;
@@ -387,22 +371,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   const [materialPickerItemIndex, setMaterialPickerItemIndex] = useState<number | null>(null);
   const [brandModalTarget, setBrandModalTarget] = useState<{ itemIndex: number; materialIndex: number } | null>(null);
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
-  const [saveAsTemplateData, setSaveAsTemplateData] = useState<{
-    nombre: string;
-    notasTecnicas?: string;
-    naturaleza?: 'instalacion' | 'servicio_profesional' | 'servicio_tercerizado';
-    honorarioBase?: number;
-    formulaHonorarios?: string;
-    costoServicioDirecto?: number;
-    costoFijoOperativo?: number;
-    descripcionCostoFijo?: string;
-    clausulaExclusiones?: string;
-    parametros?: any[];
-    variables?: any[];
-    insumos: any[];
-    manoObra: any[];
-    unidad?: string;
-  }>({
+  const [saveAsTemplateData, setSaveAsTemplateData] = useState<SaveAsTemplateData>({
     nombre: '',
     notasTecnicas: '',
     insumos: [],
@@ -535,635 +504,27 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     setExpandedItems(prev => ({ ...prev, [itemId]: !prev[itemId] }));
   };
 
-  const handleUpdateItemCondicion = (index: number, condicion: 'normal' | 'dificultosa' | 'favorable') => {
-    setItems((prev) => {
-      const next = [...prev];
-      const target = next[index];
-      const mult = obtenerMultiplicadorCondicion(condicion, {
-        multiplicadorCondicionNormal: config.multiplicadorCondicionNormal,
-        multiplicadorCondicionDificultosa: config.multiplicadorCondicionDificultosa,
-        multiplicadorCondicionFavorable: config.multiplicadorCondicionFavorable
-      });
-
-      const manoObraSnap = target.manoObraSnapshot || [];
-      const manoObraActualizada = manoObraSnap.map(mo => {
-        const horasAjustadas = mo.horasTotales * mult;
-        return {
-          ...mo,
-          subtotalManoObra: roundMoney(mo.costoHoraCongelado * horasAjustadas)
-        };
-      });
-
-      const costoManoObra = roundMoney(manoObraActualizada.reduce((acc, m) => acc + m.subtotalManoObra, 0));
-      const costoInsumos = safeNum(target.costoInsumos);
-      const costoServicios = safeNum(target.costoServiciosTercerizados);
-      const hasSnapshots = (target.insumosSnapshot && target.insumosSnapshot.length > 0) || manoObraSnap.length > 0;
-
-      const costoDirectoTotal = hasSnapshots
-        ? roundMoney(costoInsumos + costoManoObra + costoServicios)
-        : safeNum(target.costoDirectoTotal);
-
-      next[index] = {
-        ...target,
-        condicionTrabajo: condicion,
-        manoObraSnapshot: manoObraActualizada,
-        costoManoObra,
-        costoDirectoTotal,
-        costoUnitario: roundMoney(costoDirectoTotal / (target.cantidad || 1)),
-        costoTotal: costoDirectoTotal
-      };
-      return next;
-    });
-  };
-
-  const handleUpdateItemQuantity = (index: number, qty: number | null, formula?: string) => {
-    setItems((prev) => {
-      const next = [...prev];
-      const target = next[index];
-      if (!target) return prev;
-
-      if (qty === null || isNaN(qty as number)) {
-        next[index] = {
-          ...target,
-          cantidad: null as any,
-          formulaCantidad: formula,
-        };
-        return next;
-      }
-
-      const safeQty = Math.max(0.001, safeNum(qty));
-      const prevQty = safeNum(target.cantidad) || 1;
-
-      const insumosSnap = target.insumosSnapshot || [];
-      const manoObraSnap = target.manoObraSnapshot || [];
-
-      const insumosActualizados = insumosSnap.map(i => {
-        const unitQty = i.cantidadUnitaria !== undefined ? i.cantidadUnitaria : i.cantidadTotal / prevQty;
-        const cantTotal = roundMoney(unitQty * safeQty);
-        return {
-          ...i,
-          cantidadUnitaria: unitQty,
-          cantidadTotal: cantTotal,
-          subtotalInsumo: roundMoney(i.precioUnitarioCongelado * cantTotal)
-        };
-      });
-
-      const manoObraActualizada = manoObraSnap.map(m => {
-        const unitHoras = m.horasUnitarias !== undefined ? m.horasUnitarias : m.horasTotales / prevQty;
-        const hTotales = roundMoney(unitHoras * safeQty);
-        return {
-          ...m,
-          horasUnitarias: unitHoras,
-          horasTotales: hTotales,
-          subtotalManoObra: roundMoney(m.costoHoraCongelado * hTotales)
-        };
-      });
-
-      const costoInsumos = roundMoney(insumosActualizados.reduce((acc, i) => acc + i.subtotalInsumo, 0));
-      const costoManoObra = roundMoney(manoObraActualizada.reduce((acc, m) => acc + m.subtotalManoObra, 0));
-      const hasSnapshots = insumosSnap.length > 0 || manoObraSnap.length > 0;
-      
-      const unitDirectCost = target.costoUnitario !== undefined 
-        ? target.costoUnitario 
-        : roundMoney((target.costoDirectoTotal || 0) / prevQty);
-
-      const costoDirectoTotal = hasSnapshots
-        ? roundMoney(costoInsumos + costoManoObra + safeNum(target.costoServiciosTercerizados))
-        : roundMoney(unitDirectCost * safeQty);
-
-      const updatedCostoManoObra = hasSnapshots
-        ? costoManoObra
-        : Math.max(0, roundMoney(costoDirectoTotal - costoInsumos - safeNum(target.costoServiciosTercerizados)));
-
-      next[index] = {
-        ...target,
-        cantidad: safeQty,
-        formulaCantidad: formula,
-        insumosSnapshot: insumosActualizados,
-        manoObraSnapshot: manoObraActualizada,
-        costoInsumos,
-        costoManoObra: updatedCostoManoObra,
-        costoDirectoTotal,
-        costoUnitario: hasSnapshots ? roundMoney(costoDirectoTotal / safeQty) : unitDirectCost,
-        costoTotal: costoDirectoTotal
-      };
-      return next;
-    });
-  };
-
-  const handleUpdateItemUnitDirectCost = (index: number, cost: number | null) => {
-    setItems((prev) => {
-      const next = [...prev];
-      const target = next[index];
-      if (!target) return prev;
-
-      if (cost === null || isNaN(cost as number)) {
-        next[index] = {
-          ...target,
-          costoUnitario: null as any,
-          costoManoObra: 0,
-          costoDirectoTotal: 0,
-          costoTotal: 0
-        };
-        return next;
-      }
-
-      const safeCost = Math.max(0, safeNum(cost));
-      const qty = safeNum(target.cantidad) || 1;
-      const costoDirectoTotal = roundMoney(safeCost * qty);
-
-      const hasSnapshots = (target.insumosSnapshot && target.insumosSnapshot.length > 0) ||
-                           (target.manoObraSnapshot && target.manoObraSnapshot.length > 0);
-      const costoInsumos = safeNum(target.costoInsumos);
-      const costoServicios = safeNum(target.costoServiciosTercerizados);
-      const costoManoObra = hasSnapshots
-        ? safeNum(target.costoManoObra)
-        : Math.max(0, roundMoney(costoDirectoTotal - costoInsumos - costoServicios));
-
-      next[index] = {
-        ...target,
-        costoUnitario: safeCost,
-        costoManoObra,
-        costoDirectoTotal,
-        costoTotal: costoDirectoTotal
-      };
-      return next;
-    });
-  };
-
-  const handleUpdateItemDescription = (index: number, desc: string) => {
-    setItems((prev) => {
-      const next = [...prev];
-      next[index] = { ...next[index], descripcion: desc };
-      return next;
-    });
-  };
-
-  const handleUpdateItemUnit = (index: number, unit: string) => {
-    setItems((prev) => {
-      const next = [...prev];
-      next[index] = { ...next[index], unidad: unit };
-      return next;
-    });
-  };
-
-  const handleAddMaterialsToItem = (itemIndex: number, stagedItems: StagedItemPayload[]) => {
-    if (!stagedItems || stagedItems.length === 0) return;
-
-    setItems((prev) => {
-      const next = [...prev];
-      const target = next[itemIndex];
-      if (!target) return prev;
-
-      const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
-      const existingSnapshots = [...(target.insumosSnapshot || [])];
-
-      for (const staged of stagedItems) {
-        const { material, cantidad } = staged;
-        const ali = material.alicuotaIVA ?? config.alicuotaIVAPorDefecto ?? 21;
-        const precioNeto = roundMoney(safeNum(material.precioActual));
-        const precioFinal = roundMoney(precioNeto * (1 + ali / 100));
-
-        const existingIdx = existingSnapshots.findIndex(
-          (s) => s.insumoId === material.id || s.materialId === material.id
-        );
-
-        if (existingIdx >= 0) {
-          const cur = existingSnapshots[existingIdx];
-          const newQty = roundMoney(cur.cantidadTotal + cantidad);
-          existingSnapshots[existingIdx] = {
-            ...cur,
-            cantidadTotal: newQty,
-            cantidadUnitaria: roundMoney(newQty / (target.cantidad || 1)),
-            subtotalInsumo: roundMoney(cur.precioUnitarioCongelado * newQty),
-            subtotalInsumoFinal: roundMoney((cur.precioFinalUnitarioCongelado || precioFinal) * newQty)
-          };
-        } else {
-          existingSnapshots.push({
-            insumoId: material.id,
-            materialId: material.id,
-            nombre: material.nombre,
-            marca: material.marca,
-            productoId: material.productoId,
-            unidad: material.unidadVenta || material.unidad || 'u',
-            cantidadTotal: cantidad,
-            cantidadUnitaria: roundMoney(cantidad / (target.cantidad || 1)),
-            precioUnitarioCongelado: precioNeto,
-            alicuotaIVA: ali,
-            precioFinalUnitarioCongelado: precioFinal,
-            subtotalInsumo: roundMoney(precioNeto * cantidad),
-            subtotalInsumoFinal: roundMoney(precioFinal * cantidad)
-          });
-        }
-      }
-
-      const costoInsumos = isFacturaC_or_X
-        ? roundMoney(
-            existingSnapshots.reduce(
-              (acc, i) =>
-                acc +
-                (i.subtotalInsumoFinal ??
-                  roundMoney(i.precioUnitarioCongelado * (1 + (i.alicuotaIVA ?? 21) / 100) * i.cantidadTotal)),
-              0
-            )
-          )
-        : roundMoney(existingSnapshots.reduce((acc, i) => acc + i.subtotalInsumo, 0));
-
-      let costoManoObra = safeNum(target.costoManoObra);
-      if (
-        costoManoObra === 0 &&
-        (!target.insumosSnapshot || target.insumosSnapshot.length === 0) &&
-        safeNum(target.costoDirectoTotal) > 0
-      ) {
-        costoManoObra = safeNum(target.costoDirectoTotal);
-      }
-
-      const costoServicios = safeNum(target.costoServiciosTercerizados);
-      const costoDirectoTotal = roundMoney(costoInsumos + costoManoObra + costoServicios);
-      const safeQty = target.cantidad || 1;
-
-      next[itemIndex] = {
-        ...target,
-        insumosSnapshot: existingSnapshots,
-        costoInsumos,
-        costoManoObra,
-        costoDirectoTotal,
-        costoUnitario: roundMoney(costoDirectoTotal / safeQty),
-        costoTotal: costoDirectoTotal
-      };
-
-      return next;
-    });
-
-    toast.success(
-      stagedItems.length === 1
-        ? `Material "${stagedItems[0].material.nombre}" incorporado a la partida`
-        : `${stagedItems.length} materiales incorporados a la partida`
-    );
-  };
-
-  const handleUpdateItemMaterialQuantity = (itemIndex: number, materialIndex: number, newQty: number | null) => {
-    const safeQty = Math.max(0, safeNum(newQty));
-    if (safeQty === 0) {
-      handleRemoveItemMaterial(itemIndex, materialIndex);
-      return;
-    }
-
-    setItems((prev) => {
-      const next = [...prev];
-      const target = next[itemIndex];
-      if (!target || !target.insumosSnapshot) return prev;
-
-      const snapshots = [...target.insumosSnapshot];
-      const snap = snapshots[materialIndex];
-      if (!snap) return prev;
-
-      snapshots[materialIndex] = {
-        ...snap,
-        cantidadTotal: safeQty,
-        cantidadUnitaria: roundMoney(safeQty / (target.cantidad || 1)),
-        subtotalInsumo: roundMoney(snap.precioUnitarioCongelado * safeQty),
-        subtotalInsumoFinal: roundMoney(
-          (snap.precioFinalUnitarioCongelado || snap.precioUnitarioCongelado * 1.21) * safeQty
-        )
-      };
-
-      const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
-      const costoInsumos = isFacturaC_or_X
-        ? roundMoney(
-            snapshots.reduce(
-              (acc, i) =>
-                acc +
-                (i.subtotalInsumoFinal ??
-                  roundMoney(i.precioUnitarioCongelado * (1 + (i.alicuotaIVA ?? 21) / 100) * i.cantidadTotal)),
-              0
-            )
-          )
-        : roundMoney(snapshots.reduce((acc, i) => acc + i.subtotalInsumo, 0));
-
-      const costoDirectoTotal = roundMoney(
-        costoInsumos + safeNum(target.costoManoObra) + safeNum(target.costoServiciosTercerizados)
-      );
-      const targetQty = target.cantidad || 1;
-
-      next[itemIndex] = {
-        ...target,
-        insumosSnapshot: snapshots,
-        costoInsumos,
-        costoDirectoTotal,
-        costoUnitario: roundMoney(costoDirectoTotal / targetQty),
-        costoTotal: costoDirectoTotal
-      };
-      return next;
-    });
-  };
-
-  const handleRemoveItemMaterial = (itemIndex: number, materialIndex: number) => {
-    setItems((prev) => {
-      const next = [...prev];
-      const target = next[itemIndex];
-      if (!target || !target.insumosSnapshot) return prev;
-
-      const snapshots = target.insumosSnapshot.filter((_, idx) => idx !== materialIndex);
-      const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
-      const costoInsumos = isFacturaC_or_X
-        ? roundMoney(
-            snapshots.reduce(
-              (acc, i) =>
-                acc +
-                (i.subtotalInsumoFinal ??
-                  roundMoney(i.precioUnitarioCongelado * (1 + (i.alicuotaIVA ?? 21) / 100) * i.cantidadTotal)),
-              0
-            )
-          )
-        : roundMoney(snapshots.reduce((acc, i) => acc + i.subtotalInsumo, 0));
-
-      const costoDirectoTotal = roundMoney(
-        costoInsumos + safeNum(target.costoManoObra) + safeNum(target.costoServiciosTercerizados)
-      );
-      const targetQty = target.cantidad || 1;
-
-      next[itemIndex] = {
-        ...target,
-        insumosSnapshot: snapshots,
-        costoInsumos,
-        costoDirectoTotal,
-        costoUnitario: roundMoney(costoDirectoTotal / targetQty),
-        costoTotal: costoDirectoTotal
-      };
-      return next;
-    });
-    toast.info('Material quitado de la partida');
-  };
-
-  const handleApplyMaterialBrand = (payload: ApplyBrandPayload) => {
-    if (!brandModalTarget) return;
-    const { itemIndex, materialIndex } = brandModalTarget;
-
-    setItems((prev) => {
-      const next = [...prev];
-      const target = next[itemIndex];
-      if (!target || !target.insumosSnapshot) return prev;
-
-      const snapshots = [...target.insumosSnapshot];
-      const snap = snapshots[materialIndex];
-      if (!snap) return prev;
-
-      const newPrice = roundMoney(payload.precioUnitario > 0 ? payload.precioUnitario : snap.precioUnitarioCongelado);
-      const ali = snap.alicuotaIVA ?? config.alicuotaIVAPorDefecto ?? 21;
-      const newPriceFinal = roundMoney(newPrice * (1 + ali / 100));
-
-      snapshots[materialIndex] = {
-        ...snap,
-        marca: payload.marca || undefined,
-        productoId: payload.productoId,
-        ofertaId: payload.ofertaId,
-        precioUnitarioCongelado: newPrice,
-        precioFinalUnitarioCongelado: newPriceFinal,
-        subtotalInsumo: roundMoney(newPrice * snap.cantidadTotal),
-        subtotalInsumoFinal: roundMoney(newPriceFinal * snap.cantidadTotal)
-      };
-
-      const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
-      const costoInsumos = isFacturaC_or_X
-        ? roundMoney(
-            snapshots.reduce(
-              (acc, i) =>
-                acc +
-                (i.subtotalInsumoFinal ??
-                  roundMoney(i.precioUnitarioCongelado * (1 + (i.alicuotaIVA ?? 21) / 100) * i.cantidadTotal)),
-              0
-            )
-          )
-        : roundMoney(snapshots.reduce((acc, i) => acc + i.subtotalInsumo, 0));
-
-      const costoDirectoTotal = roundMoney(
-        costoInsumos + safeNum(target.costoManoObra) + safeNum(target.costoServiciosTercerizados)
-      );
-      const targetQty = target.cantidad || 1;
-
-      next[itemIndex] = {
-        ...target,
-        insumosSnapshot: snapshots,
-        costoInsumos,
-        costoDirectoTotal,
-        costoUnitario: roundMoney(costoDirectoTotal / targetQty),
-        costoTotal: costoDirectoTotal
-      };
-      return next;
-    });
-
-    toast.success(
-      payload.marca
-        ? `Marca "${payload.marca}" asignada al material`
-        : 'Material actualizado a genérico / sin marca'
-    );
-    setBrandModalTarget(null);
-  };
-
-  const handleUpdateItemManoObraCost = (index: number, moCost: number | null) => {
-    const safeMOCost = Math.max(0, safeNum(moCost));
-    setItems((prev) => {
-      const next = [...prev];
-      const target = next[index];
-      const costoInsumos = safeNum(target.costoInsumos);
-      const costoServicios = safeNum(target.costoServiciosTercerizados);
-      const costoDirectoTotal = roundMoney(costoInsumos + safeMOCost + costoServicios);
-      const qty = target.cantidad || 1;
-
-      next[index] = {
-        ...target,
-        costoManoObra: safeMOCost,
-        costoDirectoTotal,
-        costoUnitario: roundMoney(costoDirectoTotal / qty),
-        costoTotal: costoDirectoTotal
-      };
-      return next;
-    });
-  };
-
-  const handleAddLaborToItem = (itemIndex: number, categoriaId: string, horas: number) => {
-    const catMO = manoObraMap.get(categoriaId);
-    if (!catMO) return;
-
-    const safeHoras = Math.max(0.1, safeNum(horas) || 1);
-    const costoHora = roundMoney(safeNum(catMO.costoHora));
-
-    setItems((prev) => {
-      const next = [...prev];
-      const target = next[itemIndex];
-      if (!target) return prev;
-
-      const mult = obtenerMultiplicadorCondicion(target.condicionTrabajo || 'normal', {
-        multiplicadorCondicionNormal: config.multiplicadorCondicionNormal,
-        multiplicadorCondicionDificultosa: config.multiplicadorCondicionDificultosa,
-        multiplicadorCondicionFavorable: config.multiplicadorCondicionFavorable
-      });
-
-      const existingSnapshots = [...(target.manoObraSnapshot || [])];
-      const existingIdx = existingSnapshots.findIndex((s) => s.categoriaId === categoriaId);
-
-      if (existingIdx >= 0) {
-        const cur = existingSnapshots[existingIdx];
-        const newHoras = roundMoney(cur.horasTotales + safeHoras);
-        existingSnapshots[existingIdx] = {
-          ...cur,
-          horasTotales: newHoras,
-          horasUnitarias: roundMoney(newHoras / (target.cantidad || 1)),
-          subtotalManoObra: roundMoney(cur.costoHoraCongelado * (newHoras * mult))
-        };
-      } else {
-        existingSnapshots.push({
-          categoriaId: catMO.id,
-          nombreCategoria: catMO.nombre,
-          horasUnitarias: roundMoney(safeHoras / (target.cantidad || 1)),
-          horasTotales: safeHoras,
-          costoHoraCongelado: costoHora,
-          subtotalManoObra: roundMoney(costoHora * (safeHoras * mult))
-        });
-      }
-
-      const costoManoObra = roundMoney(existingSnapshots.reduce((acc, m) => acc + m.subtotalManoObra, 0));
-      const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
-      const insumosSnap = target.insumosSnapshot || [];
-      const costoInsumos = insumosSnap.length > 0
-        ? (isFacturaC_or_X
-            ? roundMoney(
-                insumosSnap.reduce(
-                  (acc, i) =>
-                    acc +
-                    (i.subtotalInsumoFinal ??
-                      roundMoney(i.precioUnitarioCongelado * (1 + (i.alicuotaIVA ?? 21) / 100) * i.cantidadTotal)),
-                  0
-                )
-              )
-            : roundMoney(insumosSnap.reduce((acc, i) => acc + i.subtotalInsumo, 0)))
-        : safeNum(target.costoInsumos);
-
-      const costoServicios = safeNum(target.costoServiciosTercerizados);
-      const costoDirectoTotal = roundMoney(costoInsumos + costoManoObra + costoServicios);
-      const safeQty = target.cantidad || 1;
-
-      next[itemIndex] = {
-        ...target,
-        manoObraSnapshot: existingSnapshots,
-        costoManoObra,
-        costoDirectoTotal,
-        costoUnitario: roundMoney(costoDirectoTotal / safeQty),
-        costoTotal: costoDirectoTotal
-      };
-
-      return next;
-    });
-
-    toast.success(`Mano de obra "${catMO.nombre}" agregada a la partida`);
-  };
-
-  const handleUpdateItemLaborHours = (itemIndex: number, laborIndex: number, newHours: number | null) => {
-    const safeHours = Math.max(0, safeNum(newHours));
-    if (safeHours === 0) {
-      handleRemoveItemLabor(itemIndex, laborIndex);
-      return;
-    }
-
-    setItems((prev) => {
-      const next = [...prev];
-      const target = next[itemIndex];
-      if (!target || !target.manoObraSnapshot) return prev;
-
-      const mult = obtenerMultiplicadorCondicion(target.condicionTrabajo || 'normal', {
-        multiplicadorCondicionNormal: config.multiplicadorCondicionNormal,
-        multiplicadorCondicionDificultosa: config.multiplicadorCondicionDificultosa,
-        multiplicadorCondicionFavorable: config.multiplicadorCondicionFavorable
-      });
-
-      const snapshots = [...target.manoObraSnapshot];
-      const snap = snapshots[laborIndex];
-      if (!snap) return prev;
-
-      snapshots[laborIndex] = {
-        ...snap,
-        horasTotales: safeHours,
-        horasUnitarias: roundMoney(safeHours / (target.cantidad || 1)),
-        subtotalManoObra: roundMoney(snap.costoHoraCongelado * (safeHours * mult))
-      };
-
-      const costoManoObra = roundMoney(snapshots.reduce((acc, m) => acc + m.subtotalManoObra, 0));
-      const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
-      const insumosSnap = target.insumosSnapshot || [];
-      const costoInsumos = insumosSnap.length > 0
-        ? (isFacturaC_or_X
-            ? roundMoney(
-                insumosSnap.reduce(
-                  (acc, i) =>
-                    acc +
-                    (i.subtotalInsumoFinal ??
-                      roundMoney(i.precioUnitarioCongelado * (1 + (i.alicuotaIVA ?? 21) / 100) * i.cantidadTotal)),
-                  0
-                )
-              )
-            : roundMoney(insumosSnap.reduce((acc, i) => acc + i.subtotalInsumo, 0)))
-        : safeNum(target.costoInsumos);
-
-      const costoServicios = safeNum(target.costoServiciosTercerizados);
-      const costoDirectoTotal = roundMoney(costoInsumos + costoManoObra + costoServicios);
-      const targetQty = target.cantidad || 1;
-
-      next[itemIndex] = {
-        ...target,
-        manoObraSnapshot: snapshots,
-        costoManoObra,
-        costoDirectoTotal,
-        costoUnitario: roundMoney(costoDirectoTotal / targetQty),
-        costoTotal: costoDirectoTotal
-      };
-
-      return next;
-    });
-  };
-
-  const handleRemoveItemLabor = (itemIndex: number, laborIndex: number) => {
-    setItems((prev) => {
-      const next = [...prev];
-      const target = next[itemIndex];
-      if (!target || !target.manoObraSnapshot) return prev;
-
-      const snapshots = target.manoObraSnapshot.filter((_, idx) => idx !== laborIndex);
-      const costoManoObra = roundMoney(snapshots.reduce((acc, m) => acc + m.subtotalManoObra, 0));
-      const isFacturaC_or_X = tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
-      const insumosSnap = target.insumosSnapshot || [];
-      const costoInsumos = insumosSnap.length > 0
-        ? (isFacturaC_or_X
-            ? roundMoney(
-                insumosSnap.reduce(
-                  (acc, i) =>
-                    acc +
-                    (i.subtotalInsumoFinal ??
-                      roundMoney(i.precioUnitarioCongelado * (1 + (i.alicuotaIVA ?? 21) / 100) * i.cantidadTotal)),
-                  0
-                )
-              )
-            : roundMoney(insumosSnap.reduce((acc, i) => acc + i.subtotalInsumo, 0)))
-        : safeNum(target.costoInsumos);
-
-      const costoServicios = safeNum(target.costoServiciosTercerizados);
-      const costoDirectoTotal = roundMoney(costoInsumos + costoManoObra + costoServicios);
-      const targetQty = target.cantidad || 1;
-
-      next[itemIndex] = {
-        ...target,
-        manoObraSnapshot: snapshots,
-        costoManoObra,
-        costoDirectoTotal,
-        costoUnitario: roundMoney(costoDirectoTotal / targetQty),
-        costoTotal: costoDirectoTotal
-      };
-
-      return next;
-    });
-
-    toast.info('Rol de mano de obra quitado de la partida');
-  };
+  const {
+    handleUpdateItemCondicion,
+    handleUpdateItemQuantity,
+    handleUpdateItemUnit,
+    handleUpdateItemUnitDirectCost,
+    handleUpdateItemDescription,
+    handleAddMaterialsToItem,
+    handleUpdateItemMaterialQuantity,
+    handleRemoveItemMaterial,
+    handleApplyMaterialBrand,
+    handleUpdateItemManoObraCost,
+    handleAddLaborToItem,
+    handleUpdateItemLaborHours,
+    handleRemoveItemLabor
+  } = usePresupuestoItemsOperations({
+    items,
+    setItems,
+    config,
+    tipoFactura,
+    manoObraMap
+  });
 
 
 
@@ -1493,217 +854,85 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     </>
   )}
 
-      {/* Item Picker Modal */}
-      <ItemPickerModal
-        isOpen={showItemPickerModal}
-        onClose={() => setShowItemPickerModal(false)}
-        tareasTipo={tareasTipo}
+      {/* Consolidated Editor Modals */}
+      <PresupuestoEditorModals
+        config={config}
         insumosMap={insumosMap}
         manoObraMap={manoObraMap}
-        onSelectTarea={(tarea) => handleAddTareaTipoItem(tarea, 1, targetCapituloIdForModal)}
-        onConfigureParametricTarea={(tarea) => handleOpenParametricModalForNewTask(tarea, targetCapituloIdForModal)}
-        onAddCustomItem={(desc) => handleAddDirectItem(targetCapituloIdForModal, desc)}
-        onAddCapitulo={handleAddCapitulo}
-      />
-
-      {/* Parametric Job Dynamic Variables & Formulas Modal */}
-      {selectedTareaForParametricModal && (
-        <ParametricJobModal
-          isOpen={showParametricModal}
-          onClose={() => {
-            setShowParametricModal(false);
-            setSelectedTareaForParametricModal(null);
-            setEditingItemIndexForParametricModal(null);
-          }}
-          tarea={selectedTareaForParametricModal}
-          initialParametros={
-            editingItemIndexForParametricModal !== null
-              ? items[editingItemIndexForParametricModal]?.valoresParametros
-              : undefined
-          }
-          initialVariables={
-            editingItemIndexForParametricModal !== null
-              ? items[editingItemIndexForParametricModal]?.valoresVariables
-              : undefined
-          }
-          initialClausula={
-            editingItemIndexForParametricModal !== null
-              ? items[editingItemIndexForParametricModal]?.clausulaExclusiones
-              : undefined
-          }
-          insumosMap={insumosMap}
-          manoObraMap={manoObraMap}
-          tipoFactura={tipoFactura}
-          onConfirm={(resultado) => {
-            handleConfirmParametricJob(selectedTareaForParametricModal, resultado);
-          }}
-        />
-      )}
-
-      {/* Parametric Material Estimation Modal (Superficie, Cañería, Desperdicio) */}
-      {showParametricMaterialModal && editingItemIndexForMaterialModal !== null && items[editingItemIndexForMaterialModal] && (
-        <ParametricMaterialModal
-          isOpen={showParametricMaterialModal}
-          onClose={() => {
-            setShowParametricMaterialModal(false);
-            setEditingItemIndexForMaterialModal(null);
-          }}
-          materialNombre={items[editingItemIndexForMaterialModal].descripcion}
-          unidad={items[editingItemIndexForMaterialModal].unidad || 'm'}
-          initialCantidad={items[editingItemIndexForMaterialModal].cantidad}
-          initialParametros={items[editingItemIndexForMaterialModal].parametrosEstimacionMaterial}
-          onConfirm={handleApplyMaterialEstimation}
-        />
-      )}
-
-      {/* Emisión Modal */}
-      <EmisionPresupuestoModal
-        isOpen={showEmitirModal}
-        onClose={() => setShowEmitirModal(false)}
+        manoObraList={manoObraList}
+        tareasTipo={tareasTipo}
+        costosIndirectos={costosIndirectos}
+        categoriasTarea={categoriasTarea}
+        tipoFactura={tipoFactura}
+        items={items}
+        capitulos={capitulos}
+        gastosConfig={gastosConfig}
+        totales={totales}
+        currentPresupuestoObj={currentPresupuestoObj}
+        selectedCliente={selectedCliente}
+        showItemPickerModal={showItemPickerModal}
+        setShowItemPickerModal={setShowItemPickerModal}
+        targetCapituloIdForModal={targetCapituloIdForModal}
+        onSelectTareaFromPicker={(tarea) => handleAddTareaTipoItem(tarea, 1, targetCapituloIdForModal)}
+        onConfigureParametricTareaFromPicker={(tarea) => handleOpenParametricModalForNewTask(tarea, targetCapituloIdForModal)}
+        onAddCustomItemFromPicker={(desc) => handleAddDirectItem(targetCapituloIdForModal, desc)}
+        onAddCapituloFromPicker={handleAddCapitulo}
+        showParametricModal={showParametricModal}
+        setShowParametricModal={setShowParametricModal}
+        selectedTareaForParametricModal={selectedTareaForParametricModal}
+        setSelectedTareaForParametricModal={setSelectedTareaForParametricModal}
+        editingItemIndexForParametricModal={editingItemIndexForParametricModal}
+        setEditingItemIndexForParametricModal={setEditingItemIndexForParametricModal}
+        onConfirmParametricJob={(tarea, res) => handleConfirmParametricJob(tarea, res)}
+        showParametricMaterialModal={showParametricMaterialModal}
+        setShowParametricMaterialModal={setShowParametricMaterialModal}
+        editingItemIndexForMaterialModal={editingItemIndexForMaterialModal}
+        setEditingItemIndexForMaterialModal={setEditingItemIndexForMaterialModal}
+        onApplyMaterialEstimation={handleApplyMaterialEstimation}
+        showEmitirModal={showEmitirModal}
+        setShowEmitirModal={setShowEmitirModal}
         opcionesEmision={opcionesEmision}
         setOpcionesEmision={setOpcionesEmision}
         condicionesPagoTexto={condicionesPagoTexto}
-        totales={totales}
         onConfirmEmitir={(opciones) => handleSavePresupuesto('enviado', opciones)}
-      />
-
-      {/* Save as Template Modal */}
-      <SaveAsTareaTipoModal
-        isOpen={showSaveAsTemplateModal}
-        onClose={() => setShowSaveAsTemplateModal(false)}
-        defaultNombre={saveAsTemplateData.nombre}
-        defaultNotasTecnicas={saveAsTemplateData.notasTecnicas}
-        naturaleza={saveAsTemplateData.naturaleza}
-        honorarioBase={saveAsTemplateData.honorarioBase}
-        formulaHonorarios={saveAsTemplateData.formulaHonorarios}
-        costoServicioDirecto={saveAsTemplateData.costoServicioDirecto}
-        costoFijoOperativo={saveAsTemplateData.costoFijoOperativo}
-        descripcionCostoFijo={saveAsTemplateData.descripcionCostoFijo}
-        clausulaExclusiones={saveAsTemplateData.clausulaExclusiones}
-        parametros={saveAsTemplateData.parametros}
-        variables={saveAsTemplateData.variables}
-        unidad={saveAsTemplateData.unidad}
-        insumos={saveAsTemplateData.insumos}
-        manoObra={saveAsTemplateData.manoObra}
-      />
-
-      {/* In-Situ Task APU Editor Modal */}
-      {showInSituEditorModal && (
-        <TareaEditorModal
-          isOpen={showInSituEditorModal}
-          onClose={() => setShowInSituEditorModal(false)}
-          editingTarea={editingTareaForInSituModal}
-          categoriasList={categoriasTarea}
-          insumosMap={insumosMap}
-          manoObraList={manoObraList}
-          manoObraMap={manoObraMap}
-          onSave={handleSaveInSituItem}
-          titleOverride="Componer Partida para esta Cotización (In-Situ)"
-          submitButtonText="Aplicar a la Cotización"
-        />
-      )}
-
-      {/* Selector de Materiales del Catálogo para Partidas Libres / Directas */}
-      {materialPickerItemIndex !== null && items[materialPickerItemIndex] && (
-        <MaterialPickerModal
-          isOpen={materialPickerItemIndex !== null}
-          onClose={() => setMaterialPickerItemIndex(null)}
-          insumosMap={insumosMap}
-          alreadySelectedIds={(items[materialPickerItemIndex]?.insumosSnapshot || [])
-            .map((i) => i.insumoId || i.materialId || '')
-            .filter(Boolean)}
-          titleOverride={`Materiales para "${items[materialPickerItemIndex]?.descripcion || 'Partida'}"`}
-          subtitleOverride="Selecciona los insumos del catálogo que componen este trabajo"
-          onAddMaterial={(mat, qty, formula) => {
-            handleAddMaterialsToItem(materialPickerItemIndex, [{ material: mat, cantidad: qty, formula }]);
-          }}
-          onAddMultipleMaterials={(stagedItems) => {
-            handleAddMaterialsToItem(materialPickerItemIndex, stagedItems);
-          }}
-        />
-      )}
-
-      {/* Selector de Marca / Modelo para Material en Partida */}
-      {brandModalTarget !== null &&
-        items[brandModalTarget.itemIndex]?.insumosSnapshot?.[brandModalTarget.materialIndex] && (
-          <MaterialBrandModal
-            isOpen={brandModalTarget !== null}
-            onClose={() => setBrandModalTarget(null)}
-            materialSnapshot={items[brandModalTarget.itemIndex].insumosSnapshot[brandModalTarget.materialIndex]}
-            itemDescription={items[brandModalTarget.itemIndex]?.descripcion || 'Partida'}
-            onApplyBrand={handleApplyMaterialBrand}
-          />
-        )}
-
-      {/* Gasto & Modificadores Modal */}
-      <GastoEditorModal
-        isOpen={showGastoModal}
-        onClose={() => {
-          setShowGastoModal(false);
-          setEditingGasto(null);
+        showSaveAsTemplateModal={showSaveAsTemplateModal}
+        setShowSaveAsTemplateModal={setShowSaveAsTemplateModal}
+        saveAsTemplateData={saveAsTemplateData}
+        showInSituEditorModal={showInSituEditorModal}
+        setShowInSituEditorModal={setShowInSituEditorModal}
+        editingTareaForInSituModal={editingTareaForInSituModal}
+        onSaveInSituItem={handleSaveInSituItem}
+        materialPickerItemIndex={materialPickerItemIndex}
+        setMaterialPickerItemIndex={setMaterialPickerItemIndex}
+        onAddMaterialsToItem={handleAddMaterialsToItem}
+        brandModalTarget={brandModalTarget}
+        setBrandModalTarget={setBrandModalTarget}
+        onApplyMaterialBrand={(payload) => {
+          handleApplyMaterialBrand(brandModalTarget, payload);
+          setBrandModalTarget(null);
         }}
-        gastoToEdit={editingGasto}
-        capitulos={capitulos}
-        costosIndirectosCatalog={costosIndirectos}
-        onSave={handleSaveGasto}
-        onDelete={handleRemoveGasto}
-        baseMateriales={totales.subtotalInsumosBase}
-        baseManoObra={totales.subtotalManoObraBase}
-        baseServicios={totales.subtotalServiciosBase}
-        baseCostoDirecto={totales.costoGlobal}
-      />
-
-      {/* Gasto Catalog Picker Modal */}
-      <GastoCatalogPickerModal
-        isOpen={showGastoCatalogPickerModal}
-        onClose={() => setShowGastoCatalogPickerModal(false)}
-        catalogGastos={costosIndirectos}
-        currentGastosConfig={gastosConfig}
-        onAddGastos={handleAddGastosFromCatalog}
-      />
-
-      {/* Parametric Gasto Variables Modal */}
-      {parametricGastoToAdjust && (
-        <ParametricGastoModal
-          isOpen={parametricGastoToAdjust !== null}
-          onClose={() => setParametricGastoToAdjust(null)}
-          gasto={parametricGastoToAdjust}
-          baseMateriales={totales.subtotalInsumosBase}
-          baseManoObra={totales.subtotalManoObraBase}
-          baseServicios={totales.subtotalServiciosBase}
-          baseCostoDirecto={totales.costoGlobal}
-          onConfirm={(gastoId, valores) => {
-            handleUpdateGastoParametros(gastoId, valores);
-            setParametricGastoToAdjust(null);
-          }}
-        />
-      )}
-
-      {/* Modal de Envío por WhatsApp */}
-      <WhatsAppShareModal
-        isOpen={showWhatsAppModal}
-        onClose={() => setShowWhatsAppModal(false)}
-        presupuesto={currentPresupuestoObj}
-        cliente={selectedCliente}
-        config={config}
-      />
-
-      {/* Modal de Lista Consolidada de Materiales (BOM) */}
-      <ListaMaterialesModal
-        isOpen={showListaMaterialesModal}
-        onClose={() => setShowListaMaterialesModal(false)}
-        presupuesto={currentPresupuestoObj}
-        cliente={selectedCliente}
-        config={config}
-        onOpenInCatalog={onViewMaterialsInCatalog ? handleOpenMaterialsInCatalog : undefined}
-      />
-
-      {/* Modal de Actualización Integral de Precios y Tarifas */}
-      <ActualizarPreciosModal
-        isOpen={showActualizarPreciosModal}
-        onClose={() => setShowActualizarPreciosModal(false)}
-        analisis={analisisPreciosModal}
-        onConfirm={handleConfirmActualizarPrecios}
+        showGastoModal={showGastoModal}
+        setShowGastoModal={setShowGastoModal}
+        editingGasto={editingGasto}
+        setEditingGasto={setEditingGasto}
+        onSaveGasto={handleSaveGasto}
+        onRemoveGasto={handleRemoveGasto}
+        showGastoCatalogPickerModal={showGastoCatalogPickerModal}
+        setShowGastoCatalogPickerModal={setShowGastoCatalogPickerModal}
+        onAddGastosFromCatalog={handleAddGastosFromCatalog}
+        parametricGastoToAdjust={parametricGastoToAdjust}
+        setParametricGastoToAdjust={setParametricGastoToAdjust}
+        onUpdateGastoParametros={handleUpdateGastoParametros}
+        showWhatsAppModal={showWhatsAppModal}
+        setShowWhatsAppModal={setShowWhatsAppModal}
+        showListaMaterialesModal={showListaMaterialesModal}
+        setShowListaMaterialesModal={setShowListaMaterialesModal}
+        onViewMaterialsInCatalog={onViewMaterialsInCatalog}
+        onOpenMaterialsInCatalog={handleOpenMaterialsInCatalog}
+        showActualizarPreciosModal={showActualizarPreciosModal}
+        setShowActualizarPreciosModal={setShowActualizarPreciosModal}
+        analisisPreciosModal={analisisPreciosModal}
+        onConfirmActualizarPrecios={handleConfirmActualizarPrecios}
       />
     </div>
   );

@@ -27,18 +27,12 @@ import { db, softDelete } from '../db/database';
 import { CategoriaMaterial, Material, Producto, Oferta, Contacto, MaterialFilterContext } from '../core/types';
 import { formatARS, obtenerEstadoVencimientoOferta, calcularPrecioNeto, calcularPrecioFinal } from '../core/calculations';
 import { normalizeStr, matchesMaterialContext, getObraQuantity, resolveOfertaVigente } from '../core/materialMatching';
-import { INITIAL_CATEGORIAS_MATERIAL } from '../core/sampleData';
-import { ImportCatalogModal } from './ImportCatalogModal';
 import { OnlinePriceButton } from './OnlinePriceButton';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { CategoriasMaterialTab } from './insumos/CategoriasMaterialTab';
-import { MaterialEditorModal } from './insumos/MaterialEditorModal';
-import { QuickCreateMaterialModal } from './insumos/QuickCreateMaterialModal';
-import { ProductoEditorModal } from './insumos/ProductoEditorModal';
-import { OfertaEditorModal } from './insumos/OfertaEditorModal';
-import { MassPriceAdjustModal } from './insumos/MassPriceAdjustModal';
-import { BlockPriceModal } from './insumos/BlockPriceModal';
+import { InsumosManagerModals } from './insumos/InsumosManagerModals';
+import { InsumosSpeedDial } from './insumos/InsumosSpeedDial';
 import { useInsumosManagerViewModel } from '../viewmodels/useInsumosManagerViewModel';
 
 interface InsumosManagerProps {
@@ -1481,14 +1475,12 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
         </div>
       )}
 
-      {/* Modals */}
-      <MaterialEditorModal
-        isOpen={isCreatingMat}
-        onClose={() => {
-          setIsCreatingMat(false);
-          setEditingMat(null);
-        }}
+      {/* Modales del Administrador de Insumos */}
+      <InsumosManagerModals
+        isCreatingMat={isCreatingMat}
+        setIsCreatingMat={setIsCreatingMat}
         editingMat={editingMat}
+        setEditingMat={setEditingMat}
         categorias={categorias}
         categoriasMap={categoriasMap}
         formDataMat={formDataMat}
@@ -1503,168 +1495,58 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
           setIsCreatingMat(false);
           setIsCreatingCat(true);
         }}
-        onRestoreDefaultCategories={async () => {
-          await db.categoriasMaterial.bulkPut(INITIAL_CATEGORIAS_MATERIAL);
-          toast.success('Categorías restauradas');
-        }}
-        onSave={handleSaveMaterial}
-      />
-
-      <QuickCreateMaterialModal
-        isOpen={isQuickCreateMat}
-        onClose={() => setIsQuickCreateMat(false)}
+        onSaveMaterial={handleSaveMaterial}
+        isQuickCreateMat={isQuickCreateMat}
+        setIsQuickCreateMat={setIsQuickCreateMat}
         formDataQuickMat={formDataQuickMat}
         setFormDataQuickMat={setFormDataQuickMat}
         proveedores={proveedores}
         modoCargaContinua={modoCargaContinua}
         setModoCargaContinua={setModoCargaContinua}
-        onSave={handleSaveQuickMat}
-      />
-
-      <ProductoEditorModal
-        isOpen={isCreatingProd}
-        onClose={() => setIsCreatingProd(false)}
+        onSaveQuickMat={handleSaveQuickMat}
+        isCreatingProd={isCreatingProd}
+        setIsCreatingProd={setIsCreatingProd}
         formDataProd={formDataProd}
         setFormDataProd={setFormDataProd}
-        onSave={handleSaveProducto}
-      />
-
-      <OfertaEditorModal
-        isOpen={isCreatingOferta}
-        onClose={() => {
-          setIsCreatingOferta(false);
-          setEditingOferta(null);
-        }}
+        onSaveProducto={handleSaveProducto}
+        isCreatingOferta={isCreatingOferta}
+        setIsCreatingOferta={setIsCreatingOferta}
         editingOferta={editingOferta}
-        proveedores={proveedores}
-        productos={productos.filter(p => p.materialId === (formDataOferta.materialId || targetMatId))}
+        setEditingOferta={setEditingOferta}
+        productos={productos}
+        targetMatId={targetMatId}
         formDataOferta={formDataOferta}
         setFormDataOferta={setFormDataOferta}
-        unidadVenta={materiales.find(m => m.id === (formDataOferta.materialId || targetMatId))?.unidadVenta || 'u'}
-        onSave={handleSaveOferta}
-      />
-
-      <MassPriceAdjustModal
-        isOpen={showMassUpdateModal}
-        onClose={() => setShowMassUpdateModal(false)}
+        materiales={materiales}
+        onSaveOferta={handleSaveOferta}
+        showMassUpdateModal={showMassUpdateModal}
+        setShowMassUpdateModal={setShowMassUpdateModal}
         tipoAjusteIndice={tipoAjusteIndice}
         setTipoAjusteIndice={setTipoAjusteIndice}
         massPercentage={massPercentage}
         setMassPercentage={setMassPercentage}
-        onApply={handleApplyMassUpdate}
-      />
-
-      <BlockPriceModal
-        isOpen={showBlockPriceModal}
-        onClose={() => setShowBlockPriceModal(false)}
-        targetMaterials={
-          selectedMaterialIds.size > 0
-            ? materiales.filter(m => selectedMaterialIds.has(m.id))
-            : (filterContext
-                ? filteredMateriales
-                : (selectedCategory === 'todas' && !searchTerm ? materiales : filteredMateriales))
-        }
-        proveedores={proveedores}
-        onApply={handleApplyBlockPrice}
-      />
-
-      <ImportCatalogModal
-        isOpen={showImportCatalogModal}
-        onClose={() => setShowImportCatalogModal(false)}
-        onSuccess={() => {
-          setShowImportCatalogModal(false);
-          toast.success('Catálogo importado exitosamente');
-        }}
+        onApplyMassUpdate={handleApplyMassUpdate}
+        showBlockPriceModal={showBlockPriceModal}
+        setShowBlockPriceModal={setShowBlockPriceModal}
+        selectedMaterialIds={selectedMaterialIds}
+        filterContext={filterContext}
+        filteredMateriales={filteredMateriales}
+        selectedCategory={selectedCategory}
+        searchTerm={searchTerm}
+        onApplyBlockPrice={handleApplyBlockPrice}
+        showImportCatalogModal={showImportCatalogModal}
+        setShowImportCatalogModal={setShowImportCatalogModal}
       />
 
       {/* Floating Speed Dial FAB */}
-      <div className="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-30 floating-action-btn flex flex-col items-end gap-2.5">
-        {isSpeedDialOpen && (
-          <div
-            className="fixed inset-0 bg-slate-950/40 backdrop-blur-2xs z-20"
-            onClick={() => setIsSpeedDialOpen(false)}
-          />
-        )}
-
-        {isSpeedDialOpen && (
-          <div className="flex flex-col items-end gap-2.5 z-30 animate-in fade-in slide-in-from-bottom-3 duration-200">
-            <div className="flex items-center gap-2.5">
-              <span className="px-3 py-1.5 rounded-xl bg-surface-container-high text-xs font-semibold text-on-surface shadow-md border border-outline-variant/30 select-none">
-                Alta Rápida (1 Clic)
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  handleOpenQuickCreateMat();
-                  setIsSpeedDialOpen(false);
-                }}
-                className="w-12 h-12 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center shadow-lg active:scale-95 transition-all"
-                title="Alta Rápida de Material"
-              >
-                <Zap className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2.5">
-              <span className="px-3 py-1.5 rounded-xl bg-surface-container-high text-xs font-semibold text-on-surface shadow-md border border-outline-variant/30 select-none">
-                Ficha Técnica Completa
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  handleOpenCreateMat();
-                  setIsSpeedDialOpen(false);
-                }}
-                className="w-12 h-12 rounded-2xl bg-primary hover:bg-primary/90 text-on-primary flex items-center justify-center shadow-lg active:scale-95 transition-all"
-                title="Nuevo Material (Ficha Completa)"
-              >
-                <FileText className="w-5 h-5" />
-              </button>
-            </div>
-
-            {activeTab === 'categorias' && (
-              <div className="flex items-center gap-2.5">
-                <span className="px-3 py-1.5 rounded-xl bg-surface-container-high text-xs font-semibold text-on-surface shadow-md border border-outline-variant/30 select-none">
-                  Nueva Categoría
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCreatingCat(true);
-                    setIsSpeedDialOpen(false);
-                  }}
-                  className="w-12 h-12 rounded-2xl bg-secondary hover:bg-secondary/90 text-on-secondary flex items-center justify-center shadow-lg active:scale-95 transition-all"
-                  title="Nueva Categoría"
-                >
-                  <Layers className="w-5 h-5" />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={() => {
-            if (activeTab === 'categorias' && !isSpeedDialOpen) {
-              setIsSpeedDialOpen(true);
-            } else {
-              setIsSpeedDialOpen((prev) => !prev);
-            }
-          }}
-          className={`w-14 h-14 rounded-2xl md:rounded-3xl bg-primary hover:bg-primary/90 text-on-primary shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center transition-all z-30 ${
-            isSpeedDialOpen ? 'bg-primary-container text-on-primary-container' : ''
-          }`}
-          aria-label={isSpeedDialOpen ? 'Cerrar opciones' : 'Nuevo material o ficha'}
-          title="Nuevo Material / Alta Rápida"
-        >
-          <Plus
-            className={`w-7 h-7 transition-transform duration-200 ${
-              isSpeedDialOpen ? 'rotate-45' : ''
-            }`}
-          />
-        </button>
-      </div>
-    </div>
+      <InsumosSpeedDial
+        isSpeedDialOpen={isSpeedDialOpen}
+        setIsSpeedDialOpen={setIsSpeedDialOpen}
+        activeTab={activeTab}
+        onOpenQuickCreateMat={handleOpenQuickCreateMat}
+        onOpenCreateMat={handleOpenCreateMat}
+        onOpenCreateCat={() => setIsCreatingCat(true)}
+      />
+</div>
   );
 };

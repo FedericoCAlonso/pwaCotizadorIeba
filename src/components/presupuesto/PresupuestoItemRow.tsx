@@ -19,9 +19,11 @@ import {
   Clock
 } from 'lucide-react';
 import { ItemPresupuesto, CategoriaManoDeObra } from '../../core/types';
-import { formatARS, roundMoney, safeNum } from '../../core/calculations';
-import { OnlinePriceButton } from '../OnlinePriceButton';
+import { formatARS, roundMoney } from '../../core/calculations';
 import { MathInput } from '../common/MathInput';
+import { ItemMaterialsSection } from './row/ItemMaterialsSection';
+import { ItemLaborSection } from './row/ItemLaborSection';
+import { ItemServicesSection } from './row/ItemServicesSection';
 
 interface PresupuestoItemRowProps {
   item: ItemPresupuesto;
@@ -85,9 +87,6 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
   onEnterAtEnd
 }) => {
   const [showItemMenu, setShowItemMenu] = useState(false);
-  const [showAddLaborInline, setShowAddLaborInline] = useState(false);
-  const [newLaborCatId, setNewLaborCatId] = useState<string>('');
-  const [newLaborHours, setNewLaborHours] = useState<number | null>(4);
 
   const hasSnapshots =
     (item.insumosSnapshot && item.insumosSnapshot.length > 0) ||
@@ -598,278 +597,29 @@ export const PresupuestoItemRow: React.FC<PresupuestoItemRowProps> = ({
                 </div>
               )}
 
-              {/* Honorarios Snapshot */}
-              {item.costoServicios !== undefined && item.costoServicios > 0 && (
-                <div className="p-3.5 bg-purple-500/10 rounded-xl border border-purple-500/20 space-y-1.5">
-                  <div className="flex justify-between items-center text-sm sm:text-base font-bold text-purple-700 dark:text-purple-300 tracking-wide">
-                    <span className="flex items-center gap-2">
-                      <GraduationCap className="w-5 h-5" />
-                      <span>Honorarios y Ensayos Técnicos</span>
-                    </span>
-                    <span className="font-mono text-base font-bold">{formatARS(item.costoServicios)}</span>
-                  </div>
-                  {item.formulaHonorarios && (
-                    <div className="text-xs sm:text-sm text-on-surface-variant font-mono truncate">
-                      Fórmula: <code>{item.formulaHonorarios}</code>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Honorarios / Servicios Tercerizados / APU Stats */}
+              <ItemServicesSection item={item} calcItem={calcItem} />
 
               {/* Insumos Snapshot */}
-              {item.insumosSnapshot && item.insumosSnapshot.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center text-sm sm:text-base font-bold text-primary tracking-wide">
-                    <span>Materiales e Insumos ({item.insumosSnapshot.length})</span>
-                    <span className="font-mono text-base">{formatARS(item.costoInsumos)}</span>
-                  </div>
-                  <div className="space-y-1.5 divide-y divide-outline-variant/10">
-                    {item.insumosSnapshot.map((ins, iIdx) => (
-                      <div key={iIdx} className="pt-2 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 text-on-surface-variant text-sm">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5 truncate flex-1 min-w-[130px]">
-                          <div className="flex items-center gap-2 truncate">
-                            <span className="truncate font-semibold text-on-surface text-sm">{ins.nombre}</span>
-                            <OnlinePriceButton tipo="material" customNombre={ins.nombre} size="xs" variant="icon" />
-                          </div>
-
-                          {/* Selector / Badge de Marca & Modelo */}
-                          {onOpenMaterialBrandModal ? (
-                            <button
-                              type="button"
-                              onClick={() => onOpenMaterialBrandModal(index, iIdx)}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-medium border transition-all shrink-0 max-w-fit min-h-[30px] ${
-                                ins.marca
-                                  ? 'bg-primary/10 text-primary border-primary/25 hover:bg-primary/20'
-                                  : 'bg-surface-variant/50 text-on-surface-variant/80 border-outline-variant/30 hover:bg-surface-variant hover:text-on-surface'
-                              }`}
-                              title="Asignar o cambiar marca y modelo de este material en la cotización"
-                            >
-                              <Tag className="w-3.5 h-3.5 shrink-0" />
-                              <span className="truncate max-w-[140px] sm:max-w-[180px]">
-                                {ins.marca || 'Asignar marca...'}
-                              </span>
-                              <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-60" />
-                            </button>
-                          ) : (
-                            ins.marca && (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-primary/10 text-primary border border-primary/25 shrink-0 max-w-fit">
-                                <Tag className="w-3.5 h-3.5 shrink-0" />
-                                <span className="truncate max-w-[140px] sm:max-w-[180px]">{ins.marca}</span>
-                              </span>
-                            )
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3.5 font-mono shrink-0 w-full sm:w-auto text-sm">
-                          {onUpdateItemMaterialQuantity ? (
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-22 sm:w-28">
-                                <MathInput
-                                  value={ins.cantidadTotal}
-                                  onChange={(val) => onUpdateItemMaterialQuantity(index, iIdx, val)}
-                                  size="sm"
-                                  min={0.01}
-                                  step={0.5}
-                                  inputMode="decimal"
-                                />
-                              </div>
-                              <span className="text-xs sm:text-sm text-on-surface-variant min-w-[18px]">{ins.unidad}</span>
-                              <span className="text-on-surface-variant opacity-75">× {formatARS(ins.precioUnitarioCongelado)}</span>
-                            </div>
-                          ) : (
-                            <span>
-                              {ins.cantidadTotal} {ins.unidad} × {formatARS(ins.precioUnitarioCongelado)}
-                            </span>
-                          )}
-                          <strong className="text-on-surface font-bold text-sm sm:text-base">{formatARS(ins.subtotalInsumo)}</strong>
-                          {onRemoveItemMaterial && (
-                            <button
-                              type="button"
-                              onClick={() => onRemoveItemMaterial(index, iIdx)}
-                              className="p-2 text-on-surface-variant/60 hover:text-error hover:bg-error-container/20 rounded-xl transition shrink-0 min-h-[38px] min-w-[38px] flex items-center justify-center"
-                              title="Quitar este material de la partida"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {onOpenMaterialPicker && (
-                    <div className="pt-2">
-                      <button
-                        type="button"
-                        onClick={() => onOpenMaterialPicker(index)}
-                        className="inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 rounded-xl transition min-h-[38px]"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Agregar más materiales</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+              <ItemMaterialsSection
+                item={item}
+                index={index}
+                onOpenMaterialBrandModal={onOpenMaterialBrandModal}
+                onUpdateItemMaterialQuantity={onUpdateItemMaterialQuantity}
+                onRemoveItemMaterial={onRemoveItemMaterial}
+                onOpenMaterialPicker={onOpenMaterialPicker}
+              />
 
               {/* Mano de Obra Snapshot & Inline Adder */}
-              {(isItemLibre || (item.manoObraSnapshot && item.manoObraSnapshot.length > 0)) && (
-                <div className="space-y-2 pt-2.5 border-t border-outline-variant/20">
-                  <div className="flex justify-between items-center text-sm sm:text-base font-bold text-primary tracking-wide">
-                    <span>Mano de Obra ({item.manoObraSnapshot?.length || 0})</span>
-                    <span className="font-mono text-base">{formatARS(item.costoManoObra || 0)}</span>
-                  </div>
-
-                  {item.manoObraSnapshot && item.manoObraSnapshot.length > 0 ? (
-                    <div className="space-y-1.5 divide-y divide-outline-variant/10">
-                      {item.manoObraSnapshot.map((mo, mIdx) => (
-                        <div key={mIdx} className="pt-2 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 text-on-surface-variant text-sm">
-                          <span className="truncate flex-1 min-w-[130px] font-semibold text-on-surface text-sm">{mo.nombreCategoria}</span>
-                          <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3.5 font-mono shrink-0 w-full sm:w-auto text-sm">
-                            {onUpdateItemLaborHours ? (
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-22 sm:w-28">
-                                  <MathInput
-                                    value={mo.horasTotales}
-                                    onChange={(val) => onUpdateItemLaborHours(index, mIdx, val)}
-                                    size="sm"
-                                    min={0.1}
-                                    step={0.5}
-                                    suffix="hs"
-                                    inputMode="decimal"
-                                  />
-                                </div>
-                                <span className="text-xs sm:text-sm text-on-surface-variant">× {formatARS(mo.costoHoraCongelado)}/h</span>
-                              </div>
-                            ) : (
-                              <span>
-                                {mo.horasTotales} hs × {formatARS(mo.costoHoraCongelado)}/h
-                              </span>
-                            )}
-                            <strong className="text-on-surface font-bold text-sm sm:text-base">{formatARS(mo.subtotalManoObra)}</strong>
-
-                            {onRemoveItemLabor && (
-                              <button
-                                type="button"
-                                onClick={() => onRemoveItemLabor(index, mIdx)}
-                                className="p-2 text-on-surface-variant hover:text-error rounded-xl transition min-h-[38px] min-w-[38px] flex items-center justify-center"
-                                title="Quitar rol"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs sm:text-sm text-on-surface-variant/70 italic py-1.5">
-                      Sin roles de mano de obra asignados por horas.
-                    </p>
-                  )}
-
-                  {/* Inline Labor Adder */}
-                  {isItemLibre && onAddLaborRole && categoriasManoObra && categoriasManoObra.length > 0 && (
-                    <div className="pt-2">
-                      {showAddLaborInline ? (
-                        <div className="p-3 bg-surface-container rounded-xl sm:rounded-2xl border border-outline-variant/30 flex flex-wrap items-center gap-2.5 animate-in fade-in-50 duration-150">
-                          <select
-                            value={newLaborCatId || categoriasManoObra[0]?.id || ''}
-                            onChange={(e) => setNewLaborCatId(e.target.value)}
-                            className="bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-semibold text-on-surface focus:outline-none flex-1 min-w-[150px] min-h-[42px]"
-                          >
-                            {categoriasManoObra.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.nombre} ({formatARS(c.costoHora)}/h)
-                              </option>
-                            ))}
-                          </select>
-
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs sm:text-sm text-on-surface-variant font-mono">Horas:</span>
-                            <div className="w-22 sm:w-28">
-                              <MathInput
-                                value={newLaborHours}
-                                onChange={(val) => setNewLaborHours(val)}
-                                fallbackOnBlur={4}
-                                size="sm"
-                                min={0.1}
-                                step={0.5}
-                                suffix="hs"
-                                inputMode="decimal"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 ml-auto">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const targetCatId = newLaborCatId || categoriasManoObra[0]?.id;
-                                if (targetCatId) {
-                                  onAddLaborRole(index, targetCatId, safeNum(newLaborHours) || 4);
-                                  setShowAddLaborInline(false);
-                                }
-                              }}
-                              className="px-4 py-2 bg-primary text-on-primary rounded-xl text-sm font-bold hover:bg-primary/90 transition shadow-2xs min-h-[42px]"
-                            >
-                              Asignar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setShowAddLaborInline(false)}
-                              className="px-3 py-2 text-sm text-on-surface-variant hover:text-on-surface rounded-xl transition min-h-[42px]"
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNewLaborCatId(categoriasManoObra[0]?.id || '');
-                            setShowAddLaborInline(true);
-                          }}
-                          className="inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 rounded-xl transition min-h-[38px]"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span>+ Asignar rol de mano de obra</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Servicios Tercerizados Snapshot */}
-              {item.serviciosTercerizados && item.serviciosTercerizados.length > 0 && (
-                <div className="space-y-2 pt-2.5 border-t border-outline-variant/20">
-                  <div className="flex justify-between items-center text-sm sm:text-base font-bold text-purple-600 dark:text-purple-400 tracking-wide">
-                    <span>Servicios Tercerizados ({item.serviciosTercerizados.length})</span>
-                    <span className="font-mono text-base">{formatARS(item.costoServiciosTercerizados || 0)}</span>
-                  </div>
-                  <div className="space-y-1.5 divide-y divide-outline-variant/10">
-                    {item.serviciosTercerizados.map((st, sIdx) => (
-                      <div key={sIdx} className="pt-1.5 flex items-center justify-between text-on-surface-variant text-sm">
-                        <span className="truncate flex-1">
-                          {st.descripcion} {st.nombreProveedor ? `(${st.nombreProveedor})` : ''}
-                        </span>
-                        <strong className="text-on-surface font-mono font-semibold text-sm sm:text-base">{formatARS(st.costo)}</strong>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* APU Prorated Micro-Breakdown when GG absolutes exist */}
-              {calcItem.ggAbsolutoProrrateado ? (
-                <div className="w-full flex flex-wrap items-center justify-between gap-2.5 text-xs sm:text-sm text-on-surface-variant font-mono pt-2.5 border-t border-outline-variant/15">
-                  <span>Incidencia: {((calcItem.incidencia || 0) * 100).toFixed(1)}%</span>
-                  <span>GG Fijo Prorr.: +{formatARS(calcItem.ggAbsolutoProrrateado || 0)}</span>
-                  <span>Base APU: {formatARS(calcItem.baseCostoItem || 0)}</span>
-                  <span>Beneficio: {formatARS(calcItem.beneficioItem || 0)}</span>
-                </div>
-              ) : null}
+              <ItemLaborSection
+                item={item}
+                index={index}
+                isItemLibre={isItemLibre}
+                categoriasManoObra={categoriasManoObra}
+                onUpdateItemLaborHours={onUpdateItemLaborHours}
+                onRemoveItemLabor={onRemoveItemLabor}
+                onAddLaborRole={onAddLaborRole}
+              />
             </div>
           )}
         </div>
