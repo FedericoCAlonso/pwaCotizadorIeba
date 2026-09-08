@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Code2,
-  Terminal,
   FileCheck,
   Sparkles,
   Plus,
@@ -10,7 +9,6 @@ import {
   Truck,
   Copy,
   Keyboard,
-  RotateCcw,
   Zap,
   Package,
   Layers
@@ -1135,50 +1133,6 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* ─── Cabecera del Modo Experto Desktop ─── */}
-      <div className="bg-surface-container-low border border-outline-variant/30 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-            <Terminal className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-bold text-on-surface">
-                Modo Experto Desktop (Editor YAML Inteligente)
-              </h2>
-              <span className="text-[11px] font-mono font-bold bg-primary text-on-primary px-2 py-0.5 rounded-full shadow-2xs">
-                YAML
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-on-surface-variant font-medium">
-              Escribe con auto-indentación, sugerencias en tiempo real y atajos de teclado sin mouse.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={onToggleGuidedMode}
-            className="px-3.5 py-2 bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface rounded-xl text-xs sm:text-sm font-bold border border-outline-variant/30 transition flex items-center gap-1.5 cursor-pointer min-h-[40px] active:scale-95"
-            title="Volver a la vista guiada en 4 etapas (Alt + E)"
-          >
-            <RotateCcw className="w-4 h-4 text-primary" />
-            <span>Volver a Modo Guiado</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onSaveDraft}
-            className="px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs min-h-[40px] active:scale-95"
-            title="Guardar borrador actual (Ctrl + Enter)"
-          >
-            <span>Guardar</span>
-            <kbd className="hidden sm:inline px-1 py-0.5 bg-on-primary/20 rounded font-mono text-[10px]">Ctrl+Enter</kbd>
-          </button>
-        </div>
-      </div>
-
       {/* ─── Área Principal Split: Editor (7 cols) + Inspector en Vivo (5 cols) ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Columna Izquierda: Editor Textual Monospace */}

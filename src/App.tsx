@@ -175,7 +175,7 @@ export function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-6 lg:px-8 pt-2 sm:pt-4 pb-28 md:py-6">
+      <main className="flex-1 w-full max-w-[1920px] mx-auto px-2 sm:px-4 md:px-5 lg:px-6 pt-2 sm:pt-4 pb-28 md:py-5">
         {/* Tab panel — role="tabpanel" vincula el contenido activo al tablist via aria-controls */}
         <div
           role="tabpanel"

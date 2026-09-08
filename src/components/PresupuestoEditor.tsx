@@ -1104,7 +1104,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   }, [clienteId, existingPresupuesto, totales, margenPorcentaje, validezDias, tipoFactura, costosIndirectosConfig, opcionesEmision, config]);
 
   return (
-    <div className="space-y-4 sm:space-y-5 max-w-7xl mx-auto pb-12">
+    <div className="space-y-4 sm:space-y-5 w-full pb-12">
       {/* Top Action Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3.5 sm:gap-4 bg-surface-container p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-outline-variant/20">
         <div className="flex items-center gap-3 sm:gap-4">
