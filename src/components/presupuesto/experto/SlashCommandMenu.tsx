@@ -840,7 +840,7 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
       .sort((a, b) => b.score - a.score)
       .slice(0, 25)
       .map((entry) => entry.item);
-  }, [effectiveQuery, activeCategory, contextType, tareasTipo, insumosMap, manoObraMap]);
+  }, [effectiveQuery, activeCategory, contextType, tareasTipo, insumosMap, manoObraMap, calculatedCells]);
 
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 

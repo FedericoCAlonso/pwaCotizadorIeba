@@ -2125,9 +2125,9 @@ export function detectSuggestTrigger(currentLineBeforeCursor: string): SuggestTr
     };
   }
 
-  // 2. Detección de directivas de cabecera raíz (cliente:, obra:, factura:, validez:, margen:, riesgo:, dolar:)
+  // 2. Detección de directivas de cabecera raíz (cliente:, obra:, factura:, validez:, margen:, riesgo:, dolar:, calculos:, variables:)
   // Solo a nivel raíz (sangría de 0 a 3 espacios, no dentro de despieces de partidas)
-  const rootDirectiveMatch = currentLineBeforeCursor.match(/^(\s{0,3})(cliente|obra|factura|validez|margen|riesgo|dolar)\s*:\s*([^\r\n]*)$/i);
+  const rootDirectiveMatch = currentLineBeforeCursor.match(/^(\s{0,3})(cliente|obra|factura|validez|margen|riesgo|dolar|calculos|variables)\s*:\s*([^\r\n]*)$/i);
   if (rootDirectiveMatch) {
     const directive = rootDirectiveMatch[2].toLowerCase() as
       | 'cliente'
@@ -2136,17 +2136,35 @@ export function detectSuggestTrigger(currentLineBeforeCursor: string): SuggestTr
       | 'validez'
       | 'margen'
       | 'riesgo'
-      | 'dolar';
+      | 'dolar'
+      | 'calculos'
+      | 'variables';
     const query = rootDirectiveMatch[3];
     // Si el usuario ya está escribiendo un comentario '#', no disparar autocompletado
     if (!query.includes('#')) {
       const queryIndexInLine = currentLineBeforeCursor.lastIndexOf(query);
+      const isCalculos = directive === 'calculos' || directive === 'variables';
       return {
-        triggerChar: directive === 'cliente' ? '@' : ':',
-        query,
+        triggerChar: directive === 'cliente' ? '@' : (isCalculos ? '/' : ':'),
+        query: isCalculos ? 'calc' : query,
         queryIndexInLine: queryIndexInLine >= 0 ? queryIndexInLine : currentLineBeforeCursor.length,
         isExplicit: false,
-        directiveType: directive
+        directiveType: isCalculos ? undefined : (directive as any)
+      };
+    }
+  }
+
+  // 2.5 Detección de palabras clave raíz al tipear al inicio de línea sin slash (ej: "calc", "var", "gasto", "cliente", "obra")
+  const rootKeywordMatch = currentLineBeforeCursor.match(/^(\s{0,3})([a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]{2,})$/);
+  if (rootKeywordMatch) {
+    const rawWord = rootKeywordMatch[2].toLowerCase();
+    const isRootCandidate = /^(cal|calc|calculos|var|variables|gas|gastos|cli|client|cliente|obr|obra|fac|factura|val|validez|mar|margen|rie|riesgo|dol|dolar|tra|trabajo)$/i.test(rawWord);
+    if (isRootCandidate) {
+      return {
+        triggerChar: '/',
+        query: rawWord,
+        queryIndexInLine: rootKeywordMatch[1].length,
+        isExplicit: false
       };
     }
   }
@@ -2452,6 +2470,21 @@ export function handleYamlSmartEnter(params: {
     const nextLine = childIndent + '- ';
 
     const updatedBefore = linesBefore.join('\n') + '\n' + nextLine;
+    return {
+      newText: updatedBefore + textAfter,
+      newCursorPos: updatedBefore.length
+    };
+  }
+
+  // Caso 1.2: Cabecera de bloque de cálculos / variables / parámetros
+  // NO debe insertar viñeta "- ", sino sangría limpia de 2 espacios para definir pares "variable: valor"
+  const isCalculosKeyword = /^-\s*(calculos|variables|parametros|params)\s*:?$/i.test(trimmed) || /^(calculos|variables|parametros|params)\s*:?$/i.test(trimmed);
+  if (isCalculosKeyword) {
+    const rawWord = trimmed.replace(/^-\s*/, '').replace(/:.*$/, '').trim();
+    const keyword = `${rawWord}:`;
+    linesBefore[linesBefore.length - 1] = leadingWhitespace + keyword;
+    const nextIndent = leadingWhitespace + '  ';
+    const updatedBefore = linesBefore.join('\n') + '\n' + nextIndent;
     return {
       newText: updatedBefore + textAfter,
       newCursorPos: updatedBefore.length

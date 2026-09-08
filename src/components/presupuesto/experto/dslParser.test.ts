@@ -530,6 +530,20 @@ Instalación Eléctrica:
 
       expect(newText).toBe(`Tableros:\n  - `);
     });
+
+    it('indenta 2 espacios sin viñeta "- " al presionar Enter en calculos: o variables:', () => {
+      const textBefore = `calculos:`;
+      const textAfter = '';
+
+      const { newText, newCursorPos } = handleYamlSmartEnter({ textBefore, textAfter });
+
+      expect(newText).toBe(`calculos:\n  `);
+      expect(newCursorPos).toBe(`calculos:\n  `.length);
+
+      // También si no le puso los dos puntos
+      const enterWithoutColon = handleYamlSmartEnter({ textBefore: 'variables', textAfter: '' });
+      expect(enterWithoutColon.newText).toBe(`variables:\n  `);
+    });
   });
 
   describe('scoreSearchMatch (Búsqueda refinada multi-término y ranking)', () => {
@@ -706,6 +720,18 @@ Instalación Eléctrica:
       const res3 = detectSuggestTrigger('        - 1 u Caño 3/4');
       expect(res3?.isExplicit).toBe(false);
       expect(res3?.query).toBe('Caño 3/4');
+    });
+
+    it('detecta palabras clave raíz como "calc" o "calculos:" para abrir sugerencias de cálculo', () => {
+      const res1 = detectSuggestTrigger('calc');
+      expect(res1).not.toBeNull();
+      expect(res1?.query).toBe('calc');
+      expect(res1?.triggerChar).toBe('/');
+
+      const res2 = detectSuggestTrigger('calculos:');
+      expect(res2).not.toBeNull();
+      expect(res2?.query).toBe('calc');
+      expect(res2?.triggerChar).toBe('/');
     });
   });
 
