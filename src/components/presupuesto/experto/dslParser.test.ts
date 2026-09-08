@@ -741,6 +741,60 @@ Instalación Eléctrica:
       expect(res2?.query).toBe('calc');
       expect(res2?.triggerChar).toBe('/');
     });
+
+    it('detecta triggers contextuales en el bloque "gastos:" sin requerir comandos explícitos', () => {
+      // Línea con guión y espacio vacío bajo gastos
+      const res1 = detectSuggestTrigger('  - ', 'gastos');
+      expect(res1).not.toBeNull();
+      expect(res1?.query).toBe('');
+      expect(res1?.isExplicit).toBe(false);
+
+      // Línea con guión y texto parcial
+      const res2 = detectSuggestTrigger('  - seguro', 'gastos');
+      expect(res2).not.toBeNull();
+      expect(res2?.query).toBe('seguro');
+      expect(res2?.isExplicit).toBe(false);
+
+      // Línea indentada vacía tras Enter en gastos
+      const res3 = detectSuggestTrigger('  ', 'gastos');
+      expect(res3).not.toBeNull();
+      expect(res3?.query).toBe('');
+      expect(res3?.isExplicit).toBe(false);
+
+      // Línea con texto sin guión bajo gastos
+      const res4 = detectSuggestTrigger('  flete', 'gastos');
+      expect(res4).not.toBeNull();
+      expect(res4?.query).toBe('flete');
+      expect(res4?.isExplicit).toBe(false);
+    });
+
+    it('formatea reemplazo de gastos del catálogo seleccionando el número para edición rápida', () => {
+      const formattedPct = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '  - seg',
+        snippet: '- Seguro ART: 8% sobre mano_obra\n',
+        contextType: 'gastos'
+      });
+      expect(formattedPct.replacementLine).toBe('  - Seguro ART: 8% sobre mano_obra\n');
+      expect(formattedPct.selectionRange).toBeDefined();
+      const selected = formattedPct.replacementLine.slice(
+        formattedPct.selectionRange!.start,
+        formattedPct.selectionRange!.end
+      );
+      expect(selected).toBe('8');
+
+      const formattedFijo = formatSlashCommandReplacement({
+        currentLineBeforeCursor: '  - flet',
+        snippet: '- Flete: $ 25000\n',
+        contextType: 'gastos'
+      });
+      expect(formattedFijo.replacementLine).toBe('  - Flete: $ 25000\n');
+      expect(formattedFijo.selectionRange).toBeDefined();
+      const selectedFijo = formattedFijo.replacementLine.slice(
+        formattedFijo.selectionRange!.start,
+        formattedFijo.selectionRange!.end
+      );
+      expect(selectedFijo).toBe('25000');
+    });
   });
 
   describe('Soporte de Producto/Marca y Propiedades Estructuradas de Materiales', () => {

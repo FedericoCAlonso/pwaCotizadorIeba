@@ -14,6 +14,7 @@ import {
   HardHat,
   Layers,
   Filter,
+  ListFilter,
   Hash,
   Tag
 } from 'lucide-react';
@@ -67,6 +68,7 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [hasUserNavigated, setHasUserNavigated] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedGastosFilter, setSelectedGastosFilter] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Extraer categorías únicas de materiales
@@ -655,6 +657,17 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
 
     // 5. Gastos e Indirectos (ÚNICAMENTE en sección gastos)
     if (contextType === 'gastos') {
+      // 0. Explorar catálogo completo de gastos
+      list.push({
+        id: 'cmd-explore-gastos-catalog',
+        category: 'gasto',
+        title: '📋 Explorar catálogo completo de gastos (Alt + G)...',
+        subtitle: 'Abrir catálogo interactivo de costos indirectos y modificadores',
+        snippet: 'ACTION:OPEN_GASTOS_MODAL',
+        icon: ListFilter,
+        extraText: 'explorar catalogo completo gastos indirectos modificadores buscador modal'
+      });
+
       // 1. Catálogo de Gastos y Modificadores de Costo
       if (costosIndirectos && costosIndirectos.length > 0) {
         costosIndirectos.filter((c) => !c.deleted).forEach((c) => {
@@ -1165,6 +1178,19 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
       );
     }
 
+    // Filtrar por subfiltro de gastos
+    if (contextType === 'gastos' && selectedGastosFilter) {
+      filtered = filtered.filter((it) => {
+        if (it.id === 'cmd-explore-gastos-catalog') return true;
+        if (selectedGastosFilter === 'catalogo') return it.id.startsWith('ci-');
+        if (selectedGastosFilter === 'mano_obra') return it.extraText?.includes('mano_obra') || it.title.toLowerCase().includes('mano de obra');
+        if (selectedGastosFilter === 'materiales') return it.extraText?.includes('materiales') || it.title.toLowerCase().includes('materiales');
+        if (selectedGastosFilter === 'fijos') return it.extraText?.includes('monto_fijo') || it.extraText?.includes('gasto fijo') || it.title.includes('($)');
+        if (selectedGastosFilter === 'formulas') return it.extraText?.includes('parametrico') || it.subtitle?.includes('Paramétrico') || it.title.includes('(=)');
+        return true;
+      });
+    }
+
     // Filtrar por query de búsqueda
     if (!effectiveQuery || !effectiveQuery.trim()) {
       return filtered.slice(0, 20);
@@ -1201,7 +1227,7 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
     }
 
     return scoredResults;
-  }, [effectiveQuery, activeCategory, contextType, tareasTipo, insumosMap, manoObraMap, costosIndirectos, calculatedCells, isExplicit, directiveType]);
+  }, [effectiveQuery, activeCategory, selectedGastosFilter, contextType, tareasTipo, insumosMap, manoObraMap, costosIndirectos, calculatedCells, isExplicit, directiveType]);
 
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -1391,6 +1417,41 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
           )}
         </span>
       </div>
+
+      {/* Barra de Filtro de Categorías para Gastos */}
+      {contextType === 'gastos' && (
+        <div className="px-2 py-1 flex items-center gap-1 overflow-x-auto pb-1.5 border-b border-outline-variant/10 text-[10px] scrollbar-none">
+          {[
+            { id: null, label: 'Todos' },
+            { id: 'catalogo', label: 'Catálogo' },
+            { id: 'mano_obra', label: 's/ Mano de Obra' },
+            { id: 'materiales', label: 's/ Materiales' },
+            { id: 'fijos', label: 'Fijos ($)' },
+            { id: 'formulas', label: 'Fórmulas (=)' }
+          ].map((tab) => {
+            const isSelected = selectedGastosFilter === tab.id;
+            return (
+              <button
+                key={tab.label}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  setSelectedGastosFilter(tab.id);
+                }}
+                onClick={() => setSelectedGastosFilter(tab.id)}
+                className={`px-2 py-0.5 rounded-md font-bold transition shrink-0 cursor-pointer ${
+                  isSelected
+                    ? 'bg-purple-600 text-white shadow-2xs'
+                    : 'bg-surface-container-highest text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Barra de Filtro de Categorías para Materiales */}
       {contextType === 'materiales' && !directiveType && materialCategories.length > 0 && (

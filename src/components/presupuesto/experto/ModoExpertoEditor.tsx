@@ -49,6 +49,7 @@ import { db } from '../../../db/database';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { MultiMaterialPickerModal } from './MultiMaterialPickerModal';
+import { GastosCatalogPickerModal } from './GastosCatalogPickerModal';
 import { QuickCreateMaterialModal } from '../../insumos/QuickCreateMaterialModal';
 import { QuickClienteModal } from '../QuickClienteModal';
 import { ExpertInspector } from './ExpertInspector';
@@ -281,6 +282,13 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
   // Modal de paleta rápida de materiales (Alt + M)
   const [showMultiMaterialModal, setShowMultiMaterialModal] = useState(false);
 
+  // Modal de exploración y selección de gastos (Alt + G)
+  const [showGastosModal, setShowGastosModal] = useState(false);
+
+  // Referencia al último texto DSL para guardar o parsear al desmontar
+  const latestDslTextRef = useRef<string>(dslText);
+  latestDslTextRef.current = dslText;
+
   // Modal de alta rápida de material al catálogo (+ Catálogo)
   const [isQuickCreateMatOpen, setIsQuickCreateMatOpen] = useState(false);
   const [formDataQuickMat, setFormDataQuickMat] = useState<{
@@ -406,6 +414,18 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       handleParseAndSync(initialDslText);
     }
   }, [initialDslText]);
+
+  // Al desmontar, flushear cualquier parseo pendiente para no perder cambios antes del auto-guardado
+  useEffect(() => {
+    return () => {
+      if (parseDebounceTimerRef.current) {
+        clearTimeout(parseDebounceTimerRef.current);
+        if (latestDslTextRef.current) {
+          handleParseAndSync(latestDslTextRef.current);
+        }
+      }
+    };
+  }, [handleParseAndSync]);
 
   // Sincronizar desde cambios externos del ViewModel hacia el texto (sólo si no está escribiendo en el editor)
   useEffect(() => {
@@ -668,6 +688,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     const cursorPos = e.target.selectionStart;
     cursorPosRef.current = { start: cursorPos, end: e.target.selectionEnd };
     setDslText(newText);
+    latestDslTextRef.current = newText;
 
     const textBeforeCursor = newText.slice(0, cursorPos);
     const lastLineStart = textBeforeCursor.lastIndexOf('\n') + 1;
@@ -692,7 +713,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     // Detectar contexto semántico de la línea actual
     const { contextType, activeCategory } = detectCursorContext(textBeforeCursor);
 
-    const trigger = detectSuggestTrigger(currentLine);
+    const trigger = detectSuggestTrigger(currentLine, contextType);
 
     if (trigger) {
       if (trigger.isExplicit || trigger.directiveType) {
@@ -787,6 +808,13 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       return;
     }
 
+    const isG = e.key === 'g' || e.key === 'G';
+    if ((isAlt && isG) || ((e.ctrlKey || e.metaKey) && isG)) {
+      e.preventDefault();
+      setShowGastosModal(true);
+      return;
+    }
+
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       onSaveDraft();
@@ -876,7 +904,33 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       const lines = tb.split('\n');
       setCursorLineCol({ line: lines.length, col: lines[lines.length - 1].length + 1 });
       setDslText(newText);
+      latestDslTextRef.current = newText;
       handleParseAndSync(newText);
+
+      // Evaluar si la nueva posición tras Enter dispara sugerencias contextuales (ej: al pasar a "  - " en gastos:)
+      const tbLastLineStart = tb.lastIndexOf('\n') + 1;
+      const tbCurrentLine = tb.slice(tbLastLineStart);
+      const { contextType: enterContextType, activeCategory: enterActiveCategory } = detectCursorContext(tb);
+      const enterTrigger = detectSuggestTrigger(tbCurrentLine, enterContextType);
+
+      if (enterTrigger) {
+        const enterTriggerIndex = tbLastLineStart + enterTrigger.queryIndexInLine;
+        const enterTypedQuery = enterTrigger.query.trim();
+        const enterQueryWithCategory = enterActiveCategory ? `${enterActiveCategory}/${enterTypedQuery}` : enterTypedQuery;
+
+        setSlashMenuState({
+          isOpen: true,
+          query: enterTrigger.isExplicit ? `${enterTrigger.triggerChar}${enterTrigger.query}` : enterQueryWithCategory,
+          cursorPosition: newCursorPos,
+          slashIndex: enterTriggerIndex,
+          contextType: enterContextType,
+          replaceFullLine: false,
+          directiveType: enterTrigger.directiveType,
+          isExplicit: enterTrigger.isExplicit
+        });
+      } else if (slashMenuState.isOpen) {
+        setSlashMenuState((prev) => ({ ...prev, isOpen: false }));
+      }
 
       setTimeout(() => {
         if (textareaRef.current) {
@@ -940,8 +994,8 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
       return;
     }
 
-    // Acción especial: Mantener texto libre
-    if (snippet.startsWith('ACTION:FREE_TEXT:')) {
+    // Acción especial: Abrir modal de catálogo de gastos (Alt + G)
+    if (snippet === 'ACTION:OPEN_GASTOS_MODAL') {
       setSlashMenuState({
         isOpen: false,
         query: '',
@@ -950,7 +1004,26 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
         contextType: 'general',
         isExplicit: false
       });
+      setShowGastosModal(true);
       return;
+    }
+
+    // Acción especial: Mantener texto libre
+    if (snippet.startsWith('ACTION:FREE_TEXT:')) {
+      const cleanTyped = snippet.replace('ACTION:FREE_TEXT:', '').trim();
+      if (slashMenuState.contextType === 'gastos') {
+        snippet = `- ${cleanTyped}: $ 0\n`;
+      } else {
+        setSlashMenuState({
+          isOpen: false,
+          query: '',
+          cursorPosition: 0,
+          slashIndex: -1,
+          contextType: 'general',
+          isExplicit: false
+        });
+        return;
+      }
     }
 
     const textarea = textareaRef.current;
@@ -1133,6 +1206,67 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
     }, 10);
 
     toast.success('Insumos insertados correctamente en el YAML');
+  };
+
+  // Inserción de gastos seleccionados desde GastosCatalogPickerModal (Alt + G)
+  const handleInsertGastos = (formattedYamlLines: string) => {
+    if (!textareaRef.current) return;
+    const textarea = textareaRef.current;
+    const cursor = textarea.selectionStart ?? dslText.length;
+
+    const textBefore = dslText.slice(0, cursor);
+    const textAfter = dslText.slice(cursor);
+    const lastLineStart = textBefore.lastIndexOf('\n') + 1;
+    const currentLine = textBefore.slice(lastLineStart);
+
+    // Detectar si el cursor ya está dentro del bloque gastos:
+    const { contextType } = detectCursorContext(textBefore);
+
+    let contentToInsert = formattedYamlLines;
+    let newText = '';
+    let newCursorPos = 0;
+
+    if (contextType === 'gastos') {
+      // Ya estamos dentro de gastos:
+      if (/^\s*(-?\s*)?$/.test(currentLine)) {
+        const nextNewline = textAfter.indexOf('\n');
+        const restAfterLine = nextNewline >= 0 ? textAfter.slice(nextNewline + 1) : '';
+        newText = dslText.slice(0, lastLineStart) + contentToInsert + restAfterLine;
+        newCursorPos = lastLineStart + contentToInsert.length;
+      } else {
+        const needsLeadingNewline = !textBefore.endsWith('\n');
+        newText = textBefore + (needsLeadingNewline ? '\n' : '') + contentToInsert + textAfter;
+        newCursorPos = cursor + (needsLeadingNewline ? 1 : 0) + contentToInsert.length;
+      }
+    } else {
+      // No estamos en el bloque gastos. Verificar si ya existe en el documento
+      const gastosHeaderMatch = dslText.match(/^(\s*)gastos:\s*$/m);
+      if (gastosHeaderMatch && gastosHeaderMatch.index !== undefined) {
+        // Añadir tras el encabezado de gastos existente
+        const headerEnd = gastosHeaderMatch.index + gastosHeaderMatch[0].length;
+        const beforeGastos = dslText.slice(0, headerEnd);
+        const afterGastos = dslText.slice(headerEnd);
+        newText = `${beforeGastos}\n${contentToInsert.trimEnd()}${afterGastos.startsWith('\n') ? '' : '\n'}${afterGastos}`;
+        newCursorPos = headerEnd + 1 + contentToInsert.trimEnd().length;
+      } else {
+        // Crear el bloque gastos a nivel raíz
+        const needsLeadingNewline = !dslText.endsWith('\n') && dslText.length > 0;
+        const block = `${needsLeadingNewline ? '\n' : ''}gastos:\n${contentToInsert}`;
+        newText = dslText + block;
+        newCursorPos = newText.length;
+      }
+    }
+
+    setDslText(newText);
+    latestDslTextRef.current = newText;
+    handleParseAndSync(newText);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+    }, 10);
+
+    toast.success('Gastos insertados en el presupuesto');
   };
 
   // Cargar plantilla de ejemplo
@@ -1341,11 +1475,13 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
 
             <button
               type="button"
-              {...createToolbarAction(() => insertSnippet('\ngastos:\n  - Viáticos: $ 15.000\n'))}
-              className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface font-semibold flex items-center gap-1 border border-outline-variant/20 transition shrink-0 cursor-pointer min-h-[34px]"
+              {...createToolbarAction(() => setShowGastosModal(true))}
+              className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-xl text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1 border border-outline-variant/20 transition shrink-0 cursor-pointer min-h-[34px]"
+              title="Abre el catálogo completo de gastos y modificadores de costo (Alt + G)"
             >
-              <Truck className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-              <span>+ Gasto</span>
+              <Truck className="w-3.5 h-3.5" />
+              <span>🏷️ Catálogo Gastos</span>
+              <kbd className="hidden sm:inline text-[10px] opacity-70 font-mono">Alt+G</kbd>
             </button>
 
             <button
@@ -1595,6 +1731,14 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = ({
         insumosMap={insumosMap}
         onInsertMaterials={handleInsertMultipleMaterials}
         currentIndent={currentIndentForPalette}
+      />
+
+      {/* Modal de Catálogo de Gastos y Costos Indirectos (Alt + G) */}
+      <GastosCatalogPickerModal
+        isOpen={showGastosModal}
+        onClose={() => setShowGastosModal(false)}
+        costosIndirectos={catalogCostosIndirectos}
+        onInsertGastos={handleInsertGastos}
       />
 
       {/* Modal de Alta Rápida de Material al Catálogo (+ Catálogo) */}
