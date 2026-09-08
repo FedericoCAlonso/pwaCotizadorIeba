@@ -9,7 +9,9 @@ import {
   X,
   Save,
   Check,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Search,
+  RotateCcw
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
 import { SolicitudCotizacion, SolicitudCotizacionItem, Oferta, Contacto } from '../core/types';
@@ -37,6 +39,46 @@ export const SolicitudCotizacionManager: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [selectedSolicitud, setSelectedSolicitud] = useState<SolicitudCotizacion | null>(null);
   const [copiedTextId, setCopiedTextId] = useState<string | null>(null);
+
+  // Search and status filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedEstado, setSelectedEstado] = useState<string>('todas');
+
+  const filteredSolicitudes = useMemo(() => {
+    return solicitudes.filter((req) => {
+      const prov = proveedoresMap.get(req.proveedorId);
+      const provName = (prov?.razonSocial || prov?.nombre || '').toLowerCase();
+      const q = searchTerm.toLowerCase();
+
+      const matchSearch =
+        !q ||
+        provName.includes(q) ||
+        (req.notas && req.notas.toLowerCase().includes(q)) ||
+        req.items.some((it) => {
+          const mat = materialesMap.get(it.materialId);
+          return mat?.nombre.toLowerCase().includes(q);
+        });
+
+      const matchEstado = selectedEstado === 'todas' || req.estado === selectedEstado;
+
+      return matchSearch && matchEstado;
+    });
+  }, [solicitudes, searchTerm, selectedEstado, proveedoresMap, materialesMap]);
+
+  const countsByEstado = useMemo(() => {
+    const counts: Record<string, number> = {
+      todas: solicitudes.length,
+      borrador: 0,
+      enviada: 0,
+      respondida: 0
+    };
+    solicitudes.forEach((s) => {
+      if (counts[s.estado] !== undefined) {
+        counts[s.estado]++;
+      }
+    });
+    return counts;
+  }, [solicitudes]);
 
   // Form para crear nueva solicitud
   const [proveedorId, setProveedorId] = useState('');
@@ -291,88 +333,227 @@ export const SolicitudCotizacionManager: React.FC = () => {
         </button>
       </div>
 
+      {/* Search & Filter Bar */}
+      <div className="bg-surface-container-low p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-outline-variant/20 space-y-3 shadow-xs">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+          {/* Search Box */}
+          <div className="relative w-full md:w-80">
+            <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3" />
+            <input
+              type="text"
+              placeholder="Buscar por proveedor o material..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-full pl-9 pr-9 py-2.5 text-xs sm:text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all min-h-[40px]"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-2.5 text-on-surface-variant hover:text-on-surface p-1 rounded-full hover:bg-surface-variant transition-colors"
+                aria-label="Limpiar búsqueda"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Status Chips with mobile scroll fade and count badges */}
+          <div className="relative w-full md:w-auto overflow-hidden">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-1 touch-pan-x overscroll-contain pr-6">
+              {[
+                { key: 'todas', label: 'Todas' },
+                { key: 'borrador', label: 'Borrador' },
+                { key: 'enviada', label: 'Enviada' },
+                { key: 'respondida', label: 'Respondida' }
+              ].map((st) => {
+                const isSelected = selectedEstado === st.key;
+                const count = countsByEstado[st.key] ?? 0;
+                return (
+                  <button
+                    type="button"
+                    key={st.key}
+                    onClick={() => setSelectedEstado(st.key)}
+                    className={`px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap border min-h-[34px] flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                      isSelected
+                        ? 'bg-secondary-container text-on-secondary-container border-transparent shadow-xs'
+                        : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant border-outline-variant/30'
+                    }`}
+                  >
+                    <span>{st.label}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        isSelected
+                          ? 'bg-on-secondary-container/20 text-on-secondary-container'
+                          : 'bg-surface-container-highest text-on-surface-variant'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {/* Mobile edge fade */}
+            <div className="md:hidden pointer-events-none absolute right-0 top-0 bottom-1 w-6 bg-gradient-to-l from-surface-container-low to-transparent" />
+          </div>
+        </div>
+
+        {/* Results & Active Filters Bar */}
+        {(searchTerm || selectedEstado !== 'todas') && (
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-outline-variant/15 text-xs text-on-surface-variant flex-wrap animate-in fade-in duration-150">
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <span className="font-bold text-on-surface">
+                {filteredSolicitudes.length} {filteredSolicitudes.length === 1 ? 'solicitud' : 'solicitudes'}
+              </span>
+              <span className="text-outline-variant">•</span>
+              {selectedEstado !== 'todas' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-medium text-[11px] capitalize">
+                  {selectedEstado}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEstado('todas')}
+                    className="hover:opacity-75 p-0.5 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {searchTerm && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface font-mono text-[11px] max-w-[150px] truncate">
+                  "{searchTerm}"
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="hover:opacity-75 p-0.5 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedEstado('todas');
+              }}
+              className="text-primary hover:text-primary-hover font-semibold text-xs shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full hover:bg-primary/10 transition-colors ml-auto cursor-pointer"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Limpiar filtros</span>
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Grid de Solicitudes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {solicitudes.map((req) => {
-          const prov = proveedoresMap.get(req.proveedorId);
-          return (
-            <div key={req.id} className="bg-surface-container-low border border-outline-variant/20 rounded-3xl p-5 hover:bg-surface-container/60 transition-all flex flex-col justify-between shadow-sm">
-              <div>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-semibold text-on-surface text-base">{prov?.razonSocial || prov?.nombre || 'Proveedor'}</h3>
-                    <span className="text-xs font-mono text-on-surface-variant block mt-0.5">
-                      {new Date(req.fechaCreacion).toLocaleDateString('es-AR')}
+      {filteredSolicitudes.length === 0 ? (
+        <div className="text-center py-16 bg-surface-container-low border border-dashed border-outline-variant/30 rounded-3xl p-6 space-y-3">
+          <p className="text-sm font-semibold text-on-surface">No se encontraron solicitudes de cotización</p>
+          <p className="text-xs text-on-surface-variant max-w-sm mx-auto">
+            {searchTerm || selectedEstado !== 'todas'
+              ? 'Prueba ajustando los filtros o la búsqueda.'
+              : 'Arma tu primera solicitud de cotización para enviar a proveedores.'}
+          </p>
+          {(searchTerm || selectedEstado !== 'todas') && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedEstado('todas');
+              }}
+              className="px-4 py-2 bg-surface-container-highest hover:bg-surface-variant text-on-surface rounded-full text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Restablecer filtros</span>
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredSolicitudes.map((req) => {
+            const prov = proveedoresMap.get(req.proveedorId);
+            return (
+              <div key={req.id} className="bg-surface-container-low border border-outline-variant/20 rounded-3xl p-5 hover:bg-surface-container/60 transition-all flex flex-col justify-between shadow-sm">
+                <div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-semibold text-on-surface text-base">{prov?.razonSocial || prov?.nombre || 'Proveedor'}</h3>
+                      <span className="text-xs font-mono text-on-surface-variant block mt-0.5">
+                        {new Date(req.fechaCreacion).toLocaleDateString('es-AR')}
+                      </span>
+                    </div>
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
+                      req.estado === 'respondida' ? 'bg-emerald-500/10 text-emerald-500' :
+                      req.estado === 'enviada' ? 'bg-primary/10 text-primary' : 'bg-surface-container-highest text-on-surface-variant'
+                    }`}>
+                      {req.estado}
                     </span>
                   </div>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
-                    req.estado === 'respondida' ? 'bg-emerald-500/10 text-emerald-500' :
-                    req.estado === 'enviada' ? 'bg-primary/10 text-primary' : 'bg-surface-container-highest text-on-surface-variant'
-                  }`}>
-                    {req.estado}
-                  </span>
+
+                  {/* Items */}
+                  <div className="mt-4 space-y-2 border-t border-outline-variant/20 pt-3 text-xs text-on-surface-variant">
+                    {req.items.map((it, idx) => {
+                      const mat = materialesMap.get(it.materialId);
+                      const prod = it.productoId ? productosMap.get(it.productoId) : undefined;
+                      return (
+                        <div key={idx} className="flex items-center justify-between bg-surface-container-highest/40 px-3 py-1.5 rounded-xl">
+                          <span className="truncate font-medium text-on-surface">{mat?.nombre || 'Material'} {prod ? `(${prod.marca})` : ''}</span>
+                          <span className="font-mono text-primary font-bold shrink-0 ml-2">{it.cantidad} {mat?.unidadVenta || 'u'}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {/* Items */}
-                <div className="mt-4 space-y-2 border-t border-outline-variant/20 pt-3 text-xs text-on-surface-variant">
-                  {req.items.map((it, idx) => {
-                    const mat = materialesMap.get(it.materialId);
-                    const prod = it.productoId ? productosMap.get(it.productoId) : undefined;
-                    return (
-                      <div key={idx} className="flex items-center justify-between bg-surface-container-highest/40 px-3 py-1.5 rounded-xl">
-                        <span className="truncate font-medium text-on-surface">{mat?.nombre || 'Material'} {prod ? `(${prod.marca})` : ''}</span>
-                        <span className="font-mono text-primary font-bold shrink-0 ml-2">{it.cantidad} {mat?.unidadVenta || 'u'}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Botones de acción */}
-              <div className="mt-4 pt-3 border-t border-outline-variant/20 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleCopyText(req)}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-surface-container-highest hover:bg-surface-variant text-on-surface rounded-xl transition-colors"
-                    title="Copiar texto resumen formateado para WhatsApp"
-                  >
-                    {copiedTextId === req.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-primary" />}
-                    <span>{copiedTextId === req.id ? 'Copiado' : 'Texto WA'}</span>
-                  </button>
-                  <button
-                    onClick={() => handleExportRFQExcel(req)}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-surface-container-highest hover:bg-surface-variant text-on-surface rounded-xl transition-colors"
-                    title="Exportar planilla XLSX de cotización para enviar al proveedor"
-                  >
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Excel</span>
-                  </button>
-                  {req.estado === 'borrador' && (
+                {/* Botones de acción */}
+                <div className="mt-4 pt-3 border-t border-outline-variant/20 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1">
                     <button
-                      onClick={() => handleMarkSent(req)}
-                      className="px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 rounded-xl transition-colors"
+                      onClick={() => handleCopyText(req)}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-surface-container-highest hover:bg-surface-variant text-on-surface rounded-xl transition-colors"
+                      title="Copiar texto resumen formateado para WhatsApp"
                     >
-                      Marcar Enviada
+                      {copiedTextId === req.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-primary" />}
+                      <span>{copiedTextId === req.id ? 'Copiado' : 'Texto WA'}</span>
                     </button>
-                  )}
-                </div>
+                    <button
+                      onClick={() => handleExportRFQExcel(req)}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-surface-container-highest hover:bg-surface-variant text-on-surface rounded-xl transition-colors"
+                      title="Exportar planilla XLSX de cotización para enviar al proveedor"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Excel</span>
+                    </button>
+                    {req.estado === 'borrador' && (
+                      <button
+                        onClick={() => handleMarkSent(req)}
+                        className="px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 rounded-xl transition-colors"
+                      >
+                        Marcar Enviada
+                      </button>
+                    )}
+                  </div>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setSelectedSolicitud(req)}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 rounded-xl transition-colors"
-                  >
-                    <DollarSign className="w-3.5 h-3.5" /> Cargar Precios
-                  </button>
-                  <button onClick={() => handleDelete(req.id)} className="p-1.5 text-on-surface-variant hover:text-error rounded-full">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setSelectedSolicitud(req)}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 rounded-xl transition-colors"
+                    >
+                      <DollarSign className="w-3.5 h-3.5" /> Cargar Precios
+                    </button>
+                    <button onClick={() => handleDelete(req.id)} className="p-1.5 text-on-surface-variant hover:text-error rounded-full">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Modal: Crear Nueva Solicitud */}
       {isCreating && (

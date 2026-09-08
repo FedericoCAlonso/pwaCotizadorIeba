@@ -9,7 +9,8 @@ import {
   Sparkles,
   X,
   Tag,
-  FileSpreadsheet
+  FileSpreadsheet,
+  RotateCcw
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
 import { Contacto, Presupuesto, RolContacto } from '../core/types';
@@ -107,6 +108,23 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
       return matchName || matchAlias || matchCuit || matchLoc || matchDir || matchTel || matchEmail || matchTags || matchPersonas;
     });
   }, [contactos, filterRole, searchQuery]);
+
+  const countsByRole = useMemo(() => {
+    const counts = {
+      todos: contactos.length,
+      cliente: 0,
+      proveedor: 0,
+      ambos: 0
+    };
+    contactos.forEach((c) => {
+      const hasCliente = c.roles?.includes('cliente');
+      const hasProveedor = c.roles?.includes('proveedor');
+      if (hasCliente) counts.cliente++;
+      if (hasProveedor) counts.proveedor++;
+      if (hasCliente && hasProveedor) counts.ambos++;
+    });
+    return counts;
+  }, [contactos]);
 
 
   // Handlers
@@ -232,60 +250,100 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
       </div>
 
       {/* Filter Tabs & Search Bar */}
-      <div className="bg-surface-container-low p-4 rounded-2xl space-y-3">
-        {/* Role Filter Tabs (M3 Filter Chips: selectable action = rounded-full) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none pb-1">
-          <button
-            type="button"
-            onClick={() => setFilterRole('todos')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
-              filterRole === 'todos'
-                ? 'bg-primary text-on-primary shadow-xs'
-                : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>Todos</span>
-          </button>
+      <div className="bg-surface-container-low p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-outline-variant/20 space-y-3 shadow-xs">
+        {/* Role Filter Tabs with count badges and mobile scroll fade */}
+        <div className="relative w-full overflow-hidden">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-1 touch-pan-x overscroll-contain pr-6">
+            <button
+              type="button"
+              onClick={() => setFilterRole('todos')}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer shrink-0 min-h-[34px] ${
+                filterRole === 'todos'
+                  ? 'bg-primary text-on-primary shadow-xs'
+                  : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Todos</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  filterRole === 'todos'
+                    ? 'bg-on-primary/20 text-on-primary'
+                    : 'bg-surface-container-highest text-on-surface-variant'
+                }`}
+              >
+                {countsByRole.todos}
+              </span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setFilterRole('cliente')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
-              filterRole === 'cliente'
-                ? 'bg-primary text-on-primary shadow-xs'
-                : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
-            }`}
-          >
-            <Building className="w-3.5 h-3.5" />
-            <span>Clientes</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setFilterRole('cliente')}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer shrink-0 min-h-[34px] ${
+                filterRole === 'cliente'
+                  ? 'bg-primary text-on-primary shadow-xs'
+                  : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
+              }`}
+            >
+              <Building className="w-3.5 h-3.5" />
+              <span>Clientes</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  filterRole === 'cliente'
+                    ? 'bg-on-primary/20 text-on-primary'
+                    : 'bg-surface-container-highest text-on-surface-variant'
+                }`}
+              >
+                {countsByRole.cliente}
+              </span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setFilterRole('proveedor')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
-              filterRole === 'proveedor'
-                ? 'bg-primary text-on-primary shadow-xs'
-                : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
-            }`}
-          >
-            <Truck className="w-3.5 h-3.5" />
-            <span>Proveedores</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setFilterRole('proveedor')}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer shrink-0 min-h-[34px] ${
+                filterRole === 'proveedor'
+                  ? 'bg-primary text-on-primary shadow-xs'
+                  : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
+              }`}
+            >
+              <Truck className="w-3.5 h-3.5" />
+              <span>Proveedores</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  filterRole === 'proveedor'
+                    ? 'bg-on-primary/20 text-on-primary'
+                    : 'bg-surface-container-highest text-on-surface-variant'
+                }`}
+              >
+                {countsByRole.proveedor}
+              </span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setFilterRole('ambos')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer ${
-              filterRole === 'ambos'
-                ? 'bg-primary text-on-primary shadow-xs'
-                : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Ambos Roles</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setFilterRole('ambos')}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap state-layer transition-all flex items-center gap-1.5 cursor-pointer shrink-0 min-h-[34px] ${
+                filterRole === 'ambos'
+                  ? 'bg-primary text-on-primary shadow-xs'
+                  : 'bg-surface-container text-on-surface-variant hover:bg-surface-variant'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Ambos Roles</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  filterRole === 'ambos'
+                    ? 'bg-on-primary/20 text-on-primary'
+                    : 'bg-surface-container-highest text-on-surface-variant'
+                }`}
+              >
+                {countsByRole.ambos}
+              </span>
+            </button>
+          </div>
+          {/* Mobile soft edge fade */}
+          <div className="md:hidden pointer-events-none absolute right-0 top-0 bottom-1 w-6 bg-gradient-to-l from-surface-container-low to-transparent" />
         </div>
 
         {/* Search Input Box */}
@@ -296,18 +354,69 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
             placeholder="Buscar por razón social, CUIT, rubro, localidad, persona o teléfono..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl pl-10 pr-10 py-2 text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[40px] transition-all"
+            className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl pl-10 pr-9 py-2 text-xs sm:text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-[40px] transition-all"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface p-0.5"
+              className="absolute right-2.5 top-2.5 text-on-surface-variant hover:text-on-surface p-1 rounded-full hover:bg-surface-variant transition-colors"
+              aria-label="Limpiar búsqueda"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
+
+        {/* Results & Active Filters Feedback Bar */}
+        {(searchQuery || filterRole !== 'todos') && (
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-outline-variant/15 text-xs text-on-surface-variant flex-wrap animate-in fade-in duration-150">
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <span className="font-bold text-on-surface">
+                {filteredContactos.length} {filteredContactos.length === 1 ? 'contacto' : 'contactos'}
+              </span>
+              <span className="text-outline-variant">•</span>
+              {filterRole !== 'todos' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-medium text-[11px] capitalize">
+                  {filterRole === 'cliente' ? 'Clientes' : filterRole === 'proveedor' ? 'Proveedores' : 'Ambos Roles'}
+                  <button
+                    type="button"
+                    onClick={() => setFilterRole('todos')}
+                    className="hover:opacity-75 p-0.5 cursor-pointer"
+                    aria-label="Quitar filtro de rol"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {searchQuery && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface font-mono text-[11px] max-w-[150px] truncate">
+                  "{searchQuery}"
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="hover:opacity-75 p-0.5 cursor-pointer"
+                    aria-label="Quitar búsqueda"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setFilterRole('todos');
+              }}
+              className="text-primary hover:text-primary-hover font-semibold text-xs shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full hover:bg-primary/10 transition-colors ml-auto cursor-pointer"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Limpiar filtros</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Contact Cards Grid */}
@@ -318,17 +427,32 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
           </div>
           <p className="text-sm font-semibold text-on-surface">No se encontraron contactos</p>
           <p className="text-xs text-on-surface-variant max-w-sm mx-auto">
-            {searchQuery
+            {searchQuery || filterRole !== 'todos'
               ? 'Intenta ajustar los términos de búsqueda o cambiar el filtro de roles.'
               : 'Agrega tu primer cliente o proveedor para comenzar a cotizar.'}
           </p>
-          <button
-            type="button"
-            onClick={() => handleOpenNewModal(filterRole === 'proveedor' ? 'proveedor' : 'cliente')}
-            className="mt-2 px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-full text-xs font-semibold transition"
-          >
-            + Crear Contacto
-          </button>
+          <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
+            <button
+              type="button"
+              onClick={() => handleOpenNewModal(filterRole === 'proveedor' ? 'proveedor' : 'cliente')}
+              className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-full text-xs font-semibold transition cursor-pointer"
+            >
+              + Crear Contacto
+            </button>
+            {(searchQuery || filterRole !== 'todos') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilterRole('todos');
+                }}
+                className="px-4 py-2 bg-surface-container-highest hover:bg-surface-variant text-on-surface rounded-full text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Restablecer filtros</span>
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

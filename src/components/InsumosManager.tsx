@@ -33,6 +33,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import { CategoriasMaterialTab } from './insumos/CategoriasMaterialTab';
 import { InsumosManagerModals } from './insumos/InsumosManagerModals';
 import { InsumosSpeedDial } from './insumos/InsumosSpeedDial';
+import { InsumosFilterToolbar } from './insumos/InsumosFilterToolbar';
 import { useInsumosManagerViewModel } from '../viewmodels/useInsumosManagerViewModel';
 
 interface InsumosManagerProps {
@@ -723,253 +724,74 @@ export const InsumosManager: React.FC<InsumosManagerProps> = ({
         />
       ) : (
         <div className="space-y-4">
-          {/* Main Action Bar */}
-          <div className="bg-surface-container-low p-4 rounded-2xl space-y-3">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-              {/* Search Bar */}
-              <div className="relative flex-1 w-full">
-                <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre técnico, atributos (sección, norma, calibre)..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-              </div>
+          {/* Main Action Bar & Filter Toolbar */}
+          <InsumosFilterToolbar
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
+            selectedVencimiento={selectedVencimiento}
+            setSelectedVencimiento={setSelectedVencimiento}
+            selectedFichaStatus={selectedFichaStatus}
+            setSelectedFichaStatus={setSelectedFichaStatus}
+            viewModeMat={viewModeMat}
+            setViewModeMat={setViewModeMat}
+            showFilters={showFilters}
+            setShowFilters={setShowFilters}
+            categorias={categorias}
+            materiales={materiales}
+            filteredMateriales={filteredMateriales}
+            filterContext={filterContext}
+            onClearFilterContext={onClearFilter}
+            onOpenBlockPriceModal={() => setShowBlockPriceModal(true)}
+            onOpenMassUpdateModal={() => setShowMassUpdateModal(true)}
+            onOpenImportCatalogModal={() => setShowImportCatalogModal(true)}
+            onExportCatalog={() => handleExportCatalog(filteredMateriales)}
+          />
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-wrap">
+          {/* Mass Selection Toolbar */}
+          {selectedMaterialIds.size > 0 && (
+            <div className="flex items-center justify-between bg-primary/5 p-3 rounded-2xl border border-primary/20">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-primary">
+                  {selectedMaterialIds.size} material{selectedMaterialIds.size > 1 ? 'es' : ''} seleccionado{selectedMaterialIds.size > 1 ? 's' : ''}
+                </span>
                 <button
                   type="button"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all ${
-                    showFilters || selectedCategory !== 'todas' || selectedVencimiento !== 'todos' || selectedFichaStatus !== 'todas'
-                      ? 'bg-primary/10 border-primary/30 text-primary'
-                      : 'bg-surface-container-high border-outline-variant/30 text-on-surface-variant hover:text-on-surface'
-                  }`}
+                  onClick={() => handleToggleSelectAll(filteredMateriales)}
+                  className="text-xs text-on-surface-variant hover:text-on-surface underline"
                 >
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
-                  <span>Filtros</span>
+                  {selectedMaterialIds.size === filteredMateriales.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
                 </button>
-
-                <div className="flex items-center bg-surface-container-high rounded-xl p-1 border border-outline-variant/30">
-                  <button
-                    type="button"
-                    onClick={() => setViewModeMat('grid')}
-                    className={`p-1.5 rounded-lg transition-colors ${
-                      viewModeMat === 'grid' ? 'bg-surface-container text-primary shadow-xs' : 'text-on-surface-variant'
-                    }`}
-                    title="Vista en Cuadrícula"
-                  >
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewModeMat('table')}
-                    className={`p-1.5 rounded-lg transition-colors ${
-                      viewModeMat === 'table' ? 'bg-surface-container text-primary shadow-xs' : 'text-on-surface-variant'
-                    }`}
-                    title="Vista en Tabla"
-                  >
-                    <List className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
+              </div>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowBlockPriceModal(true)}
-                  className="px-3.5 py-2 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-outline-variant/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                  title="Fijar Precio Común en Bloque a materiales filtrados o seleccionados"
+                  className="px-3 py-1 bg-primary hover:bg-primary/90 text-on-primary text-xs font-semibold rounded-lg shadow-xs flex items-center gap-1.5 transition active:scale-95"
                 >
-                  <Tag className="w-3.5 h-3.5 text-primary" />
-                  <span className="hidden sm:inline">Precio en Bloque</span>
+                  <Tag className="w-3.5 h-3.5" />
+                  <span>Fijar Precio Común</span>
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setShowMassUpdateModal(true)}
-                  className="px-3.5 py-2 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-outline-variant/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                  title="Aumento Masivo de Precios"
+                  className="px-3 py-1 bg-surface-container-highest hover:bg-surface-variant text-on-surface text-xs font-semibold rounded-lg border border-outline-variant/30 flex items-center gap-1.5 transition"
                 >
                   <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-                  <span className="hidden sm:inline">Aumento %</span>
+                  <span>Ajuste %</span>
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowImportCatalogModal(true)}
-                  className="px-3.5 py-2 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-outline-variant/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                  title="Importar catálogo desde Excel"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-primary" />
-                  <span className="hidden sm:inline">Importar</span>
-                </button>
-
                 <button
                   type="button"
                   onClick={() => handleExportCatalog(filteredMateriales)}
-                  className="px-3.5 py-2 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-outline-variant/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                  title="Exportar catálogo de materiales a planilla Excel (XLSX)"
+                  className="px-3 py-1 bg-surface-container-high hover:bg-surface-variant text-on-surface text-xs font-semibold rounded-lg"
+                  title="Exportar materiales seleccionados a Excel"
                 >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="hidden sm:inline">Exportar Catálogo</span>
+                  Exportar Catálogo
                 </button>
               </div>
             </div>
-
-            {/* Quick Filter Chips (Material Design 3) */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pt-1 pb-0.5 touch-pan-x overscroll-contain">
-              <button
-                type="button"
-                onClick={() => setSelectedCategory('todas')}
-                className={`px-3 py-1 sm:px-3.5 sm:py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs ${
-                  selectedCategory === 'todas'
-                    ? 'bg-primary text-on-primary font-bold'
-                    : 'bg-surface-container-high hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-outline-variant/30'
-                }`}
-              >
-                <span>Todas</span>
-              </button>
-
-              {categorias.map((cat) => {
-                const count = filterContext
-                  ? filteredMateriales.filter((m) => m.categoriaId === cat.id).length
-                  : materiales.filter((m) => m.categoriaId === cat.id).length;
-                if (count === 0) return null;
-                const isSelected = selectedCategory === cat.id;
-
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-3 py-1 sm:px-3.5 sm:py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs ${
-                      isSelected
-                        ? 'bg-primary-container text-on-primary-container border border-primary/30 font-bold'
-                        : 'bg-surface-container-high hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-outline-variant/30'
-                    }`}
-                  >
-                    <span>{cat.nombre}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Filter Drawers / Pills */}
-            {showFilters && (
-              <div className="pt-3 border-t border-outline-variant/20 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in duration-150">
-                <div>
-                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Familia / Categoría</label>
-                  <div className="relative">
-                    <select
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="w-full pl-3 pr-8 py-2 sm:py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 appearance-none has-custom-icon min-h-[40px] sm:min-h-[36px] cursor-pointer"
-                    >
-                      <option value="todas">Todas las Categorías</option>
-                      {(() => {
-                        const groups = categorias.reduce((acc, c) => {
-                          const superName = c.supercategoriaNombre || 'General / Otros';
-                          if (!acc[superName]) acc[superName] = [];
-                          acc[superName].push(c);
-                          return acc;
-                        }, {} as Record<string, typeof categorias>);
-
-                        return Object.entries(groups).map(([supercat, cats]) => (
-                          <optgroup key={supercat} label={supercat}>
-                            {cats.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.nombre}
-                              </option>
-                            ))}
-                          </optgroup>
-                        ));
-                      })()}
-                    </select>
-                    <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Vigencia del Precio</label>
-                  <div className="relative">
-                    <select
-                      value={selectedVencimiento}
-                      onChange={(e) => setSelectedVencimiento(e.target.value as any)}
-                      className="w-full pl-3 pr-8 py-2 sm:py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 appearance-none has-custom-icon min-h-[40px] sm:min-h-[36px] cursor-pointer"
-                    >
-                      <option value="todos">Todos los Estados</option>
-                      <option value="verde">🟢 Vigente (&le; 30 días)</option>
-                      <option value="amarillo">🟡 Por Vencer (31 - 60 días)</option>
-                      <option value="rojo">🔴 Vencido / Sin Precio (&gt; 60 días)</option>
-                    </select>
-                    <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Estado de Ficha Técnica</label>
-                  <div className="relative">
-                    <select
-                      value={selectedFichaStatus}
-                      onChange={(e) => setSelectedFichaStatus(e.target.value as any)}
-                      className="w-full pl-3 pr-8 py-2 sm:py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 appearance-none has-custom-icon min-h-[40px] sm:min-h-[36px] cursor-pointer"
-                    >
-                      <option value="todas">Todas las Fichas</option>
-                      <option value="completas">Fichas Técnicas Completas</option>
-                      <option value="incompletas">⚠️ Fichas Pendientes / Alta Rápida</option>
-                    </select>
-                    <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Mass Selection Toolbar */}
-            {selectedMaterialIds.size > 0 && (
-              <div className="pt-3 border-t border-outline-variant/20 flex items-center justify-between bg-primary/5 p-3 rounded-2xl border border-primary/20">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-bold text-primary">
-                    {selectedMaterialIds.size} material{selectedMaterialIds.size > 1 ? 'es' : ''} seleccionado{selectedMaterialIds.size > 1 ? 's' : ''}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleSelectAll(filteredMateriales)}
-                    className="text-xs text-on-surface-variant hover:text-on-surface underline"
-                  >
-                    {selectedMaterialIds.size === filteredMateriales.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
-                  </button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowBlockPriceModal(true)}
-                    className="px-3 py-1 bg-primary hover:bg-primary/90 text-on-primary text-xs font-semibold rounded-lg shadow-xs flex items-center gap-1.5 transition active:scale-95"
-                  >
-                    <Tag className="w-3.5 h-3.5" />
-                    <span>Fijar Precio Común</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowMassUpdateModal(true)}
-                    className="px-3 py-1 bg-surface-container-highest hover:bg-surface-variant text-on-surface text-xs font-semibold rounded-lg border border-outline-variant/30 flex items-center gap-1.5 transition"
-                  >
-                    <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>Ajuste %</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleExportCatalog(filteredMateriales)}
-                    className="px-3 py-1 bg-surface-container-high hover:bg-surface-variant text-on-surface text-xs font-semibold rounded-lg"
-                    title="Exportar materiales seleccionados a Excel"
-                  >
-                    Exportar Catálogo
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Materiales List / Grid */}
           {filteredMateriales.length === 0 ? (

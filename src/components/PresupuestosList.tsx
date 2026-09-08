@@ -14,7 +14,8 @@ import {
   Share2,
   X,
   MessageSquare,
-  MapPin
+  MapPin,
+  RotateCcw
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
 import { Presupuesto, Cliente, AppConfig } from '../core/types';
@@ -69,6 +70,23 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
     const matchesEstado = selectedEstado === 'todos' || p.estado === selectedEstado;
     return matchesSearch && matchesEstado;
   });
+
+  const countsByEstado = useMemo(() => {
+    const counts: Record<string, number> = {
+      todos: presupuestos.length,
+      borrador: 0,
+      enviado: 0,
+      aprobado: 0,
+      rechazado: 0,
+      vencido: 0
+    };
+    presupuestos.forEach((p) => {
+      if (counts[p.estado] !== undefined) {
+        counts[p.estado]++;
+      }
+    });
+    return counts;
+  }, [presupuestos]);
 
   const handleDuplicate = async (p: Presupuesto) => {
     const year = new Date().getFullYear();
@@ -125,13 +143,13 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
               placeholder="Buscar por cliente, obra o número..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-full pl-9 pr-8 py-2.5 text-xs sm:text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all min-h-[40px]"
+              className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-full pl-9 pr-9 py-2.5 text-xs sm:text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all min-h-[40px]"
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface p-1"
+                className="absolute right-2.5 top-2.5 text-on-surface-variant hover:text-on-surface p-1 rounded-full hover:bg-surface-variant transition-colors"
                 aria-label="Limpiar búsqueda"
               >
                 <X className="w-3.5 h-3.5" />
@@ -139,34 +157,108 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
             )}
           </div>
 
-          {/* Status Filter Chips with invisible native horizontal scroll */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden w-full md:w-auto pb-1 md:pb-0 touch-pan-x overscroll-contain">
-            {['todos', 'borrador', 'enviado', 'aprobado', 'rechazado', 'vencido'].map((st) => (
-              <button
-                type="button"
-                key={st}
-                onClick={() => setSelectedEstado(st)}
-                className={`px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-semibold transition-colors capitalize whitespace-nowrap border min-h-[32px] ${
-                  selectedEstado === st
-                    ? 'bg-secondary-container text-on-secondary-container border-transparent shadow-xs'
-                    : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant border-outline-variant/30'
-                }`}
-              >
-                {st}
-              </button>
-            ))}
+          {/* Status Filter Chips with visual edge fade and count badges on mobile */}
+          <div className="relative w-full md:w-auto overflow-hidden">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden w-full md:w-auto pb-1 md:pb-0 touch-pan-x overscroll-contain pr-6">
+              {[
+                { key: 'todos', label: 'Todos' },
+                { key: 'borrador', label: 'Borrador' },
+                { key: 'enviado', label: 'Enviado' },
+                { key: 'aprobado', label: 'Aprobado' },
+                { key: 'rechazado', label: 'Rechazado' },
+                { key: 'vencido', label: 'Vencido' }
+              ].map((st) => {
+                const isSelected = selectedEstado === st.key;
+                const count = countsByEstado[st.key] ?? 0;
+                return (
+                  <button
+                    type="button"
+                    key={st.key}
+                    onClick={() => setSelectedEstado(st.key)}
+                    className={`px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap border min-h-[34px] flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                      isSelected
+                        ? 'bg-secondary-container text-on-secondary-container border-transparent shadow-xs'
+                        : 'bg-surface-variant/70 text-on-surface-variant hover:bg-surface-variant border-outline-variant/30'
+                    }`}
+                  >
+                    <span>{st.label}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        isSelected
+                          ? 'bg-on-secondary-container/20 text-on-secondary-container'
+                          : 'bg-surface-container-highest text-on-surface-variant'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {/* Soft edge fade hint on mobile */}
+            <div className="md:hidden pointer-events-none absolute right-0 top-0 bottom-1 w-6 bg-gradient-to-l from-surface-container-low to-transparent" />
           </div>
 
           {/* Desktop "+ Nueva Cotización" Button */}
           <button
             type="button"
             onClick={onNew}
-            className="hidden lg:flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-xs transition-all shadow-xs shrink-0"
+            className="hidden lg:flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-medium rounded-full text-xs transition-all shadow-xs shrink-0 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Nueva Cotización</span>
           </button>
         </div>
+
+        {/* Results & Active Filters Feedback Bar */}
+        {(searchTerm || selectedEstado !== 'todos') && (
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-outline-variant/15 text-xs text-on-surface-variant flex-wrap animate-in fade-in duration-150">
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <span className="font-bold text-on-surface">
+                {filteredPresupuestos.length} {filteredPresupuestos.length === 1 ? 'cotización' : 'cotizaciones'}
+              </span>
+              <span className="text-outline-variant">•</span>
+              {selectedEstado !== 'todos' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-medium text-[11px] capitalize">
+                  {selectedEstado}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEstado('todos')}
+                    className="hover:opacity-75 p-0.5 cursor-pointer"
+                    aria-label="Quitar filtro de estado"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {searchTerm && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface font-mono text-[11px] max-w-[150px] truncate">
+                  "{searchTerm}"
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="hover:opacity-75 p-0.5 cursor-pointer"
+                    aria-label="Quitar término de búsqueda"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedEstado('todos');
+              }}
+              className="text-primary hover:text-primary-hover font-semibold text-xs shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full hover:bg-primary/10 transition-colors ml-auto cursor-pointer"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Limpiar filtros</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Quotes Cards Grid */}
@@ -179,6 +271,19 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
               ? 'Prueba ajustando los filtros o la búsqueda.'
               : 'Crea tu primera cotización eléctrica usando el botón flotante (+).'}
           </p>
+          {(searchTerm || selectedEstado !== 'todos') && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedEstado('todos');
+              }}
+              className="mt-3 px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-full text-xs font-semibold transition cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Restablecer filtros</span>
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

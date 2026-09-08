@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Copy, Edit2, Trash2, Sliders, Package, ShieldAlert, GraduationCap, Truck, ChevronDown } from 'lucide-react';
+import { Search, Copy, Edit2, Trash2, Sliders, Package, ShieldAlert, GraduationCap, Truck, ChevronDown, X, RotateCcw } from 'lucide-react';
 import { TareaTipo, Insumo, CategoriaManoDeObra, AppConfig, MaterialFilterContext } from '../../core/types';
 import { calcularCostoTareaTipo, formatARS, auditarRentabilidadTareaTipo } from '../../core/calculations';
 
@@ -49,39 +49,112 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
   return (
     <div className="space-y-5">
       {/* Search & Category Filter */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-surface-container-low p-4 rounded-2xl">
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3.5" />
-          <input
-            type="text"
-            placeholder="Buscar tarea o nota técnica..."
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className={`${inputCls} pl-9`}
-          />
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-surface-container-low p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-outline-variant/20 shadow-xs">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full justify-between">
+          <div className="relative w-full sm:w-72">
+            <Search className="w-4 h-4 text-on-surface-variant absolute left-3.5 top-3.5" />
+            <input
+              type="text"
+              placeholder="Buscar tarea o nota técnica..."
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className={`${inputCls} pl-9 pr-9`}
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => onSearchChange('')}
+                className="absolute right-2.5 top-2.5 text-on-surface-variant hover:text-on-surface p-1 rounded-full hover:bg-surface-variant transition-colors"
+                aria-label="Limpiar búsqueda"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="relative w-full sm:w-auto">
+            <select
+              value={selectedCategoryFilter}
+              onChange={(e) => onCategoryFilterChange(e.target.value)}
+              className="w-full sm:w-auto pl-3.5 pr-8 py-2 text-xs sm:text-sm bg-surface-container-highest border border-outline-variant/30 rounded-xl text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[40px] appearance-none has-custom-icon cursor-pointer capitalize font-medium"
+            >
+              <option value="todas">Todas las categorías</option>
+              {categoriasList.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+          </div>
         </div>
 
-        <div className="relative w-full sm:w-auto">
-          <select
-            value={selectedCategoryFilter}
-            onChange={(e) => onCategoryFilterChange(e.target.value)}
-            className="w-full sm:w-auto pl-3.5 pr-8 py-2 text-xs sm:text-sm bg-surface-container-highest border border-outline-variant/30 rounded-xl text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[40px] appearance-none has-custom-icon cursor-pointer capitalize font-medium"
-          >
-            <option value="todas">Todas las categorías</option>
-            {categoriasList.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
-        </div>
+        {/* Results & Active Filters Feedback Bar */}
+        {(searchTerm || selectedCategoryFilter !== 'todas') && (
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-outline-variant/15 text-xs text-on-surface-variant flex-wrap w-full animate-in fade-in duration-150">
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <span className="font-bold text-on-surface">
+                {filteredTareas.length} {filteredTareas.length === 1 ? 'tarea' : 'tareas'}
+              </span>
+              <span className="text-outline-variant">•</span>
+              {selectedCategoryFilter !== 'todas' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-medium text-[11px] capitalize">
+                  {selectedCategoryFilter}
+                  <button
+                    type="button"
+                    onClick={() => onCategoryFilterChange('todas')}
+                    className="hover:opacity-75 p-0.5 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {searchTerm && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface font-mono text-[11px] max-w-[150px] truncate">
+                  "{searchTerm}"
+                  <button
+                    type="button"
+                    onClick={() => onSearchChange('')}
+                    className="hover:opacity-75 p-0.5 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                onSearchChange('');
+                onCategoryFilterChange('todas');
+              }}
+              className="text-primary hover:text-primary-hover font-semibold text-xs shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full hover:bg-primary/10 transition-colors ml-auto cursor-pointer"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Limpiar filtros</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Empty State */}
       {filteredTareas.length === 0 && (
-        <div className="text-center py-12 bg-surface-container-low rounded-2xl p-6">
+        <div className="text-center py-12 bg-surface-container-low rounded-2xl p-6 space-y-3">
           <p className="text-sm text-on-surface-variant">No se encontraron tareas con los filtros seleccionados.</p>
+          {(searchTerm || selectedCategoryFilter !== 'todas') && (
+            <button
+              type="button"
+              onClick={() => {
+                onSearchChange('');
+                onCategoryFilterChange('todas');
+              }}
+              className="px-4 py-2 bg-surface-container-highest hover:bg-surface-variant text-on-surface rounded-full text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Restablecer filtros</span>
+            </button>
+          )}
         </div>
       )}
 
