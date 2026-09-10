@@ -180,6 +180,8 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                 onInsertSnippet={insertYamlSnippet}
                 formData={formData}
                 liveEvaluation={liveEvaluation}
+                insumosMap={insumosMap}
+                manoObraMap={manoObraMap}
               />
             </div>
           ) : (

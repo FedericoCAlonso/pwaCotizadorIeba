@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Sliders,
   Calculator,
@@ -13,6 +13,8 @@ import { ModoExpertoCodeMirror } from '../../presupuesto/experto/ModoExpertoCode
 import { DSLDiagnostic } from '../../presupuesto/experto/dslParser';
 import { TareaFormData } from '../../../viewmodels/useTareaEditorModalViewModel';
 import { ConsumosCalculadosResultado } from '../../../core/calculations';
+import { Insumo, CategoriaManoDeObra } from '../../../core/types';
+import { AiPromptModal } from './AiPromptModal';
 
 export interface TareaEditorExpertoProps {
   yamlText: string;
@@ -21,6 +23,8 @@ export interface TareaEditorExpertoProps {
   onInsertSnippet: (type: 'parametro' | 'calculo' | 'material' | 'mano_obra') => void;
   formData: TareaFormData;
   liveEvaluation: ConsumosCalculadosResultado;
+  insumosMap?: Map<string, Insumo>;
+  manoObraMap?: Map<string, CategoriaManoDeObra>;
 }
 
 export const TareaEditorExperto: React.FC<TareaEditorExpertoProps> = ({
@@ -29,8 +33,11 @@ export const TareaEditorExperto: React.FC<TareaEditorExpertoProps> = ({
   diagnostics,
   onInsertSnippet,
   formData,
-  liveEvaluation
+  liveEvaluation,
+  insumosMap = new Map(),
+  manoObraMap = new Map()
 }) => {
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const hasErrors = diagnostics.some((d) => d.type === 'error');
   const hasWarnings = diagnostics.some((d) => d.type === 'warning');
   const totalHorasHombre =
@@ -41,8 +48,17 @@ export const TareaEditorExperto: React.FC<TareaEditorExpertoProps> = ({
       {/* Barra de herramientas para snippets rápidos */}
       <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-surface-container rounded-xl border border-outline-variant/30 text-xs">
         <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsAiModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 transition-colors font-bold shadow-2xs mr-1"
+            title="Generar Trabajo Tipo con IA y Normas AEA"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Asistente IA • AEA</span>
+          </button>
+
           <span className="text-on-surface-variant font-medium flex items-center gap-1 mr-1">
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
             <span>Insertar:</span>
           </span>
 
@@ -174,6 +190,17 @@ export const TareaEditorExperto: React.FC<TareaEditorExpertoProps> = ({
           </span>
         </div>
       </div>
+
+      {/* Modal Asistente IA */}
+      {isAiModalOpen && (
+        <AiPromptModal
+          isOpen={isAiModalOpen}
+          onClose={() => setIsAiModalOpen(false)}
+          onApplyYaml={onYamlChange}
+          insumosMap={insumosMap}
+          manoObraMap={manoObraMap}
+        />
+      )}
     </div>
   );
 };
