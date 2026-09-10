@@ -5,8 +5,10 @@ import {
   Package,
   Clock,
   ShieldAlert,
-  Code2
+  Code2,
+  Sparkles
 } from 'lucide-react';
+import { FormAiAssistantModal } from './editor/FormAiAssistantModal';
 import {
   TareaTipo,
   Insumo,
@@ -91,6 +93,12 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
     moveVariable,
     // Submit
     handleSubmit,
+    // Asistente IA / AEA
+    isAiAssistantOpen,
+    setIsAiAssistantOpen,
+    applyGeneratedFormData,
+    handleSuggestMaterialsForCurrentTask,
+    handleApplyAeaClauses,
     // Modo Experto (YAML DSL)
     isExpertMode,
     yamlText,
@@ -153,10 +161,23 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Barra superior de Modo: Visual vs Experto */}
-          <div className="flex items-center justify-between gap-2 px-1">
-            <span className="text-xs text-on-surface-variant font-medium">
-              {isExpertMode ? 'Modo Experto: Edición directa en YAML' : 'Modo Visual: Configuración asistida por pestañas'}
-            </span>
+          <div className="flex items-center justify-between gap-2 px-1 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-on-surface-variant font-medium hidden sm:inline">
+                {isExpertMode ? 'Modo Experto (YAML en PC)' : 'Modo Visual (Pestañas)'}
+              </span>
+              {!isExpertMode && (
+                <button
+                  type="button"
+                  onClick={() => setIsAiAssistantOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 shadow-2xs active:scale-95"
+                  title="Completar todo el trabajo tipo automáticamente con el Asistente AEA"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  <span>Asistente AEA</span>
+                </button>
+              )}
+            </div>
             <button
               type="button"
               onClick={toggleExpertMode}
@@ -167,7 +188,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
               }`}
             >
               <Code2 className="w-3.5 h-3.5" />
-              <span>{isExpertMode ? 'Volver a Pestañas' : 'Modo Experto (YAML)'}</span>
+              <span>{isExpertMode ? 'Volver a Pestañas' : 'Modo Experto (YAML en PC)'}</span>
             </button>
           </div>
 
@@ -229,6 +250,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                     setFormData={setFormData}
                     categoriasList={categoriasList}
                     currentScope={currentScope}
+                    onOpenAiAssistant={() => setIsAiAssistantOpen(true)}
                   />
                 )}
 
@@ -266,6 +288,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                     setIsCategoryFilterModalOpen={setIsCategoryFilterModalOpen}
                     setEditingCategoryFilterIdx={setEditingCategoryFilterIdx}
                     removeInsumoRow={removeInsumoRow}
+                    onSuggestAeaMaterials={handleSuggestMaterialsForCurrentTask}
                   />
                 )}
 
@@ -282,7 +305,11 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
                 )}
 
                 {activeTab === 'clausulas' && (
-                  <ClausulasTab formData={formData} setFormData={setFormData} />
+                  <ClausulasTab
+                    formData={formData}
+                    setFormData={setFormData}
+                    onApplyAeaClauses={handleApplyAeaClauses}
+                  />
                 )}
               </div>
             </>
@@ -335,6 +362,19 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
           variables={formData.variables}
           currentScope={currentScope}
           onSaveCategoryFilter={handleSaveCategoryFilter}
+        />
+      )}
+
+      {/* Modal Asistente de Formulario (Normas AEA + Catálogo) */}
+      {isAiAssistantOpen && (
+        <FormAiAssistantModal
+          isOpen={isAiAssistantOpen}
+          onClose={() => setIsAiAssistantOpen(false)}
+          onApplyFormData={applyGeneratedFormData}
+          insumosMap={insumosMap}
+          manoObraMap={manoObraMap}
+          categoriasList={categoriasList}
+          initialPrompt={formData.nombre}
         />
       )}
     </>

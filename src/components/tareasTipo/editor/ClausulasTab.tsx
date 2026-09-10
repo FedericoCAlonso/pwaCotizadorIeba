@@ -9,9 +9,10 @@ import {
 interface ClausulasTabProps {
   formData: TareaFormData;
   setFormData: React.Dispatch<React.SetStateAction<TareaFormData>>;
+  onApplyAeaClauses?: (type?: 'exclusiones' | 'notas' | 'todas') => void;
 }
 
-export const ClausulasTab: React.FC<ClausulasTabProps> = ({ formData, setFormData }) => {
+export const ClausulasTab: React.FC<ClausulasTabProps> = ({ formData, setFormData, onApplyAeaClauses }) => {
   const inputCls =
     'w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow';
 
@@ -24,22 +25,31 @@ export const ClausulasTab: React.FC<ClausulasTabProps> = ({ formData, setFormDat
             <ShieldAlert className="w-4 h-4 text-amber-500" />
             <span>Cláusula Técnica & Exclusiones Contractuales</span>
           </label>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {onApplyAeaClauses && (
+              <button
+                type="button"
+                onClick={() => onApplyAeaClauses('exclusiones')}
+                className="text-xs text-primary font-bold hover:underline"
+              >
+                + Exclusiones AEA 90364
+              </button>
+            )}
             {formData.naturaleza === 'servicio_profesional' ? (
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, clausulaExclusiones: DEFAULT_CLAUSULA_SRT_900 })}
                 className="text-xs text-purple-700 dark:text-purple-300 font-bold hover:underline"
               >
-                + Insertar plantilla Res. SRT 900/15
+                + Plantilla Res. SRT 900/15
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, clausulaExclusiones: DEFAULT_CLAUSULA_OBRA_EXISTENTE })}
-                className="text-xs text-primary font-bold hover:underline"
+                className="text-xs text-on-surface-variant hover:text-on-surface font-semibold hover:underline"
               >
-                + Insertar plantilla de obra existente
+                + Obra existente
               </button>
             )}
           </div>
@@ -62,10 +72,21 @@ export const ClausulasTab: React.FC<ClausulasTabProps> = ({ formData, setFormDat
 
       {/* Notas Técnicas para el Cliente */}
       <div className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/25 space-y-2">
-        <label className="text-xs font-bold text-on-surface uppercase tracking-wide flex items-center gap-1.5">
-          <FileText className="w-4 h-4 text-primary" />
-          <span>Notas Técnicas y Normas de Aplicación</span>
-        </label>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <label className="text-xs font-bold text-on-surface uppercase tracking-wide flex items-center gap-1.5">
+            <FileText className="w-4 h-4 text-primary" />
+            <span>Notas Técnicas y Normas de Aplicación</span>
+          </label>
+          {onApplyAeaClauses && (
+            <button
+              type="button"
+              onClick={() => onApplyAeaClauses('notas')}
+              className="text-xs text-primary font-bold hover:underline"
+            >
+              + Notas Técnicas AEA 90364
+            </button>
+          )}
+        </div>
         <p className="text-xs text-on-surface-variant">
           Aclaraciones de normas aplicables (ej: Reglamentación AEA 90364, IRAM 247-3, etc.) que se adjuntan a la partida.
         </p>

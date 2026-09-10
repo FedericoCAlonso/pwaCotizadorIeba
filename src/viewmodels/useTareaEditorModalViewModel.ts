@@ -22,6 +22,10 @@ import {
   parseTareaTipoFromDSL
 } from '../core/tareaTipoDsl';
 import { DSLDiagnostic } from '../components/presupuesto/experto/dslParser';
+import {
+  suggestAeaMaterialsForTask,
+  getAeaClausesForTask
+} from '../core/ai/aiAssistantService';
 
 export type { TareaFormData };
 
@@ -78,6 +82,9 @@ export function useTareaEditorModalViewModel({
   const [isExpertMode, setIsExpertMode] = useState(false);
   const [yamlText, setYamlText] = useState('');
   const [yamlDiagnostics, setYamlDiagnostics] = useState<DSLDiagnostic[]>([]);
+
+  // Asistente IA / AEA para formularios
+  const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
 
   useEffect(() => {
     if (editingTarea) {
@@ -769,6 +776,51 @@ export function useTareaEditorModalViewModel({
     onClose();
   };
 
+  // Asistencia de Formulario
+  const applyGeneratedFormData = (generatedData: TareaFormData, generatedYaml?: string) => {
+    setFormData({
+      ...generatedData,
+      categoria: generatedData.categoria || categoriasList[0] || 'General',
+      unidad: generatedData.unidad || 'u',
+    });
+    if (generatedYaml) {
+      setYamlText(generatedYaml);
+    }
+    toast.success('¡Formulario completado según normas AEA y catálogo!');
+  };
+
+  const handleSuggestMaterialsForCurrentTask = () => {
+    const suggested = suggestAeaMaterialsForTask(formData.nombre, formData.categoria, insumosMap);
+    if (suggested.length === 0) {
+      toast.info('No se encontraron materiales adicionales sugeridos para esta tarea.');
+      return;
+    }
+
+    setFormData((prev) => {
+      const existingIds = new Set(prev.insumos.map((i) => i.materialId || i.insumoId).filter(Boolean));
+      const toAdd = suggested.filter((s) => !existingIds.has(s.materialId));
+      if (toAdd.length === 0) {
+        toast.info('Los materiales sugeridos según AEA ya están agregados.');
+        return prev;
+      }
+      return {
+        ...prev,
+        insumos: [...prev.insumos, ...toAdd]
+      };
+    });
+    toast.success('Se agregaron materiales sugeridos según norma AEA 90364.');
+  };
+
+  const handleApplyAeaClauses = (type: 'exclusiones' | 'notas' | 'todas' = 'todas') => {
+    const clauses = getAeaClausesForTask(formData.nombre, formData.categoria);
+    setFormData((prev) => ({
+      ...prev,
+      ...(type === 'exclusiones' || type === 'todas' ? { clausulaExclusiones: clauses.clausulaExclusiones } : {}),
+      ...(type === 'notas' || type === 'todas' ? { notasTecnicas: clauses.notasTecnicas } : {})
+    }));
+    toast.success('Cláusulas según norma AEA 90364 aplicadas.');
+  };
+
   return {
     activeTab,
     setActiveTab,
@@ -777,6 +829,12 @@ export function useTareaEditorModalViewModel({
     updateFormField,
     currentScope,
     liveEvaluation,
+    // Asistente IA / AEA para formularios
+    isAiAssistantOpen,
+    setIsAiAssistantOpen,
+    applyGeneratedFormData,
+    handleSuggestMaterialsForCurrentTask,
+    handleApplyAeaClauses,
     // Modo Experto (YAML)
     isExpertMode,
     setIsExpertMode,

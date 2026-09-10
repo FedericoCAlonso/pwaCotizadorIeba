@@ -3,6 +3,9 @@ import {
   cleanAiYamlResponse,
   generateHeuristicTareaTipo,
   generateTareaTipoWithAI,
+  generateTareaFormDataWithAI,
+  suggestAeaMaterialsForTask,
+  getAeaClausesForTask,
   checkOllamaAvailability
 } from './aiAssistantService';
 import { Insumo, CategoriaManoDeObra } from '../types';
@@ -102,5 +105,48 @@ describe('aiAssistantService', () => {
     expect(result.diagnosticsCount).toBe(0);
 
     fetchSpy.mockRestore();
+  });
+
+  it('genera TareaFormData estructurada lista para formularios visuales', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Connection refused'));
+
+    const res = await generateTareaFormDataWithAI(
+      'Circuito TUE para Aire Acondicionado 4500W',
+      mockInsumosMap,
+      mockManoObraMap,
+      ['Fuerza Motriz', 'Iluminación'],
+      { host: 'http://offline-test' }
+    );
+
+    expect(res.data).toBeDefined();
+    expect(res.data.nombre).toContain('Aire Acondicionado');
+    expect(res.data.categoria).toBe('Fuerza Motriz');
+    expect(res.data.parametros.length).toBeGreaterThan(0);
+    expect(res.data.variables.length).toBeGreaterThan(0);
+    expect(res.data.manoObra.length).toBeGreaterThan(0);
+    expect(res.data.clausulaExclusiones).toContain('acondicionador de aire');
+
+    fetchSpy.mockRestore();
+  });
+
+  it('sugiere materiales complementarios según AEA 90364', () => {
+    const mats = suggestAeaMaterialsForTask(
+      'Instalación split 3000W',
+      'Fuerza Motriz',
+      mockInsumosMap
+    );
+
+    expect(mats.length).toBeGreaterThan(0);
+    expect(mats[0].materialId).toBe('c-25');
+  });
+
+  it('devuelve cláusulas y notas técnicas especializadas por tipo de tarea', () => {
+    const patClauses = getAeaClausesForTask('Medición puesta a tierra', 'Puesta a Tierra');
+    expect(patClauses.notasTecnicas).toContain('SRT 900/15');
+    expect(patClauses.clausulaExclusiones).toContain('picado de roca');
+
+    const aireClauses = getAeaClausesForTask('Instalación Aire Acondicionado', 'Fuerza Motriz');
+    expect(aireClauses.notasTecnicas).toContain('TUE');
+    expect(aireClauses.clausulaExclusiones).toContain('gas');
   });
 });

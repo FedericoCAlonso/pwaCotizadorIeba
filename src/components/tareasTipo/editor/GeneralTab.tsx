@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, GraduationCap, Truck, Calculator } from 'lucide-react';
+import { Package, GraduationCap, Truck, Calculator, Sparkles } from 'lucide-react';
 import { TareaFormData } from '../../../viewmodels/useTareaEditorModalViewModel';
 import { FormulaInput } from '../../common/FormulaInput';
 import { formatARS } from '../../../core/calculations';
@@ -10,19 +10,44 @@ interface GeneralTabProps {
   setFormData: React.Dispatch<React.SetStateAction<TareaFormData>>;
   categoriasList: string[];
   currentScope: Record<string, number>;
+  onOpenAiAssistant?: () => void;
 }
 
 export const GeneralTab: React.FC<GeneralTabProps> = ({
   formData,
   setFormData,
   categoriasList,
-  currentScope
+  currentScope,
+  onOpenAiAssistant
 }) => {
   const inputCls =
     'w-full bg-surface-container-highest border border-outline-variant/30 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] transition-shadow';
 
   return (
     <div className="space-y-6">
+      {/* Banner de Asistente si la tarea está vacía */}
+      {!formData.nombre && onOpenAiAssistant && (
+        <div className="p-3.5 rounded-2xl bg-primary/10 border border-primary/25 flex items-center justify-between gap-3 flex-wrap animate-in fade-in duration-150">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-primary text-on-primary">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-on-surface block">¿Configuración rápida con Asistente?</span>
+              <span className="text-[11px] text-on-surface-variant">Completa parámetros, materiales AEA y mano de obra en un toque.</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenAiAssistant}
+            className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-on-primary text-xs font-bold shadow-xs transition active:scale-95 flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Autocompletar Tarea</span>
+          </button>
+        </div>
+      )}
+
       {/* Selector de Naturaleza de Partida */}
       <div className="space-y-2">
         <label className="block text-xs font-bold text-on-surface uppercase tracking-wider">

@@ -18,6 +18,7 @@ interface MaterialesTabProps {
   setIsCategoryFilterModalOpen: (open: boolean) => void;
   setEditingCategoryFilterIdx: (idx: number | null) => void;
   removeInsumoRow: (index: number) => void;
+  onSuggestAeaMaterials?: () => void;
 }
 
 export const MaterialesTab: React.FC<MaterialesTabProps> = ({
@@ -28,7 +29,8 @@ export const MaterialesTab: React.FC<MaterialesTabProps> = ({
   setIsMaterialPickerOpen,
   setIsCategoryFilterModalOpen,
   setEditingCategoryFilterIdx,
-  removeInsumoRow
+  removeInsumoRow,
+  onSuggestAeaMaterials
 }) => {
   return (
     <div className="space-y-4">
@@ -43,7 +45,18 @@ export const MaterialesTab: React.FC<MaterialesTabProps> = ({
             Agrega materiales directos del catálogo o ranuras dinámicas que seleccionen automáticamente por categoría y parámetros.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {onSuggestAeaMaterials && (
+            <button
+              type="button"
+              onClick={onSuggestAeaMaterials}
+              className="px-3 py-1.5 bg-secondary/10 hover:bg-secondary/20 text-secondary font-bold text-xs rounded-xl transition flex items-center gap-1.5 border border-secondary/30 shadow-2xs active:scale-95"
+              title="Sugerir e insertar materiales según reglamentación AEA 90364"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Sugerir AEA</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setIsMaterialPickerOpen(true)}
