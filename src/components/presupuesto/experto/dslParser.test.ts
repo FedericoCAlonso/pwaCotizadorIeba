@@ -99,7 +99,7 @@ describe('dslParser (Modo Experto YAML)', () => {
   it('generateExampleDSL genera el ejemplo enriquecido con materiales, mano de obra y variables', () => {
     const example = generateExampleDSL(mockClientes[0]);
     expect(example).toContain('cliente: Estudio Arq. Gómez');
-    expect(example).toContain('calculos:');
+    expect(example).toContain('cálculo:');
     expect(example).toContain('Instalación Eléctrica:');
     expect(example).toContain('Tableros y Automatización:');
     expect(example).toContain('materiales:');
@@ -1301,13 +1301,13 @@ dolar: USD Blue
       expect(triggerP?.query).toBe('p');
     });
 
-    it('formatSlashCommandReplacement formatea mano_obra: a exactamente 6 espacios sin importar la sangría del cursor', () => {
+    it('formatSlashCommandReplacement conserva la jerarquía semántica al insertar mano_obra: bajo una partida', () => {
       const { replacementLine } = formatSlashCommandReplacement({
         currentLineBeforeCursor: '        - mo',
         snippet: 'mano_obra:\n  - ',
         contextType: 'materiales'
       });
-      expect(replacementLine.startsWith('      mano_obra:')).toBe(true);
+      expect(replacementLine.startsWith('    mano_obra:')).toBe(true);
     });
 
     it('handleYamlSmartBackspace retrocede niveles jerárquicos automáticamente en líneas vacías y viñetas vacías', () => {
@@ -1585,7 +1585,7 @@ obra: Av. Libertador 5000
         snippet: 'cliente: Federico Gómez\n',
         directiveType: 'cliente'
       });
-      expect(resCli.replacementLine).toBe('cliente: Federico Gómez\n');
+      expect(resCli.replacementLine).toBe('cliente: Federico Gómez');
 
       // Directiva factura:
       const resFac = formatSlashCommandReplacement({
@@ -1593,7 +1593,7 @@ obra: Av. Libertador 5000
         snippet: 'factura: Factura B\n',
         directiveType: 'factura'
       });
-      expect(resFac.replacementLine).toBe('factura: Factura B\n');
+      expect(resFac.replacementLine).toBe('factura: Factura B');
 
       // Directiva validez:
       const resVal = formatSlashCommandReplacement({
@@ -1601,7 +1601,7 @@ obra: Av. Libertador 5000
         snippet: 'validez: 30 dias\n',
         directiveType: 'validez'
       });
-      expect(resVal.replacementLine).toBe('validez: 30 dias\n');
+      expect(resVal.replacementLine).toBe('validez: 30 dias');
 
       // Reemplazo desde atajo @ en línea nueva
       const resAt = formatSlashCommandReplacement({
@@ -1609,7 +1609,7 @@ obra: Av. Libertador 5000
         snippet: 'cliente: Federico Gómez\n',
         directiveType: 'cliente'
       });
-      expect(resAt.replacementLine).toBe('cliente: Federico Gómez\n');
+      expect(resAt.replacementLine).toBe('cliente: Federico Gómez');
     });
   });
 
@@ -1950,17 +1950,17 @@ Iluminación:
         }
       });
 
-      expect(serialized).toContain('calculos:');
+      expect(serialized).toContain('cálculo:');
       expect(serialized).toContain('bocas: 20');
       expect(serialized).toContain('coef: 1.15');
       expect(serialized).toContain('- =bocas u Puntos y Tomas: $ 10.000');
     });
 
-    it('interpreta bloque "calculo:" (singular) y "cálculos:" correctamente', () => {
+    it('interpreta bloques "cálculo:" y "fórmula:" correctamente', () => {
       const dsl = `cliente: Federico Gómez
 obra: Casa Central
 
-calculo:
+fórmula:
   bocas: 24
   precio_boca: 5000
   total: = bocas * precio_boca
@@ -2930,6 +2930,180 @@ Iluminación:
       expect(dsl).toContain('    mano_obra:');
       // Nivel 3: Despiece "      - 6 h Oficial Electricista" (6 espacios + "- ")
       expect(dsl).toContain('      - 6 h Oficial Electricista');
+    });
+  });
+
+  describe('Resolución de Variables y Alcance por Indentación (Nivel 0 Global, Nivel 1 Capítulo, Nivel 2 Tarea)', () => {
+    it('Nivel 0: extrae variables globales fuera de calculos: y no emite warnings de propiedad desconocida', () => {
+      const yaml = `
+cliente: Juan Pérez
+ancho: 4
+largo: 5
+precio_boca: 15000
+bocas = ancho * largo
+
+Instalación Eléctrica:
+  - bocas u Boca: $ precio_boca
+`;
+      const res = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      // No debe emitir advertencias de propiedad desconocida para ancho, largo, precio_boca o bocas
+      const unknownPropWarnings = res.diagnostics.filter((d) => d.type === 'warning' && d.message.includes('Propiedad desconocida'));
+      expect(unknownPropWarnings).toHaveLength(0);
+
+      expect(res.calculatedCells).toBeDefined();
+      expect(res.calculatedCells?.some((c) => c.name === 'bocas' && c.evaluatedValue === 20)).toBe(true);
+
+      // El ítem debe tener cantidad 20 y precio manual 15000
+      expect(res.items).toHaveLength(1);
+      expect(res.items[0].descripcion).toBe('Boca');
+      expect(res.items[0].cantidad).toBe(20);
+      expect(res.items[0].precioManual).toBe(15000);
+      expect(res.items[0].precioVentaTotal).toBe(300000);
+    });
+
+    it('Nivel 0: evalúa directivas raíz como validez y margen con variables globales', () => {
+      const yaml = `
+dias_validez: 30
+margen_def: 45
+
+validez: dias_validez
+margen: margen_def
+
+Iluminación:
+  - 10 u Boca de Iluminación: $ 12000
+`;
+      const res = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.validezDias).toBe(30);
+      expect(res.margenPorcentaje).toBe(45);
+    });
+
+    it('Nivel 1: soporta variables locales por capítulo con aislamiento de ámbito', () => {
+      const yaml = `
+Planta Baja:
+  bocas: 10
+  precio_boca: 12000
+  partidas:
+    - bocas u Boca: $ precio_boca
+
+Planta Alta:
+  bocas: 25
+  precio_boca: 15000
+  partidas:
+    - bocas u Boca: $ precio_boca
+`;
+      const res = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.capitulos).toHaveLength(2);
+      expect(res.items).toHaveLength(2);
+
+      const itemPB = res.items[0];
+      const itemPA = res.items[1];
+
+      expect(itemPB.cantidad).toBe(10);
+      expect(itemPB.precioManual).toBe(12000);
+      expect(itemPB.precioVentaTotal).toBe(120000);
+
+      expect(itemPA.cantidad).toBe(25);
+      expect(itemPA.precioManual).toBe(15000);
+      expect(itemPA.precioVentaTotal).toBe(375000);
+    });
+
+    it('Nivel 2: soporta variables a nivel de partida y expresiones complejas en materiales y mano de obra', () => {
+      const yaml = `
+costo_hora_oficial: 8000
+
+partidas:
+  - Tablero Seccional:
+      termicas: 6
+      disyuntores: 2
+      cantidad: 1
+      materiales:
+        - termicas u Termomagnética 16A: $ 7500
+        - Disyuntor Diferencial 25A:
+            cantidad: disyuntores
+            precio: 24000
+      mano_obra:
+        - horas: termicas * 0.5 + disyuntores * 1
+          precio: costo_hora_oficial
+`;
+      const res = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items).toHaveLength(1);
+      const item = res.items[0];
+      expect(item.cantidad).toBe(1);
+
+      // Insumos: 6 * 7500 (45000) + 2 * 24000 (48000) = 93000
+      expect(item.costoInsumos).toBe(93000);
+
+      // Mano de Obra: (6 * 0.5 + 2 * 1) = 5 horas * 8000 = 40000
+      expect(item.costoManoObra).toBe(40000);
+
+      // Costo directo total = 93000 + 40000 = 133000
+      expect(item.costoDirectoTotal).toBe(133000);
+    });
+
+    it('Actualiza correctamente los totales y conceptos del presupuesto con calcularTotalesPresupuesto', () => {
+      const yaml = `
+cliente: Juan Pérez
+factura: Factura A
+margen: 30
+
+ancho: 5
+largo: 8
+precio_boca: 15000
+total_bocas = ancho * largo / 2
+
+Iluminación:
+  - total_bocas u Boca de Iluminación: $ precio_boca
+`;
+      const res = parseDSLToPresupuesto(yaml, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items).toHaveLength(1);
+      expect(res.items[0].cantidad).toBe(20);
+      expect(res.items[0].precioManual).toBe(15000);
+
+      // Ejecutar motor de cálculo del presupuesto
+      const totales = calcularTotalesPresupuesto({
+        items: res.items,
+        capitulos: res.capitulos,
+        margenPorcentaje: res.margenPorcentaje,
+        costosIndirectosConfig: [],
+        tipoFactura: res.tipoFactura,
+        impuestosDetalle: []
+      });
+
+      // Validar que el monto del presupuesto y los conceptos NO son cero
+      expect(totales.subtotalCostosDirectos).toBeGreaterThan(0);
+      expect(totales.precioFinalGlobal).toBeGreaterThan(0);
+      expect(totales.itemsCalculados[0].precioVentaTotal).toBeGreaterThan(0);
+      expect(totales.itemsCalculados[0].precioVentaTotal).toBe(247000);
     });
   });
 });

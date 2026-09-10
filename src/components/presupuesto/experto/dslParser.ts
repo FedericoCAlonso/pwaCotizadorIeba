@@ -95,6 +95,20 @@ export function normalizeString(str: string): string {
     .trim();
 }
 
+const CALCULATION_KEY_PATTERN = /^(calculos|cálculos|cálculo|formula|fórmula|variables|variable|parametros|parámetros|parametro|parámetro|params|param)$/i;
+
+function isCalculationKey(key: string): boolean {
+  return CALCULATION_KEY_PATTERN.test((key || '').trim());
+}
+
+function isCalculationRootDirective(line: string): boolean {
+  const trimmed = (line || '').trim();
+  if (!trimmed) return false;
+
+  const normalized = trimmed.replace(/:$/, '').trim();
+  return isCalculationKey(normalized);
+}
+
 /**
  * Parsea un número en formato ARS o estándar (ej: "1.250,50" o "1250.50" o "45" o "$ 35.000")
  */
@@ -238,15 +252,19 @@ export function findLineNumberInYaml(
  * Determina si un valor de cantidad u horas provisto por el usuario no es numérico (ej: "muchas", "varias").
  * Retorna false si es un número válido, un valor numérico o una fórmula evaluable (inicia con '=').
  */
-export function isNonNumericValue(val: any): boolean {
+export function isNonNumericValue(val: any, scope?: Record<string, number>): boolean {
   if (val === undefined || val === null) return false;
   if (typeof val === 'number') return isNaN(val);
   const s = String(val).trim();
   if (!s) return false;
   if (s.startsWith('=')) return false; // Expresión o fórmula
   const cleaned = s.replace(/[$]/g, '').trim();
-  const hasDigit = /\d/.test(cleaned);
-  return !hasDigit;
+  if (/\d/.test(cleaned)) return false;
+  // Si coincide con alguna variable existente en el scope o evaluable
+  if (scope && Object.keys(scope).some((k) => new RegExp(`\\b${k}\\b`, 'i').test(cleaned))) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -259,20 +277,20 @@ export function evaluateExpressionOrNumber(
   if (typeof expr === 'number') return isNaN(expr) ? 0 : expr;
   if (!expr) return 0;
   const str = String(expr).trim();
-  const cleanExpr = str.startsWith('=') ? str.substring(1).trim() : str;
+  const cleanExpr = (str.startsWith('=') ? str.substring(1) : str).trim().replace(/^\$\s*/, '');
   if (!cleanExpr) return 0;
 
   // Si no tiene caracteres de fórmula ni variables en scope, parsear directamente como número
   const hasScopeMatch = scope && Object.keys(scope).some((k) => new RegExp(`\\b${k}\\b`, 'i').test(cleanExpr));
-  if (!isFormulaString(str) && !hasScopeMatch && !str.startsWith('=')) {
-    return parseLocalizedNumber(str);
+  if (!isFormulaString(cleanExpr) && !hasScopeMatch && !str.startsWith('=')) {
+    return parseLocalizedNumber(cleanExpr);
   }
 
   const evalRes = evaluateMathExpression(cleanExpr, scope);
   if (evalRes.isValid && evalRes.value !== null) {
     return roundMoney(evalRes.value);
   }
-  return parseLocalizedNumber(str);
+  return parseLocalizedNumber(cleanExpr);
 }
 
 /**
@@ -281,7 +299,7 @@ export function evaluateExpressionOrNumber(
 export function findCalculosKey(obj: any): any {
   if (!obj || typeof obj !== 'object') return undefined;
   for (const k of Object.keys(obj)) {
-    if (/^(calculos|calculo|c[aá]lculos|c[aá]lculo|variables|variable|parametros|par[aá]metros|parametro|par[aá]metro|params|param)$/i.test(k.trim())) {
+    if (isCalculationKey(k)) {
       return obj[k];
     }
   }
@@ -345,47 +363,98 @@ export function processCalculationBlock(
   if (!rawBlock) return cells;
 
   const entries = extractCalculationEntries(rawBlock);
+  if (entries.length === 0) return cells;
 
-  for (const [varName, rawVal] of entries) {
-    const cleanName = varName.trim();
-    if (!cleanName) continue;
+  // Realizar pasadas iterativas (hasta 4 pasadas) para resolver dependencias en cascada
+  // sin importar el orden de declaración de las variables
+  const maxPasses = 4;
+  let remaining = [...entries];
+  const evaluatedMap = new Map<string, CalculatedCell>();
 
-    const rawStr = String(rawVal ?? '').trim();
-    let evalValue = 0;
-    let isFormula = false;
-    let errorMsg: string | undefined = undefined;
+  for (let pass = 0; pass < maxPasses && remaining.length > 0; pass++) {
+    const nextRemaining: [string, any][] = [];
+    let progressMade = false;
 
-    if (typeof rawVal === 'number') {
-      evalValue = isNaN(rawVal) ? 0 : rawVal;
-      scope[cleanName] = evalValue;
-    } else if (typeof rawVal === 'boolean') {
-      evalValue = rawVal ? 1 : 0;
-      scope[cleanName] = evalValue;
-    } else {
-      const cleanExpr = rawStr.startsWith('=') ? rawStr.substring(1).trim() : rawStr;
-      const evalRes = evaluateMathExpression(cleanExpr, scope);
-      if (evalRes.isValid && evalRes.value !== null) {
-        evalValue = roundMoney(evalRes.value);
-        isFormula = evalRes.isFormula || rawStr.startsWith('=');
+    for (const [varName, rawVal] of remaining) {
+      const cleanName = varName.trim();
+      if (!cleanName) continue;
+
+      const rawStr = String(rawVal ?? '').trim();
+      let evalValue = 0;
+      let isFormula = false;
+      let errorMsg: string | undefined = undefined;
+
+      if (typeof rawVal === 'number') {
+        evalValue = isNaN(rawVal) ? 0 : rawVal;
         scope[cleanName] = evalValue;
+        evaluatedMap.set(cleanName, {
+          name: cleanName,
+          rawExpression: rawStr,
+          evaluatedValue: evalValue,
+          isFormula: false,
+          scope: scopeType
+        });
+        progressMade = true;
+      } else if (typeof rawVal === 'boolean') {
+        evalValue = rawVal ? 1 : 0;
+        scope[cleanName] = evalValue;
+        evaluatedMap.set(cleanName, {
+          name: cleanName,
+          rawExpression: rawStr,
+          evaluatedValue: evalValue,
+          isFormula: false,
+          scope: scopeType
+        });
+        progressMade = true;
       } else {
-        const parsedNum = parseLocalizedNumber(rawStr);
-        evalValue = parsedNum;
-        scope[cleanName] = evalValue;
-        if (evalRes.error && (rawStr.startsWith('=') || isFormulaString(rawStr))) {
-          errorMsg = evalRes.error;
+        const cleanExpr = (rawStr.startsWith('=') ? rawStr.substring(1) : rawStr).trim().replace(/^\$\s*/, '');
+        const evalRes = evaluateMathExpression(cleanExpr, scope);
+        if (evalRes.isValid && evalRes.value !== null) {
+          evalValue = roundMoney(evalRes.value);
+          isFormula = evalRes.isFormula || rawStr.startsWith('=');
+          scope[cleanName] = evalValue;
+          evaluatedMap.set(cleanName, {
+            name: cleanName,
+            rawExpression: rawStr,
+            evaluatedValue: evalValue,
+            isFormula,
+            scope: scopeType
+          });
+          progressMade = true;
+        } else {
+          if (pass < maxPasses - 1) {
+            nextRemaining.push([varName, rawVal]);
+          } else {
+            const parsedNum = parseLocalizedNumber(rawStr);
+            evalValue = parsedNum;
+            scope[cleanName] = evalValue;
+            if (evalRes.error && (rawStr.startsWith('=') || isFormulaString(rawStr))) {
+              errorMsg = evalRes.error;
+            }
+            evaluatedMap.set(cleanName, {
+              name: cleanName,
+              rawExpression: rawStr,
+              evaluatedValue: evalValue,
+              isFormula: rawStr.startsWith('=') || isFormulaString(rawStr),
+              error: errorMsg,
+              scope: scopeType
+            });
+          }
         }
       }
     }
 
-    cells.push({
-      name: cleanName,
-      rawExpression: rawStr,
-      evaluatedValue: evalValue,
-      isFormula,
-      error: errorMsg,
-      scope: scopeType
-    });
+    if (!progressMade) {
+      pass = maxPasses - 2;
+    }
+    remaining = nextRemaining;
+  }
+
+  for (const [varName] of entries) {
+    const cell = evaluatedMap.get(varName.trim());
+    if (cell) {
+      cells.push(cell);
+    }
   }
 
   return cells;
@@ -441,7 +510,7 @@ riesgo: bajo                # Opciones: bajo, normal, alto
 dolar: USD Blue             # Opcional (ej: USD Blue, USD MEP, USD Oficial o cotización)
 
 # Celdas de cálculo y variables reactivas
-calculos:
+cálculo:
   superficie: 120
   bocas: =ceil(superficie / 6)
   cable_m: =bocas * 12
@@ -495,7 +564,7 @@ export function extractCalculosBlockFromDsl(dslText?: string): string | null {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
-    if (/^(calculos|variables|parametros)\s*:/i.test(trimmed) && (line.match(/^\s*/)?.[0] || '').length === 0) {
+    if (isCalculationRootDirective(trimmed) && (line.match(/^\s*/)?.[0] || '').length === 0) {
       inCalculos = true;
       calculosLines.push(line);
       continue;
@@ -600,7 +669,7 @@ export function serializePresupuestoToDSL(data: {
   } else if (data.calculosVariables && Object.keys(data.calculosVariables).length > 0) {
     lines.push('');
     lines.push('# Celdas de cálculo y variables reactivas');
-    lines.push('calculos:');
+    lines.push('cálculo:');
     Object.entries(data.calculosVariables).forEach(([k, v]) => {
       lines.push(`  ${k}: ${v}`);
     });
@@ -609,7 +678,7 @@ export function serializePresupuestoToDSL(data: {
     if (globalCells.length > 0) {
       lines.push('');
       lines.push('# Celdas de cálculo y variables reactivas');
-      lines.push('calculos:');
+      lines.push('cálculo:');
       globalCells.forEach((c) => {
         lines.push(`  ${c.name}: ${c.rawExpression}`);
       });
@@ -762,13 +831,20 @@ function parseQuantityAndName(
     str = str.replace(condMatch[0], '').trim();
   }
 
-  // 2. Precio manual (: $ 15.000 o : $ =precio o : =precio o = $ 15.000 o : 15000)
+  // 2. Precio manual (: $ 15.000 o : $ =precio o : =precio o = $ 15.000 o : 15000 o : $ precio_var o : precio_var)
   let precioManual: number | undefined = undefined;
-  const priceMatch = str.match(/(?:[:=]\s*\$?\s*)(=(?:[^\n\r]+)|[0-9.,]+)\s*$/);
+  const priceMatch = str.match(/(?:[:=]\s*\$?\s*)(=(?:[^\n\r]+)|[0-9.,]+|[a-zA-Z_]\w*(?:\s*[+\-*/]\s*[a-zA-Z0-9_]+)*)\s*$/);
   if (priceMatch) {
     const rawPrice = priceMatch[1].trim();
-    precioManual = evaluateExpressionOrNumber(rawPrice, scope);
-    str = str.slice(0, priceMatch.index).trim();
+    const cleanRawPrice = rawPrice.replace(/^=\s*/, '').replace(/^\$\s*/, '');
+    const isNum = /^[0-9.,]+$/.test(cleanRawPrice);
+    const isForm = rawPrice.startsWith('=') || isFormulaString(rawPrice);
+    const inScope = scope && Object.keys(scope).some((k) => new RegExp(`\\b${k}\\b`, 'i').test(cleanRawPrice));
+
+    if (isNum || isForm || inScope) {
+      precioManual = evaluateExpressionOrNumber(rawPrice, scope);
+      str = str.slice(0, priceMatch.index).trim();
+    }
   }
 
   // 2b. Marca o Producto comercial entre corchetes (ej: "[Prysmian]", "[Schneider]")
@@ -782,9 +858,18 @@ function parseQuantityAndName(
   // Quitar asteriscos o comillas sobrantes si venía del DSL viejo
   str = str.replace(/^\*\s*/, '').replace(/^"|"$/g, '').trim();
 
-  // 3a. Cantidad definida mediante celda o fórmula (=bocas, =(sup / 6), etc.)
-  if (str.startsWith('=')) {
-    const cleanStr = str.substring(1).trim();
+  // 3a. Cantidad definida mediante celda o fórmula (=bocas, =(sup / 6), $bocas, o variable en scope ej: bocas u ...)
+  const firstWordMatch = str.match(/^([$]?[a-zA-Z_]\w*)\s+/);
+  const firstWordClean = firstWordMatch ? firstWordMatch[1].replace(/^\$/, '') : '';
+  const startsWithScopeVar = Boolean(
+    scope && firstWordClean && Object.keys(scope).some((k) => k.toLowerCase() === firstWordClean.toLowerCase())
+  );
+  const startsWithDollarVar = str.startsWith('$') && !/^\$\s*[0-9]/.test(str);
+
+  if (str.startsWith('=') || startsWithScopeVar || startsWithDollarVar) {
+    let cleanStr = str;
+    if (cleanStr.startsWith('=')) cleanStr = cleanStr.substring(1).trim();
+    else if (cleanStr.startsWith('$')) cleanStr = cleanStr.substring(1).trim();
 
     // Comprobar si tiene paréntesis envolvente ej: "(sup / 6) u Boca"
     if (cleanStr.startsWith('(')) {
@@ -866,34 +951,84 @@ function parseQuantityAndName(
         precioManual
       };
     } else {
-      // Expresión directa de cantidad (ej: en propiedad cantidad: "=bocas * 12")
-      const evalQty = evaluateExpressionOrNumber(cleanStr, scope);
+      // Sin unidad conocida: determinar si es una expresión matemática completa o <variable> <nombre>
+      const hasOperators = /[+\-*/^%()]/.test(cleanStr);
+      if (hasOperators) {
+        const evalQty = evaluateExpressionOrNumber(cleanStr, scope);
+        return {
+          cantidad: evalQty >= 0 ? evalQty : 0,
+          formulaCantidad: `=${cleanStr.replace(/^=/, '').trim()}`,
+          unidad: 'u',
+          nombre: '',
+          marca,
+          condicion,
+          precioManual
+        };
+      } else if (startsWithScopeVar || startsWithDollarVar) {
+        if (tokens.length === 1) {
+          const varName = tokens[0].replace(/^\$/, '');
+          const evalQty = evaluateExpressionOrNumber(varName, scope);
+          return {
+            cantidad: evalQty >= 0 ? evalQty : 0,
+            formulaCantidad: `=${varName}`,
+            unidad: 'u',
+            nombre: '',
+            marca,
+            condicion,
+            precioManual
+          };
+        } else {
+          const varName = tokens[0].replace(/^\$/, '');
+          const evalQty = evaluateExpressionOrNumber(varName, scope);
+          const namePart = tokens.slice(1).join(' ');
+          return {
+            cantidad: evalQty >= 0 ? evalQty : 0,
+            formulaCantidad: `=${varName}`,
+            unidad: 'u',
+            nombre: namePart,
+            marca,
+            condicion,
+            precioManual
+          };
+        }
+      } else {
+        // Expresión directa de cantidad (ej: en propiedad cantidad: "=bocas * 12")
+        const evalQty = evaluateExpressionOrNumber(cleanStr, scope);
+        return {
+          cantidad: evalQty >= 0 ? evalQty : 0,
+          formulaCantidad: `=${cleanStr.replace(/^=/, '').trim()}`,
+          unidad: 'u',
+          nombre: '',
+          marca,
+          condicion,
+          precioManual
+        };
+      }
+    }
+  }
+
+  // 3b. Cantidad y Unidad pura sin nombre (ej: "75 m", "50", "4 u", "1.5 hs", "bocas u", "bocas")
+  const pureQtyMatch = str.match(/^([0-9]+(?:[.,][0-9]+)?|[$]?[a-zA-Z_]\w*)\s*([a-zA-ZáéíóúÁÉÍÓÚ²³]+)?$/);
+  if (pureQtyMatch) {
+    const rawQtyPart = pureQtyMatch[1];
+    const cleanQtyPart = rawQtyPart.replace(/^\$/, '');
+    const isNum = /^[0-9]+(?:[.,][0-9]+)?$/.test(cleanQtyPart);
+    const inScope = scope && Object.keys(scope).some((k) => k.toLowerCase() === cleanQtyPart.toLowerCase());
+
+    if (isNum || inScope) {
+      const parsedQty = evaluateExpressionOrNumber(cleanQtyPart, scope);
+      const candidateUnit = (pureQtyMatch[2] || '').toLowerCase();
+      const unitToUse = candidateUnit && KNOWN_UNITS.has(candidateUnit) ? candidateUnit : (candidateUnit || 'u');
       return {
-        cantidad: evalQty >= 0 ? evalQty : 0,
-        formulaCantidad: `=${cleanStr}`,
-        unidad: 'u',
+        cantidad: parsedQty >= 0 ? parsedQty : 0,
+        formulaCantidad: inScope ? `=${cleanQtyPart}` : undefined,
+        unidad: unitToUse,
         nombre: '',
         marca,
         condicion,
         precioManual
       };
     }
-  }
-
-  // 3b. Cantidad y Unidad pura sin nombre (ej: "75 m", "50", "4 u", "1.5 hs")
-  const pureQtyMatch = str.match(/^([0-9]+(?:[.,][0-9]+)?)\s*([a-zA-ZáéíóúÁÉÍÓÚ²³]+)?$/);
-  if (pureQtyMatch) {
-    const parsedQty = parseLocalizedNumber(pureQtyMatch[1]);
-    const candidateUnit = (pureQtyMatch[2] || '').toLowerCase();
-    const unitToUse = candidateUnit && KNOWN_UNITS.has(candidateUnit) ? candidateUnit : (candidateUnit || 'u');
-    return {
-      cantidad: parsedQty >= 0 ? parsedQty : 0,
-      unidad: unitToUse,
-      nombre: '',
-      marca,
-      condicion,
-      precioManual
-    };
   }
 
   // 3c. Cantidad y Unidad al inicio seguido de nombre (ej: "10 u ...", "25m ...", "4 ...")
@@ -1051,36 +1186,23 @@ export function preprocessYamlText(yamlText: string): string {
     }
   }
 
-  // 2c. Normalizar asignaciones 'variable = expresion' dentro de bloques de cálculo a 'variable: "=expresion"'
-  let inCalculosBlock = false;
-  let calculosBlockIndent = 0;
+  // 2c. Normalizar asignaciones 'variable = expresion' a 'variable: "=expresion"' (tanto a nivel raíz como en bloques de cálculo o partidas)
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
-    const currentIndent = (line.match(/^\s*/)?.[0] || '').length;
 
-    if (currentIndent === 0 && /^(calculos|calculo|c[aá]lculos|c[aá]lculo|variables|variable|parametros|par[aá]metros|parametro|par[aá]metro|params|param)\s*:?$/i.test(trimmed)) {
-      inCalculosBlock = true;
-      calculosBlockIndent = 0;
-      if (!trimmed.endsWith(':')) {
-        lines[i] = trimmed + ':';
-      }
-      continue;
-    }
+    const colonIdx = line.indexOf(':');
+    const eqIdx = line.indexOf('=');
 
-    if (inCalculosBlock) {
-      if (currentIndent <= calculosBlockIndent && !trimmed.startsWith('-')) {
-        inCalculosBlock = false;
-      } else {
-        // Si tiene formato "nombre = expresion" sin ':'
-        const assignMatch = line.match(/^(\s*(?:-\s*)?)([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/);
-        if (assignMatch && !line.includes(':')) {
-          const indentAndDash = assignMatch[1];
-          const varName = assignMatch[2];
-          const expr = assignMatch[3].trim().replace(/^=\s*/, '');
-          lines[i] = `${indentAndDash}${varName}: "=${expr}"`;
-        }
+    // Si hay un '=' antes de cualquier ':' (o no hay ':')
+    if (eqIdx > 0 && (colonIdx < 0 || eqIdx < colonIdx)) {
+      const assignMatch = line.match(/^(\s*(?:-\s*)?)([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/);
+      if (assignMatch) {
+        const indentAndDash = assignMatch[1];
+        const varName = assignMatch[2];
+        const expr = assignMatch[3].trim().replace(/^=\s*/, '');
+        lines[i] = `${indentAndDash}${varName}: "=${expr}"`;
       }
     }
   }
@@ -1568,7 +1690,11 @@ export function parseDSLToPresupuesto(
     };
   }
 
-  // 1. Directivas Principales
+  // 1. Ámbito de Cálculo Global (Nivel 0 - Documento)
+  const globalScope: Record<string, number> = {};
+  const calculatedCells: CalculatedCell[] = [];
+  const calculosVariables: Record<string, number | string> = {};
+
   const VALID_ROOT_DIRECTIVES = [
     'cliente',
     'obra',
@@ -1591,9 +1717,75 @@ export function parseDSLToPresupuesto(
     return /^(cliente|obra|factura|validez|margen|riesgo|dolar|totales|gastos|condiciones_pago|partidas|capitulos|calculos|calculo|c[aá]lculos|c[aá]lculo|variables|variable|parametros|par[aá]metros|parametro|par[aá]metro|params|param)$/i.test(k.trim());
   };
 
+  const isChapterObject = (val: any): boolean => {
+    return typeof val === 'object' && val !== null && !Array.isArray(val) && (Array.isArray(val.partidas) || Array.isArray(val.items));
+  };
+
+  const rawCalculos = findCalculosKey(parsed);
+  const rootVariables: Record<string, any> = {};
+
+  if (rawCalculos) {
+    const entries = extractCalculationEntries(rawCalculos);
+    entries.forEach(([k, v]) => {
+      rootVariables[k.trim()] = v;
+      calculosVariables[k.trim()] = v as any;
+    });
+  }
+
+  // Detectar variables declaradas directamente a nivel raíz (Nivel 0 - fuera de calculos:)
+  Object.entries(parsed).forEach(([k, v]) => {
+    if (isReservedRootKey(k)) return;
+    if (Array.isArray(v)) return; // Es capítulo como array
+    if (isChapterObject(v)) return; // Es capítulo como objeto
+
+    // Si tiene typo evidente de una directiva raíz reservada, no tratar como variable
+    if (findClosestMatch(k, VALID_ROOT_DIRECTIVES, 2)) return;
+
+    if (typeof v === 'number') {
+      rootVariables[k.trim()] = v;
+      calculosVariables[k.trim()] = v;
+    } else if (typeof v === 'boolean') {
+      rootVariables[k.trim()] = v ? 1 : 0;
+      calculosVariables[k.trim()] = v ? 1 : 0;
+    } else if (typeof v === 'string') {
+      const s = v.trim();
+      const isNum = /^\$?\s*-?[0-9]+(?:[.,][0-9]+)?$/.test(s);
+      const isForm = s.startsWith('=') || isFormulaString(s);
+      const hasMathOp = /[+\-*/^%]/.test(s) && /[a-zA-Z0-9]/.test(s);
+      if (isNum || isForm || hasMathOp) {
+        rootVariables[k.trim()] = v;
+        calculosVariables[k.trim()] = v;
+      }
+    }
+  });
+
+  if (Object.keys(rootVariables).length > 0) {
+    const calculosLine = findLineNumberInYaml(yamlText, /^\s*(c[aá]lculos|c[aá]lculo|variables|variable|parametros|par[aá]metros)\s*:/im);
+    const cells = processCalculationBlock(rootVariables, globalScope, 'global');
+    calculatedCells.push(...cells);
+    if (cells.length > 0) {
+      diagnostics.push({
+        line: calculosLine > 0 ? calculosLine : 1,
+        type: 'info',
+        message: `✓ Celdas de cálculo evaluadas: ${cells.map((c) => `${c.name} = ${c.evaluatedValue}`).join(', ')}`
+      });
+      cells.forEach((c) => {
+        if (c.error) {
+          const cellLine = findLineNumberInYaml(yamlText, new RegExp(`^\\s*${escapeRegex(c.name)}\\s*:`, 'm'), calculosLine > 0 ? calculosLine : 1);
+          diagnostics.push({
+            line: cellLine,
+            type: 'warning',
+            message: `Cálculo '${c.name}': ${c.error}`
+          });
+        }
+      });
+    }
+  }
+
   // Detección de claves raíz desconocidas o con typos
   Object.keys(parsed).forEach((key) => {
     if (isReservedRootKey(key)) return;
+    if (key.trim() in rootVariables || key.trim() in globalScope) return; // Variable de Nivel 0 válida
 
     if (Array.isArray(parsed[key])) {
       const normKey = key.trim().toLowerCase();
@@ -1609,7 +1801,11 @@ export function parseDSLToPresupuesto(
       return;
     }
 
-    // No es clave reservada y no es un array -> Propiedad raíz desconocida
+    if (isChapterObject(parsed[key])) {
+      return;
+    }
+
+    // No es clave reservada, no es variable Nivel 0 y no es un array/objeto de capítulo -> Propiedad raíz desconocida
     const line = findLineNumberInYaml(yamlText, new RegExp(`^\\s*${escapeRegex(key)}\\s*:`, 'm'));
     const closest = findClosestMatch(key, VALID_ROOT_DIRECTIVES, 3);
     if (closest) {
@@ -1710,22 +1906,27 @@ export function parseDSLToPresupuesto(
   const validezLine = findLineNumberInYaml(yamlText, /^\s*validez\s*:/m);
   if (parsed.validez !== undefined && parsed.validez !== null) {
     const rawValidez = String(parsed.validez).trim();
-    const num = safeNum(parseInt(rawValidez.replace(/\D/g, ''), 10));
-    if (num > 0) {
-      validezDias = num;
-    } else if (rawValidez) {
-      diagnostics.push({
-        line: validezLine,
-        type: 'warning',
-        message: `Validez inválida "${rawValidez}". Debe ser una cantidad de días numérica (ej: 15). Se aplicó el valor por defecto 15 días.`
-      });
+    const evaluatedVal = evaluateExpressionOrNumber(rawValidez, globalScope);
+    if (evaluatedVal > 0) {
+      validezDias = evaluatedVal;
+    } else {
+      const num = safeNum(parseInt(rawValidez.replace(/\D/g, ''), 10));
+      if (num > 0) {
+        validezDias = num;
+      } else if (rawValidez) {
+        diagnostics.push({
+          line: validezLine,
+          type: 'warning',
+          message: `Validez inválida "${rawValidez}". Debe ser una cantidad de días numérica (ej: 15). Se aplicó el valor por defecto 15 días.`
+        });
+      }
     }
   }
 
   // Margen
   let margenPorcentaje = 35;
   if (parsed.margen !== undefined && parsed.margen !== null) {
-    const mNum = parseLocalizedNumber(parsed.margen);
+    const mNum = evaluateExpressionOrNumber(parsed.margen, globalScope);
     if (mNum >= 0) margenPorcentaje = mNum;
   }
 
@@ -1763,7 +1964,7 @@ export function parseDSLToPresupuesto(
     const dLower = dStr.toLowerCase();
     if (dStr && dLower !== 'no' && dLower !== 'false') {
       mostrarDolar = true;
-      const dNum = parseLocalizedNumber(dStr);
+      const dNum = evaluateExpressionOrNumber(dStr, globalScope);
       if (dNum > 0) {
         cotizacionDolar = dNum;
       }
@@ -1778,51 +1979,6 @@ export function parseDSLToPresupuesto(
   const gastosConfig: GastoPresupuestoConfig[] = [];
   if (Array.isArray(parsed.gastos)) {
     parsed.gastos.forEach((g: any, gIdx: number) => {
-      const gasto = parseGastoItem(g, gIdx, context);
-      if (gasto) {
-        gastosConfig.push(gasto);
-      }
-    });
-  }
-
-  // Celdas de cálculo y variables globales
-  const globalScope: Record<string, number> = {};
-  const rawCalculos = findCalculosKey(parsed);
-  const calculatedCells: CalculatedCell[] = [];
-  const calculosVariables: Record<string, number | string> = {};
-
-  if (rawCalculos) {
-    const calculosLine = findLineNumberInYaml(yamlText, /^\s*c[aá]lculos\s*:/im);
-    const entries = extractCalculationEntries(rawCalculos);
-    entries.forEach(([k, v]) => {
-      calculosVariables[k.trim()] = v as any;
-    });
-
-    const cells = processCalculationBlock(rawCalculos, globalScope, 'global');
-    calculatedCells.push(...cells);
-    if (cells.length > 0) {
-      diagnostics.push({
-        line: calculosLine,
-        type: 'info',
-        message: `✓ Celdas de cálculo evaluadas: ${cells.map((c) => `${c.name} = ${c.evaluatedValue}`).join(', ')}`
-      });
-      cells.forEach((c) => {
-        if (c.error) {
-          const cellLine = findLineNumberInYaml(yamlText, new RegExp(`^\\s*${escapeRegex(c.name)}\\s*:`, 'm'), calculosLine);
-          diagnostics.push({
-            line: cellLine,
-            type: 'warning',
-            message: `Cálculo '${c.name}': ${c.error}`
-          });
-        }
-      });
-    }
-  }
-
-  // Si los gastos usaban variables o fórmulas de cálculo, re-evaluar con globalScope
-  if (Array.isArray(parsed.gastos) && Object.keys(globalScope).length > 0) {
-    gastosConfig.length = 0;
-    parsed.gastos.forEach((g: any, gIdx: number) => {
       const gasto = parseGastoItem(g, gIdx, context, globalScope);
       if (gasto) {
         gastosConfig.push(gasto);
@@ -1830,7 +1986,7 @@ export function parseDSLToPresupuesto(
     });
   }
 
-  // 2. Capítulos y Partidas
+  // 2. Capítulos y Partidas (Nivel 1 y Nivel 2)
   const capitulos: CapituloPresupuesto[] = [];
   const items: ItemPresupuesto[] = [];
   const lineTracker = { currentLine: 1 };
@@ -1849,26 +2005,95 @@ export function parseDSLToPresupuesto(
         const capNombre = capObj.nombre || `Capítulo ${cIdx + 1}`;
         const capId = `cap-${cIdx + 1}-${normalizeString(capNombre).slice(0, 15)}`;
         capitulos.push({ id: capId, nombre: capNombre });
-        if (Array.isArray(capObj.partidas)) {
-          capObj.partidas.forEach((rawItem: any) => {
-            parseAndAddItem(rawItem, capId, items, context, diagnostics, globalScope, calculatedCells, yamlText, lineTracker);
-          });
+
+        // Ámbito de capítulo (Nivel 1): hereda globalScope
+        const chapterScope: Record<string, number> = { ...globalScope };
+        const rawCapCalculos = findCalculosKey(capObj);
+        const capVars: Record<string, any> = {};
+        if (rawCapCalculos) {
+          const entries = extractCalculationEntries(rawCapCalculos);
+          entries.forEach(([k, v]) => { capVars[k.trim()] = v; });
         }
+        const reservedCapKeys = new Set(['nombre', 'partidas', 'items', 'id', 'calculos', 'variables', 'parametros']);
+        Object.entries(capObj).forEach(([k, v]) => {
+          if (!reservedCapKeys.has(k.toLowerCase()) && (typeof v === 'number' || typeof v === 'string')) {
+            capVars[k.trim()] = v;
+          }
+        });
+        if (Object.keys(capVars).length > 0) {
+          const localCells = processCalculationBlock(capVars, chapterScope, 'local');
+          calculatedCells.push(...localCells);
+        }
+
+        const capPartidas = Array.isArray(capObj.partidas) ? capObj.partidas : (Array.isArray(capObj.items) ? capObj.items : []);
+        capPartidas.forEach((rawItem: any) => {
+          parseAndAddItem(rawItem, capId, items, context, diagnostics, chapterScope, calculatedCells, yamlText, lineTracker);
+        });
       }
     });
   }
 
-  // Cada clave no reservada que contenga un Array es un Capítulo
+  // Claves raíz que representan Capítulos (Array u Objeto)
   let capIndex = capitulos.length;
   Object.keys(parsed).forEach((key) => {
-    if (!isReservedRootKey(key) && Array.isArray(parsed[key])) {
+    if (isReservedRootKey(key)) return;
+    if (key.trim() in rootVariables || key.trim() in globalScope) return;
+
+    // Caso A: Capítulo como Array (ej: Iluminación:\n  - ...)
+    if (Array.isArray(parsed[key])) {
       capIndex++;
       const capNombre = key.trim();
       const capId = `cap-${capIndex}-${normalizeString(capNombre).slice(0, 15).replace(/\s+/g, '-')}`;
       capitulos.push({ id: capId, nombre: capNombre });
 
+      // Ámbito de capítulo (Nivel 1): hereda globalScope
+      const chapterScope: Record<string, number> = { ...globalScope };
+      const capItemsToParse: any[] = [];
+
       parsed[key].forEach((rawItem: any) => {
-        parseAndAddItem(rawItem, capId, items, context, diagnostics, globalScope, calculatedCells, yamlText, lineTracker);
+        if (typeof rawItem === 'object' && rawItem !== null) {
+          const rawCalculos = findCalculosKey(rawItem);
+          if (rawCalculos) {
+            const localCells = processCalculationBlock(rawCalculos, chapterScope, 'local');
+            calculatedCells.push(...localCells);
+            return;
+          }
+        }
+        capItemsToParse.push(rawItem);
+      });
+
+      capItemsToParse.forEach((rawItem: any) => {
+        parseAndAddItem(rawItem, capId, items, context, diagnostics, chapterScope, calculatedCells, yamlText, lineTracker);
+      });
+    } else if (isChapterObject(parsed[key])) {
+      // Caso B: Capítulo como Objeto (ej: Iluminación:\n  bocas: 10\n  partidas:\n    - ...)
+      capIndex++;
+      const capNombre = key.trim();
+      const capId = `cap-${capIndex}-${normalizeString(capNombre).slice(0, 15).replace(/\s+/g, '-')}`;
+      capitulos.push({ id: capId, nombre: capNombre });
+
+      const capObj = parsed[key];
+      const chapterScope: Record<string, number> = { ...globalScope };
+      const rawCapCalculos = findCalculosKey(capObj);
+      const capVars: Record<string, any> = {};
+      if (rawCapCalculos) {
+        const entries = extractCalculationEntries(rawCapCalculos);
+        entries.forEach(([k, v]) => { capVars[k.trim()] = v; });
+      }
+      const reservedCapKeys = new Set(['nombre', 'partidas', 'items', 'id', 'calculos', 'variables', 'parametros']);
+      Object.entries(capObj).forEach(([k, v]) => {
+        if (!reservedCapKeys.has(k.toLowerCase()) && (typeof v === 'number' || typeof v === 'string')) {
+          capVars[k.trim()] = v;
+        }
+      });
+      if (Object.keys(capVars).length > 0) {
+        const localCells = processCalculationBlock(capVars, chapterScope, 'local');
+        calculatedCells.push(...localCells);
+      }
+
+      const capPartidas = Array.isArray(capObj.partidas) ? capObj.partidas : (Array.isArray(capObj.items) ? capObj.items : []);
+      capPartidas.forEach((rawItem: any) => {
+        parseAndAddItem(rawItem, capId, items, context, diagnostics, chapterScope, calculatedCells, yamlText, lineTracker);
       });
     }
   });
@@ -1961,17 +2186,55 @@ function parseAndAddItem(
     );
     lineTracker.currentLine = Math.max(lineTracker.currentLine, itemLine);
 
-    // Ámbito local de cálculo para la tarea (hereda el globalScope)
+    // Ámbito local de cálculo para la tarea (Nivel 2: hereda scope/chapterScope y globalScope)
     const taskScope: Record<string, number> = { ...scope };
-    const rawTaskCalculos =
-      typeof taskContent === 'object' && taskContent !== null
-        ? findCalculosKey(taskContent)
-        : undefined;
+    const taskVariables: Record<string, any> = {};
 
-    if (rawTaskCalculos) {
-      const localCells = processCalculationBlock(rawTaskCalculos, taskScope, 'local');
-      if (calculatedCellsCollector) {
-        calculatedCellsCollector.push(...localCells);
+    if (typeof taskContent === 'object' && taskContent !== null) {
+      const rawTaskCalculos = findCalculosKey(taskContent);
+      if (rawTaskCalculos) {
+        const entries = extractCalculationEntries(rawTaskCalculos);
+        entries.forEach(([k, v]) => { taskVariables[k.trim()] = v; });
+      }
+
+      // Parámetros explícitos en taskContent.parametros o taskContent.params
+      const rawParametros = taskContent.parametros || taskContent.params;
+      if (typeof rawParametros === 'object' && rawParametros !== null) {
+        if (Array.isArray(rawParametros)) {
+          rawParametros.forEach((p) => {
+            if (typeof p === 'object' && p !== null) {
+              Object.entries(p).forEach(([k, v]) => { taskVariables[k.trim()] = v; });
+            }
+          });
+        } else {
+          Object.entries(rawParametros).forEach(([k, v]) => { taskVariables[k.trim()] = v; });
+        }
+      }
+
+      // Propiedades numéricas o fórmulas directas en taskContent (Nivel 2)
+      const reservedTaskKeys = new Set([
+        'cantidad', 'cant', 'qty', 'c',
+        'precio', 'costo', 'price', 'cost', 'price_unit', 'preciounitario',
+        'unidad', 'un', 'unit',
+        'condicion', 'condiciontrabajo',
+        'materiales', 'insumos',
+        'mano_obra', 'manoobra', 'mo',
+        'servicios', 'servicio', 'subcontratos', 'costo_servicios', 'costoservicios',
+        'parametros', 'params',
+        'tipo', 'descripcion', 'producto', 'marca', 'calculos', 'variables'
+      ]);
+
+      Object.entries(taskContent).forEach(([k, v]) => {
+        if (!reservedTaskKeys.has(k.toLowerCase()) && (typeof v === 'number' || typeof v === 'string')) {
+          taskVariables[k.trim()] = v;
+        }
+      });
+
+      if (Object.keys(taskVariables).length > 0) {
+        const localCells = processCalculationBlock(taskVariables, taskScope, 'local');
+        if (calculatedCellsCollector) {
+          calculatedCellsCollector.push(...localCells);
+        }
       }
     }
 
@@ -2053,7 +2316,7 @@ function parseAndAddItem(
 
       let isInvalidQty = false;
       if (taskQtyRaw !== undefined) {
-        if (isNonNumericValue(taskQtyRaw)) {
+        if (isNonNumericValue(taskQtyRaw, taskScope)) {
           isInvalidQty = true;
           const qtyLine = findLineNumberInYaml(yamlText, /^\s*(cantidad|cant|qty)\s*:/m, itemLine);
           diagnostics.push({
@@ -2207,37 +2470,8 @@ function parseAndAddItem(
         serviciosList.push({ 'Servicio': rawServicios });
       }
 
-      // Extraer parámetros personalizados para Tareas Tipo paramétricas
-      const rawParametros = taskContent.parametros || taskContent.params;
+      // Parámetros y variables locales para Tareas Tipo paramétricas
       const parametrosMap: Record<string, number> = { ...taskScope };
-      if (typeof rawParametros === 'object' && rawParametros !== null) {
-        if (Array.isArray(rawParametros)) {
-          rawParametros.forEach((p) => {
-            if (typeof p === 'object' && p !== null) {
-              Object.entries(p).forEach(([k, v]) => {
-                parametrosMap[k] = evaluateExpressionOrNumber(v as any, taskScope);
-              });
-            }
-          });
-        } else {
-          Object.entries(rawParametros).forEach(([k, v]) => {
-            parametrosMap[k] = evaluateExpressionOrNumber(v as any, taskScope);
-          });
-        }
-      }
-
-      // Además, capturar cualquier clave numérica directa en taskContent que no sea directiva reservada
-      const reservedTaskKeys = new Set([
-        'cantidad', 'unidad', 'condicion', 'condicionTrabajo', 'precio',
-        'materiales', 'insumos', 'mano_obra', 'manoObra', 'mo',
-        'servicios', 'servicio', 'subcontratos', 'costo_servicios', 'costoServicios',
-        'parametros', 'params', 'tipo', 'descripcion', 'producto', 'marca', 'calculos', 'variables'
-      ]);
-      Object.entries(taskContent).forEach(([k, v]) => {
-        if (!reservedTaskKeys.has(k) && (typeof v === 'number' || (typeof v === 'string' && (v.startsWith('=') || /^-?\s*\$?\s*[0-9.,]+$/.test(v))))) {
-          parametrosMap[k] = evaluateExpressionOrNumber(v as any, taskScope);
-        }
-      });
 
       // Si tiene desglose de materiales, mano de obra o servicios -> Construir APU a medida
       if (materialesList.length > 0 || manoObraList.length > 0 || serviciosList.length > 0) {
@@ -2454,7 +2688,7 @@ function buildCompositeItem(params: {
       ? (mItem.cantidad ?? mItem.cant ?? mItem.qty ?? (typeof mItem[Object.keys(mItem)[0]] === 'object' && mItem[Object.keys(mItem)[0]] !== null ? (mItem[Object.keys(mItem)[0]].cantidad ?? mItem[Object.keys(mItem)[0]].cant ?? mItem[Object.keys(mItem)[0]].qty) : undefined))
       : undefined;
 
-    if (rawMatQty !== undefined && isNonNumericValue(rawMatQty)) {
+    if (rawMatQty !== undefined && isNonNumericValue(rawMatQty, scope)) {
       isInvalidMatQty = true;
       mCant = 0;
       const qtyLine = findLineNumberInYaml(yamlText || '', /^\s*(cantidad|cant|qty)\s*:/m, matLine);
@@ -2608,7 +2842,7 @@ function buildCompositeItem(params: {
     // Validación de horas no numéricas en mano de obra
     let isInvalidMoHours = false;
     const rawMoH = moPropSource ? (moPropSource.cantidad ?? moPropSource.horas) : undefined;
-    if (rawMoH !== undefined && isNonNumericValue(rawMoH)) {
+    if (rawMoH !== undefined && isNonNumericValue(rawMoH, scope)) {
       isInvalidMoHours = true;
       moHoras = 0;
       const hLine = findLineNumberInYaml(yamlText || '', /^\s*(horas|hora|cantidad|cant|qty)\s*:/m, moLine);
@@ -3252,7 +3486,7 @@ export function formatSlashCommandReplacement(params: {
     // Asegurar que no empiece con / o @ y limpiar saltos de línea finales sobrantes
     cleanVal = cleanVal.replace(/^[\/@]/, '').replace(/[\r\n]+$/, '');
 
-    const replacementLine = `${indent}${dir}: ${cleanVal}\n`;
+    const replacementLine = `${indent}${dir}: ${cleanVal}`;
     return {
       replacementLine,
       newCursorOffset: replacementLine.length,
@@ -3276,9 +3510,15 @@ export function formatSlashCommandReplacement(params: {
     };
   }
 
-  // Garantizar sangría técnica según el tipo de elemento y el contexto
+  // Garantizar sangría técnica según el tipo de elemento y el contexto.
+  // Los bloques semánticos de partida (`materiales:`, `mano_obra:`, `servicios:`)
+  // deben quedar anidados a 4 espacios bajo la partida actual, no a 6.
   if (/^(materiales|mano_obra|servicios|condicion|precio|cantidad|unidad|parametros|calculos):/i.test(snippet.trim())) {
-    lineIndent = '      ';
+    if (contextType === 'materiales' || contextType === 'mano_obra' || contextType === 'servicios' || contextType === 'item') {
+      lineIndent = '    ';
+    } else {
+      lineIndent = '      ';
+    }
   } else if (contextType === 'materiales' || contextType === 'mano_obra' || contextType === 'servicios') {
     if (snippet.trim().startsWith('- ') && lineIndent.length < 8) {
       lineIndent = '        ';

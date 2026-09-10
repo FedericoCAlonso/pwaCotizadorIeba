@@ -26,6 +26,8 @@ const BUILTIN_OPERATORS: FormulaSuggestionItem[] = [
   { id: 'and', label: 'and (&&)', type: 'op', detail: 'Operador Y lógico', insertTemplate: ' and ' },
   { id: 'or', label: 'or (||)', type: 'op', detail: 'Operador O lógico', insertTemplate: ' or ' },
   { id: 'not', label: 'not (!)', type: 'op', detail: 'Negación lógica', insertTemplate: 'not ' },
+  { id: '^', label: '^', type: 'op', detail: 'Potencia', insertTemplate: ' ^ ' },
+  { id: '**', label: '**', type: 'op', detail: 'Potencia', insertTemplate: ' ** ' },
 ];
 
 export interface FormulaInputProps {
@@ -437,6 +439,15 @@ export const FormulaInput: React.FC<FormulaInputProps> = ({
             title="Insertar operador ternario (cond ? val1 : val2)"
           >
             ? :
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleInsertSnippet(' ^ ')}
+            className="px-2 py-1 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-xs font-mono font-bold rounded-lg border border-purple-500/25 transition active:scale-95 shrink-0"
+            title="Insertar operador de potencia ^"
+          >
+            ^
           </button>
 
           <button

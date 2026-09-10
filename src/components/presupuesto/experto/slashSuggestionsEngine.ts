@@ -48,6 +48,7 @@ export interface GenerateSlashSuggestionsParams {
   activeCategory?: string | null;
   selectedGastosFilter?: string | null;
   contextType?: CursorContextType;
+  currentIndent?: string;
   directiveType?: 'cliente' | 'obra' | 'factura' | 'validez' | 'margen' | 'riesgo' | 'dolar';
   tareasTipo: TareaTipo[];
   clientes: Cliente[];
@@ -65,6 +66,7 @@ export function generateSlashSuggestions({
   activeCategory,
   selectedGastosFilter,
   contextType = 'general',
+  currentIndent = '',
   directiveType,
   tareasTipo,
   clientes,
@@ -617,11 +619,11 @@ export function generateSlashSuggestions({
     list.push({
       id: 'prop-item-calculos',
       category: 'directiva',
-      title: 'calculos:',
+      title: 'cálculo:',
       subtitle: 'Sección · Variables y cómputo local de la partida',
-      snippet: 'calculos:\n  ',
+      snippet: 'cálculo:\n  ',
       icon: Hash,
-      extraText: 'calculos variables formulas celdas cascada computo'
+      extraText: 'cálculo variables formulas celdas cascada computo'
     });
   }
 
@@ -879,8 +881,12 @@ export function generateSlashSuggestions({
     }
   }
 
-  // 7. Tareas Tipo de Catálogo y Partidas a Medida (contextType === 'tareas' o 'general')
-  if (contextType === 'tareas' || contextType === 'general') {
+  // 7. Tareas Tipo de Catálogo y Partidas a Medida.
+  // En nivel raíz (indent 0) no se permiten trabajos tipo porque eso rompería la jerarquía YAML.
+  const canSuggestTasks = contextType === 'tareas' || (contextType === 'general' && currentIndent.length > 0);
+  const shouldShowTaskTemplates = contextType === 'tareas' || currentIndent.length > 0;
+
+  if (canSuggestTasks) {
     // Opciones para Partidas Libres y Plantillas Compuestas
     list.push({
       id: 'cmd-partida-libre',
@@ -1108,22 +1114,24 @@ export function generateSlashSuggestions({
     list.push({
       id: 'cmd-calculos',
       category: 'directiva',
-      title: 'calculos: [Celdas y Fórmulas]',
+      title: 'cálculo: [Celdas y Fórmulas]',
       subtitle: 'Define variables y fórmulas de cómputo en cascada',
-      snippet: `calculos:\n  superficie: 120\n  bocas: =ceil(superficie / 6)\n  cable_m: =bocas * 12\n`,
+      snippet: `cálculo:\n  superficie: 120\n  bocas: =ceil(superficie / 6)\n  cable_m: =bocas * 12\n`,
       icon: Hash,
-      extraText: 'calculos variables formulas celdas cascada computo matematica'
+      extraText: 'cálculo variables formulas celdas cascada computo matematica'
     });
 
-    list.push({
-      id: 'cmd-trabajo-tipo',
-      category: 'tarea',
-      title: '⚡ Trabajo Tipo (Plantilla Paramétrica)',
-      subtitle: 'Plantilla de trabajo con variables locales, materiales y mano de obra',
-      snippet: `- Reparación y Armado de Tablero:\n    cantidad: 1 u\n    calculos:\n      modulos: 24\n      termicas: 6\n    materiales:\n      - 1 u Tablero Modular DIN =modulos Módulos Superficie Chapa Metálica Puerta Ciega IP40:\n          marca: Gabexel\n      - =termicas u Interruptor Termomagnético 2P\n    mano_obra:\n      - 4 h Oficial Electricista\n`,
-      icon: Layers,
-      extraText: 'trabajo tipo plantilla parametrica calculos materiales mano de obra partida'
-    });
+    if (shouldShowTaskTemplates) {
+      list.push({
+        id: 'cmd-trabajo-tipo',
+        category: 'tarea',
+        title: '⚡ Trabajo Tipo (Plantilla Paramétrica)',
+        subtitle: 'Plantilla de trabajo con variables locales, materiales y mano de obra',
+        snippet: `- Reparación y Armado de Tablero:\n    cantidad: 1 u\n    calculos:\n      modulos: 24\n      termicas: 6\n    materiales:\n      - 1 u Tablero Modular DIN =modulos Módulos Superficie Chapa Metálica Puerta Ciega IP40:\n          marca: Gabexel\n      - =termicas u Interruptor Termomagnético 2P\n    mano_obra:\n      - 4 h Oficial Electricista\n`,
+        icon: Layers,
+        extraText: 'trabajo tipo plantilla parametrica calculos materiales mano de obra partida'
+      });
+    }
 
     if (calculatedCells && calculatedCells.length > 0) {
       calculatedCells.forEach((c) => {

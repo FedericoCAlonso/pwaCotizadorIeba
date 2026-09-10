@@ -34,6 +34,7 @@ interface MaterialPickerModalProps {
   onClose: () => void;
   insumosMap: Map<string, Insumo>;
   alreadySelectedIds?: string[];
+  currentScope?: Record<string, number | boolean>;
   onAddMaterial: (material: Insumo, cantidad: number, formula?: string) => void;
   onAddMultipleMaterials?: (items: StagedItemPayload[]) => void;
   titleOverride?: string;
@@ -50,6 +51,7 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
   onClose,
   insumosMap,
   alreadySelectedIds = [],
+  currentScope,
   onAddMaterial,
   onAddMultipleMaterials,
   titleOverride,
@@ -451,6 +453,7 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
                 <MathInput
                   value={batchQuantity}
                   onChange={(v) => setBatchQuantity(Math.max(0.01, v || 1))}
+                  scope={currentScope}
                   size="sm"
                   min={0.01}
                   step={0.5}
@@ -574,6 +577,7 @@ export const MaterialPickerModal: React.FC<MaterialPickerModalProps> = ({
                       <MathInput
                         value={stagedQty}
                         formula={stagedFormula}
+                        scope={currentScope}
                         onChange={(val, form) => setExplicitStagedQuantity(ins.id, val, form)}
                         placeholder="0"
                         size="sm"

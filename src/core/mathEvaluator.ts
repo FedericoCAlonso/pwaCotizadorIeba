@@ -40,8 +40,11 @@ export function isFormulaString(raw: string): boolean {
   if (!raw || typeof raw !== 'string') return false;
   const trimmed = raw.trim();
   if (trimmed.startsWith('=')) return true;
-  // Contiene operadores típicos (+, -, *, /, ^, %, ?, :, <, >, =, !, &, |) junto con operandos
-  if (/[+\-*/^%?<>!=&|]/.test(trimmed) && (/\d/.test(trimmed) || /true|false/i.test(trimmed))) {
+  // Contiene operadores típicos (+, -, *, /, ^, %, ?, :, <, >, =, !, &, |) junto con operandos (números, booleanos o identificadores)
+  if (
+    /[+\-*/^%?<>!=&|]/.test(trimmed) &&
+    (/\d/.test(trimmed) || /true|false/i.test(trimmed) || /[a-zA-Z_]\w*\s*[+\-*/^%]\s*[a-zA-Z0-9_]/.test(trimmed))
+  ) {
     return true;
   }
   // Llamada a función soportada ej: ceil(10/2) o si(x>1, 2, 3)
@@ -79,6 +82,8 @@ export function sanitizeMathString(raw: string): string {
   if (str.startsWith('=')) {
     str = str.substring(1).trim();
   }
+  // Elimina símbolo de moneda o prefijo $ si existe
+  str = str.replace(/^\$\s*/, '');
   // Normaliza operadores ternarios y condicionales inline
   str = normalizeTernarySyntax(str);
   // Reemplaza comas decimales tipo "12,5" o ",5" por punto "12.5"
@@ -238,6 +243,11 @@ function tokenize(input: string): Token[] | null {
     if (ch === '+' || ch === '-') {
       tokens.push({ type: 'OP_ADD', value: ch });
       i++;
+      continue;
+    }
+    if (sanitized.startsWith('**', i)) {
+      tokens.push({ type: 'OP_POW', value: '**' });
+      i += 2;
       continue;
     }
     if (ch === '*' || ch === '/' || ch === '%') {
@@ -632,7 +642,9 @@ function evaluateAST(node: ASTNode): number | null {
         case '%':
           if (Math.abs(right) < 1e-12) return null;
           return left % right;
-        case '^': return Math.pow(left, right);
+        case '^':
+        case '**':
+          return Math.pow(left, right);
 
         case '<': return left < right ? 1 : 0;
         case '<=': return left <= right ? 1 : 0;

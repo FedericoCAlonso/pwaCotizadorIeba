@@ -6,6 +6,8 @@ export interface MathInputProps {
   value: number | null | undefined;
   onChange: (val: number | null, formula?: string) => void;
   formula?: string;
+  allowFormula?: boolean;
+  scope?: Record<string, number | boolean>;
   placeholder?: string;
   min?: number;
   max?: number;
@@ -28,6 +30,8 @@ export const MathInput: React.FC<MathInputProps> = ({
   value,
   onChange,
   formula,
+  allowFormula = false,
+  scope,
   placeholder = '0',
   min,
   max,
@@ -74,7 +78,7 @@ export const MathInput: React.FC<MathInputProps> = ({
 
   // Live evaluation while typing
   const evalResult = isFocused && isFormulaString(currentText)
-    ? evaluateMathExpression(currentText)
+    ? evaluateMathExpression(currentText, scope)
     : null;
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -130,7 +134,7 @@ export const MathInput: React.FC<MathInputProps> = ({
       return;
     }
 
-    const res = evaluateMathExpression(trimmed);
+    const res = evaluateMathExpression(trimmed, scope);
 
     if (res.isValid && res.value !== null) {
       let finalVal = res.value;

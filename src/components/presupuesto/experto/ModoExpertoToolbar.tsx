@@ -80,7 +80,7 @@ export const ModoExpertoToolbar: React.FC<ModoExpertoToolbarProps> = ({
       <button
         type="button"
         {...createToolbarAction(() =>
-          insertSnippet('\ncalculos:\n  superficie: 120\n  bocas: =ceil(superficie / 6)\n  cable_m: =bocas * 12\n')
+          insertSnippet('\ncálculo:\n  superficie: 120\n  bocas: =ceil(superficie / 6)\n  cable_m: =bocas * 12\n')
         )}
         className="px-2.5 py-1.5 bg-secondary/10 hover:bg-secondary/20 text-secondary rounded-xl font-bold flex items-center gap-1 border border-secondary/30 transition shrink-0 cursor-pointer min-h-[34px]"
         title="Define bloque de variables y fórmulas de cálculo en cascada"

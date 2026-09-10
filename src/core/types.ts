@@ -464,6 +464,26 @@ export interface TareaTipo {
   deleted?: boolean;
 }
 
+export interface TareaFormData {
+  nombre: string;
+  categoria: string;
+  unidad: string;
+  naturaleza?: NaturalezaTrabajo;
+  honorarioBase?: number;
+  formulaHonorarios?: string;
+  costoServicioDirecto?: number;
+  notasTecnicas: string;
+  clausulaExclusiones?: string;
+  costoFijoOperativo?: number;
+  descripcionCostoFijo?: string;
+  horasSetupTotal?: number;
+  cuadrillaRecomendada?: CuadrillaRecomendada;
+  parametros: ParametroTrabajoTipo[];
+  variables: VariableCalculadaTrabajoTipo[];
+  insumos: InsumoEnTarea[];
+  manoObra: ManoObraEnTarea[];
+}
+
 // ─── 8b. Parámetros de Complejidad y Multiplicadores de Trabajo Tipo ─────────
 export type NivelAntiguedadEstado = 'moderna' | 'intermedia' | 'antigua' | 'personalizado';
 export type NivelAccesibilidad = 'despejada' | 'habitada' | 'obstruida' | 'personalizado';

@@ -9,33 +9,21 @@ import {
   VariableCalculadaTrabajoTipo,
   FiltroMaterialEnTarea,
   CuadrillaRecomendada,
-  NaturalezaTrabajo
+  NaturalezaTrabajo,
+  TareaFormData
 } from '../core/types';
 import {
   calcularConsumosTareaTipo
 } from '../core/calculations';
 import { evaluateMathExpression } from '../core/mathEvaluator';
 import { useToast } from '../contexts/ToastContext';
+import {
+  serializeTareaTipoToDSL,
+  parseTareaTipoFromDSL
+} from '../core/tareaTipoDsl';
+import { DSLDiagnostic } from '../components/presupuesto/experto/dslParser';
 
-export interface TareaFormData {
-  nombre: string;
-  categoria: string;
-  unidad: string;
-  naturaleza?: NaturalezaTrabajo;
-  honorarioBase?: number;
-  formulaHonorarios?: string;
-  costoServicioDirecto?: number;
-  notasTecnicas: string;
-  clausulaExclusiones?: string;
-  costoFijoOperativo?: number;
-  descripcionCostoFijo?: string;
-  horasSetupTotal?: number;
-  cuadrillaRecomendada?: CuadrillaRecomendada;
-  parametros: ParametroTrabajoTipo[];
-  variables: VariableCalculadaTrabajoTipo[];
-  insumos: InsumoEnTarea[];
-  manoObra: ManoObraEnTarea[];
-}
+export type { TareaFormData };
 
 export type TareaEditorTab = 'general' | 'parametros' | 'variables' | 'materiales' | 'mano_obra' | 'clausulas';
 
@@ -86,6 +74,11 @@ export function useTareaEditorModalViewModel({
   const [isCategoryFilterModalOpen, setIsCategoryFilterModalOpen] = useState(false);
   const [editingCategoryFilterIdx, setEditingCategoryFilterIdx] = useState<number | null>(null);
 
+  // Modo Experto (YAML DSL)
+  const [isExpertMode, setIsExpertMode] = useState(false);
+  const [yamlText, setYamlText] = useState('');
+  const [yamlDiagnostics, setYamlDiagnostics] = useState<DSLDiagnostic[]>([]);
+
   useEffect(() => {
     if (editingTarea) {
       const params: ParametroTrabajoTipo[] = editingTarea.parametros && editingTarea.parametros.length > 0
@@ -130,6 +123,9 @@ export function useTareaEditorModalViewModel({
         })) : [],
       });
       setActiveTab('general');
+      setIsExpertMode(false);
+      setYamlText('');
+      setYamlDiagnostics([]);
     } else if (isOpen) {
       setFormData({
         nombre: '',
@@ -159,6 +155,9 @@ export function useTareaEditorModalViewModel({
         manoObra: [],
       });
       setActiveTab('general');
+      setIsExpertMode(false);
+      setYamlText('');
+      setYamlDiagnostics([]);
     }
   }, [editingTarea, isOpen, categoriasList]);
 
@@ -643,19 +642,106 @@ export function useTareaEditorModalViewModel({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Modo Experto Handlers
+  const toggleExpertMode = () => {
+    if (!isExpertMode) {
+      const dsl = serializeTareaTipoToDSL(formData, insumosMap, manoObraMap);
+      setYamlText(dsl);
+      setYamlDiagnostics([]);
+      setIsExpertMode(true);
+    } else {
+      const result = parseTareaTipoFromDSL(yamlText, insumosMap, manoObraMap, categoriasList);
+      setYamlDiagnostics(result.diagnostics);
+      const hasErrors = result.diagnostics.some(d => d.type === 'error');
+      if (hasErrors) {
+        const firstErr = result.diagnostics.find(d => d.type === 'error')?.message || 'Errores en el YAML';
+        toast.warning(`Corrige los errores antes de volver a la vista visual: ${firstErr}`);
+        return;
+      }
+      setFormData(result.data);
+      setIsExpertMode(false);
+    }
+  };
+
+  const handleYamlChange = (newText: string) => {
+    setYamlText(newText);
+    const result = parseTareaTipoFromDSL(newText, insumosMap, manoObraMap, categoriasList);
+    setYamlDiagnostics(result.diagnostics);
+    const hasErrors = result.diagnostics.some(d => d.type === 'error');
+    if (!hasErrors) {
+      setFormData(result.data);
+    }
+  };
+
+  const insertYamlSnippet = (type: 'parametro' | 'calculo' | 'material' | 'mano_obra') => {
+    let snippet = '';
+    if (type === 'parametro') {
+      snippet = `\n  - id: param_${Date.now().toString().slice(-4)}\n    nombre: Nuevo Parámetro\n    tipo: numero\n    default: 1\n    unidad: u`;
+      setYamlText((prev) => {
+        if (/parametros\s*:/i.test(prev)) {
+          return prev.replace(/(parametros\s*:)/i, `$1${snippet}`);
+        }
+        return `${prev.trim()}\n\nparametros:${snippet}\n`;
+      });
+    } else if (type === 'calculo') {
+      snippet = `\n  - id: calc_${Date.now().toString().slice(-4)}\n    formula: bocas * 1.5\n    unidad: u`;
+      setYamlText((prev) => {
+        if (/calculos\s*:/i.test(prev)) {
+          return prev.replace(/(calculos\s*:)/i, `$1${snippet}`);
+        }
+        return `${prev.trim()}\n\ncalculos:${snippet}\n`;
+      });
+    } else if (type === 'material') {
+      const firstInsumo = insumosMap.values().next().value as Insumo | undefined;
+      const matName = firstInsumo ? firstInsumo.nombre : 'Material de Catálogo';
+      snippet = `\n  - material: "${matName}"\n    cantidad: 1`;
+      setYamlText((prev) => {
+        if (/materiales\s*:/i.test(prev)) {
+          return prev.replace(/(materiales\s*:)/i, `$1${snippet}`);
+        }
+        return `${prev.trim()}\n\nmateriales:${snippet}\n`;
+      });
+    } else if (type === 'mano_obra') {
+      const firstMo = manoObraMap.values().next().value as CategoriaManoDeObra | undefined;
+      const catName = firstMo ? firstMo.nombre : 'Oficial Electricista';
+      snippet = `\n  - categoria: "${catName}"\n    horas: 1`;
+      setYamlText((prev) => {
+        if (/mano_obra\s*:/i.test(prev)) {
+          return prev.replace(/(mano_obra\s*:)/i, `$1${snippet}`);
+        }
+        return `${prev.trim()}\n\nmano_obra:${snippet}\n`;
+      });
+    }
+  };
+
   // Submit handler
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!formData.nombre.trim()) {
+
+    let targetData = formData;
+    if (isExpertMode) {
+      const result = parseTareaTipoFromDSL(yamlText, insumosMap, manoObraMap, categoriasList);
+      setYamlDiagnostics(result.diagnostics);
+      const hasErrors = result.diagnostics.some(d => d.type === 'error');
+      if (hasErrors) {
+        const firstErr = result.diagnostics.find(d => d.type === 'error')?.message || 'Error de sintaxis en el YAML';
+        toast.error(firstErr);
+        return;
+      }
+      targetData = result.data;
+      setFormData(targetData);
+    }
+
+    if (!targetData.nombre.trim()) {
       toast.error('El nombre de la tarea es obligatorio');
       return;
     }
-    if (formData.parametros.length === 0) {
+    if (targetData.parametros.length === 0) {
       toast.error('Debes definir al menos un parámetro de entrada para el trabajo tipo.');
       return;
     }
 
-    const updatedManoObra = formData.manoObra.map(mo => {
+    const updatedManoObra = targetData.manoObra.map(mo => {
       if (mo.formula && mo.formula.trim()) {
         const evalRes = evaluateMathExpression(mo.formula, currentScope);
         if (evalRes.isValid && evalRes.value !== null) {
@@ -665,7 +751,7 @@ export function useTareaEditorModalViewModel({
       return mo;
     });
 
-    const updatedInsumos = formData.insumos.map(ins => {
+    const updatedInsumos = targetData.insumos.map(ins => {
       if (ins.formula && ins.formula.trim()) {
         const evalRes = evaluateMathExpression(ins.formula, currentScope);
         if (evalRes.isValid && evalRes.value !== null) {
@@ -676,7 +762,7 @@ export function useTareaEditorModalViewModel({
     });
 
     await onSave({
-      ...formData,
+      ...targetData,
       insumos: updatedInsumos,
       manoObra: updatedManoObra
     });
@@ -691,6 +777,15 @@ export function useTareaEditorModalViewModel({
     updateFormField,
     currentScope,
     liveEvaluation,
+    // Modo Experto (YAML)
+    isExpertMode,
+    setIsExpertMode,
+    yamlText,
+    setYamlText,
+    yamlDiagnostics,
+    toggleExpertMode,
+    handleYamlChange,
+    insertYamlSnippet,
     // Material picker
     isMaterialPickerOpen,
     setIsMaterialPickerOpen,

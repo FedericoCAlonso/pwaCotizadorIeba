@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import {
   Code2,
   HelpCircle,
@@ -9,6 +9,7 @@ import { ExpertInspector } from './ExpertInspector';
 import { useToast } from '../../../contexts/ToastContext';
 import { ModoExpertoToolbar } from './ModoExpertoToolbar';
 import { ModoExpertoModals } from './ModoExpertoModals';
+import { ModoExpertoCodeMirror } from './ModoExpertoCodeMirror';
 import { useModoExpertoViewModel, ModoExpertoEditorProps } from './useModoExpertoViewModel';
 
 export type { ModoExpertoEditorProps };
@@ -33,10 +34,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = (props) => {
   } = props;
 
   const { toast } = useToast();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const gutterRef = useRef<HTMLDivElement>(null);
-
-  const vm = useModoExpertoViewModel(props, textareaRef, gutterRef);
+  const vm = useModoExpertoViewModel(props);
 
   return (
     <div className="space-y-4">
@@ -131,67 +129,34 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = (props) => {
               </div>
             </div>
 
-            <div className="relative flex">
-              {/* Números de Línea */}
-              <div
-                ref={gutterRef}
-                onMouseDown={(e) => e.preventDefault()}
-                onTouchStart={(e) => {
-                  e.preventDefault();
-                  textareaRef.current?.focus({ preventScroll: true });
-                }}
-                onClick={() => textareaRef.current?.focus({ preventScroll: true })}
-                className="py-4 pl-3 pr-2 select-none text-right font-mono text-xs text-on-surface-variant/40 bg-surface-container-lowest/50 border-r border-outline-variant/15 min-w-[3.25rem] cursor-pointer overflow-hidden"
-              >
-                {Array.from({ length: vm.lineCount }).map((_, idx) => {
-                  const lineNum = idx + 1;
-                  const isActive = lineNum === vm.cursorLineCol.line;
-                  return (
-                    <div
-                      key={idx}
-                      className={`leading-6 transition-colors px-1 -mx-1 rounded-sm ${
-                        isActive ? 'text-primary font-bold bg-primary/15' : ''
-                      }`}
-                    >
-                      {lineNum}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Textarea Monospace */}
-              <textarea
-                ref={textareaRef}
+            <div className="relative">
+              <ModoExpertoCodeMirror
                 value={vm.dslText}
-                onChange={vm.handleTextChange}
-                onKeyDown={vm.handleKeyDown}
-                onPaste={vm.handlePaste}
+                onChange={vm.handleCodeMirrorChange}
+                diagnostics={vm.diagnostics}
                 readOnly={vm.isMobileScreen}
-                onScroll={(e) => {
-                  vm.updateMenuPosition();
-                  if (gutterRef.current) {
-                    gutterRef.current.scrollTop = e.currentTarget.scrollTop;
+                placeholder={`cliente: Nombre del Cliente\nobra: Dirección de la Obra\nfactura: Factura C\n\nInstalación Eléctrica:\n  - 10 u Boca de Iluminación: $ 12.500\n  - 5 u Tomacorriente Doble: $ 9.800`}
+                onEditorReady={vm.setEditorView}
+                onCursorChange={(line, col, pos) => {
+                  vm.setCursorLineCol({ line, col });
+                  vm.cursorPosRef.current = { start: pos, end: pos };
+                }}
+                onNavigateField={() => vm.handleNavigateField('forward')}
+                onSlashTrigger={(info) => {
+                  vm.setSlashMenuState({
+                    isOpen: info.isOpen,
+                    query: info.query,
+                    cursorPosition: info.cursorPosition,
+                    slashIndex: info.slashIndex,
+                    contextType: info.contextType,
+                    currentIndent: info.currentIndent,
+                    directiveType: info.directiveType,
+                    isExplicit: info.isExplicit
+                  });
+                  if (info.pos) {
+                    vm.setMenuPosition(info.pos);
                   }
                 }}
-                onFocus={(e) => {
-                  vm.isFocusedRef.current = true;
-                  vm.updateCursorPos(e.currentTarget);
-                }}
-                onBlur={() => {
-                  setTimeout(() => {
-                    if (document.activeElement !== textareaRef.current) {
-                      vm.isFocusedRef.current = false;
-                    }
-                  }, 200);
-                }}
-                onSelect={(e) => vm.updateCursorPos(e.currentTarget)}
-                onClick={(e) => vm.updateCursorPos(e.currentTarget)}
-                onKeyUp={(e) => vm.updateCursorPos(e.currentTarget)}
-                onTouchEnd={(e) => vm.updateCursorPos(e.currentTarget)}
-                rows={22}
-                placeholder={`cliente: Nombre del Cliente\nobra: Dirección de la Obra\nfactura: Factura C\n\nInstalación Eléctrica:\n  - 10 u Boca de Iluminación: $ 12.500\n  - 5 u Tomacorriente Doble: $ 9.800`}
-                spellCheck={false}
-                className="w-full p-4 bg-transparent text-on-surface font-mono text-xs sm:text-sm leading-6 resize-y focus:outline-none placeholder:text-on-surface-variant/30 min-h-[480px] whitespace-pre overflow-x-auto"
               />
 
               {/* Popover contextual de autocompletado */}
@@ -205,6 +170,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = (props) => {
                   manoObraMap={manoObraMap}
                   costosIndirectos={vm.catalogCostosIndirectos}
                   contextType={vm.slashMenuState.contextType}
+                  currentIndent={vm.slashMenuState.currentIndent || ''}
                   directiveType={vm.slashMenuState.directiveType}
                   calculatedCells={vm.calculatedCells}
                   position={vm.menuPosition}

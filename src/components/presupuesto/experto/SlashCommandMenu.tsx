@@ -29,6 +29,7 @@ interface SlashCommandMenuProps {
   manoObraMap?: Map<string, CategoriaManoDeObra>;
   costosIndirectos?: CostoIndirecto[];
   contextType?: CursorContextType;
+  currentIndent?: string;
   directiveType?: 'cliente' | 'obra' | 'factura' | 'validez' | 'margen' | 'riesgo' | 'dolar';
   calculatedCells?: CalculatedCell[];
   isExplicit?: boolean;
@@ -46,6 +47,7 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   manoObraMap,
   costosIndirectos = [],
   contextType = 'general',
+  currentIndent = '',
   directiveType,
   calculatedCells = [],
   isExplicit = false,
@@ -100,6 +102,7 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
       activeCategory,
       selectedGastosFilter,
       contextType,
+      currentIndent,
       directiveType,
       tareasTipo,
       clientes,
@@ -167,15 +170,11 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
           onSelect(items[selectedIndex].snippet);
         }
       } else if (e.key === 'Enter') {
-        if (isExplicit || hasUserNavigated) {
-          if (items.length > 0 && items[selectedIndex]) {
-            e.preventDefault();
-            e.stopPropagation();
-            onSelect(items[selectedIndex].snippet);
-          }
+        if (items.length > 0 && items[selectedIndex]) {
+          e.preventDefault();
+          e.stopPropagation();
+          onSelect(items[selectedIndex].snippet);
         } else {
-          // El usuario estaba escribiendo texto libre sin navegar las opciones.
-          // Cerrar el menú sin interceptar Enter, permitiendo que el editor pase al siguiente renglón con texto libre.
           onClose();
         }
       } else if (e.key === 'Escape') {
@@ -210,7 +209,7 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
     <div
       ref={containerRef}
       onMouseDown={(e) => e.preventDefault()}
-      className="slash-command-menu absolute z-50 w-80 sm:w-96 max-h-96 bg-surface-container-high/95 backdrop-blur-md border border-outline-variant/40 rounded-2xl shadow-2xl overflow-y-auto p-1.5 animate-in fade-in zoom-in-95 duration-100"
+      className="slash-command-menu absolute z-50 w-80 sm:w-96 max-h-96 bg-surface-container/95 backdrop-blur-sm border border-outline-variant/45 rounded-xl shadow-xl overflow-y-auto p-1.5 animate-in fade-in zoom-in-95 duration-100"
       style={{
         top: position ? `${position.top}px` : '48px',
         left: position ? `${position.left}px` : '16px'
@@ -425,8 +424,8 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
                 }}
                 className={`w-full text-left px-3 py-2 rounded-xl flex items-center gap-3 transition-colors cursor-pointer ${
                   isSelected
-                    ? 'bg-primary text-on-primary shadow-xs'
-                    : 'text-on-surface hover:bg-surface-container-highest'
+                    ? 'bg-primary text-on-primary shadow-sm ring-1 ring-primary/40'
+                    : 'text-on-surface hover:bg-surface-container-highest/80'
                 }`}
               >
                 <div

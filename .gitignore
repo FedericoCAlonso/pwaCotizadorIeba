@@ -8,3 +8,4 @@ dist/
 *.log
 src/config/firebaseCredentials.ts
 node_modules
+.aider*

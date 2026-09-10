@@ -98,16 +98,31 @@ describe('slashSuggestionsEngine', () => {
     expect(results.some((r) => r.title === 'Seguro ART Cuadrilla')).toBe(true);
   });
 
-  it('sugiere tareas de catálogo en contexto general', () => {
+  it('sugiere tareas de catálogo en contexto general cuando hay profundidad de nivel', () => {
     const results = generateSlashSuggestions({
       query: 'tablero',
       effectiveQuery: 'tablero',
       contextType: 'general',
+      currentIndent: '  ',
       tareasTipo: mockTareasTipo,
       clientes: [],
       costosIndirectos: []
     });
 
     expect(results.some((r) => r.title.includes('Armado de Tablero Seccional'))).toBe(true);
+  });
+
+  it('no ofrece trabajos tipo en nivel raíz cuando el cursor está en el nivel 0', () => {
+    const results = generateSlashSuggestions({
+      query: '',
+      effectiveQuery: '',
+      contextType: 'general',
+      currentIndent: '',
+      tareasTipo: mockTareasTipo,
+      clientes: [],
+      costosIndirectos: []
+    });
+
+    expect(results.some((r) => r.category === 'tarea')).toBe(false);
   });
 });

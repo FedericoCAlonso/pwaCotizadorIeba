@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import type { EditorView } from '@codemirror/view';
 import {
   Cliente,
   TareaTipo,
@@ -80,9 +81,20 @@ export interface ModoExpertoEditorProps {
 
 export function useModoExpertoViewModel(
   props: ModoExpertoEditorProps,
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>,
-  gutterRef: React.RefObject<HTMLDivElement | null>
+  externalTextareaRef?: React.RefObject<HTMLTextAreaElement | null>,
+  externalGutterRef?: React.RefObject<HTMLDivElement | null>,
+  externalEditorViewRef?: React.RefObject<EditorView | null>
 ) {
+  const fallbackTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const fallbackGutterRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = externalTextareaRef || fallbackTextareaRef;
+  const gutterRef = externalGutterRef || fallbackGutterRef;
+
+  const internalEditorViewRef = useRef<EditorView | null>(null);
+  const editorViewRef = (externalEditorViewRef || internalEditorViewRef) as React.MutableRefObject<EditorView | null>;
+  const setEditorView = useCallback((view: EditorView | null) => {
+    editorViewRef.current = view;
+  }, [editorViewRef]);
   const {
     initialDslText,
     onDslTextChange,
@@ -183,6 +195,7 @@ export function useModoExpertoViewModel(
     cursorPosition: number;
     slashIndex: number;
     contextType: CursorContextType;
+    currentIndent?: string;
     replaceFullLine?: boolean;
     directiveType?: 'cliente' | 'obra' | 'factura' | 'validez' | 'margen' | 'riesgo' | 'dolar';
     isExplicit?: boolean;
@@ -207,6 +220,8 @@ export function useModoExpertoViewModel(
     }
     return false;
   });
+
+  const [collapsedBlocks, setCollapsedBlocks] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     const handleResize = () => {
@@ -233,20 +248,20 @@ export function useModoExpertoViewModel(
     const paddingTop = 16;
     const cursorY = paddingTop + (lineIndex + 1) * lineHeight - scrollTop;
 
-    const menuEstimatedHeight = 280;
-    let top = cursorY + 4;
-    if (cursorY + menuEstimatedHeight > clientHeight && cursorY > menuEstimatedHeight) {
-      top = cursorY - lineHeight - menuEstimatedHeight - 8;
+    const menuEstimatedHeight = 320;
+    const menuEstimatedWidth = 336;
+
+    let top = cursorY + lineHeight + 8;
+    if (cursorY + menuEstimatedHeight > clientHeight - 16) {
+      top = Math.max(16, cursorY - menuEstimatedHeight - 8);
     }
 
     const gutterWidth = 48 + 16;
     const approxCharWidth = 8.4;
-    let left = gutterWidth + currentLine.length * approxCharWidth;
+    const estimatedX = gutterWidth + Math.min(currentLine.length, 48) * approxCharWidth + 8;
+    let left = Math.min(Math.max(16, estimatedX), Math.max(16, clientWidth - menuEstimatedWidth - 16));
 
-    const maxLeft = Math.max(48, clientWidth - 360);
-    left = Math.min(Math.max(48, left), maxLeft);
-
-    setMenuPosition({ top: Math.max(8, top), left });
+    setMenuPosition({ top: Math.max(8, Math.min(top, Math.max(8, clientHeight - menuEstimatedHeight - 12))), left });
   }, [slashMenuState.cursorPosition, dslText, textareaRef]);
 
   useEffect(() => {
@@ -260,6 +275,24 @@ export function useModoExpertoViewModel(
 
   const latestDslTextRef = useRef<string>(dslText);
   latestDslTextRef.current = dslText;
+  const historyRef = useRef<string[]>([dslText]);
+  const historyIndexRef = useRef(0);
+  const isApplyingHistoryRef = useRef(false);
+
+  useEffect(() => {
+    if (isApplyingHistoryRef.current) return;
+    const currentHistoryText = historyRef.current[historyIndexRef.current] ?? dslText;
+    if (currentHistoryText !== dslText) {
+      const trimmedHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+      const lastStoredValue = trimmedHistory[trimmedHistory.length - 1];
+      if (lastStoredValue !== dslText) {
+        historyRef.current = [...trimmedHistory, dslText];
+        historyIndexRef.current = historyRef.current.length - 1;
+      }
+    }
+  }, [dslText]);
+
+  const handleParseAndSyncRef = useRef<((textToParse: string) => void) | null>(null);
 
   const [isQuickCreateMatOpen, setIsQuickCreateMatOpen] = useState(false);
   const [formDataQuickMat, setFormDataQuickMat] = useState<{
@@ -378,6 +411,23 @@ export function useModoExpertoViewModel(
     ]
   );
 
+  handleParseAndSyncRef.current = handleParseAndSync;
+
+  const applyHistoryEntry = useCallback(
+    (targetIndex: number) => {
+      if (targetIndex < 0 || targetIndex >= historyRef.current.length) return;
+      const nextText = historyRef.current[targetIndex];
+      if (!nextText || nextText === dslText) return;
+
+      isApplyingHistoryRef.current = true;
+      historyIndexRef.current = targetIndex;
+      setDslText(nextText);
+      handleParseAndSync(nextText);
+      isApplyingHistoryRef.current = false;
+    },
+    [dslText, handleParseAndSync]
+  );
+
   // Sincronizar hacia el editor si el documento se cargó desde la BD
   useEffect(() => {
     if (initialDslText && initialDslText.trim().length > 0 && initialDslText !== dslText && !isFocusedRef.current) {
@@ -386,17 +436,18 @@ export function useModoExpertoViewModel(
     }
   }, [initialDslText]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Al desmontar, flushear cualquier parseo pendiente
+  // Al desmontar, flushear cualquier parseo pendiente sin recrear el efecto en cada render
   useEffect(() => {
     return () => {
       if (parseDebounceTimerRef.current) {
         clearTimeout(parseDebounceTimerRef.current);
-        if (latestDslTextRef.current) {
-          handleParseAndSync(latestDslTextRef.current);
-        }
+      }
+
+      if (latestDslTextRef.current && handleParseAndSyncRef.current) {
+        handleParseAndSyncRef.current(latestDslTextRef.current);
       }
     };
-  }, [handleParseAndSync]);
+  }, []);
 
   // Sincronizar desde cambios externos del ViewModel hacia el texto
   useEffect(() => {
@@ -548,7 +599,35 @@ export function useModoExpertoViewModel(
 
   const handleNavigateField = useCallback(
     (direction: 'forward' | 'backward' = 'forward') => {
-      const textarea = textareaRef.current;
+      if (editorViewRef.current) {
+        const view = editorViewRef.current;
+        const currentText = view.state.doc.toString();
+        const curPos = direction === 'forward' ? view.state.selection.main.to : view.state.selection.main.from;
+        const nextField = findNextFillableField({
+          text: currentText,
+          cursorPos: curPos,
+          direction
+        });
+
+        if (nextField) {
+          view.dispatch({
+            selection: { anchor: nextField.start, head: nextField.end },
+            scrollIntoView: true
+          });
+          view.focus();
+          cursorPosRef.current = { start: nextField.start, end: nextField.end };
+          const targetSlice = currentText.slice(nextField.start, nextField.end);
+          setActiveFieldInfo({
+            label: nextField.label || 'Campo',
+            text: targetSlice || '(vacío)'
+          });
+          if (activeFieldTimeoutRef.current) clearTimeout(activeFieldTimeoutRef.current);
+          activeFieldTimeoutRef.current = setTimeout(() => setActiveFieldInfo(null), 2200);
+        }
+        return;
+      }
+
+      const textarea = textareaRef?.current;
       if (!textarea) return;
 
       const currentText = textarea.value ?? dslText;
@@ -646,6 +725,7 @@ export function useModoExpertoViewModel(
     cursorPosRef.current = { start: cursorPos, end: e.target.selectionEnd };
     setDslText(newText);
     latestDslTextRef.current = newText;
+    onDslTextChange?.(newText);
 
     const textBeforeCursor = newText.slice(0, cursorPos);
     const lastLineStart = textBeforeCursor.lastIndexOf('\n') + 1;
@@ -666,7 +746,7 @@ export function useModoExpertoViewModel(
       dismissedLineRef.current = null;
     }
 
-    const { contextType, activeCategory } = detectCursorContext(textBeforeCursor);
+    const { contextType, activeCategory, currentIndent } = detectCursorContext(textBeforeCursor);
     const trigger = detectSuggestTrigger(currentLine, contextType);
 
     if (trigger) {
@@ -690,6 +770,7 @@ export function useModoExpertoViewModel(
             cursorPosition: cursorPos,
             slashIndex: triggerIndex,
             contextType: trigger.directiveType === 'cliente' ? 'general' : contextType,
+            currentIndent,
             replaceFullLine: true,
             directiveType: trigger.directiveType,
             isExplicit: true
@@ -701,6 +782,7 @@ export function useModoExpertoViewModel(
             cursorPosition: cursorPos,
             slashIndex: triggerIndex,
             contextType: trigger.triggerChar === '@' ? 'general' : contextType,
+            currentIndent,
             replaceFullLine: false,
             directiveType: trigger.triggerChar === '@' ? 'cliente' : undefined,
             isExplicit: true
@@ -714,6 +796,7 @@ export function useModoExpertoViewModel(
             cursorPosition: cursorPos,
             slashIndex: triggerIndex,
             contextType,
+            currentIndent,
             replaceFullLine: false,
             directiveType: undefined,
             isExplicit: false
@@ -735,12 +818,38 @@ export function useModoExpertoViewModel(
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (slashMenuState.isOpen && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Tab')) {
+    const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter';
+
+    if (slashMenuState.isOpen && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Tab' || isEnter)) {
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        const nextIndex = historyIndexRef.current + 1;
+        if (nextIndex < historyRef.current.length) {
+          applyHistoryEntry(nextIndex);
+        }
+      } else {
+        const prevIndex = historyIndexRef.current - 1;
+        if (prevIndex >= 0) {
+          applyHistoryEntry(prevIndex);
+        }
+      }
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+      e.preventDefault();
+      const nextIndex = historyIndexRef.current + 1;
+      if (nextIndex < historyRef.current.length) {
+        applyHistoryEntry(nextIndex);
+      }
       return;
     }
 
     const isAlt = e.altKey || (typeof e.getModifierState === 'function' && (e.getModifierState('Alt') || e.getModifierState('AltGraph')));
-    const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter';
 
     if (isAlt && isEnter) {
       e.preventDefault();
@@ -868,6 +977,7 @@ export function useModoExpertoViewModel(
           cursorPosition: newCursorPos,
           slashIndex: enterTriggerIndex,
           contextType: enterContextType,
+          currentIndent: tb.slice(tb.lastIndexOf('\n') + 1).match(/^\s*/)?.[0] || '',
           replaceFullLine: false,
           directiveType: enterTrigger.directiveType,
           isExplicit: enterTrigger.isExplicit
@@ -918,7 +1028,7 @@ export function useModoExpertoViewModel(
   };
 
   const handleSelectSlashCommand = (snippet: string) => {
-    if (!textareaRef.current) return;
+    if (!textareaRef?.current && !editorViewRef.current) return;
 
     if (snippet.startsWith('ACTION:NEW_CLIENT:')) {
       const initialName = snippet.replace('ACTION:NEW_CLIENT:', '').trim();
@@ -965,7 +1075,6 @@ export function useModoExpertoViewModel(
       }
     }
 
-    const textarea = textareaRef.current;
     const { cursorPosition } = slashMenuState;
 
     const textBeforeCursor = dslText.slice(0, cursorPosition);
@@ -991,10 +1100,28 @@ export function useModoExpertoViewModel(
       query: '',
       cursorPosition: 0,
       slashIndex: -1,
-      contextType: 'general'
+      contextType: 'general',
+      currentIndent: ''
     });
 
     handleParseAndSync(newText);
+
+    if (editorViewRef.current) {
+      const view = editorViewRef.current;
+      const lineEnd = nextNewline >= 0 ? cursorPosition + nextNewline : view.state.doc.length;
+      view.dispatch({
+        changes: { from: lastLineStart, to: lineEnd, insert: replacementLine },
+        selection: selectionRange
+          ? { anchor: lastLineStart + selectionRange.start, head: lastLineStart + selectionRange.end }
+          : { anchor: lastLineStart + (newCursorOffset !== undefined ? newCursorOffset : replacementLine.length) },
+        scrollIntoView: true
+      });
+      view.focus();
+      return;
+    }
+
+    const textarea = textareaRef?.current;
+    if (!textarea) return;
 
     setTimeout(() => {
       textarea.focus({ preventScroll: true });
@@ -1278,7 +1405,26 @@ export function useModoExpertoViewModel(
   });
 
   const insertSnippet = (snippet: string) => {
-    if (!textareaRef.current) return;
+    if (editorViewRef.current) {
+      const view = editorViewRef.current;
+      const { from, to } = view.state.selection.main;
+      view.dispatch({
+        changes: { from, to, insert: snippet },
+        selection: { anchor: from + snippet.length },
+        scrollIntoView: true
+      });
+      view.focus();
+      return;
+    }
+
+    if (!textareaRef?.current) {
+      const start = cursorPosRef.current.start || 0;
+      const newText = dslText.substring(0, start) + snippet + dslText.substring(start);
+      setDslText(newText);
+      handleParseAndSync(newText);
+      return;
+    }
+
     const start = cursorPosRef.current.start ?? textareaRef.current.selectionStart;
     const end = cursorPosRef.current.end ?? textareaRef.current.selectionEnd;
     const newText = dslText.substring(0, start) + snippet + dslText.substring(end);
@@ -1289,14 +1435,40 @@ export function useModoExpertoViewModel(
     handleParseAndSync(newText);
 
     setTimeout(() => {
-      if (textareaRef.current) {
+      if (textareaRef?.current) {
         textareaRef.current.focus({ preventScroll: true });
         textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newPos;
       }
     }, 10);
   };
 
+  const handleCodeMirrorChange = useCallback(
+    (newText: string) => {
+      setDslText(newText);
+      latestDslTextRef.current = newText;
+      onDslTextChange?.(newText);
+      handleParseAndSync(newText);
+    },
+    [onDslTextChange, handleParseAndSync]
+  );
+
   const lineCount = dslText.split('\n').length;
+
+  const foldableBlocks = useMemo(() => getFoldableBlocks(dslText), [dslText]);
+
+  const toggleCollapsedBlock = useCallback((lineNumber: number) => {
+    setCollapsedBlocks((prev) => ({
+      ...prev,
+      [lineNumber]: !prev[lineNumber]
+    }));
+  }, []);
+
+  const visibleTextForDisplay = dslText;
+
+  const highlightedYaml = useMemo(
+    () => highlightYamlText(dslText),
+    [dslText]
+  );
 
   const currentIndentForPalette = useMemo(() => {
     if (!textareaRef.current) return '        ';
@@ -1320,7 +1492,18 @@ export function useModoExpertoViewModel(
   return {
     dslText,
     setDslText,
+    editorViewRef,
+    setEditorView,
+    handleCodeMirrorChange,
+    cursorPosRef,
+    setCursorLineCol,
+    setMenuPosition,
     lineCount,
+    foldableBlocks,
+    visibleTextForDisplay,
+    highlightedYaml,
+    collapsedBlocks,
+    toggleCollapsedBlock,
     cursorLineCol,
     activeFieldInfo,
     isMobileScreen,
@@ -1365,7 +1548,385 @@ export function useModoExpertoViewModel(
     updateCursorPos,
     updateMenuPosition,
     handleCloseSlashMenu,
-    isFocusedRef,
-    cursorPosRef
+    isFocusedRef
   };
+}
+
+export interface FoldableBlock {
+  lineNumber: number;
+  startLine: number;
+  endLine: number;
+  indent: number;
+  label: string;
+}
+
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+export function getFoldableBlocks(yamlText: string): FoldableBlock[] {
+  const lines = yamlText.split('\n');
+  const blocks: FoldableBlock[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const rawLine = lines[i];
+    const trimmed = rawLine.trim();
+
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const indent = (rawLine.match(/^\s*/)?.[0] || '').length;
+    if (!trimmed.endsWith(':') || trimmed.startsWith('- ')) continue;
+
+    let endLine = i + 1;
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const nextTrimmed = lines[j].trim();
+      if (!nextTrimmed || nextTrimmed.startsWith('#')) continue;
+      const nextIndent = (lines[j].match(/^\s*/)?.[0] || '').length;
+      if (nextIndent <= indent) break;
+      endLine = j + 1;
+    }
+
+    if (endLine > i + 1) {
+      blocks.push({
+        lineNumber: i + 1,
+        startLine: i + 1,
+        endLine,
+        indent,
+        label: trimmed.replace(/:\s*$/, '')
+      });
+    }
+  }
+
+  return blocks;
+}
+
+export function buildVisibleYamlText(
+  yamlText: string,
+  collapsedBlocks: Record<number, boolean>
+): string {
+  const lines = yamlText.split('\n');
+  const blocks = getFoldableBlocks(yamlText);
+  const collapsedByLine = new Set(
+    Object.entries(collapsedBlocks)
+      .filter(([, collapsed]) => collapsed)
+      .map(([lineNumber]) => Number(lineNumber))
+  );
+
+  const displayLines: string[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const currentLine = i + 1;
+    const block = blocks.find((b) => b.lineNumber === currentLine && collapsedByLine.has(currentLine));
+
+    if (!block) {
+      displayLines.push(lines[i]);
+      continue;
+    }
+
+    displayLines.push(lines[i]);
+    const omittedLines = Math.max(0, block.endLine - block.lineNumber - 1);
+    displayLines.push(`  # ... (${omittedLines} líneas plegadas)`);
+    i = block.endLine - 1;
+  }
+
+  return displayLines.join('\n');
+}
+
+/**
+ * Conjunto de unidades conocidas para coloreado semántico del DSL
+ */
+const HIGHLIGHT_KNOWN_UNITS = new Set([
+  'u', 'un', 'uni', 'unidad', 'unidades',
+  'm', 'mt', 'mts', 'metro', 'metros', 'ml',
+  'm2', 'm²', 'mt2',
+  'm3', 'm³',
+  'gl', 'glb', 'global',
+  'hs', 'h', 'hr', 'hrs', 'hora', 'horas',
+  'kg', 'kilo', 'kilos',
+  'l', 'lt', 'lts', 'litro', 'litros',
+  'rollo', 'rollos', 'pack', 'juego', 'boca', 'bocas',
+  'mes', 'meses', 'dia', 'dias', 'viaje', 'viajes'
+]);
+
+/**
+ * Directivas raíz conocidas
+ */
+const HIGHLIGHT_ROOT_DIRECTIVES = new Set([
+  'cliente', 'obra', 'factura', 'validez', 'margen',
+  'dolar', 'cotizacion', 'cálculo', 'calculo',
+  'descuento', 'redondeo', 'riesgo', 'gastos'
+]);
+
+/**
+ * Secciones y sub-bloques APU reconocidos
+ */
+const HIGHLIGHT_APU_SECTIONS = new Set([
+  'materiales', 'mano_obra', 'mano de obra', 'servicios',
+  'equipos', 'costos_indirectos', 'gastos'
+]);
+
+/**
+ * Resalta valores respetando 100% los espacios en blanco y comentarios inline
+ */
+function highlightValueWithComments(text: string, contextDirective?: string): string {
+  if (!text) return '';
+
+  // Separar comentario inline si existe
+  let valuePart = text;
+  let commentPart = '';
+  const commentMatch = text.match(/(^|\s)(#.*)$/);
+  if (commentMatch && commentMatch.index !== undefined) {
+    const splitIdx = commentMatch.index + (commentMatch[1] ? commentMatch[1].length : 0);
+    valuePart = text.slice(0, splitIdx);
+    commentPart = text.slice(splitIdx);
+  }
+
+  // Preservar espacios iniciales y finales exactamente
+  const leadMatch = valuePart.match(/^(\s*)/);
+  const lead = leadMatch ? leadMatch[1] : '';
+  const withoutLead = valuePart.slice(lead.length);
+
+  const trailMatch = withoutLead.match(/(\s*)$/);
+  const trail = trailMatch ? trailMatch[1] : '';
+  const core = withoutLead.slice(0, withoutLead.length - trail.length);
+
+  let highlightedCore = '';
+  if (!core) {
+    highlightedCore = '';
+  } else if (core.startsWith('=')) {
+    // Fórmula matemática
+    highlightedCore = `<span class="text-fuchsia-600 dark:text-fuchsia-400 font-mono font-medium">${escapeHtml(core)}</span>`;
+  } else if (core.includes('$')) {
+    // Moneda y precio
+    const priceMatch = core.match(/^(\$?\s*)(.*)$/);
+    if (priceMatch) {
+      const sym = priceMatch[1];
+      const val = priceMatch[2];
+      highlightedCore = `<span class="text-emerald-600 dark:text-emerald-400 font-bold">${escapeHtml(sym)}</span><span class="text-emerald-700 dark:text-emerald-300 font-bold font-mono">${escapeHtml(val)}</span>`;
+    } else {
+      highlightedCore = `<span class="text-emerald-600 dark:text-emerald-400 font-bold">${escapeHtml(core)}</span>`;
+    }
+  } else if (/^['"][^'"]*['"]$/.test(core)) {
+    // Cadena entre comillas
+    highlightedCore = `<span class="text-amber-700 dark:text-amber-300">${escapeHtml(core)}</span>`;
+  } else if (/^-?\d+(?:[.,]\d+)?\s*%$/.test(core)) {
+    // Porcentaje
+    const percMatch = core.match(/^(-?\d+(?:[.,]\d+)?)\s*(%)$/);
+    if (percMatch) {
+      highlightedCore = `<span class="text-amber-600 dark:text-amber-400 font-bold font-mono">${escapeHtml(percMatch[1])}</span><span class="text-teal-600 dark:text-teal-400 font-bold">${escapeHtml(percMatch[2])}</span>`;
+    } else {
+      highlightedCore = `<span class="text-amber-600 dark:text-amber-400 font-bold font-mono">${escapeHtml(core)}</span>`;
+    }
+  } else if (/^-?\d+(?:[.,]\d+)?$/.test(core)) {
+    // Número puro
+    highlightedCore = `<span class="text-amber-600 dark:text-amber-400 font-bold font-mono">${escapeHtml(core)}</span>`;
+  } else if (/^-?\d+(?:[.,]\d+)?\s+[a-zA-Z%]+$/.test(core)) {
+    // Número con unidad (ej: "30 dias", "120 m2")
+    const numUnitMatch = core.match(/^(-?\d+(?:[.,]\d+)?)(\s+)([a-zA-Z%]+)$/);
+    if (numUnitMatch) {
+      highlightedCore = `<span class="text-amber-600 dark:text-amber-400 font-bold font-mono">${escapeHtml(numUnitMatch[1])}</span>${escapeHtml(numUnitMatch[2])}<span class="text-teal-600 dark:text-teal-400 font-medium">${escapeHtml(numUnitMatch[3])}</span>`;
+    } else {
+      highlightedCore = escapeHtml(core);
+    }
+  } else if (contextDirective === 'cliente') {
+    highlightedCore = `<span class="text-indigo-600 dark:text-indigo-300 font-medium">${escapeHtml(core)}</span>`;
+  } else if (contextDirective === 'factura') {
+    highlightedCore = `<span class="text-amber-600 dark:text-amber-300 font-medium">${escapeHtml(core)}</span>`;
+  } else {
+    highlightedCore = `<span class="text-slate-700 dark:text-slate-200">${escapeHtml(core)}</span>`;
+  }
+
+  let highlightedComment = '';
+  if (commentPart) {
+    highlightedComment = `<span class="text-emerald-600/90 dark:text-emerald-400/90 italic font-normal">${escapeHtml(commentPart)}</span>`;
+  }
+
+  return `${escapeHtml(lead)}${highlightedCore}${escapeHtml(trail)}${highlightedComment}`;
+}
+
+/**
+ * Resalta una línea de ítem/tarea (- 10 u Boca: $ 15.000) token a token
+ */
+function highlightItemLine(line: string): string {
+  const bulletMatch = line.match(/^(\s*)(-\s+)(.*)$/);
+  if (!bulletMatch) return escapeHtml(line);
+
+  const [, indent, bullet, itemRest] = bulletMatch;
+  const bulletHtml = `${escapeHtml(indent)}<span class="text-slate-400 dark:text-slate-500 font-bold">${escapeHtml(bullet)}</span>`;
+
+  // Separar comentario inline
+  let mainContent = itemRest;
+  let commentPart = '';
+  const commentMatch = itemRest.match(/(^|\s)(#.*)$/);
+  if (commentMatch && commentMatch.index !== undefined) {
+    const splitIdx = commentMatch.index + (commentMatch[1] ? commentMatch[1].length : 0);
+    mainContent = itemRest.slice(0, splitIdx);
+    commentPart = itemRest.slice(splitIdx);
+  }
+
+  // Comprobar si hay dos puntos ':' separando descripción de precio
+  let beforeColon = mainContent;
+  let colonStr = '';
+  let afterColon = '';
+  const colonIdx = mainContent.lastIndexOf(':');
+  if (colonIdx !== -1) {
+    beforeColon = mainContent.slice(0, colonIdx);
+    colonStr = ':';
+    afterColon = mainContent.slice(colonIdx + 1);
+  }
+
+  // Tokenizar beforeColon
+  let remaining = beforeColon;
+  let beforeColonHtml = '';
+
+  // 1. Espacios iniciales
+  const leadMatch = remaining.match(/^(\s*)/);
+  if (leadMatch && leadMatch[1]) {
+    beforeColonHtml += escapeHtml(leadMatch[1]);
+    remaining = remaining.slice(leadMatch[1].length);
+  }
+
+  // 2. Cantidad (fórmula con unidad, fórmula simple, porcentaje o número)
+  let qtyFound = false;
+  if (remaining.startsWith('=')) {
+    // Comprobar si es fórmula con espacios seguida de unidad (ej: "=horas * 2 hs")
+    const formulaUnitMatch = remaining.match(/^(=.+?)(\s+)([a-zA-Z0-9%]{1,10})\b/);
+    if (formulaUnitMatch && HIGHLIGHT_KNOWN_UNITS.has(formulaUnitMatch[3].toLowerCase())) {
+      const [, formStr, spStr, unStr] = formulaUnitMatch;
+      beforeColonHtml += `<span class="text-fuchsia-600 dark:text-fuchsia-400 font-mono font-medium">${escapeHtml(formStr)}</span>`;
+      beforeColonHtml += escapeHtml(spStr);
+      beforeColonHtml += `<span class="text-teal-600 dark:text-teal-400 font-medium">${escapeHtml(unStr)}</span>`;
+      remaining = remaining.slice(formulaUnitMatch[0].length);
+      qtyFound = true;
+    }
+  }
+
+  if (!qtyFound) {
+    const qtyMatch = remaining.match(/^(=[^\s:]+|\d+(?:[.,]\d+)?%?)/);
+    if (qtyMatch && qtyMatch[1]) {
+      const qtyStr = qtyMatch[1];
+      const isFormula = qtyStr.startsWith('=');
+      const qtyClass = isFormula
+        ? 'text-fuchsia-600 dark:text-fuchsia-400 font-mono font-medium'
+        : 'text-amber-600 dark:text-amber-400 font-bold font-mono';
+      beforeColonHtml += `<span class="${qtyClass}">${escapeHtml(qtyStr)}</span>`;
+      remaining = remaining.slice(qtyStr.length);
+
+      // Espacio entre cantidad y siguiente token
+      const spMatch = remaining.match(/^(\s+)/);
+      if (spMatch && spMatch[1]) {
+        const spaceStr = spMatch[1];
+        remaining = remaining.slice(spaceStr.length);
+
+        // 3. Unidad (si coincide con lista de unidades reconocidas)
+        const unitMatch = remaining.match(/^([a-zA-Z0-9%]{1,10})\b/);
+        if (unitMatch && HIGHLIGHT_KNOWN_UNITS.has(unitMatch[1].toLowerCase())) {
+          beforeColonHtml += escapeHtml(spaceStr);
+          beforeColonHtml += `<span class="text-teal-600 dark:text-teal-400 font-medium">${escapeHtml(unitMatch[1])}</span>`;
+          remaining = remaining.slice(unitMatch[1].length);
+        } else {
+          beforeColonHtml += escapeHtml(spaceStr);
+        }
+      }
+    }
+  }
+
+  // 4. Resto de la descripción con marcas [Marca] resaltadas dondequiera que aparezcan
+  if (remaining.length > 0) {
+    const parts = remaining.split(/(\[[^\]]+\])/g);
+    beforeColonHtml += parts
+      .map((part) => {
+        if (part.startsWith('[') && part.endsWith(']')) {
+          return `<span class="text-amber-500 dark:text-amber-300 font-semibold">${escapeHtml(part)}</span>`;
+        }
+        return `<span class="text-slate-800 dark:text-slate-100 font-medium">${escapeHtml(part)}</span>`;
+      })
+      .join('');
+  }
+
+  // Dos puntos y precio
+  let afterColonHtml = '';
+  if (colonStr) {
+    afterColonHtml = `<span class="text-slate-400 dark:text-slate-500 font-semibold">:</span>${highlightValueWithComments(afterColon)}`;
+  }
+
+  let commentHtml = '';
+  if (commentPart) {
+    commentHtml = `<span class="text-emerald-600/90 dark:text-emerald-400/90 italic font-normal">${escapeHtml(commentPart)}</span>`;
+  }
+
+  return `${bulletHtml}${beforeColonHtml}${afterColonHtml}${commentHtml}`;
+}
+
+/**
+ * Resalta una línea individual de texto YAML preservando el 100% de los caracteres y coordenadas
+ */
+function highlightYamlLine(line: string): string {
+  // 1. Línea vacía o solo espacios
+  if (!line.trim()) {
+    return escapeHtml(line);
+  }
+
+  // 2. Comentario de línea completa
+  if (/^\s*#/.test(line)) {
+    const match = line.match(/^(\s*)(#.*)$/);
+    if (match) {
+      return `${escapeHtml(match[1])}<span class="text-emerald-600/90 dark:text-emerald-400/90 italic font-normal">${escapeHtml(match[2])}</span>`;
+    }
+    return escapeHtml(line);
+  }
+
+  // 3. Línea de ítem/viñeta (- ...)
+  if (/^\s*-\s+/.test(line)) {
+    return highlightItemLine(line);
+  }
+
+  // 4. Clave: Valor
+  const keyValMatch = line.match(/^(\s*)([^\s:#][^:#]*?)(\s*)(:)(.*)$/);
+  if (keyValMatch) {
+    const [, indent, rawKey, preColonSpace, colon, rest] = keyValMatch;
+    const lowerKey = rawKey.toLowerCase();
+
+    // Directiva raíz
+    if (HIGHLIGHT_ROOT_DIRECTIVES.has(lowerKey)) {
+      return `${escapeHtml(indent)}<span class="text-sky-600 dark:text-sky-300 font-bold">${escapeHtml(rawKey)}</span>${escapeHtml(preColonSpace)}<span class="text-slate-400 dark:text-slate-500 font-semibold">${escapeHtml(colon)}</span>${highlightValueWithComments(rest, lowerKey)}`;
+    }
+
+    // Sub-bloque APU
+    if (HIGHLIGHT_APU_SECTIONS.has(lowerKey)) {
+      return `${escapeHtml(indent)}<span class="text-purple-600 dark:text-purple-400 font-bold">${escapeHtml(rawKey)}</span>${escapeHtml(preColonSpace)}<span class="text-slate-400 dark:text-slate-500 font-semibold">${escapeHtml(colon)}</span>${highlightValueWithComments(rest)}`;
+    }
+
+    // Capítulo (sin indentación o palabra clave Capítulo)
+    if (!indent || /^cap[ií]tulo/i.test(rawKey)) {
+      return `${escapeHtml(indent)}<span class="text-blue-600 dark:text-blue-400 font-bold">${escapeHtml(rawKey)}</span>${escapeHtml(preColonSpace)}<span class="text-blue-500 dark:text-blue-400 font-bold">${escapeHtml(colon)}</span>${highlightValueWithComments(rest)}`;
+    }
+
+    // Otras claves (variables, etc.)
+    return `${escapeHtml(indent)}<span class="text-sky-600 dark:text-sky-300">${escapeHtml(rawKey)}</span>${escapeHtml(preColonSpace)}<span class="text-slate-400 dark:text-slate-500 font-semibold">${escapeHtml(colon)}</span>${highlightValueWithComments(rest)}`;
+  }
+
+  // 5. Fallback con posible comentario
+  const commentMatch = line.match(/(^|\s)(#.*)$/);
+  if (commentMatch && commentMatch.index !== undefined) {
+    const splitIdx = commentMatch.index + (commentMatch[1] ? commentMatch[1].length : 0);
+    const beforeComment = line.slice(0, splitIdx);
+    const commentPart = line.slice(splitIdx);
+    return `${escapeHtml(beforeComment)}<span class="text-emerald-600/90 dark:text-emerald-400/90 italic font-normal">${escapeHtml(commentPart)}</span>`;
+  }
+
+  return escapeHtml(line);
+}
+
+export function highlightYamlText(yamlText: string): string {
+  if (!yamlText) return '';
+  return yamlText
+    .split('\n')
+    .map(highlightYamlLine)
+    .join('\n');
 }

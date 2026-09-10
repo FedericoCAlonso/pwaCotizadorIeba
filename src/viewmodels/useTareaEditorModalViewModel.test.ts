@@ -221,4 +221,120 @@ describe('useTareaEditorModalViewModel', () => {
     expect(onSave.mock.calls[0][0].nombre).toBe('Instalación de Circuito Iluminación');
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('alterna a modo experto serializando el formulario a YAML', () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const onClose = vi.fn();
+
+    const { result } = renderHook(() =>
+      useTareaEditorModalViewModel({
+        isOpen: true,
+        onClose,
+        editingTarea: null,
+        categoriasList: mockCategorias,
+        insumosMap: mockInsumosMap,
+        manoObraList: mockManoObraList,
+        manoObraMap: mockManoObraMap,
+        onSave
+      })
+    );
+
+    act(() => {
+      result.current.updateFormField('nombre', 'Puesta a Tierra Certificada');
+    });
+
+    act(() => {
+      result.current.toggleExpertMode();
+    });
+
+    expect(result.current.isExpertMode).toBe(true);
+    expect(result.current.yamlText).toContain('Puesta a Tierra Certificada');
+    expect(result.current.yamlText).toContain('bocas');
+  });
+
+  it('sincroniza cambios desde YAML hacia formData al editar en modo experto', () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const onClose = vi.fn();
+
+    const { result } = renderHook(() =>
+      useTareaEditorModalViewModel({
+        isOpen: true,
+        onClose,
+        editingTarea: null,
+        categoriasList: mockCategorias,
+        insumosMap: mockInsumosMap,
+        manoObraList: mockManoObraList,
+        manoObraMap: mockManoObraMap,
+        onSave
+      })
+    );
+
+    act(() => {
+      result.current.toggleExpertMode();
+    });
+
+    const newYaml = `
+nombre: Tarea Creada en YAML
+categoria: Tableros
+unidad: u
+
+parametros:
+  - id: circuitos
+    nombre: Cantidad de Circuitos
+    default: 4
+
+materiales:
+  - material: "Cable 2.5 mm²"
+    formula: "circuitos * 15"
+`;
+
+    act(() => {
+      result.current.handleYamlChange(newYaml);
+    });
+
+    expect(result.current.formData.nombre).toBe('Tarea Creada en YAML');
+    expect(result.current.formData.categoria).toBe('Tableros');
+    expect(result.current.formData.parametros[0].id).toBe('circuitos');
+    expect(result.current.formData.insumos[0].materialId).toBe('mat-cable-2.5');
+    expect(result.current.formData.insumos[0].formula).toBe('circuitos * 15');
+  });
+
+  it('permite guardar directamente desde modo experto', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const onClose = vi.fn();
+
+    const { result } = renderHook(() =>
+      useTareaEditorModalViewModel({
+        isOpen: true,
+        onClose,
+        editingTarea: null,
+        categoriasList: mockCategorias,
+        insumosMap: mockInsumosMap,
+        manoObraList: mockManoObraList,
+        manoObraMap: mockManoObraMap,
+        onSave
+      })
+    );
+
+    act(() => {
+      result.current.toggleExpertMode();
+      result.current.handleYamlChange(`
+nombre: Tarea Guardada Directo
+categoria: Bocas
+unidad: boca
+parametros:
+  - id: bocas
+    default: 8
+`);
+    });
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].nombre).toBe('Tarea Guardada Directo');
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });
+

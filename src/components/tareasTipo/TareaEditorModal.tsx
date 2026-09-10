@@ -4,7 +4,8 @@ import {
   Calculator,
   Package,
   Clock,
-  ShieldAlert
+  ShieldAlert,
+  Code2
 } from 'lucide-react';
 import {
   TareaTipo,
@@ -26,6 +27,7 @@ import { MaterialesTab } from './editor/MaterialesTab';
 import { ManoObraTab } from './editor/ManoObraTab';
 import { ClausulasTab } from './editor/ClausulasTab';
 import { LivePreviewFooter } from './editor/LivePreviewFooter';
+import { TareaEditorExperto } from './editor/TareaEditorExperto';
 
 export type { TareaFormData };
 
@@ -89,6 +91,13 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
     moveVariable,
     // Submit
     handleSubmit,
+    // Modo Experto (YAML DSL)
+    isExpertMode,
+    yamlText,
+    yamlDiagnostics,
+    toggleExpertMode,
+    handleYamlChange,
+    insertYamlSnippet,
     // Badges / Counts
     parametrosCount,
     variablesCount,
@@ -143,105 +152,139 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
         maxWidth="3xl"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Navegación por Pestañas (M3 Tab Bar) */}
-          <div className="flex items-center gap-1.5 p-1 bg-surface-container rounded-2xl border border-outline-variant/30 overflow-x-auto scrollbar-none">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
+          {/* Barra superior de Modo: Visual vs Experto */}
+          <div className="flex items-center justify-between gap-2 px-1">
+            <span className="text-xs text-on-surface-variant font-medium">
+              {isExpertMode ? 'Modo Experto: Edición directa en YAML' : 'Modo Visual: Configuración asistida por pestañas'}
+            </span>
+            <button
+              type="button"
+              onClick={toggleExpertMode}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                isExpertMode
+                  ? 'bg-primary text-on-primary border-primary shadow-xs'
+                  : 'bg-surface hover:bg-surface-variant/40 text-on-surface border-outline-variant/40'
+              }`}
+            >
+              <Code2 className="w-3.5 h-3.5" />
+              <span>{isExpertMode ? 'Volver a Pestañas' : 'Modo Experto (YAML)'}</span>
+            </button>
+          </div>
 
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
-                    isActive
-                      ? 'bg-surface text-primary shadow-xs'
-                      : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/40'
-                  }`}
-                >
-                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-primary' : 'text-on-surface-variant'}`} />
-                  <span>{tab.label}</span>
-                  {tab.badge !== undefined && (
-                    <span
-                      className={`text-xs font-mono px-2 py-0.5 rounded-full font-bold ${
+          {isExpertMode ? (
+            <div className="min-h-[420px]">
+              <TareaEditorExperto
+                yamlText={yamlText}
+                onYamlChange={handleYamlChange}
+                diagnostics={yamlDiagnostics}
+                onInsertSnippet={insertYamlSnippet}
+                formData={formData}
+                liveEvaluation={liveEvaluation}
+              />
+            </div>
+          ) : (
+            <>
+              {/* Navegación por Pestañas (M3 Tab Bar) */}
+              <div className="flex items-center gap-1.5 p-1 bg-surface-container rounded-2xl border border-outline-variant/30 overflow-x-auto scrollbar-none">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
                         isActive
-                          ? 'bg-primary/15 text-primary'
-                          : 'bg-surface-variant text-on-surface-variant'
+                          ? 'bg-surface text-primary shadow-xs'
+                          : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/40'
                       }`}
                     >
-                      {tab.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                      <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-primary' : 'text-on-surface-variant'}`} />
+                      <span>{tab.label}</span>
+                      {tab.badge !== undefined && (
+                        <span
+                          className={`text-xs font-mono px-2 py-0.5 rounded-full font-bold ${
+                            isActive
+                              ? 'bg-primary/15 text-primary'
+                              : 'bg-surface-variant text-on-surface-variant'
+                          }`}
+                        >
+                          {tab.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
 
-          {/* Contenido de la Pestaña Activa */}
-          <div className="min-h-[380px] py-1">
-            {activeTab === 'general' && (
-              <GeneralTab
-                formData={formData}
-                setFormData={setFormData}
-                categoriasList={categoriasList}
-                currentScope={currentScope}
-              />
-            )}
+              {/* Contenido de la Pestaña Activa */}
+              <div className="min-h-[380px] py-1">
+                {activeTab === 'general' && (
+                  <GeneralTab
+                    formData={formData}
+                    setFormData={setFormData}
+                    categoriasList={categoriasList}
+                    currentScope={currentScope}
+                  />
+                )}
 
-            {activeTab === 'parametros' && (
-              <ParametrosTab
-                parametros={formData.parametros}
-                addParametro={addParametro}
-                updateParametro={updateParametro}
-                removeParametro={removeParametro}
-                moveParametro={moveParametro}
-                canMoveParametro={canMoveParametro}
-                setParametroDependency={setParametroDependency}
-              />
-            )}
+                {activeTab === 'parametros' && (
+                  <ParametrosTab
+                    parametros={formData.parametros}
+                    addParametro={addParametro}
+                    updateParametro={updateParametro}
+                    removeParametro={removeParametro}
+                    moveParametro={moveParametro}
+                    canMoveParametro={canMoveParametro}
+                    setParametroDependency={setParametroDependency}
+                  />
+                )}
 
-            {activeTab === 'variables' && (
-              <VariablesTab
-                variables={formData.variables}
-                parametros={formData.parametros}
-                currentScope={currentScope}
-                addVariable={addVariable}
-                updateVariable={updateVariable}
-                removeVariable={removeVariable}
-                moveVariable={moveVariable}
-              />
-            )}
+                {activeTab === 'variables' && (
+                  <VariablesTab
+                    variables={formData.variables}
+                    parametros={formData.parametros}
+                    currentScope={currentScope}
+                    addVariable={addVariable}
+                    updateVariable={updateVariable}
+                    removeVariable={removeVariable}
+                    moveVariable={moveVariable}
+                  />
+                )}
 
-            {activeTab === 'materiales' && (
-              <MaterialesTab
-                formData={formData}
-                setFormData={setFormData}
-                insumosMap={insumosMap}
-                currentScope={currentScope}
-                setIsMaterialPickerOpen={setIsMaterialPickerOpen}
-                setIsCategoryFilterModalOpen={setIsCategoryFilterModalOpen}
-                setEditingCategoryFilterIdx={setEditingCategoryFilterIdx}
-                removeInsumoRow={removeInsumoRow}
-              />
-            )}
+                {activeTab === 'materiales' && (
+                  <MaterialesTab
+                    formData={formData}
+                    setFormData={setFormData}
+                    insumosMap={insumosMap}
+                    currentScope={currentScope}
+                    setIsMaterialPickerOpen={setIsMaterialPickerOpen}
+                    setIsCategoryFilterModalOpen={setIsCategoryFilterModalOpen}
+                    setEditingCategoryFilterIdx={setEditingCategoryFilterIdx}
+                    removeInsumoRow={removeInsumoRow}
+                  />
+                )}
 
-            {activeTab === 'mano_obra' && (
-              <ManoObraTab
-                formData={formData}
-                setFormData={setFormData}
-                manoObraList={manoObraList}
-                manoObraMap={manoObraMap}
-                currentScope={currentScope}
-                addManoObraRow={addManoObraRow}
-                removeManoObraRow={removeManoObraRow}
-              />
-            )}
+                {activeTab === 'mano_obra' && (
+                  <ManoObraTab
+                    formData={formData}
+                    setFormData={setFormData}
+                    manoObraList={manoObraList}
+                    manoObraMap={manoObraMap}
+                    currentScope={currentScope}
+                    addManoObraRow={addManoObraRow}
+                    removeManoObraRow={removeManoObraRow}
+                  />
+                )}
 
-            {activeTab === 'clausulas' && (
-              <ClausulasTab formData={formData} setFormData={setFormData} />
-            )}
-          </div>
+                {activeTab === 'clausulas' && (
+                  <ClausulasTab formData={formData} setFormData={setFormData} />
+                )}
+              </div>
+            </>
+          )}
 
           {/* Live Preview Cost Box y Botones de Acción */}
           <LivePreviewFooter
@@ -261,6 +304,7 @@ export const TareaEditorModal: React.FC<TareaEditorModalProps> = ({
           alreadySelectedIds={formData.insumos
             .map((i) => i.materialId || i.insumoId || '')
             .filter(Boolean)}
+          currentScope={currentScope}
           onAddMaterial={handleAddMaterialFromPicker}
           onAddMultipleMaterials={handleAddMultipleMaterialsFromPicker}
         />

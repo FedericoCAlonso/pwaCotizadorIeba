@@ -52,9 +52,18 @@ describe('mathEvaluator', () => {
       expect(evaluateMathExpression('=(12 + 8) / 2').value).toBe(10);
     });
 
-    it('handles exponentiation (^)', () => {
+    it('handles exponentiation (^ and **)', () => {
       expect(evaluateMathExpression('2 ^ 3').value).toBe(8);
       expect(evaluateMathExpression('3 ^ 2 + 1').value).toBe(10);
+      expect(evaluateMathExpression('2 ** 3').value).toBe(8);
+      expect(evaluateMathExpression('9 ** 0.5').value).toBe(3);
+    });
+
+    it('supports fractional exponents and keeps sqrt() consistent', () => {
+      expect(evaluateMathExpression('16 ^ 0.5').value).toBe(4);
+      expect(evaluateMathExpression('16 ** (1 / 2)').value).toBe(4);
+      expect(evaluateMathExpression('sqrt(16)').value).toBe(4);
+      expect(evaluateMathExpression('sqrt(9) + 1').value).toBe(4);
     });
 
     it('handles unary negative numbers', () => {

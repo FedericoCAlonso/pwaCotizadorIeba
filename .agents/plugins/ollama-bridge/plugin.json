@@ -1,0 +1,4 @@
+{
+  "name": "ollama-bridge",
+  "description": "Integración local con Ollama (gemma-64k) para ahorro de tokens en análisis de datos y generación masiva"
+}

@@ -100,6 +100,27 @@ describe('MathInput - Mobile Usability & Live Typing', () => {
     expect(onChange).toHaveBeenCalledWith(0.5, undefined);
   });
 
+  it('permite asignar una variable del scope como fórmula en el campo de cantidad', () => {
+    const onChange = vi.fn();
+    render(
+      <MathInput
+        value={1}
+        onChange={onChange}
+        allowFormula
+        scope={{ bocas: 4 }}
+        size="sm"
+      />
+    );
+
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'bocas' } });
+    fireEvent.blur(input);
+
+    expect(onChange).toHaveBeenCalledWith(4, 'bocas');
+    expect(input.value).toBe('4');
+  });
+
   it('aplica fallbackOnBlur al perder foco solo si quedó vacío', () => {
     const onChange = vi.fn();
     render(
