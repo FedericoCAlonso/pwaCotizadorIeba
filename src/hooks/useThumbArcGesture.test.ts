@@ -52,17 +52,18 @@ describe('useThumbArcGesture (Polar Engine & Vertical Gestures)', () => {
     );
 
     act(() => {
-      // Start at radius 200px from pivot (400, 400) at angle -170 deg:
-      // dx = -197, dy = -35 -> clientX = 203, clientY = 365
-      result.current.handlers.onPointerDown(mockPointerEvent('down', 203, 365));
+      // Start at radius ~250px from pivot (400, 400) at angle -150 deg:
+      // x = 400 - 216.5 = 184, y = 400 - 125 = 275
+      result.current.handlers.onPointerDown(mockPointerEvent('down', 184, 275));
     });
 
     expect(result.current.isDragging).toBe(true);
 
     act(() => {
-      // Move along arc: same radius ~200px, but angle -145 deg:
-      // dx = -164, dy = -115 -> clientX = 236, clientY = 285
-      result.current.handlers.onPointerMove(mockPointerEvent('move', 236, 285));
+      // Move along arc to angle -120 deg:
+      // x = 400 - 125 = 275, y = 400 - 216.5 = 184
+      // deltaX = +91, deltaY = -91 (ratio = 1.0, not vertical swipe)
+      result.current.handlers.onPointerMove(mockPointerEvent('move', 275, 184));
     });
 
     expect(onStepChange).toHaveBeenCalledWith(1);
@@ -80,13 +81,14 @@ describe('useThumbArcGesture (Polar Engine & Vertical Gestures)', () => {
     );
 
     act(() => {
-      // Start higher up along arc: radius 200px at angle -145 deg
-      result.current.handlers.onPointerDown(mockPointerEvent('down', 236, 285));
+      // Start at angle -120 deg
+      result.current.handlers.onPointerDown(mockPointerEvent('down', 275, 184));
     });
 
     act(() => {
-      // Move down along arc: same radius ~200px, angle -170 deg
-      result.current.handlers.onPointerMove(mockPointerEvent('move', 203, 365));
+      // Move downward along arc to angle -150 deg:
+      // deltaX = -91, deltaY = +91 (ratio = 1.0)
+      result.current.handlers.onPointerMove(mockPointerEvent('move', 184, 275));
     });
 
     expect(onStepChange).toHaveBeenCalledWith(-1);
@@ -110,13 +112,13 @@ describe('useThumbArcGesture (Polar Engine & Vertical Gestures)', () => {
     });
 
     act(() => {
-      // Swiping straight UP: deltaY is -55px, deltaX is 2px, radius changes by 35px
-      result.current.handlers.onPointerMove(mockPointerEvent('move', 202, 195));
+      // Swiping straight UP: deltaY is -50px, deltaX is 2px (ratio = 25.0, highly vertical)
+      result.current.handlers.onPointerMove(mockPointerEvent('move', 202, 200));
     });
 
     expect(onPrevField).toHaveBeenCalledTimes(1);
     expect(onNextField).not.toHaveBeenCalled();
-    expect(onStepChange).not.toHaveBeenCalled();
+    expect(onStepChange).not.toHaveBeenCalled(); // No toca el valor del dial
     expect(result.current.lastGesture).toBe('prev');
   });
 
@@ -137,8 +139,8 @@ describe('useThumbArcGesture (Polar Engine & Vertical Gestures)', () => {
     });
 
     act(() => {
-      // Swiping straight DOWN: deltaY is +55px, deltaX is 2px, radius changes by 35px
-      result.current.handlers.onPointerMove(mockPointerEvent('move', 202, 205));
+      // Swiping straight DOWN: deltaY is +50px, deltaX is 2px (ratio = 25.0, highly vertical)
+      result.current.handlers.onPointerMove(mockPointerEvent('move', 202, 200));
     });
 
     expect(onNextField).toHaveBeenCalledTimes(1);

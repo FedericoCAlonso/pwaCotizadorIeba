@@ -241,6 +241,27 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
     return `${currentVal} ${activeParam.unidad || ''}`.trim();
   };
 
+  // Soporte de swipe directo en la tarjeta superior
+  const topTouchStart = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTopPointerDown = (e: React.PointerEvent) => {
+    topTouchStart.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleTopPointerUp = (e: React.PointerEvent) => {
+    if (!topTouchStart.current) return;
+    const dy = e.clientY - topTouchStart.current.y;
+    const dx = e.clientX - topTouchStart.current.x;
+    if (Math.abs(dy) > 25 && Math.abs(dy) > Math.abs(dx)) {
+      if (dy < 0) handlePrevParam(); // Arriba: retroceder
+      else handleNextParam();        // Abajo: avanzar
+    } else if (Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) handleNextParam();
+      else handlePrevParam();
+    }
+    topTouchStart.current = null;
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-[#070A11] flex flex-col justify-between overflow-hidden text-slate-100 select-none touch-none animate-in fade-in duration-200">
       
@@ -289,7 +310,11 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
       </header>
 
       {/* 2. ZONA DE LECTURA ("One Eye" Superior) */}
-      <main className="flex-1 px-4 py-2 flex flex-col justify-between max-h-[46vh] overflow-hidden">
+      <main
+        onPointerDown={handleTopPointerDown}
+        onPointerUp={handleTopPointerUp}
+        className="flex-1 px-4 py-2 flex flex-col justify-between max-h-[46vh] overflow-hidden"
+      >
         
         {/* Selector de Parámetros Segmentado */}
         <div className="flex items-center justify-between gap-3 bg-slate-900/80 p-2 rounded-2xl border border-slate-800/80 shadow-md">

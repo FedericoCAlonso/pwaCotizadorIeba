@@ -46,9 +46,12 @@ export function useThumbArcGesture({
   const [arcProgress, setArcProgress] = useState<number>(0.5);
   const [lastGesture, setLastGesture] = useState<'inc' | 'dec' | 'next' | 'prev' | 'confirm' | null>(null);
 
-  // Clasificador de intención: 'unknown' -> 'dial' (recorrido por el arco) o 'vertical_swipe' (avance/retroceso)
-  const gestureMode = useRef<'unknown' | 'dial' | 'vertical_swipe'>('unknown');
-  const startPos = useRef<{ x: number; y: number; time: number; radius: number } | null>(null);
+  // Estados del clasificador de gestos:
+  // 'detecting': acumulando los primeros ~20px para clasificar la intención con precisión matemática
+  // 'dial': recorrido circular por el arco (incremento / decremento)
+  // 'vertical_swipe': trazo vertical consumido (arriba retroceder, abajo avanzar)
+  const gestureState = useRef<'detecting' | 'dial' | 'vertical_swipe'>('detecting');
+  const startPos = useRef<{ x: number; y: number; time: number; radius: number; angle: number } | null>(null);
   const lastAngle = useRef<number | null>(null);
   const accumulatedAngle = useRef<number>(0);
   const lastTapTime = useRef<number>(0);
@@ -67,7 +70,7 @@ export function useThumbArcGesture({
     }
   }, [enableHaptics]);
 
-  // Calcula ángulo polar y radio respecto al pivote
+  // Calcula ángulo polar y radio respecto al vértice biomecánico (esquina inferior derecha o izquierda)
   const getPolarFromEvent = useCallback((e: React.PointerEvent): { angle: number; radius: number; progress: number } => {
     const target = e.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
@@ -107,10 +110,10 @@ export function useThumbArcGesture({
     const { angle, radius, progress } = getPolarFromEvent(e);
     lastAngle.current = angle;
     accumulatedAngle.current = 0;
-    gestureMode.current = 'unknown';
+    gestureState.current = 'detecting';
 
     const now = Date.now();
-    startPos.current = { x: e.clientX, y: e.clientY, time: now, radius };
+    startPos.current = { x: e.clientX, y: e.clientY, time: now, radius, angle };
 
     setIsDragging(true);
     setTouchPosition({ x: e.clientX, y: e.clientY });
@@ -137,43 +140,43 @@ export function useThumbArcGesture({
     const deltaY = e.clientY - startPos.current.y;
     const absX = Math.abs(deltaX);
     const absY = Math.abs(deltaY);
-    const deltaRadius = Math.abs(radius - startPos.current.radius);
+    const totalDisplacement = Math.hypot(deltaX, deltaY);
 
-    // 1. CLASIFICACIÓN DE INTENCIÓN:
-    if (gestureMode.current === 'unknown') {
-      // Swipe vertical claro (corta a través del radio, desplazamiento vertical dominante):
-      if (absY > 36 && absY > absX * 1.5 && deltaRadius > 20) {
-        gestureMode.current = 'vertical_swipe';
+    // 1. VENTANA DE DISCRIMINACIÓN (Slop de ~20px para clasificar la intención con precisión)
+    if (gestureState.current === 'detecting') {
+      // Si aún no recorrió al menos 20px, no decidimos todavía
+      if (totalDisplacement < 20) {
+        return;
+      }
+
+      // Al alcanzar 20px de movimiento evaluamos la trayectoria:
+      // ¿Es un trazo vertical? (absY dominante sobre absX con ratio >= 1.3)
+      if (absY >= absX * 1.3) {
+        gestureState.current = 'vertical_swipe';
         if (deltaY < 0) {
           // Desplazamiento hacia ARRIBA: RETROCEDER
-          triggerHaptic(18);
+          triggerHaptic(20);
           setLastGesture('prev');
           onPrevField?.();
         } else {
           // Desplazamiento hacia ABAJO: AVANZAR
-          triggerHaptic(18);
+          triggerHaptic(20);
           setLastGesture('next');
           onNextField?.();
         }
         return;
       }
 
-      // Si el movimiento angular es dominante o el radio se mantiene en el arco:
-      let initialAngleDiff = angle - lastAngle.current;
-      if (initialAngleDiff > Math.PI) initialAngleDiff -= 2 * Math.PI;
-      if (initialAngleDiff < -Math.PI) initialAngleDiff += 2 * Math.PI;
-
-      if (Math.abs(initialAngleDiff) >= sensitivityRad * 0.6) {
-        gestureMode.current = 'dial';
-      }
+      // Si no es un trazo vertical, es un movimiento de giro por el arco:
+      gestureState.current = 'dial';
     }
 
-    // 2. MODO SWIPE VERTICAL: si ya se consumió como swipe de avance/retroceso, no alterar el dial
-    if (gestureMode.current === 'vertical_swipe') {
+    // 2. SI ES SWIPE VERTICAL: se ignora el dial durante este toque
+    if (gestureState.current === 'vertical_swipe') {
       return;
     }
 
-    // 3. MODO DIAL (Recorrido por el arco: incremento/decremento):
+    // 3. MODO DIAL (Recorrido por el arco: incremento / decremento):
     let deltaAngle = angle - lastAngle.current;
     if (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI;
     if (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI;
@@ -190,7 +193,6 @@ export function useThumbArcGesture({
       setLastGesture(direction === 1 ? 'inc' : 'dec');
       onStepChange?.(direction);
       accumulatedAngle.current = 0;
-      gestureMode.current = 'dial';
     }
 
     lastAngle.current = angle;
@@ -204,19 +206,21 @@ export function useThumbArcGesture({
       // Ignore
     }
 
-    // Si terminó con trazo vertical rápido sin haber disparado:
-    if (gestureMode.current === 'unknown' && startPos.current) {
+    // Si soltó rápidamente (flick vertical rápido que terminó antes de acumular 20px en moves intermedios):
+    if (gestureState.current === 'detecting' && startPos.current) {
       const deltaX = e.clientX - startPos.current.x;
       const deltaY = e.clientY - startPos.current.y;
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
       const duration = Date.now() - startPos.current.time;
 
-      if (duration < 350 && Math.abs(deltaY) > 30 && Math.abs(deltaY) > Math.abs(deltaX) * 1.4) {
+      if (duration < 350 && absY >= 16 && absY >= absX * 1.2) {
         if (deltaY < 0) {
-          triggerHaptic(18);
+          triggerHaptic(20);
           setLastGesture('prev');
           onPrevField?.();
         } else {
-          triggerHaptic(18);
+          triggerHaptic(20);
           setLastGesture('next');
           onNextField?.();
         }
@@ -227,7 +231,7 @@ export function useThumbArcGesture({
     setTouchPosition(null);
     lastAngle.current = null;
     accumulatedAngle.current = 0;
-    gestureMode.current = 'unknown';
+    gestureState.current = 'detecting';
     startPos.current = null;
   }, [onNextField, onPrevField, triggerHaptic]);
 
@@ -239,7 +243,7 @@ export function useThumbArcGesture({
     if (!lastGesture) return;
     const timer = setTimeout(() => {
       setLastGesture(null);
-    }, 400);
+    }, 450);
     return () => clearTimeout(timer);
   }, [lastGesture]);
 
