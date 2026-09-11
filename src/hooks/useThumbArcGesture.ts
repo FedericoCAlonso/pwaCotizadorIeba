@@ -4,13 +4,12 @@ export type Handedness = 'right' | 'left';
 
 export interface UseThumbArcGestureOptions {
   handedness?: Handedness;
-  sensitivityPx?: number; // Píxeles de recorrido para disparar un tick de cambio (default 18)
+  /** Radianes de giro angular para disparar un tick de incremento/decremento (default ~0.055 rad = ~3.15°) */
+  sensitivityRad?: number;
   onStepChange?: (direction: 1 | -1) => void;
   onNextField?: () => void;
   onPrevField?: () => void;
   onConfirm?: () => void;
-  onFastIncrement?: () => void;
-  onFastDecrement?: () => void;
   enableHaptics?: boolean;
 }
 
@@ -20,7 +19,8 @@ export interface ThumbArcGestureReturn {
   toggleHandedness: () => void;
   isDragging: boolean;
   touchPosition: { x: number; y: number } | null;
-  lastGesture: 'inc' | 'dec' | 'next' | 'prev' | 'confirm' | null;
+  arcProgress: number; // 0 (reposo abajo) a 1 (máxima extensión arriba)
+  lastGesture: 'inc' | 'dec' | 'confirm' | null;
   handlers: {
     onPointerDown: (e: React.PointerEvent) => void;
     onPointerMove: (e: React.PointerEvent) => void;
@@ -31,131 +31,129 @@ export interface ThumbArcGestureReturn {
 
 export function useThumbArcGesture({
   handedness: initialHandedness = 'right',
-  sensitivityPx = 18,
+  sensitivityRad = 0.055,
   onStepChange,
-  onNextField,
-  onPrevField,
   onConfirm,
   enableHaptics = true
 }: UseThumbArcGestureOptions = {}): ThumbArcGestureReturn {
   const [handedness, setHandedness] = useState<Handedness>(initialHandedness);
   const [isDragging, setIsDragging] = useState(false);
   const [touchPosition, setTouchPosition] = useState<{ x: number; y: number } | null>(null);
-  const [lastGesture, setLastGesture] = useState<'inc' | 'dec' | 'next' | 'prev' | 'confirm' | null>(null);
+  const [arcProgress, setArcProgress] = useState<number>(0.5);
+  const [lastGesture, setLastGesture] = useState<'inc' | 'dec' | 'confirm' | null>(null);
 
-  // Referencias para seguimiento de trayectoria
-  const startPos = useRef<{ x: number; y: number; time: number } | null>(null);
-  const lastPos = useRef<{ x: number; y: number } | null>(null);
-  const accumulatedArc = useRef<number>(0);
-  const totalDragDistance = useRef<number>(0);
+  // Referencias para seguimiento polar
+  const lastAngle = useRef<number | null>(null);
+  const accumulatedAngle = useRef<number>(0);
   const lastTapTime = useRef<number>(0);
-  const isVerticalSwipe = useRef<boolean>(false);
 
   const toggleHandedness = useCallback(() => {
     setHandedness(prev => (prev === 'right' ? 'left' : 'right'));
   }, []);
 
-  // Vibración táctil si está habilitada
-  const triggerHaptic = useCallback((duration: number = 10) => {
+  // Vibración táctil sutil
+  const triggerHaptic = useCallback((duration: number = 8) => {
     if (enableHaptics && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try {
         navigator.vibrate(duration);
       } catch {
-        // Silencio en caso de políticas de navegador
+        // Ignorar si el navegador restringe
       }
     }
   }, [enableHaptics]);
 
+  // Calcula ángulo polar relativo al vértice de la mano correspondiente
+  const getAngleFromEvent = useCallback((e: React.PointerEvent): { angle: number; progress: number } => {
+    const target = e.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Centro del arco:
+    // Mano derecha: esquina inferior derecha (rect.width, rect.height)
+    // Mano izquierda: esquina inferior izquierda (0, rect.height)
+    const pivotX = handedness === 'right' ? rect.width : 0;
+    const pivotY = rect.height;
+
+    const dx = x - pivotX;
+    const dy = y - pivotY;
+
+    const angle = Math.atan2(dy, dx);
+
+    // Progreso normalizado de 0 a 1 a lo largo del cuadrante de 90°
+    let progress = 0.5;
+    if (handedness === 'right') {
+      // Ángulos en el 3er cuadrante: de -Math.PI (-180° horizontal izq) a -Math.PI/2 (-90° vertical arriba)
+      const normalized = (angle + Math.PI) / (Math.PI / 2);
+      progress = Math.max(0, Math.min(1, normalized));
+    } else {
+      // Ángulos en el 4to cuadrante: de -Math.PI/2 (-90° vertical arriba) a 0 (0° horizontal der)
+      const normalized = 1 - (angle + Math.PI / 2) / (Math.PI / 2);
+      progress = Math.max(0, Math.min(1, normalized));
+    }
+
+    return { angle, progress };
+  }, [handedness]);
+
   const onPointerDown = useCallback((e: React.PointerEvent) => {
-    // Captura del puntero para que no se pierda al deslizar fuera del elemento
     const target = e.currentTarget as HTMLElement;
     try {
       target.setPointerCapture(e.pointerId);
     } catch {
-      // Ignorar en entornos de test/compatibilidad
+      // Ignorar en testing
     }
 
-    const pos = { x: e.clientX, y: e.clientY };
-    const now = Date.now();
+    const { angle, progress } = getAngleFromEvent(e);
+    lastAngle.current = angle;
+    accumulatedAngle.current = 0;
 
-    startPos.current = { ...pos, time: now };
-    lastPos.current = pos;
-    accumulatedArc.current = 0;
-    totalDragDistance.current = 0;
-    isVerticalSwipe.current = false;
     setIsDragging(true);
-    setTouchPosition(pos);
+    setTouchPosition({ x: e.clientX, y: e.clientY });
+    setArcProgress(progress);
 
     // Detección de doble toque rápido para confirmar
-    if (now - lastTapTime.current < 280) {
-      triggerHaptic(25);
+    const now = Date.now();
+    if (now - lastTapTime.current < 260) {
+      triggerHaptic(20);
       setLastGesture('confirm');
       onConfirm?.();
       lastTapTime.current = 0;
     } else {
       lastTapTime.current = now;
     }
-  }, [onConfirm, triggerHaptic]);
+  }, [getAngleFromEvent, onConfirm, triggerHaptic]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!startPos.current || !lastPos.current) return;
+    if (!isDragging || lastAngle.current === null) return;
 
-    const currentPos = { x: e.clientX, y: e.clientY };
-    setTouchPosition(currentPos);
+    setTouchPosition({ x: e.clientX, y: e.clientY });
+    const { angle, progress } = getAngleFromEvent(e);
+    setArcProgress(progress);
 
-    const deltaX = currentPos.x - lastPos.current.x;
-    const deltaY = currentPos.y - lastPos.current.y;
-    const totalDeltaX = currentPos.x - startPos.current.x;
-    const totalDeltaY = currentPos.y - startPos.current.y;
+    let deltaAngle = angle - lastAngle.current;
 
-    totalDragDistance.current += Math.hypot(deltaX, deltaY);
+    // Normalizar cruce de radianes
+    if (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI;
+    if (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI;
 
-    // Detección de gesto vertical prioritario (arriba = siguiente, abajo = previo)
-    if (
-      !isVerticalSwipe.current &&
-      Math.abs(totalDeltaY) > 45 &&
-      Math.abs(totalDeltaY) > Math.abs(totalDeltaX) * 1.6
-    ) {
-      isVerticalSwipe.current = true;
-      if (totalDeltaY < 0) {
-        triggerHaptic(18);
-        setLastGesture('next');
-        onNextField?.();
-      } else {
-        triggerHaptic(18);
-        setLastGesture('prev');
-        onPrevField?.();
-      }
-      lastPos.current = currentPos;
-      return;
-    }
+    // Dirección ergonómica:
+    // Mano derecha: ángulo creciente (hacia arriba) es incremento (+1)
+    // Mano izquierda: ángulo decreciente (hacia arriba) es incremento (+1)
+    const effectiveDelta = handedness === 'right' ? deltaAngle : -deltaAngle;
 
-    // Si ya se consumió como swipe vertical en esta pulsación, no mover valores horizontales
-    if (isVerticalSwipe.current) {
-      lastPos.current = currentPos;
-      return;
-    }
+    accumulatedAngle.current += effectiveDelta;
 
-    // Cálculo del vector de arco según la mano
-    // Para mano derecha: arrastre hacia la derecha o arriba incrementa; izquierda/abajo decrementa.
-    // Para mano izquierda: arrastre hacia la derecha o arriba incrementa; izquierda/abajo decrementa.
-    // Proyección con componente diagonal natural:
-    const arcDelta = handedness === 'right'
-      ? (deltaX * 0.85 - deltaY * 0.5)
-      : (deltaX * 0.85 - deltaY * 0.5);
-
-    accumulatedArc.current += arcDelta;
-
-    if (Math.abs(accumulatedArc.current) >= sensitivityPx) {
-      const direction: 1 | -1 = accumulatedArc.current > 0 ? 1 : -1;
+    if (Math.abs(accumulatedAngle.current) >= sensitivityRad) {
+      const direction: 1 | -1 = accumulatedAngle.current > 0 ? 1 : -1;
       triggerHaptic(8);
       setLastGesture(direction === 1 ? 'inc' : 'dec');
       onStepChange?.(direction);
-      accumulatedArc.current = 0;
+      accumulatedAngle.current = 0;
     }
 
-    lastPos.current = currentPos;
-  }, [handedness, onNextField, onPrevField, onStepChange, sensitivityPx, triggerHaptic]);
+    lastAngle.current = angle;
+  }, [getAngleFromEvent, handedness, isDragging, onStepChange, sensitivityRad, triggerHaptic]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     const target = e.currentTarget as HTMLElement;
@@ -167,22 +165,20 @@ export function useThumbArcGesture({
 
     setIsDragging(false);
     setTouchPosition(null);
-    startPos.current = null;
-    lastPos.current = null;
-    accumulatedArc.current = 0;
-    isVerticalSwipe.current = false;
+    lastAngle.current = null;
+    accumulatedAngle.current = 0;
   }, []);
 
   const onPointerCancel = useCallback((e: React.PointerEvent) => {
     onPointerUp(e);
   }, [onPointerUp]);
 
-  // Limpieza de feedback visual después de 400ms
+  // Limpiar indicador de último gesto tras 300ms
   useEffect(() => {
     if (!lastGesture) return;
     const timer = setTimeout(() => {
       setLastGesture(null);
-    }, 400);
+    }, 300);
     return () => clearTimeout(timer);
   }, [lastGesture]);
 
@@ -192,6 +188,7 @@ export function useThumbArcGesture({
     toggleHandedness,
     isDragging,
     touchPosition,
+    arcProgress,
     lastGesture,
     handlers: {
       onPointerDown,

@@ -103,7 +103,7 @@ describe('GestureParametricSheet', () => {
       />
     );
 
-    const confirmBtn = screen.getByText(/Confirmar y Agregar/i);
+    const confirmBtn = screen.getByText(/Confirmar e Insertar/i);
     fireEvent.click(confirmBtn);
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
