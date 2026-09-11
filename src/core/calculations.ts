@@ -2240,7 +2240,12 @@ export function resolverMaterialPorFiltro(
 
     for (const crit of filtro.criterios) {
       if (!crit.atributo) continue;
-      const attr = mat.atributos?.find(a => a.clave.toLowerCase() === crit.atributo.toLowerCase());
+      let attr = mat.atributos?.find(a => a.clave.toLowerCase() === crit.atributo.toLowerCase());
+      if (!attr && (crit.atributo.toLowerCase() === 'tipo_cable' || crit.atributo.toLowerCase() === 'tipo')) {
+        attr = mat.atributos?.find(a => a.clave.toLowerCase() === 'norma');
+      } else if (!attr && crit.atributo.toLowerCase() === 'norma') {
+        attr = mat.atributos?.find(a => a.clave.toLowerCase() === 'tipo_cable');
+      }
       const attrVal = attr?.valor;
 
       // Evaluar el valor esperado (puede ser un literal como "2" o una expresión como "$calibre" o "4 + circuitos * 2")
@@ -2279,7 +2284,15 @@ export function resolverMaterialPorFiltro(
             if (!isNaN(numAttr) && !isNaN(numTarget)) {
               if (Math.abs(numAttr - numTarget) >= 1e-6) coincide = false;
             } else {
-              if (strAttr !== strTarget && !strAttr.includes(strTarget) && !strTarget.includes(strAttr)) coincide = false;
+              if (strAttr !== strTarget && !strAttr.includes(strTarget) && !strTarget.includes(strAttr)) {
+                // Coincidencia por palabras clave para atributos compuestos (ej: "Unipolar IRAM 247-3" vs "IRAM 247-3 (Unipolar Flexible)")
+                const wordsTarget = strTarget.split(/[\s()/-]+/).filter(w => w.length > 1);
+                const wordsAttr = strAttr.split(/[\s()/-]+/).filter(w => w.length > 1);
+                const matchAll = wordsTarget.length > 0 && wordsTarget.every(w => wordsAttr.some(a => a.includes(w) || w.includes(a)));
+                if (!matchAll) {
+                  coincide = false;
+                }
+              }
             }
             break;
           case '!=':
@@ -2437,8 +2450,8 @@ export function calcularConsumosTareaTipo(
       const resolvedMat = resolverMaterialPorFiltro(item.filtroMaterial, scope, insumosMap);
       if (resolvedMat) {
         targetId = resolvedMat.id;
-      } else {
-        // No se encontró ningún material en el catálogo que cumpla los criterios
+      } else if (!targetId) {
+        // No se encontró ningún material en el catálogo que cumpla los criterios y no hay fallback
         continue;
       }
     } else if (item.reglasDinamicas && item.reglasDinamicas.length > 0) {

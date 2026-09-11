@@ -5,6 +5,7 @@ import {
   normalizeDslString
 } from './tareaTipoDsl';
 import { TareaFormData, Insumo, CategoriaManoDeObra } from './types';
+import { DEFAULT_TAREAS_TIPO_SEEDS } from './sampleData';
 
 describe('tareaTipoDsl', () => {
   const mockInsumosMap = new Map<string, Insumo>([
@@ -256,5 +257,22 @@ nombre: Tarea Rota
     const { diagnostics } = parseTareaTipoFromDSL(badYaml, mockInsumosMap, mockManoObraMap);
     expect(diagnostics.length).toBeGreaterThan(0);
     expect(diagnostics[0].type).toBe('error');
+  });
+
+  it('serializa y parsea correctamente todas las plantillas predeterminadas de DEFAULT_TAREAS_TIPO_SEEDS', () => {
+    DEFAULT_TAREAS_TIPO_SEEDS.forEach((tt) => {
+      const yaml = serializeTareaTipoToDSL(tt as unknown as TareaFormData, mockInsumosMap, mockManoObraMap);
+      expect(yaml).toBeDefined();
+      expect(typeof yaml).toBe('string');
+      expect(yaml.length).toBeGreaterThan(20);
+
+      const { data, diagnostics } = parseTareaTipoFromDSL(yaml, mockInsumosMap, mockManoObraMap);
+      const errors = diagnostics.filter(d => d.type === 'error');
+      expect(errors).toHaveLength(0);
+      expect(data.nombre).toBe(tt.nombre);
+      expect(data.categoria).toBe(tt.categoria);
+      expect(data.parametros?.length).toBe(tt.parametros?.length || 0);
+      expect(data.variables?.length).toBe(tt.variables?.length || 0);
+    });
   });
 });

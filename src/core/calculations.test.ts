@@ -1894,6 +1894,152 @@ describe('14. Motor de Optimización de Sinergia de Obra & Cuadrilla', () => {
     expect(tierraItems.some(i => i.nombre.includes('2.5'))).toBe(true);
     expect(tierraItems.some(i => i.nombre.includes('1.5'))).toBe(true);
   });
+
+  it('computa mayor longitud de cable y horas en recableado cuando aumenta la altura del techo o hay artefactos delicados', () => {
+    const recableadoTask = INITIAL_TAREAS_TIPO.find(t => t.id === 'tt-cableado-vivienda-10kw');
+    expect(recableadoTask).toBeDefined();
+    if (!recableadoTask) return;
+
+    const mockCatalogo = new Map<string, Insumo>([
+      ['mat-cable-uni-2_5-marron', { id: 'mat-cable-uni-2_5-marron', categoriaId: 'cat-cables', nombre: 'Cable 2.5 Marrón', unidad: 'm', precioActual: 300, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-2_5-celeste', { id: 'mat-cable-uni-2_5-celeste', categoriaId: 'cat-cables', nombre: 'Cable 2.5 Celeste', unidad: 'm', precioActual: 300, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-2_5-verde-amarillo', { id: 'mat-cable-uni-2_5-verde-amarillo', categoriaId: 'cat-cables', nombre: 'Cable 2.5 Tierra', unidad: 'm', precioActual: 300, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-1.5-marron', { id: 'mat-cable-uni-1.5-marron', categoriaId: 'cat-cables', nombre: 'Cable 1.5 Marrón', unidad: 'm', precioActual: 200, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-1.5-celeste', { id: 'mat-cable-uni-1.5-celeste', categoriaId: 'cat-cables', nombre: 'Cable 1.5 Celeste', unidad: 'm', precioActual: 200, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-1.5-blanco', { id: 'mat-cable-uni-1.5-blanco', categoriaId: 'cat-cables', nombre: 'Cable 1.5 Blanco', unidad: 'm', precioActual: 200, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-1.5-verde-amarillo', { id: 'mat-cable-uni-1.5-verde-amarillo', categoriaId: 'cat-cables', nombre: 'Cable 1.5 Tierra', unidad: 'm', precioActual: 200, alicuotaIVA: 21 } as unknown as Insumo]
+    ]);
+
+    const mockMO = new Map<string, CategoriaManoDeObra>([
+      ['mo-ayudante', { id: 'mo-ayudante', nombre: 'Ayudante', costoHora: 8000, fechaActualizacion: '2026-09-11' }],
+      ['mo-oficial-electricista', { id: 'mo-oficial-electricista', nombre: 'Oficial Electricista', costoHora: 14000, fechaActualizacion: '2026-09-11' }]
+    ]);
+
+    const estandar = calcularConsumosTareaTipo(
+      recableadoTask,
+      { tug: 10, iug: 5, tue: 0, esp: 0, superficie: 50, ambientes: 3, altura_techo: 2.6, artefactos_pesados: 0, estado_caneria: 1 },
+      mockCatalogo,
+      mockMO
+    );
+
+    const techoAltoYArañas = calcularConsumosTareaTipo(
+      recableadoTask,
+      { tug: 10, iug: 5, tue: 0, esp: 0, superficie: 50, ambientes: 3, altura_techo: 3.8, artefactos_pesados: 2, estado_caneria: 1 },
+      mockCatalogo,
+      mockMO
+    );
+
+    // Techo más alto aumenta metros de cable
+    const cableEstandar = estandar.insumosSnapshot.find(i => i.nombre.includes('2.5'))?.cantidadTotal || 0;
+    const cableAlto = techoAltoYArañas.insumosSnapshot.find(i => i.nombre.includes('2.5'))?.cantidadTotal || 0;
+    expect(cableAlto).toBeGreaterThan(cableEstandar);
+
+    // Artefactos pesados y mayor altura aumentan horas de cuadrilla
+    const hsEstandar = estandar.manoObraSnapshot[0].horasTotales;
+    const hsAlto = techoAltoYArañas.manoObraSnapshot[0].horasTotales;
+    expect(hsAlto).toBeGreaterThan(hsEstandar);
+  });
+
+  it('evalúa la tarea tipo complementaria de Alimentación Carga Única (ACU)', () => {
+    const acuTask = INITIAL_TAREAS_TIPO.find(t => t.id === 'tt-alimentacion-carga-unica-acu');
+    expect(acuTask).toBeDefined();
+    if (!acuTask) return;
+
+    const mockCatalogo = new Map<string, Insumo>([
+      ['mat-cable-uni-2_5-celeste', { id: 'mat-cable-uni-2_5-celeste', categoriaId: 'cat-cables', nombre: 'Cable 2.5 Celeste', unidad: 'm', precioActual: 300, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-2_5-marron', { id: 'mat-cable-uni-2_5-marron', categoriaId: 'cat-cables', nombre: 'Cable 2.5 Marrón', unidad: 'm', precioActual: 300, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-2_5-verde-amarillo', { id: 'mat-cable-uni-2_5-verde-amarillo', categoriaId: 'cat-cables', nombre: 'Cable 2.5 Tierra', unidad: 'm', precioActual: 300, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-4-celeste', { id: 'mat-cable-uni-4-celeste', categoriaId: 'cat-cables', nombre: 'Cable 4.0 Celeste', unidad: 'm', precioActual: 450, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-4-marron', { id: 'mat-cable-uni-4-marron', categoriaId: 'cat-cables', nombre: 'Cable 4.0 Marrón', unidad: 'm', precioActual: 450, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-4-verde-amarillo', { id: 'mat-cable-uni-4-verde-amarillo', categoriaId: 'cat-cables', nombre: 'Cable 4.0 Tierra', unidad: 'm', precioActual: 450, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-6-celeste', { id: 'mat-cable-uni-6-celeste', categoriaId: 'cat-cables', nombre: 'Cable 6.0 Celeste', unidad: 'm', precioActual: 650, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-6-marron', { id: 'mat-cable-uni-6-marron', categoriaId: 'cat-cables', nombre: 'Cable 6.0 Marrón', unidad: 'm', precioActual: 650, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-6-verde-amarillo', { id: 'mat-cable-uni-6-verde-amarillo', categoriaId: 'cat-cables', nombre: 'Cable 6.0 Tierra', unidad: 'm', precioActual: 650, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-pia-2x16', { id: 'mat-pia-2x16', categoriaId: 'cat-termomagneticas', nombre: 'PIA 2P 16A', unidad: 'u', precioActual: 8000, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-pia-2x20', { id: 'mat-pia-2x20', categoriaId: 'cat-termomagneticas', nombre: 'PIA 2P 20A', unidad: 'u', precioActual: 8200, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-pia-2x32', { id: 'mat-pia-2x32', categoriaId: 'cat-termomagneticas', nombre: 'PIA 2P 32A', unidad: 'u', precioActual: 9500, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cano-pvc-20', { id: 'mat-cano-pvc-20', categoriaId: 'cat-canos', nombre: 'Caño PVC 20mm', unidad: 'u', precioActual: 2500, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-mod-toma-20a-cargas', { id: 'mat-mod-toma-20a-cargas', categoriaId: 'cat-modulos-llaves', nombre: 'Toma 20A', unidad: 'u', precioActual: 3500, alicuotaIVA: 21 } as unknown as Insumo]
+    ]);
+
+    const mockMO = new Map<string, CategoriaManoDeObra>([
+      ['mo-ayudante', { id: 'mo-ayudante', nombre: 'Ayudante', costoHora: 8000, fechaActualizacion: '2026-09-11' }],
+      ['mo-oficial-electricista', { id: 'mo-oficial-electricista', nombre: 'Oficial Electricista', costoHora: 14000, fechaActualizacion: '2026-09-11' }]
+    ]);
+
+    // Caso 1: Split 3000 kcal en cablecanal (carga 1 -> cable 2.5 mm², termica 16A, solo oficial)
+    const casoSplit = calcularConsumosTareaTipo(
+      acuTask,
+      { distancia_tablero: 12, tipo_carga: 1, tipo_canalizacion: 2, requiere_termica: 1, espacio_tablero: 1, tipo_terminal: 1 },
+      mockCatalogo,
+      mockMO
+    );
+
+    expect(casoSplit.insumosSnapshot.some(i => i.insumoId === 'mat-cable-uni-2_5-celeste')).toBe(true);
+    expect(casoSplit.insumosSnapshot.some(i => i.insumoId === 'mat-cable-uni-2_5-marron')).toBe(true);
+    expect(casoSplit.insumosSnapshot.some(i => i.insumoId === 'mat-cable-uni-2_5-verde-amarillo')).toBe(true);
+    expect(casoSplit.insumosSnapshot.some(i => i.insumoId === 'mat-pia-2x16')).toBe(true);
+    expect(casoSplit.insumosSnapshot.some(i => i.insumoId === 'mat-mod-toma-20a-cargas')).toBe(true);
+    // En cablecanal no requiere ayudante
+    expect(casoSplit.manoObraSnapshot.some(m => m.categoriaId === 'mo-ayudante')).toBe(false);
+    expect(casoSplit.manoObraSnapshot.some(m => m.categoriaId === 'mo-oficial-electricista')).toBe(true);
+
+    // Caso 2: Anafe 7kW embutido (carga 3 -> cable 6.0 mm², termica 32A, requiere ayudante para picar/amurar)
+    const casoAnafe = calcularConsumosTareaTipo(
+      acuTask,
+      { distancia_tablero: 15, tipo_carga: 3, tipo_canalizacion: 4, requiere_termica: 1, espacio_tablero: 1, tipo_terminal: 2 },
+      mockCatalogo,
+      mockMO
+    );
+
+    expect(casoAnafe.insumosSnapshot.some(i => i.insumoId === 'mat-cable-uni-6-marron')).toBe(true);
+    expect(casoAnafe.insumosSnapshot.some(i => i.insumoId === 'mat-pia-2x32')).toBe(true);
+    expect(casoAnafe.manoObraSnapshot.some(m => m.categoriaId === 'mo-ayudante')).toBe(true);
+  });
+
+  it('evalúa la tarea tipo exclusiva para Circuito de Tomas de Uso Especial (TUE)', () => {
+    const tueTask = INITIAL_TAREAS_TIPO.find(t => t.id === 'tt-circuito-tue-dedicado');
+    expect(tueTask).toBeDefined();
+    if (!tueTask) return;
+
+    const mockCatalogo = new Map<string, Insumo>([
+      ['mat-cable-uni-4-celeste', { id: 'mat-cable-uni-4-celeste', categoriaId: 'cat-cables', nombre: 'Cable 4.0 Celeste', unidad: 'm', precioActual: 450, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-4-marron', { id: 'mat-cable-uni-4-marron', categoriaId: 'cat-cables', nombre: 'Cable 4.0 Marrón', unidad: 'm', precioActual: 450, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-cable-uni-4-verde-amarillo', { id: 'mat-cable-uni-4-verde-amarillo', categoriaId: 'cat-cables', nombre: 'Cable 4.0 Tierra', unidad: 'm', precioActual: 450, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-pia-2x20', { id: 'mat-pia-2x20', categoriaId: 'cat-termomagneticas', nombre: 'PIA 2P 20A', unidad: 'u', precioActual: 8200, alicuotaIVA: 21 } as unknown as Insumo],
+      ['mat-mod-toma-20a-cargas', { id: 'mat-mod-toma-20a-cargas', categoriaId: 'cat-modulos-llaves', nombre: 'Toma 20A', unidad: 'u', precioActual: 3500, alicuotaIVA: 21 } as unknown as Insumo]
+    ]);
+
+    const mockMO = new Map<string, CategoriaManoDeObra>([
+      ['mo-ayudante', { id: 'mo-ayudante', nombre: 'Ayudante', costoHora: 8000, fechaActualizacion: '2026-09-11' }],
+      ['mo-oficial-electricista', { id: 'mo-oficial-electricista', nombre: 'Oficial Electricista', costoHora: 14000, fechaActualizacion: '2026-09-11' }]
+    ]);
+
+    const evalTue = calcularConsumosTareaTipo(
+      tueTask,
+      { cantidad_bocas: 4, distancia_al_tablero: 10, distancia_entre_bocas: 3, seccion_conductor: 4, tipo_canalizacion: 1, requiere_termica: 1, suministro_tomas_20a: 1 },
+      mockCatalogo,
+      mockMO
+    );
+
+    // Cable 4mm² para fase, neutro y tierra
+    expect(evalTue.insumosSnapshot.some(i => i.insumoId === 'mat-cable-uni-4-marron')).toBe(true);
+    expect(evalTue.insumosSnapshot.some(i => i.insumoId === 'mat-cable-uni-4-celeste')).toBe(true);
+    expect(evalTue.insumosSnapshot.some(i => i.insumoId === 'mat-cable-uni-4-verde-amarillo')).toBe(true);
+    // Térmica 20A
+    expect(evalTue.insumosSnapshot.some(i => i.insumoId === 'mat-pia-2x20')).toBe(true);
+    // 4 tomas de 20A suministrados
+    const tomasItem = evalTue.insumosSnapshot.find(i => i.insumoId === 'mat-mod-toma-20a-cargas');
+    expect(tomasItem).toBeDefined();
+    expect(tomasItem?.cantidadTotal).toBe(4);
+
+    // Cuadrilla en tándem
+    const hsOficial = evalTue.manoObraSnapshot.find(m => m.categoriaId === 'mo-oficial-electricista')?.horasTotales;
+    const hsAyudante = evalTue.manoObraSnapshot.find(m => m.categoriaId === 'mo-ayudante')?.horasTotales;
+    expect(hsOficial).toBeDefined();
+    expect(hsAyudante).toBeDefined();
+    expect(hsOficial).toBe(hsAyudante);
+  });
 });
 
 // ─── 15. Estructura de Gastos Directos (MO, Materiales, Servicios) vs Indirectos & Capítulos ──────
