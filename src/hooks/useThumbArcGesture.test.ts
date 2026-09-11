@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useThumbArcGesture } from './useThumbArcGesture';
 
-describe('useThumbArcGesture (Polar Engine)', () => {
+describe('useThumbArcGesture (Polar Engine & Vertical Gestures)', () => {
   beforeEach(() => {
     navigator.vibrate = vi.fn();
   });
@@ -46,21 +46,23 @@ describe('useThumbArcGesture (Polar Engine)', () => {
     const { result } = renderHook(() =>
       useThumbArcGesture({
         handedness: 'right',
-        sensitivityRad: 0.05,
+        sensitivityRad: 0.04,
         onStepChange
       })
     );
 
     act(() => {
-      // Start near horizontal left of pivot (400, 400)
-      result.current.handlers.onPointerDown(mockPointerEvent('down', 200, 380));
+      // Start at radius 200px from pivot (400, 400) at angle -170 deg:
+      // dx = -197, dy = -35 -> clientX = 203, clientY = 365
+      result.current.handlers.onPointerDown(mockPointerEvent('down', 203, 365));
     });
 
     expect(result.current.isDragging).toBe(true);
 
     act(() => {
-      // Move upward along the arc towards top
-      result.current.handlers.onPointerMove(mockPointerEvent('move', 220, 240));
+      // Move along arc: same radius ~200px, but angle -145 deg:
+      // dx = -164, dy = -115 -> clientX = 236, clientY = 285
+      result.current.handlers.onPointerMove(mockPointerEvent('move', 236, 285));
     });
 
     expect(onStepChange).toHaveBeenCalledWith(1);
@@ -72,23 +74,77 @@ describe('useThumbArcGesture (Polar Engine)', () => {
     const { result } = renderHook(() =>
       useThumbArcGesture({
         handedness: 'right',
-        sensitivityRad: 0.05,
+        sensitivityRad: 0.04,
         onStepChange
       })
     );
 
     act(() => {
-      // Start higher up on the arc
-      result.current.handlers.onPointerDown(mockPointerEvent('down', 220, 240));
+      // Start higher up along arc: radius 200px at angle -145 deg
+      result.current.handlers.onPointerDown(mockPointerEvent('down', 236, 285));
     });
 
     act(() => {
-      // Move downward towards horizontal bottom
-      result.current.handlers.onPointerMove(mockPointerEvent('move', 200, 380));
+      // Move down along arc: same radius ~200px, angle -170 deg
+      result.current.handlers.onPointerMove(mockPointerEvent('move', 203, 365));
     });
 
     expect(onStepChange).toHaveBeenCalledWith(-1);
     expect(result.current.lastGesture).toBe('dec');
+  });
+
+  it('triggers onPrevField (retroceder) on vertical swipe UP', () => {
+    const onPrevField = vi.fn();
+    const onNextField = vi.fn();
+    const onStepChange = vi.fn();
+    const { result } = renderHook(() =>
+      useThumbArcGesture({
+        onPrevField,
+        onNextField,
+        onStepChange
+      })
+    );
+
+    act(() => {
+      result.current.handlers.onPointerDown(mockPointerEvent('down', 200, 250));
+    });
+
+    act(() => {
+      // Swiping straight UP: deltaY is -55px, deltaX is 2px, radius changes by 35px
+      result.current.handlers.onPointerMove(mockPointerEvent('move', 202, 195));
+    });
+
+    expect(onPrevField).toHaveBeenCalledTimes(1);
+    expect(onNextField).not.toHaveBeenCalled();
+    expect(onStepChange).not.toHaveBeenCalled();
+    expect(result.current.lastGesture).toBe('prev');
+  });
+
+  it('triggers onNextField (avanzar) on vertical swipe DOWN', () => {
+    const onPrevField = vi.fn();
+    const onNextField = vi.fn();
+    const onStepChange = vi.fn();
+    const { result } = renderHook(() =>
+      useThumbArcGesture({
+        onPrevField,
+        onNextField,
+        onStepChange
+      })
+    );
+
+    act(() => {
+      result.current.handlers.onPointerDown(mockPointerEvent('down', 200, 150));
+    });
+
+    act(() => {
+      // Swiping straight DOWN: deltaY is +55px, deltaX is 2px, radius changes by 35px
+      result.current.handlers.onPointerMove(mockPointerEvent('move', 202, 205));
+    });
+
+    expect(onNextField).toHaveBeenCalledTimes(1);
+    expect(onPrevField).not.toHaveBeenCalled();
+    expect(onStepChange).not.toHaveBeenCalled();
+    expect(result.current.lastGesture).toBe('next');
   });
 
   it('resets isDragging on pointerUp', () => {

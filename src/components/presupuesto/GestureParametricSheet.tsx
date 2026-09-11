@@ -148,7 +148,6 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
     if (safeIndex > 0) setActiveParamIndex(prev => prev - 1);
   };
 
-  // Motor polar angular
   const {
     handedness,
     toggleHandedness,
@@ -159,8 +158,10 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
     handlers
   } = useThumbArcGesture({
     handedness: 'right',
-    sensitivityRad: 0.05,
+    sensitivityRad: 0.045,
     onStepChange: handleStepChange,
+    onPrevField: handlePrevParam,
+    onNextField: handleNextParam,
     onConfirm: onConfirm,
     enableHaptics: true
   });
@@ -465,9 +466,19 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
                 <Minus className="w-3.5 h-3.5" /> Disminuyendo...
               </span>
             )}
+            {lastGesture === 'prev' && (
+              <span className="text-xs font-mono font-bold text-purple-300 flex items-center gap-1 animate-pulse">
+                <span>⬆ Retrocediendo dato</span>
+              </span>
+            )}
+            {lastGesture === 'next' && (
+              <span className="text-xs font-mono font-bold text-emerald-300 flex items-center gap-1 animate-pulse">
+                <span>⬇ Avanzando dato</span>
+              </span>
+            )}
             {!lastGesture && (
               <span className="text-xs text-slate-400 flex items-center gap-1.5">
-                <span>Deslizá el pulgar sobre el arco</span>
+                <span>◄ Arco: valor • ↕ Arriba: retroceder / Abajo: avanzar ►</span>
               </span>
             )}
           </div>
