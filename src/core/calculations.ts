@@ -2612,6 +2612,28 @@ export function sonItemsCompatiblesParaSinergia(items: ItemPresupuesto[]): boole
 }
 
 /**
+ * Convierte el costo de una jornada completa de trabajo a costo por hora según las horas de jornada estipuladas.
+ * Convenio UOCRA habitual: 9 hs (o 8 hs legal).
+ */
+export function calcularCostoHoraDesdeJornada(costoJornada: number, horasJornada: number = 9): number {
+  const hs = safeNum(horasJornada) > 0 ? safeNum(horasJornada) : 9;
+  const cj = safeNum(costoJornada);
+  if (cj <= 0) return 0;
+  return roundMoney(cj / hs);
+}
+
+/**
+ * Convierte el costo por hora a costo de jornada completa según las horas de jornada estipuladas.
+ * Convenio UOCRA habitual: 9 hs (o 8 hs legal).
+ */
+export function calcularCostoJornadaDesdeHora(costoHora: number, horasJornada: number = 9): number {
+  const hs = safeNum(horasJornada) > 0 ? safeNum(horasJornada) : 9;
+  const ch = safeNum(costoHora);
+  if (ch <= 0) return 0;
+  return roundMoney(ch * hs);
+}
+
+/**
  * Calcula la sinergia determinística de mano de obra cuando se combinan múltiples tareas en obra.
  * - Consolidación de Setup (Alistamiento de Puesto): El setup se consolida en 1h base + 0.15h por tarea.
  * - Bono de Trabajo en Tándem: Si operarios >= 2, aplica un 10% de ganancia de productividad en tareas conjuntas.
@@ -2715,7 +2737,8 @@ export function calcularSinergiaManoObra(params: {
     const tiempoReloj = roundMoney(horasTeoricasTotal / nOperarios);
     const jornadas = roundMoney(horasTeoricasTotal / (nOperarios * horasEfectivas));
     const diasEnteros = Math.max(1, Math.ceil(jornadas || 1));
-    const horasDevengadas = diasEnteros * nOperarios * 8.0;
+    const horasDevengadas = diasEnteros * nOperarios * horasEfectivas;
+    const costoJornadasCompletas = roundMoney(horasDevengadas * tarifaPonderadaCuadrilla);
 
     return {
       operarios: nOperarios,
@@ -2730,6 +2753,7 @@ export function calcularSinergiaManoObra(params: {
       jornadasEstimadas: jornadas,
       diasEnterosObra: diasEnteros,
       horasDevengadasJornal: horasDevengadas,
+      costoJornadasCompletas,
       tarifaPonderadaCuadrilla,
       composicionCuadrillaTexto: compTexto,
       factorSinergia: 1.0,
@@ -2755,7 +2779,8 @@ export function calcularSinergiaManoObra(params: {
   const tiempoObraHorasReloj = roundMoney(horasFinales / nOperarios);
   const jornadasEstimadas = roundMoney(horasFinales / (nOperarios * horasEfectivas));
   const diasEnterosObra = Math.max(1, Math.ceil(jornadasEstimadas));
-  const horasDevengadasJornal = diasEnterosObra * nOperarios * 8.0;
+  const horasDevengadasJornal = diasEnterosObra * nOperarios * horasEfectivas;
+  const costoJornadasCompletas = roundMoney(horasDevengadasJornal * tarifaPonderadaCuadrilla);
 
   // Costo Real de Mano de Obra por Jornales Devengados Ponderados
   const costoManoObraSinergico = roundMoney(
@@ -2785,6 +2810,7 @@ export function calcularSinergiaManoObra(params: {
     jornadasEstimadas,
     diasEnterosObra,
     horasDevengadasJornal,
+    costoJornadasCompletas,
     tarifaPonderadaCuadrilla,
     composicionCuadrillaTexto: compTexto,
     factorSinergia,

@@ -28,6 +28,8 @@ import {
   actualizarSnapshotsInsumosConCatalogo,
   analizarCambiosPreciosPresupuesto,
   aplicarActualizacionPreciosPresupuesto,
+  calcularCostoHoraDesdeJornada,
+  calcularCostoJornadaDesdeHora,
   DEFAULT_CLAUSULA_OBRA_EXISTENTE
 } from './calculations';
 import { evaluateCondition, evaluateMathExpression } from './mathEvaluator';
@@ -3022,7 +3024,103 @@ describe('22. Motor de Actualización Integral de Precios y Tarifas', () => {
       expect(resultConSinergia.itemsCalculados[0].costoManoObra).toBe(10000);
     });
   });
+
+  describe('Conversiones de Convenio UOCRA (Hora <-> Jornada)', () => {
+    it('convierte costo de jornada a costo por hora considerando la base horaria (9 hs UOCRA por defecto)', () => {
+      // 90.000 / 9 = 10.000
+      expect(calcularCostoHoraDesdeJornada(90000, 9)).toBe(10000);
+      // Con jornada de 8 hs legal: 80.000 / 8 = 10.000
+      expect(calcularCostoHoraDesdeJornada(80000, 8)).toBe(10000);
+      // Fallback por defecto a 9 hs si no se pasa horasJornada
+      expect(calcularCostoHoraDesdeJornada(81000)).toBe(9000);
+      // Manejo seguro de ceros o negativos
+      expect(calcularCostoHoraDesdeJornada(0)).toBe(0);
+      expect(calcularCostoHoraDesdeJornada(-500)).toBe(0);
+    });
+
+    it('convierte costo por hora a costo de jornada considerando la base horaria', () => {
+      // 10.000 * 9 = 90.000
+      expect(calcularCostoJornadaDesdeHora(10000, 9)).toBe(90000);
+      // Con 8 hs legal: 10.000 * 8 = 80.000
+      expect(calcularCostoJornadaDesdeHora(10000, 8)).toBe(80000);
+      // Fallback por defecto a 9 hs
+      expect(calcularCostoJornadaDesdeHora(12000)).toBe(108000);
+      // Manejo seguro de ceros o negativos
+      expect(calcularCostoJornadaDesdeHora(0)).toBe(0);
+    });
+
+    it('calcula costoJornadasCompletas en calcularSinergiaManoObra cubriendo el piso de jornadas de convenio', () => {
+      const mockCatMO: CategoriaManoDeObra[] = [
+        { id: 'mo-of', nombre: 'Oficial Electricista', costoHora: 10000, rol: 'oficial', fechaActualizacion: '' },
+        { id: 'mo-ay', nombre: 'Ayudante Práctico', costoHora: 8000, rol: 'ayudante', fechaActualizacion: '' }
+      ];
+
+      const testItems: ItemPresupuesto[] = [
+        {
+          id: 'it-1',
+          descripcion: 'Cableado Vivienda',
+          cantidad: 1,
+          unidad: 'u',
+          costoInsumos: 0,
+          costoManoObra: 60000,
+          costoDirectoTotal: 60000,
+          costoTotal: 60000,
+          precioVentaUnitario: 60000,
+          precioVentaTotal: 60000,
+          insumosSnapshot: [],
+          manoObraSnapshot: [
+            {
+              categoriaId: 'mo-of',
+              nombreCategoria: 'Oficial Electricista',
+              horasUnitarias: 6,
+              horasTotales: 6,
+              costoHoraCongelado: 10000,
+              subtotalManoObra: 60000
+            }
+          ]
+        },
+        {
+          id: 'it-2',
+          descripcion: 'Tablero Seccional',
+          cantidad: 1,
+          unidad: 'u',
+          costoInsumos: 0,
+          costoManoObra: 32000,
+          costoDirectoTotal: 32000,
+          costoTotal: 32000,
+          precioVentaUnitario: 32000,
+          precioVentaTotal: 32000,
+          insumosSnapshot: [],
+          manoObraSnapshot: [
+            {
+              categoriaId: 'mo-ay',
+              nombreCategoria: 'Ayudante Práctico',
+              horasUnitarias: 4,
+              horasTotales: 4,
+              costoHoraCongelado: 8000,
+              subtotalManoObra: 32000
+            }
+          ]
+        }
+      ];
+
+      const res = calcularSinergiaManoObra({
+        items: testItems,
+        operarios: 2,
+        horasEfectivasJornada: 9.0,
+        categoriasManoObra: mockCatMO
+      });
+
+      expect(res.costoJornadasCompletas).toBeDefined();
+      expect(res.costoJornadasCompletas).toBeGreaterThan(0);
+      expect(res.tarifaPonderadaCuadrilla).toBe(9000); // (10000 + 8000) / 2
+      // Horas devengadas por jornadas enteras = diasEnterosObra * operarios * horasEfectivas
+      expect(res.horasDevengadasJornal).toBe(res.diasEnterosObra * 2 * 9.0);
+      expect(res.costoJornadasCompletas).toBe(roundMoney(res.horasDevengadasJornal * res.tarifaPonderadaCuadrilla));
+    });
+  });
 });
+
 
 
 

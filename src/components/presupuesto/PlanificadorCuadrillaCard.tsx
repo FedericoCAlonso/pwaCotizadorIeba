@@ -302,9 +302,9 @@ export const PlanificadorCuadrillaCard: React.FC<PlanificadorCuadrillaCardProps>
 
           <div className="flex items-center gap-2 bg-surface-container-lowest p-2 rounded-xl border border-outline-variant/30 min-h-[52px]">
             {[
-              { hs: 4, label: '4h', tip: '4 hs/día (Consorcio / ruidos)' },
-              { hs: 8, label: '8h', tip: '8 hs/día (Jornada legal)' },
-              { hs: 9, label: '9h', tip: '9 hs/día (Extendida L-V)' }
+              { hs: 9, label: '9h (UOCRA)', tip: '9 hs/día (Convenio UOCRA habitual L-V con descansos)' },
+              { hs: 8, label: '8h (Legal)', tip: '8 hs/día (Jornada legal estándar)' },
+              { hs: 4, label: '4h', tip: '4 hs/día (Consorcio / media jornada)' }
             ].map((preset) => {
               const isSelected = currentHoras === preset.hs;
               return (
@@ -313,7 +313,7 @@ export const PlanificadorCuadrillaCard: React.FC<PlanificadorCuadrillaCardProps>
                   type="button"
                   onClick={() => handleHorasChange(preset.hs)}
                   title={preset.tip}
-                  className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all min-h-[44px] cursor-pointer ${
+                  className={`flex-1 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all min-h-[44px] cursor-pointer ${
                     isSelected
                       ? 'bg-primary text-on-primary shadow-2xs'
                       : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
@@ -333,7 +333,7 @@ export const PlanificadorCuadrillaCard: React.FC<PlanificadorCuadrillaCardProps>
                     handleHorasChange(val);
                   }
                 }}
-                fallbackOnBlur={8}
+                fallbackOnBlur={9}
                 min={1}
                 max={24}
                 decimals={1}
@@ -346,27 +346,68 @@ export const PlanificadorCuadrillaCard: React.FC<PlanificadorCuadrillaCardProps>
         </div>
       </div>
 
-      {/* ─── Resumen Compacto de Ejecución ─── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-surface-container rounded-2xl border border-outline-variant/15 text-sm text-on-surface-variant">
-        <div className="flex items-center gap-5 flex-wrap">
-          <div>
-            <span className="font-bold text-on-surface">Nómina: </span>
-            <span className="font-medium">{sinergia.composicionCuadrillaTexto}</span>
-            <span className="font-mono text-on-surface ml-1 font-bold">({formatARS(sinergia.tarifaPonderadaCuadrilla)}/h)</span>
+      {/* ─── Resumen de Ejecución & Doble Métrica de Cotización ─── */}
+      <div className="bg-surface-container rounded-2xl border border-outline-variant/15 p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-on-surface-variant pb-3 border-b border-outline-variant/15">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-on-surface">Nómina cuadrilla:</span>
+            <span className="font-medium text-on-surface">{sinergia.composicionCuadrillaTexto}</span>
+            <span className="font-mono text-primary font-bold">({formatARS(sinergia.tarifaPonderadaCuadrilla)}/h)</span>
           </div>
 
-          <div>
-            <span className="font-bold text-on-surface">Costo MOD: </span>
-            <span className="font-mono font-bold text-primary text-base">{formatARS(sinergia.costoManoObraSinergico)}</span>
-            <span className="ml-1 opacity-80 font-mono">({sinergia.horasFinales} hs-hombre)</span>
-          </div>
+          {sonCompatibles && aplicarOptimizacion && sinergia.ahorroManoObraARS > 0 && (
+            <div className="text-emerald-700 dark:text-emerald-300 font-bold font-mono text-xs sm:text-sm bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+              Ahorro sinérgico: -{formatARS(sinergia.ahorroManoObraARS)}
+            </div>
+          )}
         </div>
 
-        {sonCompatibles && aplicarOptimizacion && sinergia.ahorroManoObraARS > 0 && (
-          <div className="text-emerald-700 dark:text-emerald-300 font-bold font-mono text-sm sm:text-base">
-            Ahorro sinérgico: -{formatARS(sinergia.ahorroManoObraARS)}
+        {/* Comparativa: Jornadas Enteras UOCRA vs Horas Exactas */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          {/* Opción 1: Horas Exactas */}
+          <div className="p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-secondary" />
+                <span>Cómputo Fino (Horas Exactas)</span>
+              </span>
+              <span className="text-2xs font-semibold uppercase px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container">
+                Trabajos Menores
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between pt-1">
+              <span className="text-xs text-on-surface-variant">MOD por horas netas:</span>
+              <span className="font-mono text-base font-bold text-on-surface">
+                {formatARS(sinergia.costoManoObraSinergico)}
+              </span>
+            </div>
+            <p className="text-2xs text-on-surface-variant">
+              {sinergia.horasFinales} hs-hombre estimadas ({sinergia.tiempoObraHorasReloj} hs reloj). Para presupuestos competitivos o domiciliarios.
+            </p>
           </div>
-        )}
+
+          {/* Opción 2: Jornadas Enteras UOCRA */}
+          <div className="p-3 rounded-xl bg-surface-container-low border border-primary/20 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                <HardHat className="w-3.5 h-3.5 text-primary" />
+                <span>Piso de Convenio (Jornadas UOCRA)</span>
+              </span>
+              <span className="text-2xs font-semibold uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                Obras / Reformas
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between pt-1">
+              <span className="text-xs text-on-surface-variant">MOD por días devengados:</span>
+              <span className="font-mono text-base font-black text-primary">
+                {formatARS(sinergia.costoJornadasCompletas)}
+              </span>
+            </div>
+            <p className="text-2xs text-on-surface-variant">
+              {displayedDias} {displayedDias === 1 ? 'jornal cerrado' : 'jornales cerrados'} ({sinergia.horasDevengadasJornal} hs). Protege de pagar el día quebrado al personal.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

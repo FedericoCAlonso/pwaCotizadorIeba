@@ -310,6 +310,8 @@ export interface CategoriaManoDeObra {
   id: string;
   nombre: string;
   costoHora: number;
+  horasJornada?: number; // Base horaria de la jornada laboral (convenio UOCRA: 9 hs por defecto, u 8 hs)
+  costoJornada?: number; // Costo por jornada completa = roundMoney(costoHora * (horasJornada ?? 9))
   rol?: RolCategoriaManoDeObra; // Rol funcional en cuadrilla ('oficial', 'ayudante', 'especialista', 'independiente')
   fechaActualizacion: string;
   createdAt?: string;
@@ -695,7 +697,8 @@ export interface SinergiaManoObraResultado {
   tiempoObraHorasReloj: number; // Tiempo físico de obra en horas de reloj (horasFinales / operarios)
   jornadasEstimadas: number; // Días / Jornadas fraccionales = horasFinales / (operarios * horasEfectivasJornada)
   diasEnterosObra: number; // Jornadas enteras cerradas de convenio: Math.ceil(jornadasEstimadas)
-  horasDevengadasJornal: number; // Horas totales a pagar por convenio = diasEnterosObra * operarios * 8 hs
+  horasDevengadasJornal: number; // Horas totales a pagar por convenio = diasEnterosObra * operarios * horasEfectivasJornada
+  costoJornadasCompletas: number; // Costo total devengado por jornadas enteras cerradas = horasDevengadasJornal * tarifaPonderadaCuadrilla
   tarifaPonderadaCuadrilla: number; // Tarifa horaria ponderada según roles (Oficiales vs Ayudantes)
   composicionCuadrillaTexto: string; // ej: "2 Oficiales + 1 Ayudante"
   factorSinergia: number; // Factor multiplicador (ej: 0.82)

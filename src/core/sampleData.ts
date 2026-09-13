@@ -97,10 +97,15 @@ export const INITIAL_MANO_OBRA: CategoriaManoDeObra[] = (bdDefaultData.manoObra 
   } else if (nombreLower.includes('ingeniero') || nombreLower.includes('especialista') || nombreLower.includes('protocolo')) {
     rol = 'especialista';
   }
+  const costoHora = mo.costoHora || 0;
+  const horasJornada = mo.horasJornada || 9;
+  const costoJornada = mo.costoJornada || Math.round(costoHora * horasJornada * 100) / 100;
   return {
     id: mo.id || `mo-${crypto.randomUUID()}`,
     nombre: mo.nombre || '',
-    costoHora: mo.costoHora || 0,
+    costoHora,
+    horasJornada,
+    costoJornada,
     rol: mo.rol || rol,
     fechaActualizacion: now
   };
