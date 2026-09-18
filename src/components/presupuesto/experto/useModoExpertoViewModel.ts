@@ -428,7 +428,15 @@ export function useModoExpertoViewModel(
     [dslText, handleParseAndSync]
   );
 
-  // Sincronizar hacia el editor si el documento se cargó desde la BD
+  // Sincronizar hacia el editor al montar y si el documento se cargó desde la BD
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      handleParseAndSync(dslText);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (initialDslText && initialDslText.trim().length > 0 && initialDslText !== dslText && !isFocusedRef.current) {
       setDslText(initialDslText);

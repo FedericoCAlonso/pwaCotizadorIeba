@@ -95,7 +95,8 @@ export function normalizeString(str: string): string {
     .trim();
 }
 
-const CALCULATION_KEY_PATTERN = /^(calculos|cálculos|cálculo|formula|fórmula|variables|variable|parametros|parámetros|parametro|parámetro|params|param)$/i;
+const CALCULATION_KEY_PATTERN =
+  /^(calculos|calculo|c[aá]lculos|c[aá]lculo|formula|formulas|f[oó]rmula|f[oó]rmulas|variables|variable|parametros|par[aá]metros|parametro|par[aá]metro|params|param)$/i;
 
 function isCalculationKey(key: string): boolean {
   return CALCULATION_KEY_PATTERN.test((key || '').trim());
@@ -701,7 +702,10 @@ export function serializePresupuestoToDSL(data: {
     lines.push(`# ------------------------------------------------------------`);
     lines.push(`# CAPÍTULO: ${cap.nombre}`);
     lines.push(`# ------------------------------------------------------------`);
-    lines.push(`${cap.nombre}:`);
+    const rawCapNombre = (cap.nombre || '').trim();
+    const needsQuotes = rawCapNombre.includes(':') || rawCapNombre.includes('#') || rawCapNombre.startsWith('-') || /^\d/.test(rawCapNombre);
+    const safeCapKey = needsQuotes ? `"${rawCapNombre.replace(/"/g, '\\"')}":` : `${rawCapNombre}:`;
+    lines.push(safeCapKey);
     const capItems = items.filter((it) => it.capituloId === cap.id);
     if (capItems.length === 0) {
       lines.push('  # (Sin partidas aún - escribí una con / o -)');
@@ -844,6 +848,18 @@ function parseQuantityAndName(
     if (isNum || isForm || inScope) {
       precioManual = evaluateExpressionOrNumber(rawPrice, scope);
       str = str.slice(0, priceMatch.index).trim();
+    }
+  } else {
+    // Soportar precio al final con prefijo "$" sin requerir ":" o "=" (ej: "10 u Boca $ 12.500")
+    const dollarPriceMatch = str.match(/(?:\s+\$\s*)([0-9.,]+|[a-zA-Z_]\w*(?:\s*[+\-*/]\s*[a-zA-Z0-9_]+)*)\s*$/);
+    if (dollarPriceMatch) {
+      const rawPrice = dollarPriceMatch[1].trim();
+      const isNum = /^[0-9.,]+$/.test(rawPrice);
+      const inScope = scope && Object.keys(scope).some((k) => new RegExp(`\\b${k}\\b`, 'i').test(rawPrice));
+      if (isNum || inScope) {
+        precioManual = evaluateExpressionOrNumber(rawPrice, scope);
+        str = str.slice(0, dollarPriceMatch.index).trim();
+      }
     }
   }
 
@@ -1031,14 +1047,38 @@ function parseQuantityAndName(
     }
   }
 
-  // 3c. Cantidad y Unidad al inicio seguido de nombre (ej: "10 u ...", "25m ...", "4 ...")
+  // 3c. Cantidad y Unidad al inicio seguido de nombre (ej: "10 u ...", "25m ...", "4 ...", "2x ...")
   const match = str.match(/^([0-9]+(?:[.,][0-9]+)?)\s*([a-zA-ZáéíóúÁÉÍÓÚ²³]+)?\s+(.+)$/);
   if (match) {
     const parsedQty = parseLocalizedNumber(match[1]);
     const candidateUnit = (match[2] || '').toLowerCase();
     const restName = match[3].trim().replace(/^"|"$/g, '');
 
+    // Multiplicador tipo "2x Disyuntor" o "2 x Disyuntor"
+    if (candidateUnit === 'x') {
+      return {
+        cantidad: parsedQty >= 0 ? parsedQty : 0,
+        unidad: 'u',
+        nombre: restName,
+        marca,
+        condicion,
+        precioManual
+      };
+    }
+
     if (candidateUnit && KNOWN_UNITS.has(candidateUnit)) {
+      // Disambiguar "10 Boca de Iluminación" o "10 Bocas de Iluminación" o "10 Puntos de Red":
+      // Si la palabra después de la unidad empieza con "de " o "del ", es parte del nombre de la tarea
+      if (/^(boca|bocas|punto|puntos)$/i.test(candidateUnit) && /^(de|del)\s+/i.test(restName)) {
+        return {
+          cantidad: parsedQty >= 0 ? parsedQty : 0,
+          unidad: 'u',
+          nombre: `${match[2]} ${restName}`,
+          marca,
+          condicion,
+          precioManual
+        };
+      }
       return {
         cantidad: parsedQty >= 0 ? parsedQty : 0,
         unidad: candidateUnit,
@@ -1061,7 +1101,25 @@ function parseQuantityAndName(
     }
   }
 
-  // Si no tiene número ni fórmula al inicio, cantidad = 1
+  // 3d. Cantidad especificada al final (ej: "Boca de Iluminación x 10" o "Disyuntor 2x40A (2 u)")
+  const trailingQtyMatch = str.match(/\s+(?:[xX]\s*([0-9]+)|(?:[\(\[]\s*([0-9]+)\s*(?:u|un|uni|unidades)?\s*[\)\]]))\s*$/);
+  if (trailingQtyMatch) {
+    const rawQty = trailingQtyMatch[1] || trailingQtyMatch[2];
+    const parsedQty = parseLocalizedNumber(rawQty);
+    const cleanDesc = str.slice(0, trailingQtyMatch.index).trim();
+    if (parsedQty > 0 && cleanDesc.length > 0) {
+      return {
+        cantidad: parsedQty,
+        unidad: 'u',
+        nombre: cleanDesc,
+        marca,
+        condicion,
+        precioManual
+      };
+    }
+  }
+
+  // Si no tiene número ni fórmula al inicio ni al final, cantidad = 1
   return {
     cantidad: 1,
     unidad: 'u',
@@ -1149,6 +1207,141 @@ export function preprocessYamlText(yamlText: string): string {
     }
   }
 
+  // 1.5. Normalizar encabezados de capítulo y viñetas de ítems a nivel raíz
+  const reservedRootKeysLoose = (k: string): boolean =>
+    isCalculationKey(k) ||
+    /^(cliente|obra|factura|validez|margen|riesgo|dolar|totales|gastos|condiciones_pago|partidas|capitulo|capitulos|cap[íi]tulo|cap[íi]tulos)$/i.test(k.trim());
+
+  let activeChapter = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+
+    const indent = (raw.match(/^\s*/)?.[0] || '').length;
+
+    // Caso A: Comentario tipo "# CAPÍTULO: Iluminación" o "# Capítulo 1: Iluminación"
+    if (indent === 0 && trimmed.startsWith('#')) {
+      const commentCapMatch = trimmed.match(/^#+\s*(?:cap[íi]tulo\s*\d*[:\-]?|partidas?[:\-]?)?\s*([^#\n\r]+)$/i);
+      if (commentCapMatch) {
+        const potentialTitle = commentCapMatch[1].replace(/[:\-]+$/, '').trim();
+        const isDecorative = /^(={3,}|-{3,}|\*{3,}|cotizaci[oó]n|datos|celdas|gastos|cap[íi]tulos\s+y\s+partidas)/i.test(potentialTitle);
+        if (potentialTitle && !isDecorative && !reservedRootKeysLoose(potentialTitle)) {
+          let nextIsItem = false;
+          let nextIsFormalHeader = false;
+          for (let j = i + 1; j < lines.length; j++) {
+            const nextTr = lines[j].trim();
+            if (!nextTr) continue;
+            if (nextTr.startsWith('#')) continue;
+            if (nextTr.startsWith('-') || nextTr.startsWith('*') || nextTr.startsWith('•') || /^\d+[\.\)]\s+/.test(nextTr)) {
+              nextIsItem = true;
+            } else if (nextTr.endsWith(':')) {
+              nextIsFormalHeader = true;
+            }
+            break;
+          }
+          if (nextIsItem && !nextIsFormalHeader) {
+            lines[i] = `"${potentialTitle.replace(/"/g, '\\"')}":`;
+            activeChapter = true;
+            continue;
+          }
+        }
+      }
+      continue;
+    }
+
+    // Caso B: Línea a nivel raíz (indent 0) que no empieza con viñeta
+    if (indent === 0 && !trimmed.startsWith('-')) {
+      const isCapExplicit = /^(cap[íi]tulo|capitulo|secci[oó]n|seccion)\b/i.test(trimmed);
+      const isNumbered = /^\d+\s*[\.\-]\s*[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]/i.test(trimmed);
+      const colonIdx = trimmed.indexOf(':');
+      const rootKey = (colonIdx >= 0 ? trimmed.slice(0, colonIdx) : trimmed).trim().toLowerCase();
+
+      // Es un ítem evidente (cantidad + unidad, precio $, o viñeta no estándar)
+      const isItemLike =
+        /^([\*•]|\d+[\.\)]|\d+\s+-)\s+/.test(trimmed) ||
+        /^\d+(?:[.,]\d+)?\s*(u|un|unidad|unidades|m|mt|mts|metro|metros|ml|m2|m3|gl|global|boca|bocas|pza|pzas|hs|h|hora|horas|kg|l|litro|litros)\b/i.test(trimmed) ||
+        /^\$\s*\d+/.test(trimmed);
+
+      if (!reservedRootKeysLoose(rootKey)) {
+        // Distinguir asignación de variable escalar a nivel raíz (ej: superficie: 120 o ancho = 5)
+        const isVarAssign = /^[a-zA-Z_]\w*\s*[:=]\s*(?:=|[0-9.,]+|\$)/.test(trimmed) && !isCapExplicit && !isNumbered;
+
+        if (!isVarAssign && !isItemLike) {
+          let followedByItems = false;
+          // Solo buscar followedByItems si no estamos dentro de un capítulo activo
+          if (!activeChapter) {
+            for (let j = i + 1; j < lines.length; j++) {
+              const nextTr = lines[j].trim();
+              if (!nextTr || nextTr.startsWith('#')) continue;
+              const nextInd = (lines[j].match(/^\s*/)?.[0] || '').length;
+              if (
+                nextTr.startsWith('-') ||
+                nextTr.startsWith('*') ||
+                nextTr.startsWith('•') ||
+                /^\d+[\.\)]\s+/.test(nextTr) ||
+                /^\d+(?:[.,]\d+)?\s*(u|un|unidad|unidades|m|mt|mts|metro|metros|ml|m2|m3|gl|global|boca|bocas|pza|pzas|hs|h|hora|horas|kg|l|litro|litros)\b/i.test(nextTr) ||
+                /^\$\s*\d+/.test(nextTr) ||
+                (nextInd >= 2 && !nextTr.endsWith(':') && !/^(cantidad|precio|costo|materiales|mano_obra|servicios|condicion):/i.test(nextTr))
+              ) {
+                followedByItems = true;
+              }
+              break;
+            }
+          }
+
+          if (isCapExplicit || isNumbered || followedByItems || trimmed.endsWith(':')) {
+            const cleanTitle = trimmed.replace(/:+$/, '').trim().replace(/^"+|"+$/g, '').trim();
+            const hasInternalColon = cleanTitle.includes(':');
+            const hasSpecialChars = /[:#*&%@!?,\[\]{}|<>]/.test(cleanTitle) || isNumbered;
+            const needsQuotes = hasInternalColon || hasSpecialChars || isCapExplicit || isNumbered || !trimmed.endsWith(':');
+            if (needsQuotes && (hasInternalColon || hasSpecialChars || !trimmed.endsWith(':'))) {
+              lines[i] = `"${cleanTitle.replace(/"/g, '\\"')}":`;
+            } else {
+              lines[i] = `${cleanTitle}:`;
+            }
+            activeChapter = true;
+            continue;
+          }
+        }
+      }
+
+      // Si estábamos dentro de un capítulo activo y esta línea a indent 0 NO es directiva raíz ni variable:
+      if (activeChapter && !reservedRootKeysLoose(rootKey) && !/^[a-zA-Z_]\w*\s*[:=]\s*(?:=|[0-9.,]+|\$)/.test(trimmed)) {
+        lines[i] = `  - ${trimmed}`;
+        continue;
+      }
+
+      activeChapter = false;
+    }
+
+    // Caso C: Normalizar partidas e ítems bajo el capítulo activo
+    if (activeChapter) {
+      // Re-sangrar si está a columna 0
+      if (indent === 0 && (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• '))) {
+        lines[i] = '  ' + trimmed;
+      }
+
+      // Reemplazar viñetas no estándar por "- "
+      const bulletMatch = lines[i].match(/^(\s*)([\*•]|\d+[\.\)]|\d+\s+-)\s+(.+)$/);
+      if (bulletMatch) {
+        const ind = bulletMatch[1] || '  ';
+        lines[i] = `${ind}- ${bulletMatch[3]}`;
+      }
+
+      // Si es una línea indentada (2 a 4 espacios) sin viñeta y no es propiedad
+      const nonDashMatch = lines[i].match(/^(\s{2,4})([^\s\-#:][^:]*)$/);
+      if (nonDashMatch) {
+        const text = nonDashMatch[2].trim();
+        const isProp = /^(cantidad|cant|qty|precio|costo|price|unidad|unit|marca|producto|horas|materiales|insumos|mano_obra|manoobra|mo|servicios|servicio|condicion)\s*:/i.test(text);
+        if (!isProp && text.length > 0) {
+          lines[i] = `${nonDashMatch[1]}- ${text}`;
+        }
+      }
+    }
+  }
+
   // 2. Agregar ':' a ítems de lista con propiedades anidadas si el usuario lo olvidó y proteger fórmulas
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -1208,9 +1401,6 @@ export function preprocessYamlText(yamlText: string): string {
   }
 
   // 3. Detectar si hay ítems de lista (- ) huérfanos antes de cualquier capítulo o sin encabezado de capítulo
-  const isReservedRootKeyLoose = (k: string): boolean =>
-    /^(cliente|obra|factura|validez|margen|riesgo|dolar|totales|gastos|condiciones_pago|partidas|capitulos|calculos|calculo|c[aá]lculos|c[aá]lculo|variables|variable|parametros|par[aá]metros|parametro|par[aá]metro|params|param)$/i.test(k.trim());
-
   let firstOrphanItemIndex = -1;
 
   for (let i = 0; i < lines.length; i++) {
@@ -1225,10 +1415,11 @@ export function preprocessYamlText(yamlText: string): string {
         const trPrev = rawPrev.trim();
         if (!trPrev || trPrev.startsWith('#')) continue;
         const indPrev = (rawPrev.match(/^\s*/)?.[0] || '').length;
-        if (indPrev === 0 && trPrev.endsWith(':') && !trPrev.startsWith('-')) {
-          const key = trPrev.replace(/:$/, '').trim().toLowerCase();
-          if (isReservedRootKeyLoose(key)) {
-            if (/^(gastos|capitulos|calculos|calculo|c[aá]lculos|c[aá]lculo|variables|variable|parametros|par[aá]metros|parametro|par[aá]metro|params|param)$/i.test(key)) {
+        const indItem = (lines[i].match(/^\s*/)?.[0] || '').length;
+        if (indPrev < indItem && trPrev.endsWith(':') && !trPrev.startsWith('-')) {
+          const key = trPrev.replace(/^["']|["']$/g, '').replace(/:$/, '').trim().toLowerCase();
+          if (reservedRootKeysLoose(key)) {
+            if (isCalculationKey(key) || /^(gastos|capitulo|capitulos|cap[íi]tulo|cap[íi]tulos|partidas)$/i.test(key)) {
               hasParentChapter = true;
               break;
             }
@@ -1690,6 +1881,11 @@ export function parseDSLToPresupuesto(
     };
   }
 
+  // Si parsed es un array directo en la raíz (ej: lista de ítems sin directivas)
+  if (Array.isArray(parsed)) {
+    parsed = { partidas: parsed };
+  }
+
   // 1. Ámbito de Cálculo Global (Nivel 0 - Documento)
   const globalScope: Record<string, number> = {};
   const calculatedCells: CalculatedCell[] = [];
@@ -1714,7 +1910,8 @@ export function parseDSLToPresupuesto(
   ];
 
   const isReservedRootKey = (k: string): boolean => {
-    return /^(cliente|obra|factura|validez|margen|riesgo|dolar|totales|gastos|condiciones_pago|partidas|capitulos|calculos|calculo|c[aá]lculos|c[aá]lculo|variables|variable|parametros|par[aá]metros|parametro|par[aá]metro|params|param)$/i.test(k.trim());
+    if (isCalculationKey(k)) return true;
+    return /^(cliente|obra|factura|validez|margen|riesgo|dolar|totales|gastos|condiciones_pago|partidas|capitulo|capitulos|cap[íi]tulo|cap[íi]tulos)$/i.test(k.trim());
   };
 
   const isChapterObject = (val: any): boolean => {
@@ -1991,46 +2188,145 @@ export function parseDSLToPresupuesto(
   const items: ItemPresupuesto[] = [];
   const lineTracker = { currentLine: 1 };
 
-  // Si hay partidas sin capítulo explícito bajo "partidas:"
-  if (Array.isArray(parsed.partidas)) {
-    parsed.partidas.forEach((rawItem: any) => {
+  // Helper para preservar IDs de capítulos existentes
+  const findExistingCapId = (name: string, fallbackId: string): string => {
+    const norm = normalizeString(name);
+    const existing = context.existingCapitulos?.find((ec) => normalizeString(ec.nombre) === norm);
+    return existing ? existing.id : fallbackId;
+  };
+
+  // Si hay partidas sin capítulo explícito bajo "partidas:" o "Partidas:"
+  const rawPartidas = Array.isArray(parsed.partidas)
+    ? parsed.partidas
+    : (Array.isArray(parsed.Partidas) ? parsed.Partidas : null);
+  if (rawPartidas) {
+    rawPartidas.forEach((rawItem: any) => {
       parseAndAddItem(rawItem, undefined, items, context, diagnostics, globalScope, calculatedCells, yamlText, lineTracker);
     });
   }
 
-  // Si hay lista explícita de "capitulos:"
-  if (Array.isArray(parsed.capitulos)) {
-    parsed.capitulos.forEach((capObj: any, cIdx: number) => {
-      if (capObj && typeof capObj === 'object') {
-        const capNombre = capObj.nombre || `Capítulo ${cIdx + 1}`;
-        const capId = `cap-${cIdx + 1}-${normalizeString(capNombre).slice(0, 15)}`;
+  // Si hay directiva explícita de "capitulos:" o "Capitulos:" o "capitulo:" o "Capitulo:"
+  const rawCapitulos =
+    parsed.capitulos ??
+    parsed.Capitulos ??
+    parsed.capitulo ??
+    parsed.Capitulo ??
+    parsed.capítulos ??
+    parsed.Capítulos;
+
+  if (rawCapitulos) {
+    if (Array.isArray(rawCapitulos)) {
+      rawCapitulos.forEach((capObj: any, cIdx: number) => {
+        if (typeof capObj === 'string') {
+          const capNombre = capObj.trim();
+          const capId = findExistingCapId(capNombre, `cap-${cIdx + 1}-${normalizeString(capNombre).slice(0, 15)}`);
+          capitulos.push({ id: capId, nombre: capNombre });
+        } else if (capObj && typeof capObj === 'object') {
+          let capNombre = capObj.nombre;
+          let capPartidas = Array.isArray(capObj.partidas) ? capObj.partidas : (Array.isArray(capObj.items) ? capObj.items : []);
+
+          // Si no tiene 'nombre' pero es { "Iluminación": [ ... ] }
+          if (!capNombre) {
+            const keys = Object.keys(capObj).filter((k) => !['calculos', 'variables', 'parametros', 'id'].includes(k.toLowerCase()));
+            if (keys.length > 0) {
+              const firstK = keys[0];
+              if (Array.isArray(capObj[firstK])) {
+                capNombre = firstK;
+                capPartidas = capObj[firstK];
+              } else if (typeof capObj[firstK] === 'object' && capObj[firstK] !== null) {
+                capNombre = firstK;
+                const inner = capObj[firstK];
+                capPartidas = Array.isArray(inner.partidas) ? inner.partidas : (Array.isArray(inner.items) ? inner.items : []);
+              } else {
+                capNombre = firstK;
+              }
+            }
+          }
+          if (!capNombre) capNombre = `Capítulo ${cIdx + 1}`;
+          const capId = findExistingCapId(capNombre, `cap-${cIdx + 1}-${normalizeString(capNombre).slice(0, 15)}`);
+          capitulos.push({ id: capId, nombre: capNombre });
+
+          // Ámbito de capítulo (Nivel 1): hereda globalScope
+          const chapterScope: Record<string, number> = { ...globalScope };
+          const rawCapCalculos = findCalculosKey(capObj);
+          const capVars: Record<string, any> = {};
+          if (rawCapCalculos) {
+            const entries = extractCalculationEntries(rawCapCalculos);
+            entries.forEach(([k, v]) => { capVars[k.trim()] = v; });
+          }
+          const reservedCapKeys = new Set(['nombre', 'partidas', 'items', 'id', 'calculos', 'variables', 'parametros']);
+          Object.entries(capObj).forEach(([k, v]) => {
+            if (!reservedCapKeys.has(k.toLowerCase()) && (typeof v === 'number' || typeof v === 'string')) {
+              capVars[k.trim()] = v;
+            }
+          });
+          if (Object.keys(capVars).length > 0) {
+            const localCells = processCalculationBlock(capVars, chapterScope, 'local');
+            calculatedCells.push(...localCells);
+          }
+
+          capPartidas.forEach((rawItem: any) => {
+            parseAndAddItem(rawItem, capId, items, context, diagnostics, chapterScope, calculatedCells, yamlText, lineTracker);
+          });
+        }
+      });
+    } else if (typeof rawCapitulos === 'object') {
+      // Caso capitulos: como mapeo/diccionario (ej: capitulos:\n  Iluminación:\n    - ...)
+      Object.entries(rawCapitulos).forEach(([cName, cContent]: [string, any], cIdx: number) => {
+        const capNombre = cName.trim();
+        const capId = findExistingCapId(capNombre, `cap-${cIdx + 1}-${normalizeString(capNombre).slice(0, 15)}`);
         capitulos.push({ id: capId, nombre: capNombre });
 
-        // Ámbito de capítulo (Nivel 1): hereda globalScope
         const chapterScope: Record<string, number> = { ...globalScope };
-        const rawCapCalculos = findCalculosKey(capObj);
-        const capVars: Record<string, any> = {};
-        if (rawCapCalculos) {
-          const entries = extractCalculationEntries(rawCapCalculos);
-          entries.forEach(([k, v]) => { capVars[k.trim()] = v; });
-        }
-        const reservedCapKeys = new Set(['nombre', 'partidas', 'items', 'id', 'calculos', 'variables', 'parametros']);
-        Object.entries(capObj).forEach(([k, v]) => {
-          if (!reservedCapKeys.has(k.toLowerCase()) && (typeof v === 'number' || typeof v === 'string')) {
-            capVars[k.trim()] = v;
+        if (Array.isArray(cContent)) {
+          cContent.forEach((rawItem: any) => {
+            parseAndAddItem(rawItem, capId, items, context, diagnostics, chapterScope, calculatedCells, yamlText, lineTracker);
+          });
+        } else if (cContent && typeof cContent === 'object') {
+          const rawCapCalculos = findCalculosKey(cContent);
+          const capVars: Record<string, any> = {};
+          if (rawCapCalculos) {
+            const entries = extractCalculationEntries(rawCapCalculos);
+            entries.forEach(([k, v]) => { capVars[k.trim()] = v; });
           }
-        });
-        if (Object.keys(capVars).length > 0) {
-          const localCells = processCalculationBlock(capVars, chapterScope, 'local');
-          calculatedCells.push(...localCells);
+          const reservedCapKeys = new Set(['nombre', 'partidas', 'items', 'id', 'calculos', 'variables', 'parametros']);
+          Object.entries(cContent).forEach(([k, v]) => {
+            if (!reservedCapKeys.has(k.toLowerCase()) && (typeof v === 'number' || typeof v === 'string')) {
+              capVars[k.trim()] = v;
+            }
+          });
+          if (Object.keys(capVars).length > 0) {
+            const localCells = processCalculationBlock(capVars, chapterScope, 'local');
+            calculatedCells.push(...localCells);
+          }
+          const capPartidas = Array.isArray(cContent.partidas)
+            ? cContent.partidas
+            : (Array.isArray(cContent.items) ? cContent.items : []);
+          if (capPartidas.length > 0) {
+            capPartidas.forEach((rawItem: any) => {
+              parseAndAddItem(rawItem, capId, items, context, diagnostics, chapterScope, calculatedCells, yamlText, lineTracker);
+            });
+          } else {
+            Object.entries(cContent).forEach(([k, v]) => {
+              if (!reservedCapKeys.has(k.toLowerCase()) && !capVars[k.trim()]) {
+                const rawItemText = v !== null && v !== undefined && v !== '' ? `${v} ${k}` : k;
+                parseAndAddItem(rawItemText, capId, items, context, diagnostics, chapterScope, calculatedCells, yamlText, lineTracker);
+              }
+            });
+          }
+        } else if (typeof cContent === 'string' && cContent.trim()) {
+          parseAndAddItem(cContent.trim(), capId, items, context, diagnostics, chapterScope, calculatedCells, yamlText, lineTracker);
         }
-
-        const capPartidas = Array.isArray(capObj.partidas) ? capObj.partidas : (Array.isArray(capObj.items) ? capObj.items : []);
-        capPartidas.forEach((rawItem: any) => {
-          parseAndAddItem(rawItem, capId, items, context, diagnostics, chapterScope, calculatedCells, yamlText, lineTracker);
-        });
-      }
-    });
+      });
+    } else if (typeof rawCapitulos === 'string' && rawCapitulos.trim()) {
+      // Caso capitulo: Iluminación como escalar único
+      const capNombre = rawCapitulos.trim();
+      const capId = findExistingCapId(capNombre, `cap-1-${normalizeString(capNombre).slice(0, 15)}`);
+      capitulos.push({ id: capId, nombre: capNombre });
+      items.forEach((it) => {
+        if (!it.capituloId) it.capituloId = capId;
+      });
+    }
   }
 
   // Claves raíz que representan Capítulos (Array u Objeto)
@@ -2039,11 +2335,12 @@ export function parseDSLToPresupuesto(
     if (isReservedRootKey(key)) return;
     if (key.trim() in rootVariables || key.trim() in globalScope) return;
 
+    const capNombre = key.trim();
+    const capId = findExistingCapId(capNombre, `cap-${capIndex + 1}-${normalizeString(capNombre).slice(0, 15).replace(/\s+/g, '-')}`);
+
     // Caso A: Capítulo como Array (ej: Iluminación:\n  - ...)
     if (Array.isArray(parsed[key])) {
       capIndex++;
-      const capNombre = key.trim();
-      const capId = `cap-${capIndex}-${normalizeString(capNombre).slice(0, 15).replace(/\s+/g, '-')}`;
       capitulos.push({ id: capId, nombre: capNombre });
 
       // Ámbito de capítulo (Nivel 1): hereda globalScope
@@ -2066,10 +2363,8 @@ export function parseDSLToPresupuesto(
         parseAndAddItem(rawItem, capId, items, context, diagnostics, chapterScope, calculatedCells, yamlText, lineTracker);
       });
     } else if (isChapterObject(parsed[key])) {
-      // Caso B: Capítulo como Objeto (ej: Iluminación:\n  bocas: 10\n  partidas:\n    - ...)
+      // Caso B: Capítulo como Objeto formal (ej: Iluminación:\n  bocas: 10\n  partidas:\n    - ...)
       capIndex++;
-      const capNombre = key.trim();
-      const capId = `cap-${capIndex}-${normalizeString(capNombre).slice(0, 15).replace(/\s+/g, '-')}`;
       capitulos.push({ id: capId, nombre: capNombre });
 
       const capObj = parsed[key];
@@ -2095,6 +2390,57 @@ export function parseDSLToPresupuesto(
       capPartidas.forEach((rawItem: any) => {
         parseAndAddItem(rawItem, capId, items, context, diagnostics, chapterScope, calculatedCells, yamlText, lineTracker);
       });
+    } else if (typeof parsed[key] === 'string') {
+      // Caso C: Capítulo con un ítem escalar en línea o en siguiente línea (ej: Capítulo 1:\n  10 u Boca)
+      capIndex++;
+      capitulos.push({ id: capId, nombre: capNombre });
+      const itemStr = parsed[key].trim();
+      if (itemStr) {
+        const chapterScope: Record<string, number> = { ...globalScope };
+        const subLines = itemStr.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+        subLines.forEach((subLine: string) => {
+          parseAndAddItem(subLine, capId, items, context, diagnostics, chapterScope, calculatedCells, yamlText, lineTracker);
+        });
+      }
+    } else if (typeof parsed[key] === 'object' && parsed[key] !== null) {
+      // Caso D: Objeto sin clave explícita partidas/items (mapeo directo de ítems o propiedades)
+      capIndex++;
+      capitulos.push({ id: capId, nombre: capNombre });
+      const capObj = parsed[key];
+      const chapterScope: Record<string, number> = { ...globalScope };
+      const rawCapCalculos = findCalculosKey(capObj);
+      const capVars: Record<string, any> = {};
+      if (rawCapCalculos) {
+        const entries = extractCalculationEntries(rawCapCalculos);
+        entries.forEach(([k, v]) => { capVars[k.trim()] = v; });
+      }
+      const reservedCapKeys = new Set(['nombre', 'partidas', 'items', 'id', 'calculos', 'variables', 'parametros']);
+      Object.entries(capObj).forEach(([k, v]) => {
+        if (!reservedCapKeys.has(k.toLowerCase()) && (typeof v === 'number' || typeof v === 'string')) {
+          capVars[k.trim()] = v;
+        }
+      });
+      if (Object.keys(capVars).length > 0) {
+        const localCells = processCalculationBlock(capVars, chapterScope, 'local');
+        calculatedCells.push(...localCells);
+      }
+      const capPartidas = Array.isArray(capObj.partidas) ? capObj.partidas : (Array.isArray(capObj.items) ? capObj.items : []);
+      if (capPartidas.length > 0) {
+        capPartidas.forEach((rawItem: any) => {
+          parseAndAddItem(rawItem, capId, items, context, diagnostics, chapterScope, calculatedCells, yamlText, lineTracker);
+        });
+      } else {
+        Object.entries(capObj).forEach(([k, v]) => {
+          if (!reservedCapKeys.has(k.toLowerCase()) && !capVars[k.trim()]) {
+            const rawItemText = v !== null && v !== undefined && v !== '' ? `${v} ${k}` : k;
+            parseAndAddItem(rawItemText, capId, items, context, diagnostics, chapterScope, calculatedCells, yamlText, lineTracker);
+          }
+        });
+      }
+    } else if (parsed[key] === null || parsed[key] === undefined) {
+      // Caso E: Capítulo vacío sin partidas aún (ej: Capítulo 1: Iluminación:)
+      capIndex++;
+      capitulos.push({ id: capId, nombre: capNombre });
     }
   });
 
@@ -2173,6 +2519,74 @@ function parseAndAddItem(
 
   // CASO 2: Ítem como objeto
   if (typeof rawItem === 'object' && rawItem !== null) {
+    const isStructuredItem = Boolean(
+      rawItem.nombre !== undefined ||
+      rawItem.descripcion !== undefined ||
+      rawItem.tarea !== undefined ||
+      rawItem.item !== undefined ||
+      rawItem.partida !== undefined
+    );
+
+    if (isStructuredItem) {
+      const cleanName = String(
+        rawItem.nombre ?? rawItem.descripcion ?? rawItem.tarea ?? rawItem.item ?? rawItem.partida ?? ''
+      ).trim();
+      const taskQtyRaw = rawItem.cantidad ?? rawItem.cant ?? rawItem.qty;
+      const rawQtyStr = taskQtyRaw !== undefined ? String(taskQtyRaw).trim() : undefined;
+      const formulaCantidad = rawQtyStr && rawQtyStr.startsWith('=') ? rawQtyStr : undefined;
+      const cantidad = taskQtyRaw !== undefined ? evaluateExpressionOrNumber(taskQtyRaw, scope) : 1;
+      const unidad = String(rawItem.unidad ?? rawItem.un ?? rawItem.unit ?? 'u').trim();
+      const condicion = String(rawItem.condicion || rawItem.condicionTrabajo || 'normal').toLowerCase() as any;
+      const taskPrecioRaw = rawItem.precio ?? rawItem.costo ?? rawItem.price;
+      const precioManual = taskPrecioRaw !== undefined ? evaluateExpressionOrNumber(taskPrecioRaw, scope) : undefined;
+
+      const rawMateriales = rawItem.materiales ?? rawItem.insumos;
+      const materialesList: any[] = Array.isArray(rawMateriales) ? rawMateriales : [];
+      const rawMo = rawItem.mano_obra ?? rawItem.manoobra ?? rawItem.mo;
+      const manoObraList: any[] = Array.isArray(rawMo) ? rawMo : [];
+      const rawServicios = rawItem.servicios ?? rawItem.servicio;
+      const serviciosList: any[] = Array.isArray(rawServicios) ? rawServicios : [];
+
+      const itemLine = findLineNumberInYaml(yamlText, escapeRegex(cleanName), lineTracker.currentLine);
+      lineTracker.currentLine = Math.max(lineTracker.currentLine, itemLine);
+
+      if (materialesList.length > 0 || manoObraList.length > 0 || serviciosList.length > 0) {
+        buildCompositeItem({
+          nombre: cleanName,
+          cantidad,
+          formulaCantidad,
+          unidad,
+          condicion,
+          precioManual,
+          materialesList,
+          manoObraList,
+          serviciosList,
+          capituloId,
+          items,
+          context,
+          diagnostics,
+          scope,
+          yamlText,
+          itemLine
+        });
+      } else {
+        buildAndPushItem({
+          nombre: cleanName,
+          cantidad,
+          formulaCantidad,
+          unidad,
+          condicion,
+          precioManual,
+          capituloId,
+          items,
+          context,
+          diagnostics,
+          itemLine
+        });
+      }
+      return;
+    }
+
     const keys = Object.keys(rawItem);
     if (keys.length === 0) return;
 
@@ -2531,6 +2945,88 @@ const VALID_MO_KEYS = new Set([
   'categoria', 'nombre', 'descripcion', 'notas',
   'formula', 'calculo', 'calculos'
 ]);
+
+const VERB_PREFIXES = [
+  'provision y colocacion de ',
+  'provision y montaje de ',
+  'suministro e instalacion de ',
+  'suministro de ',
+  'instalacion de ',
+  'instalacion ',
+  'colocacion de ',
+  'colocacion ',
+  'montaje de ',
+  'montaje ',
+  'provision de ',
+  'cableado de ',
+  'cableado ',
+  'armado de ',
+  'armado ',
+  'conexion de ',
+  'conexion ',
+  'cambio de ',
+  'reemplazo de ',
+  'reparacion de '
+];
+
+export function cleanTaskString(str: string): string {
+  let s = normalizeString(str);
+  for (const prefix of VERB_PREFIXES) {
+    if (s.startsWith(prefix)) {
+      s = s.slice(prefix.length).trim();
+      break;
+    }
+  }
+  return s;
+}
+
+export function singularizeWords(str: string): string {
+  return str
+    .split(/\s+/)
+    .map((w) => {
+      if (w.endsWith('ces')) return w.slice(0, -3) + 'z';
+      if (w.endsWith('es') && w.length > 3) return w.slice(0, -2);
+      if (w.endsWith('s') && !w.endsWith('is') && !w.endsWith('us') && w.length > 2) return w.slice(0, -1);
+      return w;
+    })
+    .join(' ');
+}
+
+export function findMatchingTareaTipo(targetName: string, tareas?: TareaTipo[]): TareaTipo | undefined {
+  if (!targetName || !tareas || tareas.length === 0) return undefined;
+  const rawNorm = normalizeString(targetName);
+
+  // 1. Coincidencia exacta por ID o por nombre normalizado
+  const exact = tareas.find((t) => t.id === rawNorm || normalizeString(t.nombre) === rawNorm);
+  if (exact) return exact;
+
+  // 2. Coincidencia sin prefijos verbales ("instalacion de...", "colocacion de...")
+  const cleanedTarget = cleanTaskString(rawNorm);
+  const prefixMatch = tareas.find((t) => {
+    const cleanedT = cleanTaskString(t.nombre);
+    return cleanedT === cleanedTarget || normalizeString(t.nombre) === cleanedTarget;
+  });
+  if (prefixMatch) return prefixMatch;
+
+  // 3. Coincidencia singular/plural
+  const singTarget = singularizeWords(cleanedTarget);
+  const singularMatch = tareas.find((t) => {
+    const cleanT = cleanTaskString(t.nombre);
+    return singularizeWords(cleanT) === singTarget;
+  });
+  if (singularMatch) return singularMatch;
+
+  // 4. Inclusión substring (solo si la longitud es significativa)
+  if (cleanedTarget.length >= 5) {
+    const candidate = tareas.find((t) => {
+      const cleanT = cleanTaskString(t.nombre);
+      return cleanT.length >= 5 && (cleanedTarget.includes(cleanT) || cleanT.includes(cleanedTarget));
+    });
+    if (candidate) return candidate;
+  }
+
+  return undefined;
+}
 
 /**
  * Construye una partida a medida (In Situ) con despiece de materiales y categorías de mano de obra
@@ -2942,12 +3438,17 @@ function buildCompositeItem(params: {
   const costoUnitario = cantidad > 0 ? roundMoney(costoDirectoTotal / cantidad) : costoDirectoTotal;
 
   const normTarget = normalizeString(nombre);
-  let matchedTarea = normTarget
-    ? context.tareasTipo.find((t) => normalizeString(t.nombre) === normTarget || t.id === normTarget)
-    : undefined;
+  let matchedTarea = findMatchingTareaTipo(nombre, context.tareasTipo);
+
+  const existingItem = context.existingItems?.find(
+    (ei) =>
+      (capituloId ? ei.capituloId === capituloId : true) &&
+      normalizeString(ei.descripcion) === normTarget
+  );
+  const newItemId = existingItem ? existingItem.id : `item-yaml-${crypto.randomUUID().slice(0, 8)}`;
 
   const newItem: ItemPresupuesto = {
-    id: `item-yaml-${crypto.randomUUID().slice(0, 8)}`,
+    id: newItemId,
     capituloId,
     tareaTipoId: matchedTarea?.id,
     descripcion: nombre,
@@ -3020,10 +3521,15 @@ function buildAndPushItem(params: {
 
   const normTarget = normalizeString(nombre);
 
-  // 1. Buscar coincidencia en Catálogo de Tareas Tipo (exacta por nombre o ID)
-  let matchedTarea = normTarget
-    ? context.tareasTipo.find((t) => normalizeString(t.nombre) === normTarget || t.id === normTarget)
-    : undefined;
+  // 1. Buscar coincidencia en Catálogo de Tareas Tipo (exacta, sin prefijos o singular/plural)
+  let matchedTarea = findMatchingTareaTipo(nombre, context.tareasTipo);
+
+  const existingItem = context.existingItems?.find(
+    (ei) =>
+      (capituloId ? ei.capituloId === capituloId : true) &&
+      normalizeString(ei.descripcion) === normTarget
+  );
+  const newItemId = existingItem ? existingItem.id : `item-yaml-${crypto.randomUUID().slice(0, 8)}`;
 
   if (matchedTarea) {
     // Si tiene parámetros personalizados o definidos en la tarea:
@@ -3063,7 +3569,7 @@ function buildAndPushItem(params: {
     const costoUnitarioDirecto = roundMoney(costoInsumos + costoMO + costoServicios + costoFijo);
 
     const newItem: ItemPresupuesto = {
-      id: `item-yaml-${crypto.randomUUID().slice(0, 8)}`,
+      id: newItemId,
       capituloId,
       tareaTipoId: matchedTarea.id,
       descripcion: matchedTarea.nombre,
@@ -3112,7 +3618,7 @@ function buildAndPushItem(params: {
     // Ítem directo o libre
     const directCost = precioManual || 0;
     const newItem: ItemPresupuesto = {
-      id: `item-yaml-${crypto.randomUUID().slice(0, 8)}`,
+      id: newItemId,
       capituloId,
       descripcion: nombre,
       cantidad,
@@ -3268,11 +3774,15 @@ export function detectCursorContext(textBeforeCursor: string): CursorContextResu
       }
     }
 
-    // 5. Encabezado a nivel raíz (indent 0) con ":" que no sea clave reservada (Capítulo)
-    if (lineIndent === 0 && trimmed.endsWith(':') && !trimmed.startsWith('-')) {
-      const rootKey = trimmed.replace(/:$/, '').trim().toLowerCase();
-      if (!reservedRootKeys.has(rootKey)) {
-        return { contextType: 'tareas', currentIndent, parentHeader: trimmed.replace(/:$/, '').trim() };
+    // 5. Encabezado a nivel raíz (indent 0) (Capítulo formal o natural)
+    if (lineIndent === 0 && !trimmed.startsWith('-')) {
+      const isHeaderWithColon = trimmed.endsWith(':');
+      const isNaturalChapter = /^(?:#+\s*)?(?:cap[íi]tulo\s*\d*|secci[oó]n\s*\d*|\d+[\.\-\)]\s*)/i.test(trimmed);
+      if (isHeaderWithColon || isNaturalChapter) {
+        const rootKey = trimmed.replace(/^#+\s*/, '').replace(/:.*$/, '').trim().toLowerCase();
+        if (!reservedRootKeys.has(rootKey)) {
+          return { contextType: 'tareas', currentIndent, parentHeader: trimmed.replace(/^#+\s*/, '').replace(/:$/, '').trim() };
+        }
       }
       break;
     }
@@ -3389,16 +3899,24 @@ export function detectSuggestTrigger(
       | 'calculos');
     const query = rootDirectiveMatch[3];
     // Si el usuario ya está escribiendo un comentario '#', no disparar autocompletado
-    if (!query.includes('#')) {
-      const queryIndexInLine = currentLineBeforeCursor.lastIndexOf(query);
-      return {
-        triggerChar: directive === 'cliente' ? '@' : (isCalculos ? '/' : ':'),
-        query: isCalculos ? 'calc' : query,
-        queryIndexInLine: queryIndexInLine >= 0 ? queryIndexInLine : currentLineBeforeCursor.length,
-        isExplicit: false,
-        directiveType: isCalculos ? undefined : (directive as any)
-      };
+    if (query.includes('#')) {
+      return null;
     }
+
+    // Si la directiva dolar ya tiene un valor completo y formateado (ej: "dolar: Dólar MEP ($ 1.350)"), no reabrir en bucle
+    const trimmedQuery = query.trim();
+    if (rawDirective === 'dolar' && /\(\s*\$\s*[\d.]+\s*\)/i.test(trimmedQuery)) {
+      return null;
+    }
+
+    const queryIndexInLine = currentLineBeforeCursor.lastIndexOf(query);
+    return {
+      triggerChar: directive === 'cliente' ? '@' : (isCalculos ? '/' : ':'),
+      query: isCalculos ? 'calc' : query,
+      queryIndexInLine: queryIndexInLine >= 0 ? queryIndexInLine : currentLineBeforeCursor.length,
+      isExplicit: false,
+      directiveType: isCalculos ? undefined : (directive as any)
+    };
   }
 
   // 2.5 Detección de palabras clave raíz al tipear al inicio de línea sin slash (ej: "calc", "var", "gasto", "cliente", "obra")
@@ -3897,15 +4415,25 @@ export function handleYamlSmartEnter(params: {
   }
 
   // Caso 4: Encabezado general que termina con dos puntos ':' (ej: "Capítulo 1:", "    materiales:")
-  if (trimmed.endsWith(':')) {
+  // O encabezado de capítulo natural a nivel raíz (ej: "Capítulo 1: Iluminación", "# CAPÍTULO: Iluminación", "1. Iluminación")
+  const isNaturalChapter =
+    leadingWhitespace.length === 0 &&
+    !trimmed.startsWith('-') &&
+    /^(?:#+\s*)?(?:cap[íi]tulo\s*\d*|secci[oó]n\s*\d*|\d+[\.\-\)]\s*)/i.test(trimmed);
+
+  if (trimmed.endsWith(':') || isNaturalChapter) {
     if (leadingWhitespace.length === 0) {
       // Nivel 0 (Capítulo a nivel raíz) -> siguiente renglón es partida (2 espacios + "- ")
-      const nextIndent = '  - ';
-      const newText = textBefore + '\n' + nextIndent + textAfter;
-      return {
-        newText,
-        newCursorPos: textBefore.length + 1 + nextIndent.length
-      };
+      const rootKey = trimmed.replace(/^#+\s*/, '').replace(/:.*$/, '').trim().toLowerCase();
+      const reservedRoot = /^(cliente|obra|factura|validez|margen|riesgo|dolar|totales|gastos|calculos|variables|parametros)/i.test(rootKey);
+      if (!reservedRoot) {
+        const nextIndent = '  - ';
+        const newText = textBefore + '\n' + nextIndent + textAfter;
+        return {
+          newText,
+          newCursorPos: textBefore.length + 1 + nextIndent.length
+        };
+      }
     }
     if (leadingWhitespace.length === 4) {
       // Nivel 2 (Sub-bloque materiales:/mano_obra:) -> siguiente renglón es ítem de despiece (6 espacios + "- ")

@@ -125,4 +125,22 @@ describe('slashSuggestionsEngine', () => {
 
     expect(results.some((r) => r.category === 'tarea')).toBe(false);
   });
+
+  it('ofrece sólo Nuevo Capítulo genérico y no capítulos predeterminados', () => {
+    const results = generateSlashSuggestions({
+      query: '/cap',
+      effectiveQuery: 'cap',
+      contextType: 'general',
+      clientes: [],
+      tareasTipo: [],
+      costosIndirectos: []
+    });
+
+    const chapterItems = results.filter((r) => r.category === 'capitulo');
+    expect(chapterItems.length).toBe(1);
+    expect(chapterItems[0].id).toBe('cmd-capitulo');
+    expect(chapterItems[0].title).toBe('Nuevo Capítulo');
+    expect(results.some((r) => r.title.includes('Iluminación'))).toBe(false);
+    expect(results.some((r) => r.title.includes('Fuerza Motriz'))).toBe(false);
+  });
 });

@@ -3106,8 +3106,272 @@ Iluminación:
       expect(totales.itemsCalculados[0].precioVentaTotal).toBe(247000);
     });
   });
+
+  describe('Reconocimiento Robusto de Capítulos e Ítems en Modo Experto', () => {
+    it('parsea capítulos con dos puntos internos (Capítulo 1: Iluminación) sin error YAML ni fallback', () => {
+      const dsl = `
+Capítulo 1: Iluminación:
+  - 10 u Boca de Iluminación: $ 8.000
+  - 2 u Tablero Seccional: $ 45.000
+
+Capítulo 2: Fuerza Motriz:
+  - 5 u Toma Corriente Doble: $ 6.500
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.diagnostics.filter((d) => d.type === 'error')).toHaveLength(0);
+      expect(res.capitulos).toHaveLength(2);
+      expect(res.capitulos[0].nombre).toBe('Capítulo 1: Iluminación');
+      expect(res.capitulos[1].nombre).toBe('Capítulo 2: Fuerza Motriz');
+      expect(res.items).toHaveLength(3);
+      expect(res.items[0].capituloId).toBe(res.capitulos[0].id);
+      expect(res.items[2].capituloId).toBe(res.capitulos[1].id);
+    });
+
+    it('parsea capítulos con comentarios tipo # CAPÍTULO: Fuerza Motriz', () => {
+      const dsl = `
+# CAPÍTULO: Iluminación y Bocas
+  - 12 u Boca de Techo: $ 7.500
+
+# CAPÍTULO: Tableros
+  - 1 u Tablero Principal: $ 95.000
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.capitulos).toHaveLength(2);
+      expect(res.capitulos[0].nombre).toBe('Iluminación y Bocas');
+      expect(res.capitulos[1].nombre).toBe('Tableros');
+      expect(res.items).toHaveLength(2);
+      expect(res.items[0].capituloId).toBe(res.capitulos[0].id);
+      expect(res.items[1].capituloId).toBe(res.capitulos[1].id);
+    });
+
+    it('parsea capítulos numerados estilo "1. Iluminación"', () => {
+      const dsl = `
+1. Iluminación:
+  - 8 u Spot LED: $ 4.500
+
+2. Fuerza Motriz:
+  - 6 u Tomas 10A: $ 5.000
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.capitulos).toHaveLength(2);
+      expect(res.capitulos[0].nombre).toBe('1. Iluminación');
+      expect(res.capitulos[1].nombre).toBe('2. Fuerza Motriz');
+      expect(res.items).toHaveLength(2);
+    });
+
+    it('parsea ítems con precio en formato "$ 12.500" sin dos puntos previos', () => {
+      const dsl = `
+Capítulo 1:
+  - 10 u Boca de Iluminación $ 12.500
+  - 3 u Disyuntor Bipolar $ 35.000
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items).toHaveLength(2);
+      expect(res.items[0].cantidad).toBe(10);
+      expect(res.items[0].unidad).toBe('u');
+      expect(res.items[0].precioManual).toBe(12500);
+      expect(res.items[1].cantidad).toBe(3);
+      expect(res.items[1].precioManual).toBe(35000);
+    });
+
+    it('parsea ítems con multiplicador prefijo (2x Disyuntor)', () => {
+      const dsl = `
+Trabajos:
+  - 2x Disyuntor Bipolar 25A $ 22.000
+  - 4 x Térmica Unipolar $ 8.000
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items).toHaveLength(2);
+      expect(res.items[0].cantidad).toBe(2);
+      expect(res.items[0].descripcion).toContain('Disyuntor Bipolar 25A');
+      expect(res.items[0].precioManual).toBe(22000);
+      expect(res.items[1].cantidad).toBe(4);
+      expect(res.items[1].descripcion).toContain('Térmica Unipolar');
+      expect(res.items[1].precioManual).toBe(8000);
+    });
+
+    it('parsea ítems estructurados como mapas de propiedades en YAML (- nombre: ... cantidad: ... precio: ...)', () => {
+      const dsl = `
+Instalación:
+  - nombre: Boca de Iluminación
+    cantidad: 15
+    unidad: u
+    precio: 9500
+  - descripcion: Disyuntor Diferencial
+    cant: 2
+    costo: 38000
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items).toHaveLength(2);
+      expect(res.items[0].descripcion).toBe('Boca de Iluminación');
+      expect(res.items[0].cantidad).toBe(15);
+      expect(res.items[0].unidad).toBe('u');
+      expect(res.items[0].precioManual).toBe(9500);
+
+      expect(res.items[1].descripcion).toContain('Disyuntor Diferencial');
+      expect(res.items[1].cantidad).toBe(2);
+      expect(res.items[1].precioManual).toBe(38000);
+    });
+
+    it('vincula tareas del catálogo mediante matching difuso (prefijos verbales y plurales)', () => {
+      const dsl = `
+Instalaciones:
+  - 10 u Instalación de bocas de iluminación
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.items).toHaveLength(1);
+      // Debe haber vinculado con la tarea tipo 'Boca de iluminación'
+      expect(res.items[0].tareaTipoId).toBe(mockTareas[0].id);
+    });
+
+    it('preserva IDs existentes de capítulos e ítems entre sucesivos parseos', () => {
+      const capExistente = { id: 'cap-fijo-1', nombre: 'Iluminación', orden: 1 };
+      const itemExistente = {
+        id: 'item-fijo-1',
+        capituloId: 'cap-fijo-1',
+        descripcion: 'Boca de Iluminación',
+        cantidad: 5,
+        unidad: 'u',
+        costoUnitario: 100,
+        costoTotal: 500
+      } as any;
+
+      const dsl = `
+Iluminación:
+  - 10 u Boca de Iluminación
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap,
+        existingCapitulos: [capExistente],
+        existingItems: [itemExistente]
+      });
+
+      expect(res.capitulos[0].id).toBe('cap-fijo-1');
+      expect(res.items[0].id).toBe('item-fijo-1');
+      expect(res.items[0].cantidad).toBe(10);
+    });
+
+    it('reconoce directiva "capitulos:" estructurada como diccionario/mapeo con múltiples capítulos e ítems', () => {
+      const dsl = `
+capitulos:
+  Iluminación:
+    - 10 u Boca de Iluminación
+  Tomas y Fuerza:
+    - 5 u Tomacorriente Doble
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.capitulos).toHaveLength(2);
+      expect(res.capitulos[0].nombre).toBe('Iluminación');
+      expect(res.capitulos[1].nombre).toBe('Tomas y Fuerza');
+      expect(res.items).toHaveLength(2);
+      expect(res.items[0].capituloId).toBe(res.capitulos[0].id);
+      expect(res.items[0].descripcion).toBe('Boca de Iluminación');
+      expect(res.items[0].cantidad).toBe(10);
+      expect(res.items[1].capituloId).toBe(res.capitulos[1].id);
+      expect(res.items[1].descripcion).toBe('Tomacorriente Doble');
+      expect(res.items[1].cantidad).toBe(5);
+    });
+
+    it('reconoce ítems escritos a columna 0 sin guión debajo de un capítulo', () => {
+      const dsl = `
+Capítulo 1: Iluminación
+10 u Boca de Iluminación
+5 u Tomacorriente Doble
+
+Capítulo 2: Fuerza Motriz
+3 u Tomacorriente Especial
+
+cliente: Juan Pérez
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
+      });
+
+      expect(res.capitulos).toHaveLength(2);
+      expect(res.capitulos[0].nombre).toBe('Capítulo 1: Iluminación');
+      expect(res.capitulos[1].nombre).toBe('Capítulo 2: Fuerza Motriz');
+      expect(res.items).toHaveLength(3);
+      expect(res.items[0].capituloId).toBe(res.capitulos[0].id);
+      expect(res.items[0].cantidad).toBe(10);
+      expect(res.items[1].capituloId).toBe(res.capitulos[0].id);
+      expect(res.items[1].cantidad).toBe(5);
+      expect(res.items[2].capituloId).toBe(res.capitulos[1].id);
+      expect(res.items[2].cantidad).toBe(3);
+    });
+
+    it('detectSuggestTrigger no secuestra el tipeo libre de capítulos pero sí responde a slash commands y evita bucle en directivas completas', () => {
+      // Tipeo libre de capítulos NO debe disparar autocompletado para no sobreescribir el texto del usuario
+      const triggerPlain = detectSuggestTrigger('Capítulo 1', 'general');
+      expect(triggerPlain).toBeNull();
+
+      // Comando explícito "/cap" sí dispara sugerencias de capítulos
+      const triggerSlashCap = detectSuggestTrigger('/cap', 'general');
+      expect(triggerSlashCap).not.toBeNull();
+      expect(triggerSlashCap?.isExplicit).toBe(true);
+      expect(triggerSlashCap?.query).toBe('cap');
+
+      // Directiva dolar con valor ya completo NO debe disparar autocompletado para evitar bucle infinito
+      const triggerDolarCompleto = detectSuggestTrigger('dolar: Dólar MEP ($ 1.350)', 'general');
+      expect(triggerDolarCompleto).toBeNull();
+
+      // Directiva dolar vacía sí debe sugerir opciones
+      const triggerDolarVacio = detectSuggestTrigger('dolar: ', 'general');
+      expect(triggerDolarVacio).not.toBeNull();
+      expect(triggerDolarVacio?.directiveType).toBe('dolar');
+    });
+  });
 });
-
-
-
-

@@ -139,7 +139,7 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
 
   useEffect(() => {
     if (itemRefs.current[selectedIndex]) {
-      itemRefs.current[selectedIndex]?.scrollIntoView({
+      itemRefs.current[selectedIndex]?.scrollIntoView?.({
         block: 'nearest',
         inline: 'nearest'
       });
@@ -149,28 +149,28 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   // Manejo de teclado
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown') {
+      if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
         if (items.length > 0) {
           e.preventDefault();
           e.stopPropagation();
           setHasUserNavigated(true);
           setSelectedIndex((prev) => (prev + 1) % items.length);
         }
-      } else if (e.key === 'ArrowUp') {
+      } else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
         if (items.length > 0) {
           e.preventDefault();
           e.stopPropagation();
           setHasUserNavigated(true);
           setSelectedIndex((prev) => (prev - 1 + items.length) % items.length);
         }
-      } else if (e.key === 'Tab') {
-        if (items.length > 0 && items[selectedIndex]) {
-          e.preventDefault();
-          e.stopPropagation();
-          onSelect(items[selectedIndex].snippet);
-        }
       } else if (e.key === 'Enter') {
         if (items.length > 0 && items[selectedIndex]) {
+          // Si el usuario no navegó con las flechas o Tab y no tipeó un comando explícito ('/' o '@'),
+          // no capturar el Enter para no sobreescribir lo que estaba tipeando libremente.
+          if (!isExplicit && !hasUserNavigated) {
+            onClose();
+            return;
+          }
           e.preventDefault();
           e.stopPropagation();
           onSelect(items[selectedIndex].snippet);
@@ -298,19 +298,19 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
               <span className="flex items-center gap-1 text-primary font-bold">
                 <span>Enter insertar</span>
                 <span className="opacity-40">·</span>
+                <span className="text-on-surface-variant font-normal">Tab / ↑↓ navegar</span>
+                <span className="opacity-40">·</span>
                 <span className="text-on-surface-variant font-normal">Esc cerrar</span>
               </span>
             ) : (
               <span className="flex items-center gap-1.5 text-on-surface-variant">
-                <span className="text-primary font-bold">Tab</span> insertar
+                <span className="text-primary font-bold">Tab / ↑↓</span> navegar
                 <span className="opacity-40">·</span>
                 <span className="text-on-surface font-bold">Enter</span> libre
-                <span className="opacity-40">·</span>
-                <span>↑↓</span>
               </span>
             )
           ) : (
-            <span className="text-primary font-bold">↑ ↓ Enter</span>
+            <span className="text-primary font-bold">Tab / ↑↓ · Enter insertar</span>
           )}
         </span>
       </div>

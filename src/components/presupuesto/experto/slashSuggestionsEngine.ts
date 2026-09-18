@@ -1026,16 +1026,24 @@ export function generateSlashSuggestions({
     });
   }
 
-  if (contextType === 'general') {
+  const isChapterQuery =
+    contextType === 'general' ||
+    (effectiveQuery && /^(cap|capi|capitulo|capítulo|sec|secc|seccion|sección|rub|rubro)/i.test(effectiveQuery.trim()));
+
+  if (isChapterQuery) {
     // Estructura y Capítulos
     list.push({
       id: 'cmd-capitulo',
       category: 'capitulo',
       title: 'Nuevo Capítulo',
-      subtitle: 'Agrupa partidas bajo una sección de obra',
-      snippet: `Capítulo Nuevo:\n  - 1 u `,
-      icon: FolderPlus
+      subtitle: 'Crea una nueva sección o capítulo en el presupuesto',
+      snippet: `Capítulo:\n  - 1 u `,
+      icon: FolderPlus,
+      extraText: 'capitulo capítulo sección seccion rubro grupo estructura nuevo'
     });
+  }
+
+  if (contextType === 'general') {
 
     // Directivas de Cotización en YAML
     list.push({

@@ -17,7 +17,10 @@ import {
   findNextFillableField,
   detectSuggestTrigger,
   detectCursorContext,
-  CursorContextType
+  CursorContextType,
+  handleYamlSmartEnter,
+  handleYamlSmartBackspace,
+  handleYamlSmartTab
 } from './dslParser';
 
 // ============================================================================
@@ -205,7 +208,7 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
     });
   }, [diagnostics]);
 
-  // Keymaps personalizados (Alt+Enter para navegar al siguiente campo)
+  // Keymaps personalizados (Alt+Enter para campos, Enter inteligente YAML, Backspace y Tab semánticos)
   const customKeymap = useMemo(() => {
     return keymap.of([
       {
@@ -227,6 +230,92 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
           if (nextField) {
             view.dispatch({
               selection: { anchor: nextField.start, head: nextField.end },
+              scrollIntoView: true
+            });
+            return true;
+          }
+          return false;
+        }
+      },
+      {
+        key: 'Enter',
+        run: (view) => {
+          const state = view.state;
+          const pos = state.selection.main.head;
+          const docStr = state.doc.toString();
+          const textBefore = docStr.slice(0, pos);
+          const textAfter = docStr.slice(pos);
+
+          const { newText, newCursorPos } = handleYamlSmartEnter({ textBefore, textAfter });
+          if (newText !== docStr) {
+            view.dispatch({
+              changes: { from: 0, to: docStr.length, insert: newText },
+              selection: { anchor: newCursorPos, head: newCursorPos },
+              scrollIntoView: true
+            });
+            return true;
+          }
+          return false;
+        }
+      },
+      {
+        key: 'Backspace',
+        run: (view) => {
+          const state = view.state;
+          const sel = state.selection.main;
+          if (!sel.empty) return false;
+          const pos = sel.head;
+          const docStr = state.doc.toString();
+          const textBefore = docStr.slice(0, pos);
+          const textAfter = docStr.slice(pos);
+
+          const res = handleYamlSmartBackspace({ textBefore, textAfter });
+          if (res) {
+            view.dispatch({
+              changes: { from: 0, to: docStr.length, insert: res.newText },
+              selection: { anchor: res.newCursorPos, head: res.newCursorPos },
+              scrollIntoView: true
+            });
+            return true;
+          }
+          return false;
+        }
+      },
+      {
+        key: 'Tab',
+        run: (view) => {
+          const state = view.state;
+          const pos = state.selection.main.head;
+          const docStr = state.doc.toString();
+          const textBefore = docStr.slice(0, pos);
+          const textAfter = docStr.slice(pos);
+
+          const res = handleYamlSmartTab({ textBefore, textAfter, shiftKey: false });
+          if (res && res.newText !== docStr) {
+            view.dispatch({
+              changes: { from: 0, to: docStr.length, insert: res.newText },
+              selection: { anchor: res.newCursorPos, head: res.newCursorPos },
+              scrollIntoView: true
+            });
+            return true;
+          }
+          return false;
+        }
+      },
+      {
+        key: 'Shift-Tab',
+        run: (view) => {
+          const state = view.state;
+          const pos = state.selection.main.head;
+          const docStr = state.doc.toString();
+          const textBefore = docStr.slice(0, pos);
+          const textAfter = docStr.slice(pos);
+
+          const res = handleYamlSmartTab({ textBefore, textAfter, shiftKey: true });
+          if (res && res.newText !== docStr) {
+            view.dispatch({
+              changes: { from: 0, to: docStr.length, insert: res.newText },
+              selection: { anchor: res.newCursorPos, head: res.newCursorPos },
               scrollIntoView: true
             });
             return true;
@@ -293,6 +382,16 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
             currentIndent,
             directiveType: trigger.directiveType,
             isExplicit: trigger.isExplicit
+          });
+        } else {
+          onSlashTrigger({
+            isOpen: false,
+            query: '',
+            cursorPosition: pos,
+            slashIndex: -1,
+            contextType: 'general',
+            currentIndent: '',
+            isExplicit: false
           });
         }
       }
