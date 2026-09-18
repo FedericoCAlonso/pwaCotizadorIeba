@@ -616,3 +616,59 @@ export async function resetDatabaseToDefaults(): Promise<void> {
   });
 }
 
+/**
+ * Limpia totalmente los datos privados del usuario del navegador tras cerrar sesión.
+ * No deja presupuestos, contactos, clientes, proveedores, proyectos, registros de trabajo,
+ * solicitudes ni ofertas en IndexedDB. Restablece los catálogos estándar base y la configuración
+ * a sus valores de fábrica limpios (sin datos personales ni de empresas).
+ */
+export async function clearUserSessionData(): Promise<void> {
+  await db.transaction('rw', [
+    db.categoriasMaterial,
+    db.materiales,
+    db.productos,
+    db.ofertas,
+    db.solicitudesCotizacion,
+    db.insumos,
+    db.manoObra,
+    db.costosIndirectos,
+    db.tareasTipo,
+    db.contactos,
+    db.clientes,
+    db.proveedores,
+    db.proyectos,
+    db.presupuestos,
+    db.registrosTrabajo,
+    db.config
+  ], async () => {
+    // 1. Limpiar todas las tablas con datos privados del usuario
+    await db.presupuestos.clear();
+    await db.contactos.clear();
+    await db.clientes.clear();
+    await db.proveedores.clear();
+    await db.proyectos.clear();
+    await db.registrosTrabajo.clear();
+    await db.solicitudesCotizacion.clear();
+    await db.ofertas.clear();
+    await db.config.clear();
+    await db.config.add(DEFAULT_APP_CONFIG);
+
+    // 2. Limpiar catálogos y re-sembrar únicamente el catálogo base de fábrica (sin contactos)
+    await db.categoriasMaterial.clear();
+    await db.materiales.clear();
+    await db.productos.clear();
+    await db.insumos.clear();
+    await db.manoObra.clear();
+    await db.costosIndirectos.clear();
+    await db.tareasTipo.clear();
+
+    if (INITIAL_CATEGORIAS_MATERIAL.length > 0) await db.categoriasMaterial.bulkPut(INITIAL_CATEGORIAS_MATERIAL);
+    if (INITIAL_MATERIALES.length > 0) await db.materiales.bulkPut(INITIAL_MATERIALES);
+    if (INITIAL_PRODUCTOS.length > 0) await db.productos.bulkPut(INITIAL_PRODUCTOS);
+    if (INITIAL_INSUMOS.length > 0) await db.insumos.bulkPut(INITIAL_INSUMOS);
+    if (INITIAL_MANO_OBRA.length > 0) await db.manoObra.bulkPut(INITIAL_MANO_OBRA);
+    if (INITIAL_COSTOS_INDIRECTOS.length > 0) await db.costosIndirectos.bulkPut(INITIAL_COSTOS_INDIRECTOS);
+    if (INITIAL_TAREAS_TIPO.length > 0) await db.tareasTipo.bulkPut(INITIAL_TAREAS_TIPO);
+  });
+}
+

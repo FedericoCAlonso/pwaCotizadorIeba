@@ -568,68 +568,31 @@ export class DecentralizedSyncEngine {
   }
 
   /**
-   * Inicia la sincronización automática en segundo plano y reactiva por eventos:
-   * - Temporizador por intervalo
-   * - Al abrir o cambiar a la pestaña (visibilitychange / focus) para hacer pull de novedades
-   * - Al recuperar conexión a internet (online)
-   * - Al iniciar la app (pull inicial automático)
+   * Limpia el estado de sincronización local, timers y marcas de cambios pendientes en el navegador.
    */
-  startAutoSync(intervalMinutes = 5): void {
+  clearLocalSyncState(): void {
     this.stopAutoSync();
-    const ms = Math.max(1, intervalMinutes) * 60 * 1000;
-    this.autoSyncTimer = setInterval(() => {
-      if (typeof navigator !== 'undefined' && navigator.onLine && !this.isSyncing && this.activeProviderType !== 'manual_json') {
-        this.executeSync().catch(() => {});
-      }
-    }, ms);
+    this.hasPendingChanges = false;
+    this.isSyncing = false;
+    this.lastResult = undefined;
+    try {
+      localStorage.removeItem('ieba_sync_pending_changes');
+      localStorage.removeItem('ieba_last_sync_time');
+    } catch {}
+    this.notifyListeners();
+  }
 
-    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-      const handleVisibilityChange = () => {
-        if (!navigator.onLine || this.isSyncing || this.activeProviderType === 'manual_json') return;
-        if (document.visibilityState === 'visible') {
-          const lastSyncStr = localStorage.getItem('ieba_last_sync_time');
-          const lastSync = lastSyncStr ? new Date(lastSyncStr).getTime() : 0;
-          // Si pasaron más de 15 segundos desde la última sincronización o hay pendientes locales
-          if (Date.now() - lastSync > 15000 || this.hasPendingChanges) {
-            this.executeSync().catch(() => {});
-          }
-        } else if (document.visibilityState === 'hidden' && this.hasPendingChanges) {
-          this.executeSync().catch(() => {});
-        }
-      };
-
-      const handleOnline = () => {
-        if (!this.isSyncing && this.activeProviderType !== 'manual_json') {
-          this.executeSync().catch(() => {});
-        }
-      };
-
-      const handleWindowFocus = () => {
-        if (!navigator.onLine || this.isSyncing || this.activeProviderType === 'manual_json') return;
-        const lastSyncStr = localStorage.getItem('ieba_last_sync_time');
-        const lastSync = lastSyncStr ? new Date(lastSyncStr).getTime() : 0;
-        if (Date.now() - lastSync > 20000 || this.hasPendingChanges) {
-          this.executeSync().catch(() => {});
-        }
-      };
-
-      window.addEventListener('online', handleOnline);
-      window.addEventListener('focus', handleWindowFocus);
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-
-      this.boundEventListeners = {
-        online: handleOnline,
-        focus: handleWindowFocus,
-        visibility: handleVisibilityChange
-      };
-
-      // Pull inicial silencioso a los 1.5s de cargar la app si está online
-      setTimeout(() => {
-        if (navigator.onLine && !this.isSyncing && this.activeProviderType !== 'manual_json') {
-          this.executeSync().catch(() => {});
-        }
-      }, 1500);
-    }
+  /**
+   * La sincronización periódica de fondo (polling por timer, visibilitychange y window.focus)
+   * ha sido desactivada para evitar consumo innecesario de recursos, cuotas de API,
+   * y condiciones de carrera mientras el usuario trabaja.
+   * La sincronización ahora opera exclusivamente:
+   * 1. Manualmente (cuando el usuario presiona 'Sincronizar').
+   * 2. Reactiva a cambios locales (guardado diferido tras modificaciones del usuario).
+   * 3. Al cerrar sesión (respaldo obligatorio previo a la limpieza del navegador).
+   */
+  startAutoSync(_intervalMinutes = 5): void {
+    this.stopAutoSync();
   }
 
   stopAutoSync(): void {

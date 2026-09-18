@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../config/firebase';
 import { syncEngine } from '../services/syncEngine';
+import { clearUserSessionData } from '../db/database';
 import { SyncProviderType } from '../core/types';
 import { SyncExecutionResult } from '../services/syncTypes';
 
@@ -66,9 +67,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
-    // Iniciar temporizador y listeners reactivos de sincronización en segundo plano
-    syncEngine.startAutoSync(5);
-
+    // Escuchar el estado de sincronización y cambios pendientes para actualizar la UI reactivamente
     const unsubscribeSync = syncEngine.subscribe(({ isSyncing, hasPendingChanges: pending, lastResult }) => {
       setHasPendingChanges(pending);
       if (isSyncing) {
@@ -94,7 +93,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!auth) {
       setLoading(false);
       return () => {
-        syncEngine.stopAutoSync();
         unsubscribeSync();
       };
     }
@@ -105,7 +103,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     return () => {
-      syncEngine.stopAutoSync();
       unsubscribeSync();
       unsubscribeAuth();
     };
@@ -121,6 +118,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         3600,
         result.user.email || undefined
       );
+      setActiveProvider('google_drive');
+      // Al iniciar sesión, descargar/restaurar inmediatamente los datos del usuario desde Google Drive
+      try {
+        await triggerSync('google_drive');
+      } catch (syncErr) {
+        console.warn('[Auth] No se pudo sincronizar automáticamente al iniciar sesión:', syncErr);
+      }
     }
   };
 
@@ -141,9 +145,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     if (!auth) return;
-    await firebaseSignOut(auth);
-    syncEngine.getGoogleDriveProvider().disconnect();
-    setSyncState('idle');
+    setSyncState('syncing');
+
+    try {
+      // 1. Sincronizar lo que no esté sincronizado antes de salir para no perder información
+      if (syncEngine.getHasPendingChanges() && typeof navigator !== 'undefined' && navigator.onLine) {
+        try {
+          await syncEngine.executeSync();
+        } catch (syncErr) {
+          console.warn('[Logout] Error al sincronizar cambios pendientes antes de salir:', syncErr);
+        }
+      }
+
+      // 2. Desconectar proveedor remoto y limpiar marcas locales
+      syncEngine.getGoogleDriveProvider().disconnect();
+      syncEngine.clearLocalSyncState();
+
+      // 3. No deben quedar datos del usuario en el navegador (vaciar presupuestos, contactos, config, etc.)
+      await clearUserSessionData();
+    } catch (err) {
+      console.error('[Logout] Error durante la limpieza de datos locales del usuario:', err);
+    } finally {
+      // 4. Cerrar sesión en Firebase Auth
+      await firebaseSignOut(auth);
+      setSyncState('idle');
+      setLastSyncTime(null);
+      setHasPendingChanges(false);
+      setLastResult(undefined);
+    }
   };
 
   const triggerSync = async (provider?: SyncProviderType): Promise<SyncExecutionResult> => {

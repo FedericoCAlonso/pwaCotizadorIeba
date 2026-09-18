@@ -62,21 +62,37 @@ describe('DecentralizedSyncEngine - Auto-Sync and Pending Changes', () => {
     expect(localStorage.getItem('ieba_last_sync_time')).toBeTruthy();
   });
 
-  it('inicia y detiene auto-sync correctamente', () => {
+  it('inicia y detiene auto-sync correctamente sin polling intrusivo de fondo', () => {
     const docAddSpy = vi.spyOn(document, 'addEventListener');
-    const docRemoveSpy = vi.spyOn(document, 'removeEventListener');
     const winAddSpy = vi.spyOn(window, 'addEventListener');
-    const winRemoveSpy = vi.spyOn(window, 'removeEventListener');
 
     syncEngine.startAutoSync(10);
-    expect(docAddSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
-    expect(winAddSpy).toHaveBeenCalledWith('focus', expect.any(Function));
-    expect(winAddSpy).toHaveBeenCalledWith('online', expect.any(Function));
+    // El polling automático periódico de fondo ha sido desactivado
+    expect(docAddSpy).not.toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+    expect(winAddSpy).not.toHaveBeenCalledWith('focus', expect.any(Function));
 
     syncEngine.stopAutoSync();
-    expect(docRemoveSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
-    expect(winRemoveSpy).toHaveBeenCalledWith('focus', expect.any(Function));
-    expect(winRemoveSpy).toHaveBeenCalledWith('online', expect.any(Function));
+  });
+
+  it('limpia el estado de sincronización local y cancela timers con clearLocalSyncState', () => {
+    syncEngine.notifyLocalMutation();
+    expect(syncEngine.getHasPendingChanges()).toBe(true);
+    expect(localStorage.getItem('ieba_sync_pending_changes')).toBe('true');
+
+    let notifiedState: any = null;
+    const unsub = syncEngine.subscribe((state) => {
+      notifiedState = state;
+    });
+
+    syncEngine.clearLocalSyncState();
+
+    expect(syncEngine.getHasPendingChanges()).toBe(false);
+    expect(localStorage.getItem('ieba_sync_pending_changes')).toBeNull();
+    expect(localStorage.getItem('ieba_last_sync_time')).toBeNull();
+    expect(notifiedState?.hasPendingChanges).toBe(false);
+    expect(notifiedState?.isSyncing).toBe(false);
+
+    unsub();
   });
 
   it('permite inyectar un registro desacoplado respetando DIP y OCP', () => {
