@@ -3,13 +3,12 @@ import {
   generarMensajeWhatsAppCotizacion,
   limpiarNumeroTelefonoWhatsApp,
   generarEnlaceWhatsApp,
-  DEFAULT_WHATSAPP_TEMPLATE_GENERIC,
   DEFAULT_WHATSAPP_TEMPLATE_VAITTY,
   consolidarMaterialesPresupuesto,
   generarMensajeWhatsAppListaMateriales,
   sanitizarEmojisWhatsApp
 } from './whatsappUtils';
-import { Presupuesto, Contacto, AppConfig } from './types';
+import { Presupuesto, Contacto } from './types';
 import { DEFAULT_APP_CONFIG } from './sampleData';
 
 describe('whatsappUtils', () => {

@@ -7,10 +7,8 @@ import {
   getFieldStops,
   findNextFillableField,
   parseLocalizedNumber,
-  normalizeString,
   normalizeGastoDestino,
   parseGastoValueString,
-  parseGastoItem,
   detectCursorContext,
   detectSuggestTrigger,
   formatSlashCommandReplacement,
@@ -3372,6 +3370,150 @@ cliente: Juan Pérez
       const triggerDolarVacio = detectSuggestTrigger('dolar: ', 'general');
       expect(triggerDolarVacio).not.toBeNull();
       expect(triggerDolarVacio?.directiveType).toBe('dolar');
+    });
+  });
+
+  describe('Modo Experto: Scoping jerárquico a 3 niveles, tareas paramétricas y costos', () => {
+    const mockInsumos = new Map<string, Insumo>([
+      [
+        'mat-cable-2.5',
+        {
+          id: 'mat-cable-2.5',
+          nombre: 'Cable Unipolar 2.5 mm2',
+          categoriaId: 'cat-conductores',
+          categoria: 'Conductores',
+          unidad: 'm',
+          unidadVenta: 'm',
+          precioActual: 1000,
+          atributos: [],
+          activo: true
+        }
+      ]
+    ]);
+
+    const mockManoObra = new Map<string, CategoriaManoDeObra>([
+      [
+        'cat-oficial',
+        {
+          id: 'cat-oficial',
+          nombre: 'Oficial',
+          costoHora: 10000,
+          fechaActualizacion: '2026-01-01'
+        }
+      ]
+    ]);
+
+    const mockTareaParam: TareaTipo = {
+      id: 'tt-bocas',
+      nombre: 'Instalación de Bocas',
+      categoria: 'bocas',
+      unidad: 'boca',
+      parametros: [
+        { id: 'bocas', nombre: 'Cantidad de Bocas', unidad: 'u', tipo: 'numero', valorDefault: 1 },
+        { id: 'factor_c', nombre: 'Factor Cable', unidad: 'm', tipo: 'numero', valorDefault: 2 }
+      ],
+      insumos: [
+        {
+          materialId: 'mat-cable-2.5',
+          formula: 'bocas * factor_c',
+          cantidad: 1
+        }
+      ],
+      manoObra: [
+        {
+          categoriaId: 'cat-oficial',
+          formula: 'bocas * 0.5',
+          horas: 1
+        }
+      ]
+    };
+
+    it('respeta el scope de 3 niveles: nivel 0 global, nivel 1 capítulo, nivel 2 ítem', () => {
+      const dsl = `
+# Nivel 0 (Global)
+bocas_global = 10
+
+Capítulo 1:
+  # Nivel 1 (Capítulo)
+  factor_c: 5
+  - Instalación de Bocas:
+      cantidad: 1 u
+      parametros:
+        bocas: bocas_global
+        factor_c: factor_c
+
+Capítulo 2:
+  # Nivel 1 (Capítulo distinto con otro factor)
+  factor_c: 2
+  - Instalación de Bocas:
+      cantidad: 1 u
+      parametros:
+        bocas: 4
+        factor_c: factor_c
+`;
+
+      const res = parseDSLToPresupuesto(dsl, {
+        tareasTipo: [mockTareaParam],
+        insumosMap: mockInsumos,
+        manoObraMap: mockManoObra,
+        clientes: []
+      });
+
+      expect(res.diagnostics.filter((d) => d.type === 'error')).toHaveLength(0);
+      expect(res.items).toHaveLength(2);
+
+      const item1 = res.items[0];
+      const item2 = res.items[1];
+
+      // Item 1: bocas = 10, factor_c = 5
+      // Cable: 10 * 5 = 50 m @ $1000 = $50.000
+      // Mano de Obra: 10 * 0.5 = 5 h @ $10.000 = $50.000
+      // Costo directo total = $100.000
+      expect(item1.costoUnitario).toBe(100000);
+      expect(item1.costoDirectoTotal).toBe(100000);
+      expect(item1.valoresParametros).toEqual(expect.objectContaining({ bocas: 10, factor_c: 5 }));
+
+      // Item 2: bocas = 4, factor_c = 2
+      // Cable: 4 * 2 = 8 m @ $1000 = $8.000
+      // Mano de Obra: 4 * 0.5 = 2 h @ $10.000 = $20.000
+      // Costo directo total = $28.000
+      expect(item2.costoUnitario).toBe(28000);
+      expect(item2.costoDirectoTotal).toBe(28000);
+      expect(item2.valoresParametros).toEqual(expect.objectContaining({ bocas: 4, factor_c: 2 }));
+
+      // Suma total de costos en el presupuesto con calcularTotalesPresupuesto
+      const totales = calcularTotalesPresupuesto({
+        items: res.items,
+        capitulos: res.capitulos,
+        margenPorcentaje: res.margenPorcentaje,
+        costosIndirectosConfig: [],
+        tipoFactura: res.tipoFactura,
+        impuestosDetalle: []
+      });
+      expect(totales.subtotalCostosDirectos).toBe(128000);
+    });
+
+    it('auto-envuelve listas bajo partidas: cuando un capítulo contiene variables locales', () => {
+      const dsl = `
+Capítulo Planta Baja:
+  ancho: 4
+  largo: 5
+  - 10 u Boca de Iluminación: $ 5000
+  - 2 u Tablero: $ 25000
+`;
+      const res = parseDSLToPresupuesto(dsl, {
+        tareasTipo: [],
+        insumosMap: new Map(),
+        manoObraMap: new Map(),
+        clientes: []
+      });
+
+      expect(res.diagnostics.filter((d) => d.type === 'error')).toHaveLength(0);
+      expect(res.capitulos).toHaveLength(1);
+      expect(res.capitulos[0].nombre).toBe('Capítulo Planta Baja');
+      expect(res.items).toHaveLength(2);
+      expect(res.items[0].descripcion).toContain('Boca de Iluminación');
+      expect(res.items[1].descripcion).toContain('Tablero');
     });
   });
 });

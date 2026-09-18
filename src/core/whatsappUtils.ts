@@ -1,5 +1,5 @@
 import { Presupuesto, Contacto, AppConfig } from './types';
-import { formatARS, formatUSD, roundMoney, safeNum } from './calculations';
+import { formatARS, roundMoney, safeNum } from './calculations';
 
 export const DEFAULT_WHATSAPP_TEMPLATE_GENERIC = `⚡ *PRESUPUESTO ELÉCTRICO*
 👤 *Cliente:* {{cliente_nombre}}

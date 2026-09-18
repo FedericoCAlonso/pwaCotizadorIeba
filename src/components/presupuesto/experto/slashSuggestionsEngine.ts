@@ -24,6 +24,7 @@ import {
   CategoriaManoDeObra,
   CostoIndirecto
 } from '../../../core/types';
+import { calcularConsumosTareaTipo } from '../../../core/calculations';
 import {
   normalizeString,
   CursorContextType,
@@ -929,21 +930,45 @@ export function generateSlashSuggestions({
           const commentParts: string[] = [];
           if (p.nombre && p.nombre !== p.id) commentParts.push(p.nombre);
           if (p.unidad) commentParts.push(p.unidad);
+          if (p.condicion && p.condicion.trim()) commentParts.push(`condición: ${p.condicion.trim()}`);
           const commentStr = commentParts.length > 0 ? `  # ${commentParts.join(', ')}` : '';
 
-          if (p.condicion && p.condicion.trim()) {
-            paramSnippet += `      # ${p.id}: ${p.valorDefault ?? 1}${commentStr} (si ${p.condicion})\n`;
-          } else {
-            paramSnippet += `      ${p.id}: ${p.valorDefault ?? 1}${commentStr}\n`;
-          }
+          paramSnippet += `      ${p.id}: ${p.valorDefault ?? 1}${commentStr}\n`;
         });
+
+        // Calcular subtotales estimados con los valores por defecto
+        let estimatedCostStr = '';
+        try {
+          const consumos = calcularConsumosTareaTipo(
+            t,
+            {},
+            insumosMap || new Map(),
+            manoObraMap || new Map()
+          );
+          if (consumos.costoDirectoTotal > 0) {
+            estimatedCostStr = ` · Costo est. $ ${Math.round(consumos.costoDirectoTotal).toLocaleString('es-AR')}`;
+            paramSnippet += `    # Subtotales estimados:\n`;
+            if (consumos.costoInsumosTotal > 0) {
+              paramSnippet += `    #   Materiales: $ ${Math.round(consumos.costoInsumosTotal).toLocaleString('es-AR')}\n`;
+            }
+            if (consumos.costoManoObraTotal > 0) {
+              paramSnippet += `    #   Mano de Obra: $ ${Math.round(consumos.costoManoObraTotal).toLocaleString('es-AR')}\n`;
+            }
+            if (consumos.costoServiciosTotal && consumos.costoServiciosTotal > 0) {
+              paramSnippet += `    #   Servicios/Honorarios: $ ${Math.round(consumos.costoServiciosTotal).toLocaleString('es-AR')}\n`;
+            }
+            paramSnippet += `    #   Costo Unitario: $ ${Math.round(consumos.costoDirectoTotal).toLocaleString('es-AR')}\n`;
+          }
+        } catch {
+          // Si falla el cálculo preliminar no bloqueamos la generación del snippet
+        }
 
         // Opción 1: Tarea paramétrica completa
         list.push({
           id: `tarea-${t.id}`,
           category: 'tarea',
           title: `⚡ ${t.nombre} (Paramétrica)`,
-          subtitle: `Carga parámetros editables por defecto · /${t.unidad || 'u'} · ${t.categoria || 'General'}`,
+          subtitle: `Carga parámetros editables por defecto · /${t.unidad || 'u'} · ${t.categoria || 'General'}${estimatedCostStr}`,
           snippet: paramSnippet,
           icon: Zap,
           extraText: `${t.categoria || ''} ${t.notasTecnicas || ''} ${t.unidad || ''} parametros formula condicionales`
@@ -990,12 +1015,39 @@ export function generateSlashSuggestions({
           });
         }
 
+        // Calcular subtotales estimados para APU
+        let apuCostStr = '';
+        try {
+          const consumos = calcularConsumosTareaTipo(
+            t,
+            {},
+            insumosMap || new Map(),
+            manoObraMap || new Map()
+          );
+          if (consumos.costoDirectoTotal > 0) {
+            apuCostStr = ` · Costo est. $ ${Math.round(consumos.costoDirectoTotal).toLocaleString('es-AR')}`;
+            apuSnippet += `    # Subtotales estimados:\n`;
+            if (consumos.costoInsumosTotal > 0) {
+              apuSnippet += `    #   Materiales: $ ${Math.round(consumos.costoInsumosTotal).toLocaleString('es-AR')}\n`;
+            }
+            if (consumos.costoManoObraTotal > 0) {
+              apuSnippet += `    #   Mano de Obra: $ ${Math.round(consumos.costoManoObraTotal).toLocaleString('es-AR')}\n`;
+            }
+            if (consumos.costoServiciosTotal && consumos.costoServiciosTotal > 0) {
+              apuSnippet += `    #   Servicios/Honorarios: $ ${Math.round(consumos.costoServiciosTotal).toLocaleString('es-AR')}\n`;
+            }
+            apuSnippet += `    #   Costo Unitario: $ ${Math.round(consumos.costoDirectoTotal).toLocaleString('es-AR')}\n`;
+          }
+        } catch {
+          // Si falla el cálculo preliminar no bloqueamos la generación del snippet
+        }
+
         // Opción 1: Tarea APU con despiece
         list.push({
           id: `tarea-${t.id}`,
           category: 'tarea',
           title: `⚡ ${t.nombre} (Despiece APU)`,
-          subtitle: `Carga desglose completo de materiales y mano de obra · /${t.unidad || 'u'}`,
+          subtitle: `Carga desglose completo de materiales y mano de obra · /${t.unidad || 'u'}${apuCostStr}`,
           snippet: apuSnippet,
           icon: Layers,
           extraText: `${t.categoria || ''} ${t.notasTecnicas || ''} ${t.unidad || ''} apu materiales mano de obra despiece`

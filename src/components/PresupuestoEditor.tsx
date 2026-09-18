@@ -1,23 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   FileText,
-  Plus,
   ArrowLeft,
-  Star,
   AlertCircle,
-  Layers,
-  Package,
-  Calendar,
-  Lock,
-  FolderPlus,
-  Folder,
-  Truck,
-  Trash2,
   RefreshCw,
-  MessageSquare,
   Check,
-  Clock,
-  Calculator,
   Terminal
 } from 'lucide-react';
 import { ModoExpertoEditor } from './presupuesto/experto/ModoExpertoEditor';
@@ -26,8 +13,6 @@ import {
   ItemPresupuesto,
   TipoFactura,
   MaterialFilterContext,
-  CostoIndirecto,
-  CapituloPresupuesto,
   GastoPresupuestoConfig,
   Presupuesto
 } from '../core/types';

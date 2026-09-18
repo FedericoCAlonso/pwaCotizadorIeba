@@ -2,9 +2,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   Package,
   Plus,
-  Search,
   TrendingUp,
-  FileSpreadsheet,
   Edit2,
   Trash2,
   AlertCircle,
@@ -12,21 +10,15 @@ import {
   Tag,
   Layers,
   Zap,
-  ExternalLink,
   Copy,
-  LayoutGrid,
   List,
-  SlidersHorizontal,
-  FileText,
-  Check,
   ArrowLeft,
-  X,
-  ChevronDown
+  X
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
-import { CategoriaMaterial, Material, Producto, Oferta, Contacto, MaterialFilterContext } from '../core/types';
+import { CategoriaMaterial, Material, Producto, Oferta, MaterialFilterContext } from '../core/types';
 import { formatARS, obtenerEstadoVencimientoOferta, calcularPrecioNeto, calcularPrecioFinal } from '../core/calculations';
-import { normalizeStr, matchesMaterialContext, getObraQuantity, resolveOfertaVigente } from '../core/materialMatching';
+import { getObraQuantity } from '../core/materialMatching';
 import { OnlinePriceButton } from './OnlinePriceButton';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';

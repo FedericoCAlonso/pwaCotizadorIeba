@@ -32,7 +32,7 @@ describe('SlashCommandMenu Keyboard Navigation', () => {
     }
   ];
 
-  it('navigates with Tab and Shift+Tab, and selects with Enter', () => {
+  it('navigates with ArrowDown, ArrowUp and Shift+Tab, and selects with Enter', () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();
 
@@ -55,8 +55,8 @@ describe('SlashCommandMenu Keyboard Navigation', () => {
     // Initial state: item 0 selected
     expect(itemButtons[0].className).toContain('bg-primary');
 
-    // Press Tab: advances to item 1
-    fireEvent.keyDown(window, { key: 'Tab', code: 'Tab' });
+    // Press ArrowDown: advances to item 1
+    fireEvent.keyDown(window, { key: 'ArrowDown', code: 'ArrowDown' });
     expect(itemButtons[1].className).toContain('bg-primary');
 
     // Press Shift+Tab: goes back to item 0
@@ -69,6 +69,29 @@ describe('SlashCommandMenu Keyboard Navigation', () => {
 
     // Press Enter: confirms selection because user navigated
     fireEvent.keyDown(window, { key: 'Enter', code: 'Enter' });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('selects immediately on Tab without prior navigation', () => {
+    const onSelect = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <SlashCommandMenu
+        query=""
+        contextType="general"
+        currentIndent="  "
+        tareasTipo={mockTareas}
+        clientes={[]}
+        isExplicit={false}
+        onSelect={onSelect}
+        onClose={onClose}
+      />
+    );
+
+    // Press Tab: immediately selects active item
+    fireEvent.keyDown(window, { key: 'Tab', code: 'Tab' });
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
   });

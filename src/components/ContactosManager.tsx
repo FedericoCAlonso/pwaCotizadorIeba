@@ -8,7 +8,6 @@ import {
   Search,
   Sparkles,
   X,
-  Tag,
   FileSpreadsheet,
   RotateCcw
 } from 'lucide-react';

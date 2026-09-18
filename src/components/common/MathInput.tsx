@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calculator, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { evaluateMathExpression, isFormulaString } from '../../core/mathEvaluator';
 
 export interface MathInputProps {

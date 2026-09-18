@@ -23,11 +23,7 @@ import {
   RefreshCw,
   LogOut,
   ShieldCheck,
-  Send,
-  ShoppingCart,
   Menu,
-  ChevronRight,
-  X,
   HelpCircle,
   Keyboard
 } from 'lucide-react';

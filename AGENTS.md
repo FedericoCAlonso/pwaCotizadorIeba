@@ -28,8 +28,9 @@ Cuando un componente crezca o tenga múltiples responsabilidades visuales, aplic
   - No deben contener código JSX ni manipulación directa del DOM.
   - Deben ser testeables de forma aislada mediante `@testing-library/react` (`renderHook`) o Vitest.
   - Encapsular operaciones sobre listas, filtros, ordenamientos y llamadas a la capa de persistencia.
+  - **PROHIBIDO** incrustar lógica de generación o exportación masiva de documentos (Excel, PDF) directamente en el ViewModel; deben delegarse a los motores especializados en `src/core/exportUtils.ts` o `src/core/pdfExportUtils.ts`.
 
-### 1.4 Motores de Dominio y Cálculo (`src/services/`, motores puros de cálculo)
+### 1.4 Motores de Dominio y Cálculo (`src/core/calculations.ts`, `src/services/`, motores puros)
 - **Propósito**: Cálculos de costos, precios, insumos, sugerencias, sinergias y reglas de negocio.
 - **Reglas**:
   - Deben ser **funciones puras de TypeScript** (`.ts`), 100% desacopladas de React y del ciclo de vida de componentes.
@@ -37,21 +38,53 @@ Cuando un componente crezca o tenga múltiples responsabilidades visuales, aplic
 
 ---
 
-## 2. Estándares de Código y TypeScript
+## 2. Principios de Calidad de Software SOLID
+
+El código debe adherir a los cinco principios SOLID de manera continua en todas las capas del sistema:
+
+### 2.1 S - Single Responsibility Principle (SRP - Responsabilidad Única)
+- Cada módulo, clase, función o hook debe tener una sola razón para cambiar y una responsabilidad bien delimitada.
+- **Capa de Base de Datos (`src/db/database.ts`)**: Su responsabilidad exclusiva es definir esquemas, tablas, hooks globales y semillero inicial. Está **PROHIBIDO** incluir utilidades de parsing de archivos (CSV, XLSX) o lógicas ajenas a la persistencia en `database.ts`.
+- **Capa de Exportación (`src/core/exportUtils.ts`, `pdfExportUtils.ts`)**: Es la única encargada de formatear y generar archivos binarios/documentos (Excel, PDF, CSV). Las vistas y ViewModels deben invocar estas funciones sin cargar librerías pesadas directamente.
+- **Code-Splitting y Dynamic Imports**: Utilizar importación dinámica (`await import('exceljs')`, etc.) en motores de exportación para no inflar el bundle principal.
+
+### 2.2 O - Open/Closed Principle (OCP - Abierto para Extensión, Cerrado para Modificación)
+- El sistema debe permitir extender funcionalidades sin modificar las clases o motores centrales existentes.
+- **Patrón Registro**: En subsistemas extensibles (como proveedores de sincronización, motores de búsqueda de precios o calculadoras específicas), utilizar registros desacoplados (`ISyncProviderRegistry`, `SyncProviderRegistry`) en lugar de `switch` hardcodeados o constructores fijos.
+- Para agregar un nuevo proveedor o plugin, basta con implementar su interfaz correspondiente y registrarlo en el registry.
+
+### 2.3 L - Liskov Substitution Principle (LSP - Sustitución de Liskov)
+- Cualquier implementación de una interfaz o contrato (ej. `SyncProvider`) debe poder reemplazar a la abstracción base sin alterar el comportamiento esperado ni introducir efectos secundarios indeseados.
+- Los métodos contractuales (`connect()`, `readMasterPayload()`, `writeMasterPayload()`, etc.) deben respetar fielmente las precondiciones, poscondiciones y contratos asíncronos definidos por la interfaz base.
+
+### 2.4 I - Interface Segregation Principle (ISP - Segregación de Interfaces)
+- Ningún consumidor debe ser forzado a depender de métodos o propiedades que no utiliza.
+- Diseñar interfaces pequeñas y cohesivas. Si una capacidad es opcional o específica de ciertos adaptadores (como la gestión de tokens OAuth en proveedores en la nube), debe crearse una interfaz segregada y específica (ej. `TokenAuthenticableSyncProvider`) en lugar de inflar la interfaz general forzando métodos vacíos o excepciones.
+
+### 2.5 D - Dependency Inversion Principle (DIP - Inversión de Dependencias)
+- Los módulos de alto nivel (orquestadores de sincronización, servicios del negocio) no deben depender directamente de implementaciones concretas de bajo nivel; ambos deben depender de abstracciones (interfaces).
+- Las dependencias deben inyectarse mediante constructores, fábricas o registries (`constructor(registry: ISyncProviderRegistry = defaultRegistry)`), facilitando la testabilidad unitaria mediante mocks y eliminando el acoplamiento rígido.
+
+---
+
+## 3. Estándares de Código, Limpieza y Tolerancia Cero al Código Muerto
 
 1. **Tipado Estricto**:
    - Prohibido el uso de `any` salvo excepciones técnicas debidamente justificadas.
    - Utilizar tipos e interfaces declarados en `src/types/` o en el módulo correspondiente.
 2. **Seguridad frente a nulos**:
    - Uso defensivo de encadenamiento opcional (`?.`) y coalescencia nula (`??`).
-   - Validar entradas y conversiones numéricas con `Number()` o validadores auxiliares para evitar `NaN`.
-3. **Limpieza y Código Muerto**:
-   - Prohibido dejar componentes obsoletos, funciones sin uso o archivos duplicados. Al refactorizar o reemplazar un componente, el código anterior no utilizado debe eliminarse de inmediato.
+   - Validar entradas y conversiones numéricas con `Number()` o validadores auxiliares (`safeNum()`) para evitar `NaN`.
+3. **Tolerancia Cero a Código Muerto, Inservible o Contradictorio**:
+   - Al refactorizar o reemplazar un componente, vista, función o servicio, el código anterior obsoleto DEBE eliminarse de inmediato en la misma entrega.
+   - **PROHIBIDO** dejar archivos huérfanos sin importar en el árbol de dependencias de la aplicación.
+   - **PROHIBIDO** dejar funciones, variables o importaciones sin uso que incrementen el bundle o la carga cognitiva.
+   - **PROHIBIDO** mantener lógicas contradictorias que calculen precios, redondeos o sincronizaciones de formas divergentes.
    - Conservar comentarios y documentación técnica útil que explique decisiones de arquitectura complejas.
 
 ---
 
-## 3. Calidad de Testing y Verificación Obligatoria (Quality Gates)
+## 4. Calidad de Testing y Verificación Obligatoria (Quality Gates)
 
 Antes de dar por finalizada cualquier modificación o entrega:
 1. **Ejecutar Tests Unitarios**:
@@ -65,5 +98,6 @@ Antes de dar por finalizada cualquier modificación o entrega:
    npm run build
    ```
    - Debe compilar sin errores de TypeScript (`tsc`) y generar el bundle de Vite con código de salida `0`.
+   - Verificar la ausencia de advertencias de imports dinámicos inefectivos (`[INEFFECTIVE_DYNAMIC_IMPORT]`).
 3. **Cero Regresiones**:
    - No se aceptan cambios que rompan compatibilidad con datos existentes en IndexedDB (Dexie) ni funcionalidades en producción.

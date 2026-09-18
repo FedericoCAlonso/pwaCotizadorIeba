@@ -143,4 +143,58 @@ describe('slashSuggestionsEngine', () => {
     expect(results.some((r) => r.title.includes('Iluminación'))).toBe(false);
     expect(results.some((r) => r.title.includes('Fuerza Motriz'))).toBe(false);
   });
+
+  it('genera snippet paramétrico con todos los parámetros y subtotales estimados calculados', () => {
+    const tareaParametrica: TareaTipo = {
+      id: 'tt-bocas-param',
+      nombre: 'Instalación de Bocas Completa',
+      categoria: 'bocas',
+      unidad: 'boca',
+      parametros: [
+        { id: 'bocas', nombre: 'Cantidad de Bocas', unidad: 'u', tipo: 'numero', valorDefault: 10 },
+        { id: 'distancia', nombre: 'Distancia', unidad: 'm', tipo: 'numero', valorDefault: 5, condicion: 'bocas > 0' }
+      ],
+      insumos: [
+        {
+          materialId: 'mat-cable-2.5',
+          formula: 'bocas * distancia',
+          cantidad: 1
+        }
+      ],
+      manoObra: [
+        {
+          categoriaId: 'cat-oficial',
+          formula: 'bocas * 0.5',
+          horas: 1
+        }
+      ]
+    };
+
+    const mockManoObraMap = new Map<string, CategoriaManoDeObra>([
+      ['cat-oficial', { id: 'cat-oficial', nombre: 'Oficial Electricista', costoHora: 10000, fechaActualizacion: '2026-01-01' }]
+    ]);
+
+    const results = generateSlashSuggestions({
+      query: 'bocas',
+      effectiveQuery: 'bocas',
+      contextType: 'general',
+      currentIndent: '  ',
+      tareasTipo: [tareaParametrica],
+      insumosMap: mockInsumosMap,
+      manoObraMap: mockManoObraMap,
+      clientes: [],
+      costosIndirectos: []
+    });
+
+    const paramItem = results.find((r) => r.id === 'tarea-tt-bocas-param');
+    expect(paramItem).toBeDefined();
+    expect(paramItem?.snippet).toContain('bocas: 10');
+    expect(paramItem?.snippet).toContain('distancia: 5');
+    expect(paramItem?.snippet).toContain('condición: bocas > 0');
+    expect(paramItem?.snippet).toContain('# Subtotales estimados:');
+    expect(paramItem?.snippet).toContain('#   Materiales:');
+    expect(paramItem?.snippet).toContain('#   Mano de Obra:');
+    expect(paramItem?.snippet).toContain('#   Costo Unitario:');
+    expect(paramItem?.subtitle).toContain('Costo est.');
+  });
 });

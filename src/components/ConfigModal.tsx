@@ -1,8 +1,8 @@
 import React from 'react';
-import { X, Save, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, KeyRound, CheckCircle2, AlertCircle, RefreshCw, Layers, Plus, Edit2, Trash2, Check, RotateCcw, AlertTriangle, MessageSquare, Sparkles } from 'lucide-react';
+import { X, Save, Settings, DollarSign, Percent, Calendar, Sun, Moon, Monitor, Cloud, RefreshCw, Layers, Plus, Edit2, Trash2, Check, RotateCcw, AlertTriangle, MessageSquare } from 'lucide-react';
 import { AppConfig } from '../core/types';
 import { TIPOS_FACTURA, INITIAL_MATERIALES, INITIAL_MANO_OBRA, INITIAL_COSTOS_INDIRECTOS, INITIAL_TAREAS_TIPO, BASE_TAREA_CATEGORIES, DEFAULT_MOTORES_BUSQUEDA, DEFAULT_APP_CONFIG } from '../core/sampleData';
-import { VARIABLES_WHATSAPP_DISPONIBLES, DEFAULT_WHATSAPP_TEMPLATE_GENERIC, DEFAULT_WHATSAPP_TEMPLATE_VAITTY } from '../core/whatsappUtils';
+import { VARIABLES_WHATSAPP_DISPONIBLES, DEFAULT_WHATSAPP_TEMPLATE_GENERIC } from '../core/whatsappUtils';
 import { AuthModal } from './AuthModal';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useToast } from '../contexts/ToastContext';

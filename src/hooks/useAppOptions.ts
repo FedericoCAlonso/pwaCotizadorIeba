@@ -15,8 +15,7 @@ import {
   MEDIOS_PAGO,
   MODALIDADES_PAGO,
   TIPOS_AJUSTE_PRECIO,
-  BASE_TAREA_CATEGORIES,
-  OptionConfig
+  BASE_TAREA_CATEGORIES
 } from '../core/sampleData';
 import { CategoriaMaterial } from '../core/types';
 

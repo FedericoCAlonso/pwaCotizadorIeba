@@ -1,4 +1,5 @@
 import { SyncProvider, SyncExecutionResult, MasterDatabasePayload } from './syncTypes';
+import { ISyncProviderRegistry, SyncProviderRegistry } from './syncRegistry';
 import { LocalFileSystemProvider } from './providers/LocalFileSystemProvider';
 import { GoogleDriveProvider } from './providers/GoogleDriveProvider';
 import { ManualJsonProvider } from './providers/ManualJsonProvider';
@@ -22,10 +23,14 @@ export function setIsPerformingSyncMerge(value: boolean): void {
   isPerformingSyncMerge = value;
 }
 
-class DecentralizedSyncEngine {
-  private localFsProvider = new LocalFileSystemProvider();
-  private gdriveProvider = new GoogleDriveProvider();
-  private manualProvider = new ManualJsonProvider();
+const defaultSyncProviderRegistry = new SyncProviderRegistry([
+  new LocalFileSystemProvider(),
+  new GoogleDriveProvider(),
+  new ManualJsonProvider()
+]);
+
+export class DecentralizedSyncEngine {
+  private registry: ISyncProviderRegistry;
   private activeProviderType: SyncProviderType = 'local_file';
   private isSyncing = false;
   private hasPendingChanges = false;
@@ -35,10 +40,19 @@ class DecentralizedSyncEngine {
   private listeners: ((state: SyncSubscriptionState) => void)[] = [];
   private lastResult?: SyncExecutionResult;
 
-  constructor() {
+  constructor(registry: ISyncProviderRegistry = defaultSyncProviderRegistry) {
+    this.registry = registry;
     this.initProviderFromStorage();
     this.initPendingChangesFromStorage();
     this.initDexieMutationHooks();
+  }
+
+  getRegistry(): ISyncProviderRegistry {
+    return this.registry;
+  }
+
+  registerProvider(provider: SyncProvider): void {
+    this.registry.register(provider);
   }
 
   private initProviderFromStorage(): void {
@@ -130,24 +144,28 @@ class DecentralizedSyncEngine {
     this.notifyListeners();
   }
 
-  getProvider(type: SyncProviderType = this.activeProviderType): SyncProvider {
-    switch (type) {
-      case 'google_drive':
-        return this.gdriveProvider;
-      case 'manual_json':
-        return this.manualProvider;
-      case 'local_file':
-      default:
-        return this.localFsProvider;
-    }
+  getProvider<T extends SyncProvider = SyncProvider>(type: SyncProviderType = this.activeProviderType): T {
+    const provider = this.registry.get<T>(type);
+    if (provider) return provider;
+    const fallback = this.registry.get<T>('local_file');
+    if (fallback) return fallback;
+    throw new Error(`[DecentralizedSyncEngine] No se encontró proveedor para tipo: ${type}`);
   }
 
   getGoogleDriveProvider(): GoogleDriveProvider {
-    return this.gdriveProvider;
+    const provider = this.registry.get<GoogleDriveProvider>('google_drive');
+    if (!provider) {
+      throw new Error('[DecentralizedSyncEngine] Proveedor Google Drive no registrado');
+    }
+    return provider;
   }
 
   getLocalFileSystemProvider(): LocalFileSystemProvider {
-    return this.localFsProvider;
+    const provider = this.registry.get<LocalFileSystemProvider>('local_file');
+    if (!provider) {
+      throw new Error('[DecentralizedSyncEngine] Proveedor Sistema de Archivos Local no registrado');
+    }
+    return provider;
   }
 
   getHasPendingChanges(): boolean {

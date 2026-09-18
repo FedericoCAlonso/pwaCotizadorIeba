@@ -1,7 +1,6 @@
 import YAML from 'yaml';
 import {
   TareaFormData,
-  TareaTipo,
   Insumo,
   CategoriaManoDeObra,
   InsumoEnTarea,
@@ -9,7 +8,6 @@ import {
   ParametroTrabajoTipo,
   VariableCalculadaTrabajoTipo,
   OpcionVariableTrabajo,
-  CuadrillaRecomendada,
   NaturalezaTrabajo
 } from './types';
 import { DSLDiagnostic } from '../components/presupuesto/experto/dslParser';

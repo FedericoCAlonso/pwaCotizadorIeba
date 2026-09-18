@@ -32,9 +32,7 @@ import {
   OpcionCuadrillaSimulada,
   PlanificacionCuadrilla,
   SinergiaManoObraResultado,
-  ModoPlanificacionCuadrilla,
   EstimacionCuadrillaPorPlazoResultado,
-  NivelMargenRiesgo,
   CapituloPresupuesto,
   GastoPresupuestoConfig,
   ParametroTrabajoTipo,
@@ -53,6 +51,10 @@ export function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+/**
+ * Redondea coeficientes e incidencias proporcionales a 4 decimales
+ * para evitar distorsiones en cascadas de APU y coeficientes K.
+ */
 export function roundMoney4(value: number): number {
   return Math.round((value + Number.EPSILON) * 10000) / 10000;
 }

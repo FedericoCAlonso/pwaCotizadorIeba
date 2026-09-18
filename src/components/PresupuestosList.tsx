@@ -6,19 +6,17 @@ import {
   Search,
   Eye,
   Edit2,
-  Copy,
   Trash2,
   User,
   FileSpreadsheet,
   Download,
-  Share2,
   X,
   MessageSquare,
   MapPin,
   RotateCcw
 } from 'lucide-react';
 import { db, softDelete } from '../db/database';
-import { Presupuesto, Cliente, AppConfig } from '../core/types';
+import { Presupuesto, Cliente } from '../core/types';
 import { formatARS, formatUSD } from '../core/calculations';
 import { EstadoBadge } from './EstadoBadge';
 import { exportPresupuestoToXLSX } from '../core/exportUtils';

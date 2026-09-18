@@ -17,7 +17,7 @@ import {
 import { obtenerEstadoVencimientoOferta } from '../core/calculations';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
-import * as ExcelJS from 'exceljs';
+import { exportMaterialesCatalogToExcel, ExportCatalogItemRow } from '../core/exportUtils';
 
 export interface UseInsumosManagerViewModelProps {
   filterContext?: MaterialFilterContext | null;
@@ -349,30 +349,14 @@ export function useInsumosManagerViewModel({
 
   const handleExportCatalog = async (matsToExport: Material[]) => {
     try {
-      const ExcelJSModule = (ExcelJS as any).default || ExcelJS;
-      const workbook = new ExcelJSModule.Workbook();
-      const worksheet = workbook.addWorksheet('Catálogo Materiales');
-
-      worksheet.columns = [
-        { header: 'ID Material', key: 'id', width: 25 },
-        { header: 'Categoría', key: 'categoria', width: 25 },
-        { header: 'Nombre del Material', key: 'nombre', width: 40 },
-        { header: 'Unidad de Venta', key: 'unidad', width: 15 },
-        { header: 'Marca Preferida', key: 'marca', width: 20 },
-        { header: 'Modelo', key: 'modelo', width: 20 },
-        { header: 'Precio Vigente ARS', key: 'precio', width: 20 },
-        { header: 'Proveedor', key: 'proveedor', width: 25 },
-        { header: 'Fecha de Cotización', key: 'fecha', width: 20 }
-      ];
-
-      for (const mat of matsToExport) {
+      const rows: ExportCatalogItemRow[] = matsToExport.map((mat) => {
         const cat = categoriasMap.get(mat.categoriaId);
         const prods = productos.filter(p => p.materialId === mat.id);
         const vigOferta = getOfertaVigente(mat.id);
         const vigProd = vigOferta?.productoId ? prods.find(p => p.id === vigOferta.productoId) : null;
         const prov = vigOferta?.proveedorId ? proveedoresMap.get(vigOferta.proveedorId) : null;
 
-        worksheet.addRow({
+        return {
           id: mat.id,
           categoria: cat?.nombre || mat.categoriaId,
           nombre: mat.nombre,
@@ -382,17 +366,10 @@ export function useInsumosManagerViewModel({
           precio: vigOferta ? vigOferta.precio : 0,
           proveedor: prov?.razonSocial || prov?.nombre || vigOferta?.proveedorNombre || 'Sin proveedor',
           fecha: vigOferta ? new Date(vigOferta.fecha).toLocaleDateString('es-AR') : '-'
-        });
-      }
+        };
+      });
 
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = window.URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `catalogo_materiales_${new Date().toISOString().slice(0, 10)}.xlsx`;
-      anchor.click();
-      window.URL.revokeObjectURL(url);
+      await exportMaterialesCatalogToExcel(rows);
       toast.success('Catálogo exportado exitosamente.');
     } catch (err) {
       console.error('Error al exportar catálogo:', err);

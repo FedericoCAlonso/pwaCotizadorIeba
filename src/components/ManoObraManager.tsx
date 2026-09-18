@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import {
   RolCategoriaManoDeObra,
-  CostoIndirecto,
   DestinoGasto,
   ModalidadGasto
 } from '../core/types';

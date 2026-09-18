@@ -745,30 +745,51 @@ export const exportListaMaterialesToXLSX = async (
   URL.revokeObjectURL(url);
 };
 
-export const sharePresupuesto = async (presupuesto: Presupuesto, cliente?: Cliente | Contacto | null) => {
-  const shareTitle = `Presupuesto IEBA Nº ${presupuesto.numero}`;
-  const shareText = `📋 *COTIZACIÓN ELÉCTRICA - IEBA*\n` +
-    `Presupuesto Nº: *${presupuesto.numero}*\n` +
-    `Cliente: ${cliente?.nombre || 'General'}\n` +
-    `Monto Total: *${formatARS(presupuesto.totalARS)}*\n` +
-    `Validez: ${presupuesto.validezDias || 15} días.\n\n` +
-    `Por favor confirmar aprobación para inicio de obra. ¡Muchas gracias!`;
+export interface ExportCatalogItemRow {
+  id: string;
+  categoria: string;
+  nombre: string;
+  unidad: string;
+  marca: string;
+  modelo: string;
+  precio: number;
+  proveedor: string;
+  fecha: string;
+}
 
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: shareTitle,
-        text: shareText
-      });
-      return;
-    } catch (err) {
-      console.log('Share cancelado o no soportado:', err);
-    }
+/**
+ * Exporta el catálogo de materiales a un archivo Excel (.xlsx).
+ * Cumple con SRP (Single Responsibility Principle) encapsulando la generación del documento
+ * y utiliza importación dinámica para preservar el code-splitting.
+ */
+export async function exportMaterialesCatalogToExcel(rows: ExportCatalogItemRow[]): Promise<void> {
+  const ExcelJSModule = await import('exceljs');
+  const ExcelJS = (ExcelJSModule as any).default || ExcelJSModule;
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Catálogo Materiales');
+
+  worksheet.columns = [
+    { header: 'ID Material', key: 'id', width: 25 },
+    { header: 'Categoría', key: 'categoria', width: 25 },
+    { header: 'Nombre del Material', key: 'nombre', width: 40 },
+    { header: 'Unidad de Venta', key: 'unidad', width: 15 },
+    { header: 'Marca Preferida', key: 'marca', width: 20 },
+    { header: 'Modelo', key: 'modelo', width: 20 },
+    { header: 'Precio Vigente ARS', key: 'precio', width: 20 },
+    { header: 'Proveedor', key: 'proveedor', width: 25 },
+    { header: 'Fecha de Cotización', key: 'fecha', width: 20 }
+  ];
+
+  for (const row of rows) {
+    worksheet.addRow(row);
   }
 
-  // Fallback to Clipboard & WhatsApp
-  navigator.clipboard.writeText(shareText);
-  const waPhone = cliente?.telefono ? cliente.telefono.replace(/[^0-9]/g, '') : '';
-  const waUrl = waPhone ? `https://wa.me/${waPhone}?text=${encodeURIComponent(shareText)}` : `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-  window.open(waUrl, '_blank');
-};
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `catalogo_materiales_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  anchor.click();
+  window.URL.revokeObjectURL(url);
+}

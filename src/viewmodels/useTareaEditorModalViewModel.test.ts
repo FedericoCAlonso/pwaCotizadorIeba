@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTareaEditorModalViewModel } from './useTareaEditorModalViewModel';
-import { TareaTipo, Insumo, CategoriaManoDeObra } from '../core/types';
+import { Insumo, CategoriaManoDeObra } from '../core/types';
 
 vi.mock('../contexts/ToastContext', () => ({
   useToast: () => ({

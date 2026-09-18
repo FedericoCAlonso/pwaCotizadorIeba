@@ -149,31 +149,49 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   // Manejo de teclado
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
+      if (e.key === 'ArrowDown') {
         if (items.length > 0) {
           e.preventDefault();
           e.stopPropagation();
           setHasUserNavigated(true);
           setSelectedIndex((prev) => (prev + 1) % items.length);
         }
-      } else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
+      } else if (e.key === 'ArrowUp') {
         if (items.length > 0) {
           e.preventDefault();
           e.stopPropagation();
           setHasUserNavigated(true);
           setSelectedIndex((prev) => (prev - 1 + items.length) % items.length);
         }
+      } else if (e.key === 'Tab') {
+        if (items.length > 0 && items[selectedIndex]) {
+          if (!e.shiftKey) {
+            // Tab confirma e inserta la sugerencia seleccionada inmediatamente
+            e.preventDefault();
+            e.stopPropagation();
+            onSelect(items[selectedIndex].snippet);
+          } else {
+            // Shift+Tab navega hacia atrás en la lista
+            e.preventDefault();
+            e.stopPropagation();
+            setHasUserNavigated(true);
+            setSelectedIndex((prev) => (prev - 1 + items.length) % items.length);
+          }
+        }
       } else if (e.key === 'Enter') {
         if (items.length > 0 && items[selectedIndex]) {
-          // Si el usuario no navegó con las flechas o Tab y no tipeó un comando explícito ('/' o '@'),
-          // no capturar el Enter para no sobreescribir lo que estaba tipeando libremente.
-          if (!isExplicit && !hasUserNavigated) {
-            onClose();
+          // Si el usuario navegó deliberadamente (flechas / shift+tab) o si es un comando explícito ('/' o '@' o '=' o directiva):
+          // confirmar e insertar la sugerencia
+          if (isExplicit || hasUserNavigated) {
+            e.preventDefault();
+            e.stopPropagation();
+            onSelect(items[selectedIndex].snippet);
             return;
           }
-          e.preventDefault();
-          e.stopPropagation();
-          onSelect(items[selectedIndex].snippet);
+          // Si el usuario no navegó con las flechas y no tipeó un comando explícito,
+          // cerrar el menú sin preventDefault para que el editor CodeMirror
+          // ejecute el Enter en su flujo normal (smartEnter) sin sobreescribir el texto libre.
+          onClose();
         } else {
           onClose();
         }

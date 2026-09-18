@@ -17,7 +17,6 @@ import {
   ModalidadGasto
 } from '../../../core/types';
 import {
-  calcularCostoTareaTipo,
   calcularConsumosTareaTipo,
   roundMoney,
   safeNum
@@ -793,6 +792,26 @@ function serializeSingleItem(it: ItemPresupuesto, lines: string[], indent: strin
     if (it.precioManual && it.precioManual > 0) {
       lines.push(`${indent}  precio: $ ${Math.round(it.precioManual).toLocaleString('es-AR')}`);
     }
+  } else if (it.valoresParametros && Object.keys(it.valoresParametros).length > 0) {
+    // Tarea de catálogo con parámetros configurados
+    lines.push(`${indent}- ${it.descripcion}:`);
+    const qtyDisplay = it.formulaCantidad || it.cantidad;
+    if (qtyDisplay && (it.formulaCantidad || it.cantidad !== 1)) {
+      lines.push(`${indent}  cantidad: ${qtyDisplay}`);
+    }
+    if (it.unidad && it.unidad !== 'u') {
+      lines.push(`${indent}  unidad: ${it.unidad}`);
+    }
+    lines.push(`${indent}  parametros:`);
+    Object.entries(it.valoresParametros).forEach(([pKey, pVal]) => {
+      lines.push(`${indent}    ${pKey}: ${pVal}`);
+    });
+    if (it.condicionTrabajo && it.condicionTrabajo !== 'normal') {
+      lines.push(`${indent}  condicion: ${it.condicionTrabajo}`);
+    }
+    if (it.precioManual && it.precioManual > 0) {
+      lines.push(`${indent}  precio: $ ${Math.round(it.precioManual).toLocaleString('es-AR')}`);
+    }
   } else {
     // Tarea simple o directa
     const qtyDisplay = it.formulaCantidad || (it.cantidad || 1);
@@ -835,9 +854,9 @@ function parseQuantityAndName(
     str = str.replace(condMatch[0], '').trim();
   }
 
-  // 2. Precio manual (: $ 15.000 o : $ =precio o : =precio o = $ 15.000 o : 15000 o : $ precio_var o : precio_var)
+  // 2. Precio manual (: $ 15.000 o : $ =precio o : =precio o = $ 15.000 o : 15000 o : $ precio_var o : precio_var o : costo 15000)
   let precioManual: number | undefined = undefined;
-  const priceMatch = str.match(/(?:[:=]\s*\$?\s*)(=(?:[^\n\r]+)|[0-9.,]+|[a-zA-Z_]\w*(?:\s*[+\-*/]\s*[a-zA-Z0-9_]+)*)\s*$/);
+  const priceMatch = str.match(/(?:[:=]\s*(?:costo|precio)?\s*:?\s*\$?\s*|\b(?:costo|precio)\s*:?\s*\$?\s*)(=(?:[^\n\r]+)|[0-9.,]+|[a-zA-Z_]\w*(?:\s*[+\-*/]\s*[a-zA-Z0-9_]+)*)\s*$/i);
   if (priceMatch) {
     const rawPrice = priceMatch[1].trim();
     const cleanRawPrice = rawPrice.replace(/^=\s*/, '').replace(/^\$\s*/, '');
@@ -1207,7 +1226,28 @@ export function preprocessYamlText(yamlText: string): string {
     }
   }
 
-  // 1.5. Normalizar encabezados de capítulo y viñetas de ítems a nivel raíz
+  // 1.2. Normalizar asignaciones 'variable = expresion' a 'variable: "=expresion"' (tanto a nivel raíz como en bloques de cálculo o partidas)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const colonIdx = line.indexOf(':');
+    const eqIdx = line.indexOf('=');
+
+    // Si hay un '=' antes de cualquier ':' (o no hay ':')
+    if (eqIdx > 0 && (colonIdx < 0 || eqIdx < colonIdx)) {
+      const assignMatch = line.match(/^(\s*(?:-\s*)?)([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/);
+      if (assignMatch) {
+        const indentAndDash = assignMatch[1];
+        const varName = assignMatch[2];
+        const expr = assignMatch[3].trim().replace(/^=\s*/, '');
+        lines[i] = `${indentAndDash}${varName}: "=${expr}"`;
+      }
+    }
+  }
+
+  // 1.3. Normalizar encabezados de capítulo y viñetas de ítems a nivel raíz
   const reservedRootKeysLoose = (k: string): boolean =>
     isCalculationKey(k) ||
     /^(cliente|obra|factura|validez|margen|riesgo|dolar|totales|gastos|condiciones_pago|partidas|capitulo|capitulos|cap[íi]tulo|cap[íi]tulos)$/i.test(k.trim());
@@ -1265,8 +1305,8 @@ export function preprocessYamlText(yamlText: string): string {
         /^\$\s*\d+/.test(trimmed);
 
       if (!reservedRootKeysLoose(rootKey)) {
-        // Distinguir asignación de variable escalar a nivel raíz (ej: superficie: 120 o ancho = 5)
-        const isVarAssign = /^[a-zA-Z_]\w*\s*[:=]\s*(?:=|[0-9.,]+|\$)/.test(trimmed) && !isCapExplicit && !isNumbered;
+        // Distinguir asignación de variable escalar o expresión a nivel raíz (ej: superficie: 120 o bocas: ancho * largo)
+        const isVarAssign = /^[a-zA-Z_]\w*\s*[:=]\s*(?:=|[0-9.,]+|\$|[a-zA-Z_]\w*|"[^"]*"|'[^']*')/.test(trimmed) && !isCapExplicit && !isNumbered;
 
         if (!isVarAssign && !isItemLike) {
           let followedByItems = false;
@@ -1308,7 +1348,7 @@ export function preprocessYamlText(yamlText: string): string {
       }
 
       // Si estábamos dentro de un capítulo activo y esta línea a indent 0 NO es directiva raíz ni variable:
-      if (activeChapter && !reservedRootKeysLoose(rootKey) && !/^[a-zA-Z_]\w*\s*[:=]\s*(?:=|[0-9.,]+|\$)/.test(trimmed)) {
+      if (activeChapter && !reservedRootKeysLoose(rootKey) && !/^[a-zA-Z_]\w*\s*[:=]\s*(?:=|[0-9.,]+|\$|[a-zA-Z_]\w*|"[^"]*"|'[^']*')/.test(trimmed)) {
         lines[i] = `  - ${trimmed}`;
         continue;
       }
@@ -1341,6 +1381,60 @@ export function preprocessYamlText(yamlText: string): string {
       }
     }
   }
+
+  // 1.4. Normalizar capítulos que mezclan variables (mapeo a 2 espacios) con viñetas directas ("- " a 2 espacios)
+  // Envolviendo automáticamente las viñetas bajo "partidas:" para evitar errores de sintaxis YAML
+  const chapterLines: string[] = [];
+  let currChapActive = false;
+  let currChapHasMapping = false;
+  let currChapAutoWrapped = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (!trimmed) {
+      chapterLines.push(line);
+      continue;
+    }
+
+    const indent = (line.match(/^\s*/)?.[0] || '').length;
+
+    if (indent === 0) {
+      currChapActive = trimmed.endsWith(':') && !reservedRootKeysLoose(trimmed.replace(/:$/, '').trim().toLowerCase());
+      currChapHasMapping = false;
+      currChapAutoWrapped = false;
+      chapterLines.push(line);
+      continue;
+    }
+
+    if (currChapActive) {
+      if (currChapAutoWrapped) {
+        // Todo lo que pertenezca a la lista de partidas auto-envuelta se sangra 2 espacios adicionales
+        chapterLines.push('  ' + line);
+        continue;
+      }
+
+      if (indent === 2) {
+        if (trimmed.startsWith('- ')) {
+          if (currChapHasMapping) {
+            chapterLines.push('  partidas:');
+            currChapAutoWrapped = true;
+            chapterLines.push('  ' + line);
+            continue;
+          }
+        } else if (trimmed.endsWith(':') || trimmed.includes(':')) {
+          const keyName = trimmed.split(':')[0].trim().toLowerCase();
+          if (keyName !== 'partidas' && keyName !== 'items') {
+            currChapHasMapping = true;
+          }
+        }
+      }
+    }
+
+    chapterLines.push(line);
+  }
+  lines.length = 0;
+  lines.push(...chapterLines);
 
   // 2. Agregar ':' a ítems de lista con propiedades anidadas si el usuario lo olvidó y proteger fórmulas
   for (let i = 0; i < lines.length; i++) {
@@ -1375,27 +1469,6 @@ export function preprocessYamlText(yamlText: string): string {
       if (!val.startsWith('"') && !val.startsWith("'")) {
         const escapedVal = val.replace(/"/g, '\\"');
         lines[i] = `${prefix}"${escapedVal}"${comment}`;
-      }
-    }
-  }
-
-  // 2c. Normalizar asignaciones 'variable = expresion' a 'variable: "=expresion"' (tanto a nivel raíz como en bloques de cálculo o partidas)
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-
-    const colonIdx = line.indexOf(':');
-    const eqIdx = line.indexOf('=');
-
-    // Si hay un '=' antes de cualquier ':' (o no hay ':')
-    if (eqIdx > 0 && (colonIdx < 0 || eqIdx < colonIdx)) {
-      const assignMatch = line.match(/^(\s*(?:-\s*)?)([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/);
-      if (assignMatch) {
-        const indentAndDash = assignMatch[1];
-        const varName = assignMatch[2];
-        const expr = assignMatch[3].trim().replace(/^=\s*/, '');
-        lines[i] = `${indentAndDash}${varName}: "=${expr}"`;
       }
     }
   }
@@ -1949,7 +2022,8 @@ export function parseDSLToPresupuesto(
       const isNum = /^\$?\s*-?[0-9]+(?:[.,][0-9]+)?$/.test(s);
       const isForm = s.startsWith('=') || isFormulaString(s);
       const hasMathOp = /[+\-*/^%]/.test(s) && /[a-zA-Z0-9]/.test(s);
-      if (isNum || isForm || hasMathOp) {
+      const isVarIdentifier = /^[a-zA-Z_]\w*$/.test(s);
+      if (isNum || isForm || hasMathOp || isVarIdentifier) {
         rootVariables[k.trim()] = v;
         calculosVariables[k.trim()] = v;
       }
@@ -2531,14 +2605,64 @@ function parseAndAddItem(
       const cleanName = String(
         rawItem.nombre ?? rawItem.descripcion ?? rawItem.tarea ?? rawItem.item ?? rawItem.partida ?? ''
       ).trim();
+
+      // Ámbito local de cálculo para la partida estructurada (Nivel 2: hereda scope y resuelve parámetros locales)
+      const taskScope: Record<string, number> = { ...scope };
+      const taskVariables: Record<string, any> = {};
+
+      const rawTaskCalculos = findCalculosKey(rawItem);
+      if (rawTaskCalculos) {
+        const entries = extractCalculationEntries(rawTaskCalculos);
+        entries.forEach(([k, v]) => { taskVariables[k.trim()] = v; });
+      }
+
+      const rawParametros = rawItem.parametros || rawItem.params;
+      if (typeof rawParametros === 'object' && rawParametros !== null) {
+        if (Array.isArray(rawParametros)) {
+          rawParametros.forEach((p) => {
+            if (typeof p === 'object' && p !== null) {
+              Object.entries(p).forEach(([k, v]) => { taskVariables[k.trim()] = v; });
+            }
+          });
+        } else {
+          Object.entries(rawParametros).forEach(([k, v]) => { taskVariables[k.trim()] = v; });
+        }
+      }
+
+      const reservedTaskKeys = new Set([
+        'nombre', 'descripcion', 'tarea', 'item', 'partida',
+        'cantidad', 'cant', 'qty', 'c',
+        'precio', 'costo', 'price', 'cost', 'price_unit', 'preciounitario',
+        'unidad', 'un', 'unit',
+        'condicion', 'condiciontrabajo',
+        'materiales', 'insumos',
+        'mano_obra', 'manoobra', 'mo',
+        'servicios', 'servicio', 'subcontratos', 'costo_servicios', 'costoservicios',
+        'parametros', 'params',
+        'tipo', 'producto', 'marca', 'calculos', 'variables'
+      ]);
+
+      Object.entries(rawItem).forEach(([k, v]) => {
+        if (!reservedTaskKeys.has(k.toLowerCase()) && (typeof v === 'number' || typeof v === 'string')) {
+          taskVariables[k.trim()] = v;
+        }
+      });
+
+      if (Object.keys(taskVariables).length > 0) {
+        const localCells = processCalculationBlock(taskVariables, taskScope, 'local');
+        if (calculatedCellsCollector) {
+          calculatedCellsCollector.push(...localCells);
+        }
+      }
+
       const taskQtyRaw = rawItem.cantidad ?? rawItem.cant ?? rawItem.qty;
       const rawQtyStr = taskQtyRaw !== undefined ? String(taskQtyRaw).trim() : undefined;
       const formulaCantidad = rawQtyStr && rawQtyStr.startsWith('=') ? rawQtyStr : undefined;
-      const cantidad = taskQtyRaw !== undefined ? evaluateExpressionOrNumber(taskQtyRaw, scope) : 1;
+      const cantidad = taskQtyRaw !== undefined ? evaluateExpressionOrNumber(taskQtyRaw, taskScope) : 1;
       const unidad = String(rawItem.unidad ?? rawItem.un ?? rawItem.unit ?? 'u').trim();
       const condicion = String(rawItem.condicion || rawItem.condicionTrabajo || 'normal').toLowerCase() as any;
       const taskPrecioRaw = rawItem.precio ?? rawItem.costo ?? rawItem.price;
-      const precioManual = taskPrecioRaw !== undefined ? evaluateExpressionOrNumber(taskPrecioRaw, scope) : undefined;
+      const precioManual = taskPrecioRaw !== undefined ? evaluateExpressionOrNumber(taskPrecioRaw, taskScope) : undefined;
 
       const rawMateriales = rawItem.materiales ?? rawItem.insumos;
       const materialesList: any[] = Array.isArray(rawMateriales) ? rawMateriales : [];
@@ -2565,7 +2689,7 @@ function parseAndAddItem(
           items,
           context,
           diagnostics,
-          scope,
+          scope: taskScope,
           yamlText,
           itemLine
         });
@@ -2581,6 +2705,7 @@ function parseAndAddItem(
           items,
           context,
           diagnostics,
+          parametros: taskScope,
           itemLine
         });
       }
@@ -3541,7 +3666,7 @@ function buildAndPushItem(params: {
     }
     if (parametros) {
       Object.entries(parametros).forEach(([k, v]) => {
-        paramsMap[k] = safeNum(v);
+        paramsMap[k] = evaluateExpressionOrNumber(v, parametros);
       });
     }
 
@@ -3566,7 +3691,9 @@ function buildAndPushItem(params: {
     const costoMO = roundMoney((consumos.costoManoObraTotal || 0) * multMO);
     const costoServicios = consumos.costoServiciosTotal || 0;
     const costoFijo = consumos.costoFijoOperativo || 0;
-    const costoUnitarioDirecto = roundMoney(costoInsumos + costoMO + costoServicios + costoFijo);
+    const computedUnitDirectCost = roundMoney(costoInsumos + costoMO + costoServicios + costoFijo);
+    const costoUnitarioDirecto = computedUnitDirectCost > 0 ? computedUnitDirectCost : (precioManual || 0);
+    const costoDirectoTotal = roundMoney(costoUnitarioDirecto * cantidad);
 
     const newItem: ItemPresupuesto = {
       id: newItemId,
@@ -3584,8 +3711,8 @@ function buildAndPushItem(params: {
       costoServicios: roundMoney(costoServicios * cantidad),
       costoFijoOperativo: costoFijo,
       formulaHonorarios: matchedTarea.formulaHonorarios,
-      costoDirectoTotal: roundMoney(costoUnitarioDirecto * cantidad),
-      costoTotal: roundMoney(costoUnitarioDirecto * cantidad),
+      costoDirectoTotal,
+      costoTotal: costoDirectoTotal,
       precioManual,
       precioVentaUnitario: precioManual || 0,
       precioVentaTotal: precioManual ? roundMoney(precioManual * cantidad) : 0,

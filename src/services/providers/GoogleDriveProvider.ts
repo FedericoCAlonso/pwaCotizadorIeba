@@ -1,4 +1,5 @@
-import { SyncProvider, MasterDatabasePayload } from '../syncTypes';
+import { MasterDatabasePayload } from '../syncTypes';
+import { TokenAuthenticableSyncProvider } from '../syncRegistry';
 import { auth, googleProvider } from '../../config/firebase';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 
@@ -7,7 +8,7 @@ const TOKEN_KEY = 'ieba_gdrive_access_token';
 const TOKEN_EXPIRY_KEY = 'ieba_gdrive_token_expires_at';
 const USER_EMAIL_KEY = 'ieba_gdrive_user_email';
 
-export class GoogleDriveProvider implements SyncProvider {
+export class GoogleDriveProvider implements TokenAuthenticableSyncProvider {
   readonly type = 'google_drive' as const;
   readonly name = 'Google Drive (Personal del Usuario)';
   private cachedFileId: string | null = null;

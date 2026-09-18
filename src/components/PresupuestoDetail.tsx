@@ -9,7 +9,6 @@ import {
   ShieldAlert,
   FileSpreadsheet,
   Download,
-  Share2,
   Edit2,
   MoreVertical,
   Printer,

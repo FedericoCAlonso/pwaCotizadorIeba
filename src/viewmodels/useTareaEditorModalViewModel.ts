@@ -8,8 +8,6 @@ import {
   ParametroTrabajoTipo,
   VariableCalculadaTrabajoTipo,
   FiltroMaterialEnTarea,
-  CuadrillaRecomendada,
-  NaturalezaTrabajo,
   TareaFormData
 } from '../core/types';
 import {

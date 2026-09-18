@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { syncEngine } from './syncEngine';
+import { syncEngine, DecentralizedSyncEngine } from './syncEngine';
+import { SyncProviderRegistry } from './syncRegistry';
 import { db } from '../db/database';
 
 vi.mock('./mergeEngine', () => ({
@@ -76,5 +77,26 @@ describe('DecentralizedSyncEngine - Auto-Sync and Pending Changes', () => {
     expect(docRemoveSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
     expect(winRemoveSpy).toHaveBeenCalledWith('focus', expect.any(Function));
     expect(winRemoveSpy).toHaveBeenCalledWith('online', expect.any(Function));
+  });
+
+  it('permite inyectar un registro desacoplado respetando DIP y OCP', () => {
+    const customRegistry = new SyncProviderRegistry();
+    const customMockProvider = {
+      type: 'manual_json' as const,
+      name: 'Custom Memory Provider',
+      isAvailable: vi.fn().mockResolvedValue(true),
+      connect: vi.fn().mockResolvedValue(true),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+      readMasterPayload: vi.fn().mockResolvedValue(null),
+      writeMasterPayload: vi.fn().mockResolvedValue(true),
+      getStatus: vi.fn().mockReturnValue({ isConfigured: true, label: 'Custom' })
+    };
+
+    customRegistry.register(customMockProvider);
+    expect(customRegistry.has('manual_json')).toBe(true);
+    expect(customRegistry.getAll().length).toBe(1);
+
+    const isolatedEngine = new DecentralizedSyncEngine(customRegistry);
+    expect(isolatedEngine.getProvider('manual_json').name).toBe('Custom Memory Provider');
   });
 });

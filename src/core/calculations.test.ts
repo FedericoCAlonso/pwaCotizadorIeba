@@ -23,7 +23,6 @@ import {
   resolverMaterialPorFiltro,
   calcularSinergiaManoObra,
   estimarCuadrillaPorPlazo,
-  calcularOptimizacionCuadrilla,
   sonItemsCompatiblesParaSinergia,
   actualizarSnapshotsInsumosConCatalogo,
   analizarCambiosPreciosPresupuesto,
