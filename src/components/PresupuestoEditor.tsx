@@ -658,6 +658,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           onEmitirClick={() => setShowEmitirModal(true)}
           onSaveDraft={() => handleSavePresupuesto('borrador')}
           onToggleGuidedMode={() => handleToggleEditorMode('guiado')}
+          onOpenListaMateriales={() => setShowListaMaterialesModal(true)}
+          onOpenMaterialsInCatalog={handleOpenMaterialsInCatalog}
         />
       ) : (
         <>
@@ -708,6 +710,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               setTargetCapituloIdForModal(capId);
               setShowItemPickerModal(true);
             }}
+            onOpenListaMateriales={() => setShowListaMaterialesModal(true)}
             onAddCapitulo={handleAddCapitulo}
             onUpdateCapitulo={handleUpdateCapitulo}
             onRemoveCapitulo={handleRemoveCapitulo}

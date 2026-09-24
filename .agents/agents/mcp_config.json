@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "firebase": {
+      "command": "npx",
+      "args": ["-y", "@firebase/mcp-server"]
+    },
+    "drive": {
+      "command": "npx",
+      "args": ["-y", "@google/workspace-mcp-drive"]
+    }
+  }
+}
+

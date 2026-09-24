@@ -4,7 +4,7 @@ import {
   AlertTriangle,
   Copy,
   FileCheck,
-  Sparkles
+  Package
 } from 'lucide-react';
 import { TotalesPresupuestoResultado, formatARS, formatUSD } from '../../../core/calculations';
 import { DSLDiagnostic, CalculatedCell } from './dslParser';
@@ -32,7 +32,8 @@ interface ExpertInspectorProps {
   onOpenQuickClienteModal?: (initialName?: string) => void;
   onSetDireccionObra?: (direccion: string) => void;
   onEmitirClick?: () => void;
-  onLoadExample?: () => void;
+  onOpenListaMateriales?: () => void;
+  onOpenMaterialsInCatalog?: () => void;
   onCopyDSL?: () => void;
   onAddMaterialToCatalog?: (data: {
     nombre: string;
@@ -60,7 +61,8 @@ export const ExpertInspector: React.FC<ExpertInspectorProps> = ({
   onOpenQuickClienteModal,
   onSetDireccionObra,
   onEmitirClick,
-  onLoadExample,
+  onOpenListaMateriales,
+  onOpenMaterialsInCatalog,
   onCopyDSL,
   onAddMaterialToCatalog
 }) => {
@@ -231,6 +233,8 @@ export const ExpertInspector: React.FC<ExpertInspectorProps> = ({
         items={items}
         totales={totales}
         onAddMaterialToCatalog={onAddMaterialToCatalog}
+        onOpenListaMateriales={onOpenListaMateriales}
+        onOpenMaterialsInCatalog={onOpenMaterialsInCatalog}
       />
 
       {/* ─── 6. Diagnósticos y Avisos en Vivo ─── */}
@@ -252,15 +256,15 @@ export const ExpertInspector: React.FC<ExpertInspectorProps> = ({
 
       {/* ─── 7. Acciones de Utilidad ─── */}
       <div className="flex items-center gap-2">
-        {onLoadExample && (
+        {onOpenListaMateriales && (
           <button
             type="button"
-            onClick={onLoadExample}
+            onClick={onOpenListaMateriales}
             className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface rounded-xl text-xs font-bold border border-outline-variant/30 transition active:scale-95 cursor-pointer min-h-[38px]"
-            title="Cargar texto de ejemplo para aprender la sintaxis"
+            title="Ver lista de materiales consolidada (BOM), exportar a Excel o enviar por WhatsApp"
           >
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
-            <span>Ejemplo</span>
+            <Package className="w-3.5 h-3.5 text-primary" />
+            <span>Materiales (BOM)</span>
           </button>
         )}
 

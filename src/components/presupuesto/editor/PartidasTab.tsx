@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Plus,
+  Package,
   Folder,
   Trash2,
   AlertCircle,
@@ -50,6 +51,7 @@ interface PartidasTabProps {
   manoObraList: CategoriaManoDeObra[];
   condicionesTrabajo: Array<{ value: string; label: string }>;
   umbralMargenMinimo?: number;
+  onOpenListaMateriales?: () => void;
   onNext: () => void;
   onPrev: () => void;
 }
@@ -62,6 +64,7 @@ export const PartidasTab: React.FC<PartidasTabProps> = ({
   onToggleExpandItem,
   itemTitleRefs,
   onOpenItemPicker,
+  onOpenListaMateriales,
   onAddCapitulo,
   onUpdateCapitulo,
   onRemoveCapitulo,
@@ -105,15 +108,29 @@ export const PartidasTab: React.FC<PartidasTabProps> = ({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => onOpenItemPicker(undefined)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold transition-all shadow-xs min-h-[46px] cursor-pointer active:scale-95"
-          title="Agregar partida desde catálogo, crear ítem libre o nuevo capítulo (Alt + N)"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Agregar Partida</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {onOpenListaMateriales && (
+            <button
+              type="button"
+              onClick={onOpenListaMateriales}
+              className="flex items-center gap-2 px-4 py-2.5 bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold transition-all border border-outline-variant/30 shadow-xs min-h-[46px] cursor-pointer active:scale-95"
+              title="Ver Lista Consolidada de Materiales (BOM), exportar Excel, enviar por WhatsApp o gestionar en catálogo"
+            >
+              <Package className="w-5 h-5 text-primary" />
+              <span>Materiales (BOM)</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onOpenItemPicker(undefined)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold transition-all shadow-xs min-h-[46px] cursor-pointer active:scale-95"
+            title="Agregar partida desde catálogo, crear ítem libre o nuevo capítulo (Alt + N)"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Agregar Partida</span>
+          </button>
+        </div>
       </div>
 
       {/* Alerta de Margen Bajo */}

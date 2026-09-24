@@ -3,7 +3,6 @@ import {
   parseDSLToPresupuesto,
   serializePresupuestoToDSL,
   getDefaultPresupuestoYAMLTemplate,
-  generateExampleDSL,
   getFieldStops,
   findNextFillableField,
   parseLocalizedNumber,
@@ -92,28 +91,6 @@ describe('dslParser (Modo Experto YAML)', () => {
     expect(errors).toHaveLength(0);
     expect(result.tipoFactura).toBe('Factura C');
     expect(result.mostrarDolar).toBe(false);
-  });
-
-  it('generateExampleDSL genera el ejemplo enriquecido con materiales, mano de obra y variables', () => {
-    const example = generateExampleDSL(mockClientes[0]);
-    expect(example).toContain('cliente: Estudio Arq. Gómez');
-    expect(example).toContain('cálculo:');
-    expect(example).toContain('Instalación Eléctrica:');
-    expect(example).toContain('Tableros y Automatización:');
-    expect(example).toContain('materiales:');
-    expect(example).toContain('mano_obra:');
-    expect(example).toContain('gastos:');
-
-    const result = parseDSLToPresupuesto(example, {
-      clientes: mockClientes,
-      tareasTipo: mockTareas,
-      insumosMap: mockInsumosMap,
-      manoObraMap: mockManoObraMap
-    });
-    const errors = result.diagnostics.filter((d) => d.type === 'error');
-    expect(errors).toHaveLength(0);
-    expect(result.items.length).toBeGreaterThan(0);
-    expect(result.gastosConfig.length).toBe(2);
   });
 
   it('parsea directiva dolar sólo con texto (ej: dolar: USD Blue) activando dolar con tasa por defecto', () => {

@@ -30,7 +30,9 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = (props) => {
     insumosMap,
     manoObraMap,
     onEmitirClick,
-    onToggleGuidedMode
+    onToggleGuidedMode,
+    onOpenListaMateriales,
+    onOpenMaterialsInCatalog
   } = props;
 
   const { toast } = useToast();
@@ -81,6 +83,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = (props) => {
             onOpenMultiMaterialModal={() => vm.setShowMultiMaterialModal(true)}
             onOpenGastosModal={() => vm.setShowGastosModal(true)}
             onNavigateField={vm.handleNavigateField}
+            onOpenListaMateriales={onOpenListaMateriales}
           />
 
           {/* Lienzo del Editor con Números de Línea y Autocompletado */}
@@ -204,7 +207,8 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = (props) => {
             onOpenQuickClienteModal={vm.handleOpenQuickCliente}
             onSetDireccionObra={vm.handleSetDireccionObraFromUI}
             onEmitirClick={onEmitirClick}
-            onLoadExample={vm.handleLoadExample}
+            onOpenListaMateriales={onOpenListaMateriales}
+            onOpenMaterialsInCatalog={onOpenMaterialsInCatalog}
             onCopyDSL={vm.handleCopyDSL}
             onAddMaterialToCatalog={vm.handleOpenQuickCreateMat}
           />

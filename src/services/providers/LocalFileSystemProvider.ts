@@ -78,6 +78,10 @@ export class LocalFileSystemProvider implements SyncProvider {
       throw new Error('Tu navegador no soporta la File System Access API. Utiliza Google Drive o Respaldo Manual.');
     }
 
+    if (this.fileHandle) {
+      return true;
+    }
+
     try {
       // Intentar recuperar handle previo
       const savedHandle = await getStoredFileHandle();
@@ -146,8 +150,12 @@ export class LocalFileSystemProvider implements SyncProvider {
 
   async writeMasterPayload(payload: MasterDatabasePayload): Promise<boolean> {
     if (!this.fileHandle) {
-      const ok = await this.connect();
-      if (!ok || !this.fileHandle) return false;
+      const saved = await getStoredFileHandle();
+      if (saved) this.fileHandle = saved;
+    }
+
+    if (!this.fileHandle) {
+      throw new Error('No se ha seleccionado el archivo maestro en disco. Haz clic en "Sincronizar" para elegirlo.');
     }
 
     try {

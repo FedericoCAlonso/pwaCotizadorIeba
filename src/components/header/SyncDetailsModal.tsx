@@ -121,15 +121,34 @@ export const SyncDetailsModal: React.FC<SyncDetailsModalProps> = ({
 
             {syncState === 'error' && activeProvider === 'google_drive' && (
               <div className="pt-2 flex flex-wrap gap-2">
-                <a
-                  href="https://console.developers.google.com/apis/api/drive.googleapis.com/overview?project=1064181500067"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition"
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await triggerSync('google_drive');
+                    } catch {}
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary/90 text-on-primary rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Habilitar Google Drive API en Google Cloud (1 clic)</span>
-                </a>
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Reconectar Google Drive</span>
+                </button>
+
+                {syncErrorMessage &&
+                  (syncErrorMessage.toLowerCase().includes('not been used') ||
+                    syncErrorMessage.toLowerCase().includes('disabled') ||
+                    syncErrorMessage.toLowerCase().includes('habilitar') ||
+                    syncErrorMessage.toLowerCase().includes('403')) && (
+                    <a
+                      href="https://console.developers.google.com/apis/api/drive.googleapis.com/overview?project=1064181500067"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Habilitar Google Drive API en Google Cloud (1 clic)</span>
+                    </a>
+                  )}
 
                 <button
                   type="button"

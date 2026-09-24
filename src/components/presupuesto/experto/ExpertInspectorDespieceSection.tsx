@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Package, HardHat, Plus } from 'lucide-react';
+import { Package, HardHat, Plus, ExternalLink } from 'lucide-react';
 import { ItemPresupuesto } from '../../../core/types';
 import { TotalesPresupuestoResultado, formatARS } from '../../../core/calculations';
 import { OnlinePriceButton } from '../../OnlinePriceButton';
@@ -13,12 +13,16 @@ interface ExpertInspectorDespieceSectionProps {
     precio: number | null;
     marca?: string;
   }) => void;
+  onOpenListaMateriales?: () => void;
+  onOpenMaterialsInCatalog?: () => void;
 }
 
 export const ExpertInspectorDespieceSection: React.FC<ExpertInspectorDespieceSectionProps> = ({
   items,
   totales,
-  onAddMaterialToCatalog
+  onAddMaterialToCatalog,
+  onOpenListaMateriales,
+  onOpenMaterialsInCatalog
 }) => {
   // Despiece consolidado de insumos detectados en partidas a medida
   const insumosDetectados = useMemo(() => {
@@ -192,6 +196,33 @@ export const ExpertInspectorDespieceSection: React.FC<ExpertInspectorDespieceSec
           </div>
         ))}
       </div>
+
+      {(onOpenListaMateriales || onOpenMaterialsInCatalog) && (
+        <div className="pt-2 border-t border-outline-variant/15 flex items-center justify-between gap-2 flex-wrap">
+          {onOpenListaMateriales && (
+            <button
+              type="button"
+              onClick={onOpenListaMateriales}
+              className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 py-1 cursor-pointer"
+              title="Abrir Lista Consolidada de Materiales (BOM)"
+            >
+              <Package className="w-3 h-3" />
+              <span>Ver Lista Completa (BOM)</span>
+            </button>
+          )}
+          {onOpenMaterialsInCatalog && (
+            <button
+              type="button"
+              onClick={onOpenMaterialsInCatalog}
+              className="text-[11px] font-bold text-secondary hover:underline flex items-center gap-1 py-1 cursor-pointer ml-auto"
+              title="Ir al Gestor de Insumos filtrado con estos materiales"
+            >
+              <span>Gestionar en Catálogo</span>
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

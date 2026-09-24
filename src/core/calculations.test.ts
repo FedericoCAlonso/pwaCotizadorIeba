@@ -2863,6 +2863,104 @@ describe('22. Motor de Actualización Integral de Precios y Tarifas', () => {
       expect(calcularCostoJornadaDesdeHora(0)).toBe(0);
     });
   });
+
+  describe('Prorrateo de Margen de Riesgo y Precios Finales de Ítems en calcularTotalesPresupuesto', () => {
+    it('garantiza que para una cotización de 1 solo ítem con margen de riesgo el precio del ítem sea idéntico al total global', () => {
+      const item: ItemPresupuesto = {
+        id: 'item-unico',
+        descripcion: 'Instalación monofásica completa',
+        cantidad: 1,
+        unidad: 'gl',
+        costoInsumos: 50000,
+        costoManoObra: 50000,
+        costoDirectoTotal: 100000,
+        precioVentaUnitario: 0,
+        precioVentaTotal: 0,
+        insumosSnapshot: [],
+        manoObraSnapshot: []
+      };
+
+      const result = calcularTotalesPresupuesto({
+        items: [item],
+        beneficioPorcentaje: 30, // 30% beneficio
+        margenRiesgoPorcentaje: 10, // 10% riesgo
+        impuestosDetalle: [{ id: 'tax-iva', nombre: 'IVA 21%', porcentaje: 21, aplica: true, discriminar: true, montoCalculado: 0 }]
+      });
+
+      // Costo directo base = 100.000
+      // Margen de riesgo 10% = 10.000 -> Costo global = 110.000
+      // Beneficio 30% sobre 110.000 = 33.000 -> Subtotal = 143.000
+      // IVA 21% sobre 143.000 = 30.030 -> Precio final global = 173.030
+      expect(result.costoDirectoBase).toBe(100000);
+      expect(result.montoMargenRiesgo).toBe(10000);
+      expect(result.costoGlobal).toBe(110000);
+      expect(result.subtotalCostosDirectos).toBe(110000);
+      expect(result.subtotalSinImpuestos).toBe(143000);
+      expect(result.precioFinalGlobal).toBe(173030);
+
+      // Verificación en el ítem único:
+      const itemCalculado = result.itemsCalculados[0];
+      expect(itemCalculado.montoMargenRiesgoItem).toBe(10000);
+      expect(itemCalculado.subtotalItem).toBe(143000);
+      expect(itemCalculado.precioFinalItem).toBe(173030);
+      expect(itemCalculado.precioVentaClienteTotal).toBe(173030);
+      expect(itemCalculado.precioVentaTotal).toBe(173030);
+      expect(itemCalculado.precioVentaClienteTotal).toBe(result.precioFinalGlobal);
+    });
+
+    it('distribuye proporcionalmente el margen de riesgo en cotizaciones de múltiples ítems sumando exactamente al centavo', () => {
+      const item1: ItemPresupuesto = {
+        id: 'item-1',
+        descripcion: 'Tablero Seccional',
+        cantidad: 1,
+        unidad: 'u',
+        costoInsumos: 60000,
+        costoManoObra: 20000,
+        costoDirectoTotal: 80000,
+        precioVentaUnitario: 0,
+        precioVentaTotal: 0,
+        insumosSnapshot: [],
+        manoObraSnapshot: []
+      };
+
+      const item2: ItemPresupuesto = {
+        id: 'item-2',
+        descripcion: 'Circuitos de Tomas',
+        cantidad: 2,
+        unidad: 'circuito',
+        costoInsumos: 15000,
+        costoManoObra: 5000,
+        costoDirectoTotal: 20000,
+        precioVentaUnitario: 0,
+        precioVentaTotal: 0,
+        insumosSnapshot: [],
+        manoObraSnapshot: []
+      };
+
+      const result = calcularTotalesPresupuesto({
+        items: [item1, item2],
+        beneficioPorcentaje: 25,
+        margenRiesgoPorcentaje: 10,
+        impuestosDetalle: [{ id: 'tax-iva', nombre: 'IVA 21%', porcentaje: 21, aplica: true, discriminar: true, montoCalculado: 0 }]
+      });
+
+      // Total directo = 80.000 + 20.000 = 100.000
+      // Riesgo total 10% = 10.000 -> Item 1 (80%): 8.000, Item 2 (20%): 2.000
+      expect(result.costoDirectoBase).toBe(100000);
+      expect(result.montoMargenRiesgo).toBe(10000);
+      expect(result.costoGlobal).toBe(110000);
+
+      const [it1, it2] = result.itemsCalculados;
+      expect(it1.montoMargenRiesgoItem).toBe(8000);
+      expect(it2.montoMargenRiesgoItem).toBe(2000);
+
+      // Suma de precios de venta final de cada ítem debe ser exactamente el total global
+      const sumaPreciosItems = roundMoney((it1.precioVentaClienteTotal || 0) + (it2.precioVentaClienteTotal || 0));
+      expect(sumaPreciosItems).toBe(result.precioFinalGlobal);
+      expect(it1.precioVentaClienteTotal).toBeGreaterThan(0);
+      expect(it2.precioVentaClienteTotal).toBeGreaterThan(0);
+    });
+  });
 });
 
 

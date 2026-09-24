@@ -490,68 +490,6 @@ Capítulo 1:
 }
 
 /**
- * Genera un ejemplo rico y completo con materiales, mano de obra y variables para aprender la sintaxis
- */
-export function generateExampleDSL(cliente?: Cliente): string {
-  const clienteNombre = cliente ? (cliente.razonSocial || cliente.nombre) : 'Federico';
-
-  return `# ============================================================
-# COTIZACIÓN INTELIGENTE - MODO EXPERTO (YAML)
-# Podés escribir directamente, usar comentarios '#' y comandos '/'
-# ============================================================
-
-# Datos Principales de la Cotización
-cliente: ${clienteNombre}
-obra: Av. Corrientes 1234, CABA
-factura: Factura C          # Opciones: Factura A, Factura B, Factura C o Presupuesto X
-validez: 15 dias
-margen: 35%                 # Margen de beneficio sobre costos
-riesgo: bajo                # Opciones: bajo, normal, alto
-dolar: USD Blue             # Opcional (ej: USD Blue, USD MEP, USD Oficial o cotización)
-
-# Celdas de cálculo y variables reactivas
-cálculo:
-  superficie: 120
-  bocas: =ceil(superficie / 6)
-  cable_m: =bocas * 12
-
-# ------------------------------------------------------------
-# CAPÍTULOS Y PARTIDAS
-# ------------------------------------------------------------
-Instalación Eléctrica:
-  - =bocas u Boca de Iluminación: $ 12.500
-  - 4 u Tomacorriente Doble: $ 9.800
-
-Tableros y Automatización:
-  # Partida a medida: despiece con cómputo automático de insumos y mano de obra
-  - 1 u Reparación y Armado de Tablero:
-      materiales:
-        - Tablero Modular DIN 24 Módulos Superficie Chapa Metálica Puerta Ciega IP40:
-            cantidad: 1
-            marca: Gabexel
-        - Interruptor Diferencial 2P 40A Sensibilidad 30mA:
-            cantidad: 1
-            precio: 45000
-        - Cable Unipolar 4 mm² Marrón (Fase) IRAM 247-3:
-            cantidad: 10
-            precio: 1510
-      mano_obra:
-        - 4 h Oficial Electricista
-        - 4 h Ayudante Electricista
-      condicion: normal      # Opciones: normal, dificultosa, favorable
-
-# ------------------------------------------------------------
-# GASTOS OPERATIVOS E INDIRECTOS (Opcional)
-# ------------------------------------------------------------
-gastos:
-  - Viáticos: $ 15.000
-  - Flete y Logística: $ 10.000
-`;
-}
-
-/**
- * Serializa el estado completo de una cotización en formato YAML limpio y estructurado
-/**
  * Extrae el bloque textual "calculos:" (o variables:) de un texto DSL,
  * preservando todas sus líneas, indentación, comentarios y fórmulas.
  */
@@ -691,7 +629,7 @@ export function serializePresupuestoToDSL(data: {
   // Ítems huérfanos sin capítulo
   const orphanItems = items.filter((it) => !it.capituloId);
   if (orphanItems.length > 0) {
-    lines.push('Partidas Generales:');
+    lines.push('partidas:');
     orphanItems.forEach((it) => serializeSingleItem(it, lines, '  '));
     lines.push('');
   }
@@ -749,12 +687,33 @@ export function serializePresupuestoToDSL(data: {
  * Serializa un ítem individual en YAML (como simple o como compuesto con materiales y MO)
  */
 function serializeSingleItem(it: ItemPresupuesto, lines: string[], indent: string) {
+  const isDirectMaterial =
+    it.tipoItem === 'material_directo' ||
+    (it.insumosSnapshot &&
+     it.insumosSnapshot.length === 1 &&
+     (!it.manoObraSnapshot || it.manoObraSnapshot.length === 0) &&
+     !it.tareaTipoId &&
+     normalizeString(it.descripcion) === normalizeString(it.insumosSnapshot[0].nombre));
+
   const hasCustomSnapshots =
+    !isDirectMaterial &&
     (it.esAdHoc || !it.tareaTipoId) &&
     ((it.insumosSnapshot && it.insumosSnapshot.length > 0) ||
      (it.manoObraSnapshot && it.manoObraSnapshot.length > 0));
 
-  if (hasCustomSnapshots) {
+  if (isDirectMaterial) {
+    // Material directo: serializar como partida simple limpia con precio unitario
+    const qtyDisplay = it.formulaCantidad || (it.cantidad || 1);
+    const ins = it.insumosSnapshot?.[0];
+    const itemQty = safeNum(it.cantidad) > 0 ? safeNum(it.cantidad) : 1;
+    const unitPrice = it.precioManual || (ins ? ins.precioUnitarioCongelado : it.costoUnitario) || (it.costoDirectoTotal > 0 ? roundMoney(it.costoDirectoTotal / itemQty) : 0);
+    const brandStr = ins?.marca ? ` [${ins.marca}]` : '';
+    let line = `${indent}- ${qtyDisplay} ${it.unidad || ins?.unidad || 'u'} ${it.descripcion}${brandStr}`;
+    if (unitPrice && unitPrice > 0) {
+      line += ` : $ ${Math.round(unitPrice).toLocaleString('es-AR')}`;
+    }
+    lines.push(line);
+  } else if (hasCustomSnapshots) {
     // Tarea compuesta con despiece a medida
     lines.push(`${indent}- ${it.descripcion}:`);
     const qtyDisplay = it.formulaCantidad || it.cantidad;
@@ -768,7 +727,11 @@ function serializeSingleItem(it: ItemPresupuesto, lines: string[], indent: strin
     if (it.insumosSnapshot && it.insumosSnapshot.length > 0) {
       lines.push(`${indent}  materiales:`);
       it.insumosSnapshot.forEach((ins) => {
-        const cantDisplay = ins.formulaCantidad || ins.cantidadTotal;
+        const itemQty = safeNum(it.cantidad) > 0 ? safeNum(it.cantidad) : 1;
+        const unitQty = (ins as any).cantidadUnitaria !== undefined
+          ? (ins as any).cantidadUnitaria
+          : (ins.cantidadTotal > 0 ? roundMoney(ins.cantidadTotal / itemQty) : 1);
+        const cantDisplay = ins.formulaCantidad || unitQty;
         const cantUnit = `${cantDisplay} ${ins.unidad || 'u'}`;
         const priceStr = (ins.precioUnitarioCongelado || 0) > 0 ? `: $ ${Math.round(ins.precioUnitarioCongelado).toLocaleString('es-AR')}` : '';
         const brandStr = ins.marca ? ` [${ins.marca}]` : '';
@@ -779,7 +742,11 @@ function serializeSingleItem(it: ItemPresupuesto, lines: string[], indent: strin
     if (it.manoObraSnapshot && it.manoObraSnapshot.length > 0) {
       lines.push(`${indent}  mano_obra:`);
       it.manoObraSnapshot.forEach((mo) => {
-        const hsDisplay = mo.formulaHoras || mo.horasTotales;
+        const itemQty = safeNum(it.cantidad) > 0 ? safeNum(it.cantidad) : 1;
+        const unitHs = (mo as any).horasUnitarias !== undefined
+          ? (mo as any).horasUnitarias
+          : (mo.horasTotales > 0 ? roundMoney(mo.horasTotales / itemQty) : 1);
+        const hsDisplay = mo.formulaHoras || unitHs;
         const moPriceStr = (mo.costoHoraCongelado || 0) > 0 ? `: $ ${Math.round(mo.costoHoraCongelado).toLocaleString('es-AR')}` : '';
         lines.push(`${indent}    - ${hsDisplay} h ${mo.nombreCategoria}${moPriceStr ? ' ' + moPriceStr : ''}`);
       });
@@ -819,10 +786,12 @@ function serializeSingleItem(it: ItemPresupuesto, lines: string[], indent: strin
     if (it.condicionTrabajo && it.condicionTrabajo !== 'normal') {
       line += ` @condicion: ${it.condicionTrabajo}`;
     }
+    const itemQty = safeNum(it.cantidad) > 0 ? safeNum(it.cantidad) : 1;
+    const directUnitCost = it.costoUnitario || (it.costoDirectoTotal > 0 ? roundMoney(it.costoDirectoTotal / itemQty) : 0);
     if (it.precioManual && it.precioManual > 0) {
       line += `: $ ${Math.round(it.precioManual).toLocaleString('es-AR')}`;
-    } else if (!it.tareaTipoId && it.costoUnitario && it.costoUnitario > 0) {
-      line += `: $ ${Math.round(it.costoUnitario).toLocaleString('es-AR')}`;
+    } else if (!it.tareaTipoId && directUnitCost > 0) {
+      line += `: $ ${Math.round(directUnitCost).toLocaleString('es-AR')}`;
     }
     lines.push(line);
   }
@@ -1984,7 +1953,7 @@ export function parseDSLToPresupuesto(
 
   const isReservedRootKey = (k: string): boolean => {
     if (isCalculationKey(k)) return true;
-    return /^(cliente|obra|factura|validez|margen|riesgo|dolar|totales|gastos|condiciones_pago|partidas|capitulo|capitulos|cap[íi]tulo|cap[íi]tulos)$/i.test(k.trim());
+    return /^(cliente|obra|factura|validez|margen|riesgo|dolar|totales|gastos|condiciones_pago|partidas|partidas_generales|partidas\s+generales|capitulo|capitulos|cap[íi]tulo|cap[íi]tulos)$/i.test(k.trim());
   };
 
   const isChapterObject = (val: any): boolean => {
@@ -2269,10 +2238,18 @@ export function parseDSLToPresupuesto(
     return existing ? existing.id : fallbackId;
   };
 
-  // Si hay partidas sin capítulo explícito bajo "partidas:" o "Partidas:"
+  // Si hay partidas sin capítulo explícito bajo "partidas:" o "Partidas:" o "Partidas Generales:"
   const rawPartidas = Array.isArray(parsed.partidas)
     ? parsed.partidas
-    : (Array.isArray(parsed.Partidas) ? parsed.Partidas : null);
+    : (Array.isArray(parsed.Partidas)
+        ? parsed.Partidas
+        : (Array.isArray(parsed['Partidas Generales'])
+            ? parsed['Partidas Generales']
+            : (Array.isArray(parsed['partidas generales'])
+                ? parsed['partidas generales']
+                : (Array.isArray(parsed.partidas_generales)
+                    ? parsed.partidas_generales
+                    : null))));
   if (rawPartidas) {
     rawPartidas.forEach((rawItem: any) => {
       parseAndAddItem(rawItem, undefined, items, context, diagnostics, globalScope, calculatedCells, yamlText, lineTracker);
@@ -3742,36 +3719,104 @@ function buildAndPushItem(params: {
         : `✓ Catálogo vinculado: "${matchedTarea.nombre}" (${cantidad} ${newItem.unidad})`
     });
   } else {
-    // Ítem directo o libre
-    const directCost = precioManual || 0;
-    const newItem: ItemPresupuesto = {
-      id: newItemId,
-      capituloId,
-      descripcion: nombre,
-      cantidad,
-      formulaCantidad,
-      unidad: unidad || 'u',
-      naturaleza: 'instalacion',
-      condicionTrabajo: condicion,
-      costoUnitario: directCost,
-      costoInsumos: 0,
-      costoManoObra: 0,
-      costoServicios: 0,
-      costoDirectoTotal: roundMoney(directCost * cantidad),
-      costoTotal: roundMoney(directCost * cantidad),
-      precioManual,
-      precioVentaUnitario: directCost,
-      precioVentaTotal: roundMoney(directCost * cantidad),
-      insumosSnapshot: [],
-      manoObraSnapshot: []
-    };
+    // 2. Si no es tarea, buscar si coincide con un material/insumo del catálogo
+    let matchedInsumo: Insumo | undefined = undefined;
+    if (context.insumosMap && context.insumosMap.size > 0) {
+      const allInsumos = Array.from(context.insumosMap.values());
+      const cleanNormName = cleanTaskString(normTarget);
+      matchedInsumo = allInsumos.find(
+        (ins) =>
+          normalizeString(ins.nombre) === normTarget ||
+          cleanTaskString(normalizeString(ins.nombre)) === cleanNormName
+      );
+    }
 
-    items.push(newItem);
-    diagnostics.push({
-      line: itemLine || 1,
-      type: 'info',
-      message: `Partida directa: "${nombre}" (${cantidad} ${newItem.unidad})`
-    });
+    if (matchedInsumo) {
+      const insUnitPrice = precioManual !== undefined && precioManual > 0
+        ? precioManual
+        : (((matchedInsumo as any).precioUnitarioFinal ?? (matchedInsumo as any).precioUnitario ?? matchedInsumo.precioActual ?? matchedInsumo.precioFinal) || (existingItem?.costoUnitario || 0));
+      const costoInsumos = roundMoney(insUnitPrice * cantidad);
+      const newItem: ItemPresupuesto = {
+        id: newItemId,
+        capituloId,
+        tipoItem: 'material_directo',
+        materialId: matchedInsumo.id,
+        productoId: matchedInsumo.productoId,
+        descripcion: matchedInsumo.nombre,
+        cantidad,
+        formulaCantidad,
+        unidad: unidad || matchedInsumo.unidad || 'u',
+        naturaleza: 'instalacion',
+        condicionTrabajo: condicion,
+        costoUnitario: insUnitPrice,
+        costoInsumos,
+        costoManoObra: 0,
+        costoServicios: 0,
+        costoDirectoTotal: costoInsumos,
+        costoTotal: costoInsumos,
+        precioManual,
+        precioVentaUnitario: insUnitPrice,
+        precioVentaTotal: roundMoney(insUnitPrice * cantidad),
+        insumosSnapshot: [{
+          materialId: matchedInsumo.id,
+          insumoId: matchedInsumo.id,
+          productoId: matchedInsumo.productoId,
+          nombre: matchedInsumo.nombre,
+          marca: matchedInsumo.marca,
+          unidad: unidad || matchedInsumo.unidad || 'u',
+          cantidadTotal: cantidad,
+          formulaCantidad,
+          precioUnitarioCongelado: insUnitPrice,
+          subtotalInsumo: costoInsumos,
+          subtotalInsumoFinal: costoInsumos
+        }],
+        manoObraSnapshot: []
+      };
+
+      items.push(newItem);
+      diagnostics.push({
+        line: itemLine || 1,
+        type: 'info',
+        message: `✓ Material de catálogo: "${matchedInsumo.nombre}" (${cantidad} ${newItem.unidad})`
+      });
+    } else {
+      // Ítem directo o libre: preservar costo previo de la cotización si no se especificó precio manual
+      const fallbackCost = existingItem
+        ? (existingItem.costoUnitario || (existingItem.cantidad > 0 ? existingItem.costoDirectoTotal / existingItem.cantidad : 0) || existingItem.precioManual || 0)
+        : 0;
+      const directCost = precioManual !== undefined && precioManual > 0 ? precioManual : fallbackCost;
+      const directTotal = roundMoney(directCost * cantidad);
+
+      const newItem: ItemPresupuesto = {
+        id: newItemId,
+        capituloId,
+        tipoItem: existingItem?.tipoItem || 'item_libre',
+        descripcion: nombre,
+        cantidad,
+        formulaCantidad,
+        unidad: unidad || existingItem?.unidad || 'u',
+        naturaleza: existingItem?.naturaleza || 'instalacion',
+        condicionTrabajo: condicion,
+        costoUnitario: directCost,
+        costoInsumos: existingItem?.costoInsumos ? roundMoney((existingItem.costoInsumos / (existingItem.cantidad || 1)) * cantidad) : 0,
+        costoManoObra: existingItem?.costoManoObra ? roundMoney((existingItem.costoManoObra / (existingItem.cantidad || 1)) * cantidad) : directTotal,
+        costoServicios: existingItem?.costoServicios ? roundMoney((existingItem.costoServicios / (existingItem.cantidad || 1)) * cantidad) : 0,
+        costoDirectoTotal: directTotal,
+        costoTotal: directTotal,
+        precioManual,
+        precioVentaUnitario: directCost,
+        precioVentaTotal: directTotal,
+        insumosSnapshot: existingItem?.insumosSnapshot || [],
+        manoObraSnapshot: existingItem?.manoObraSnapshot || []
+      };
+
+      items.push(newItem);
+      diagnostics.push({
+        line: itemLine || 1,
+        type: 'info',
+        message: `Partida directa: "${nombre}" (${cantidad} ${newItem.unidad})`
+      });
+    }
   }
 }
 

@@ -12,6 +12,7 @@ interface ModoExpertoToolbarProps {
   onOpenMultiMaterialModal: () => void;
   onOpenGastosModal: () => void;
   onNavigateField: (direction?: 'forward' | 'backward') => void;
+  onOpenListaMateriales?: () => void;
 }
 
 export const ModoExpertoToolbar: React.FC<ModoExpertoToolbarProps> = ({
@@ -19,7 +20,8 @@ export const ModoExpertoToolbar: React.FC<ModoExpertoToolbarProps> = ({
   insertSnippet,
   onOpenMultiMaterialModal,
   onOpenGastosModal,
-  onNavigateField
+  onNavigateField,
+  onOpenListaMateriales
 }) => {
   return (
     <div className="expert-toolbar flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
@@ -56,6 +58,18 @@ export const ModoExpertoToolbar: React.FC<ModoExpertoToolbarProps> = ({
         <span>📦 Paleta Insumos</span>
         <kbd className="hidden sm:inline text-[10px] opacity-70 font-mono">Alt+M</kbd>
       </button>
+
+      {onOpenListaMateriales && (
+        <button
+          type="button"
+          onClick={onOpenListaMateriales}
+          className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high rounded-xl text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 border border-outline-variant/20 transition shrink-0 cursor-pointer min-h-[34px]"
+          title="Ver Lista Consolidada de Materiales (BOM), exportar Excel o gestionar en catálogo"
+        >
+          <Package className="w-3.5 h-3.5" />
+          <span>BOM Insumos</span>
+        </button>
+      )}
 
       <button
         type="button"

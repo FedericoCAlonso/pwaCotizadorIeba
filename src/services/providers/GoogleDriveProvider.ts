@@ -47,7 +47,7 @@ export class GoogleDriveProvider implements TokenAuthenticableSyncProvider {
     const token = this.getAccessToken();
     if (token) return true;
 
-    // 1. Re-obtener token de Google mediante Firebase Auth Popup
+    // Re-obtener token de Google mediante Firebase Auth Popup (únicamente por interacción directa del usuario)
     if (auth) {
       try {
         const result = await signInWithPopup(auth, googleProvider);
@@ -61,27 +61,11 @@ export class GoogleDriveProvider implements TokenAuthenticableSyncProvider {
         if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
           return false;
         }
+        if (err?.code === 'auth/popup-blocked') {
+          throw new Error('La ventana emergente de autenticación fue bloqueada por el navegador. Permite las ventanas emergentes para este sitio.');
+        }
+        throw err;
       }
-    }
-
-    // 2. Si Google Identity Services (GIS) está presente en window
-    if (typeof (window as any).google?.accounts?.oauth2?.initTokenClient === 'function') {
-      return new Promise((resolve) => {
-        const client = (window as any).google.accounts.oauth2.initTokenClient({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '1088497258359-dummy.apps.googleusercontent.com',
-          scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.appdata',
-          callback: (response: any) => {
-            if (response.access_token) {
-              this.setAccessToken(response.access_token, response.expires_in || 3600);
-              resolve(true);
-            } else {
-              resolve(false);
-            }
-          },
-          error_callback: () => resolve(false)
-        });
-        client.requestAccessToken();
-      });
     }
 
     return false;
@@ -150,16 +134,10 @@ export class GoogleDriveProvider implements TokenAuthenticableSyncProvider {
   }
 
   async readMasterPayload(): Promise<MasterDatabasePayload | null> {
-    let token = this.getAccessToken();
+    const token = this.getAccessToken();
     if (!token) {
-      const ok = await this.connect();
-      if (!ok) {
-        console.warn('[GDriveProvider] No se pudo obtener token para leer archivo maestro');
-        return null;
-      }
-      token = this.getAccessToken();
+      throw new Error('Sesión de Google Drive expirada o no iniciada. Haz clic en "Sincronizar" para reconectar tu cuenta.');
     }
-    if (!token) return null;
 
     try {
       const fileId = await this.findMasterFileId(token);
@@ -170,6 +148,9 @@ export class GoogleDriveProvider implements TokenAuthenticableSyncProvider {
       });
 
       if (!res.ok) {
+        if (res.status === 401) {
+          await this.handleDriveError(res, 'Error al leer archivo en Google Drive');
+        }
         console.warn('[GDriveProvider] No se pudo leer el contenido del archivo maestro:', res.status);
         return null;
       }
@@ -184,13 +165,10 @@ export class GoogleDriveProvider implements TokenAuthenticableSyncProvider {
   }
 
   async writeMasterPayload(payload: MasterDatabasePayload): Promise<boolean> {
-    const token = this.getAccessToken();
-    if (!token) {
-      const ok = await this.connect();
-      if (!ok) return false;
-    }
     const validToken = this.getAccessToken();
-    if (!validToken) return false;
+    if (!validToken) {
+      throw new Error('Sesión de Google Drive expirada o no iniciada. Haz clic en "Sincronizar" para reconectar tu cuenta.');
+    }
 
     const jsonStr = JSON.stringify(payload, null, 2);
 
@@ -260,10 +238,12 @@ export class GoogleDriveProvider implements TokenAuthenticableSyncProvider {
     const email = localStorage.getItem(USER_EMAIL_KEY);
     return {
       isConfigured: token !== null,
-      label: token ? (email ? `Conectado: ${email}` : 'Google Drive Conectado') : 'Google Drive No Conectado',
+      label: token
+        ? (email ? `Conectado: ${email}` : 'Google Drive Conectado')
+        : 'Google Drive Desconectado (Sesión Expirada)',
       details: token
         ? 'Sincronización directa en tu cuenta personal de Google Drive.'
-        : 'Haz clic para vincular tu cuenta de Google.'
+        : 'Haz clic en Sincronizar para reconectar tu cuenta de Google.'
     };
   }
 }

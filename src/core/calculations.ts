@@ -1641,6 +1641,7 @@ export function calcularTotalesPresupuesto(params: {
   const coeficienteK = costoGlobal > 0 ? roundMoney4(precioFinalGlobal / costoGlobal) : 1;
 
   // 10. APU y Precios de Venta por Ítem (Costo Directo del Ítem × K)
+  let sumaMontoRiesgoItems = 0;
   let sumaGGAbsProrrateado = 0;
   let sumaSubtotalesItems = 0;
   let sumaPreciosFinalesItems = 0;
@@ -1721,21 +1722,37 @@ export function calcularTotalesPresupuesto(params: {
     const costoDirectoItem = roundMoney(cInsumos + gMatItem + cManoObra + gMoItem + cServicios + gServItem);
     const cant = safeNum(item.cantidad) > 0 ? safeNum(item.cantidad) : 1;
 
-    // APU Cascade
-    const incidencia = costoGlobal > 0 ? roundMoney4(costoDirectoItem / costoGlobal) : (items.length > 0 ? roundMoney4(1 / items.length) : 0);
+    // Prorrateo del margen de riesgo (contingencia) en cada ítem según su costo directo
+    const incidenciaDirecta = costoDirectoBase > 0
+      ? costoDirectoItem / costoDirectoBase
+      : (items.length > 0 ? 1 / items.length : 0);
 
-    let ggAbsolutoProrrateado = roundMoney(totalIndirectosAbsolutos * incidencia);
-    if (idx === items.length - 1 && items.length > 1) {
+    let montoRiesgoItem = roundMoney(montoMargenRiesgo * incidenciaDirecta);
+    if (idx === items.length - 1) {
+      montoRiesgoItem = roundMoney(montoMargenRiesgo - sumaMontoRiesgoItems);
+    }
+    sumaMontoRiesgoItems = roundMoney(sumaMontoRiesgoItems + montoRiesgoItem);
+
+    // Costo directo del ítem incorporando su contingencia
+    const costoDirectoConRiesgo = roundMoney(costoDirectoItem + montoRiesgoItem);
+
+    // APU Cascade: incidencia sobre el costo global consolidado
+    const incidencia = costoGlobal > 0
+      ? roundMoney4(costoDirectoConRiesgo / costoGlobal)
+      : (items.length > 0 ? roundMoney4(1 / items.length) : 0);
+
+    let ggAbsolutoProrrateado = roundMoney(totalIndirectosAbsolutos * (costoDirectoBase > 0 ? incidenciaDirecta : (1 / (items.length || 1))));
+    if (idx === items.length - 1) {
       ggAbsolutoProrrateado = roundMoney(totalIndirectosAbsolutos - sumaGGAbsProrrateado);
     }
     sumaGGAbsProrrateado = roundMoney(sumaGGAbsProrrateado + ggAbsolutoProrrateado);
 
-    const baseCostoItem = roundMoney(costoDirectoItem + ggAbsolutoProrrateado);
+    const baseCostoItem = roundMoney(costoDirectoConRiesgo + ggAbsolutoProrrateado);
     const ggPorcentualItem = roundMoney(baseCostoItem * (porcentajeIndirectosPct / 100));
     const beneficioItem = roundMoney((baseCostoItem + ggPorcentualItem) * (beneficioPct / 100));
 
     let subtotalItem = roundMoney(baseCostoItem + ggPorcentualItem + beneficioItem);
-    if (idx === items.length - 1 && items.length > 1) {
+    if (idx === items.length - 1) {
       subtotalItem = roundMoney(subtotalSinImpuestos - sumaSubtotalesItems);
     }
     sumaSubtotalesItems = roundMoney(sumaSubtotalesItems + subtotalItem);
@@ -1743,7 +1760,7 @@ export function calcularTotalesPresupuesto(params: {
     const impuestosItem = roundMoney(subtotalItem * (impuestosPorcentajeTotal / 100));
 
     let precioFinalItem = roundMoney(subtotalItem + impuestosItem);
-    if (idx === items.length - 1 && items.length > 1) {
+    if (idx === items.length - 1) {
       precioFinalItem = roundMoney(precioFinalGlobal - sumaPreciosFinalesItems);
     }
     sumaPreciosFinalesItems = roundMoney(sumaPreciosFinalesItems + precioFinalItem);
@@ -1758,6 +1775,7 @@ export function calcularTotalesPresupuesto(params: {
       costoServiciosTercerizados: cServicios,
       costoDirectoTotal: costoDirectoItem,
       costoTotal: costoDirectoItem,
+      montoMargenRiesgoItem: montoRiesgoItem,
       incidencia,
       ggAbsolutoProrrateado,
       baseCostoItem,

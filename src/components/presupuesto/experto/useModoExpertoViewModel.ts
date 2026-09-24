@@ -18,7 +18,6 @@ import { TotalesPresupuestoResultado, calcularPrecioNeto, calcularPrecioFinal } 
 import {
   serializePresupuestoToDSL,
   parseDSLToPresupuesto,
-  generateExampleDSL,
   DSLDiagnostic,
   detectCursorContext,
   detectSuggestTrigger,
@@ -77,6 +76,8 @@ export interface ModoExpertoEditorProps {
   onEmitirClick?: () => void;
   onSaveDraft: () => void;
   onToggleGuidedMode: () => void;
+  onOpenListaMateriales?: () => void;
+  onOpenMaterialsInCatalog?: () => void;
 }
 
 export function useModoExpertoViewModel(
@@ -1326,13 +1327,6 @@ export function useModoExpertoViewModel(
     toast.success('Gastos insertados en el presupuesto');
   };
 
-  const handleLoadExample = () => {
-    const demo = generateExampleDSL(clientes[0]);
-    setDslText(demo);
-    handleParseAndSync(demo);
-    toast.info('Plantilla de ejemplo cargada');
-  };
-
   const handleCopyDSL = () => {
     navigator.clipboard.writeText(dslText);
     toast.success('Texto YAML copiado al portapapeles');
@@ -1548,7 +1542,6 @@ export function useModoExpertoViewModel(
     handleOpenQuickCreateMat,
     handleInsertMultipleMaterials,
     handleInsertGastos,
-    handleLoadExample,
     handleCopyDSL,
     handleNavigateField,
     createToolbarAction,

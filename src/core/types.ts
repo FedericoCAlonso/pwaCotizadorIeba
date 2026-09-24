@@ -623,6 +623,7 @@ export interface ItemPresupuesto {
   subtotalItem?: number; // Subtotal_item = Base_item + GG_porcentual_item + Beneficio_item
   impuestosItem?: number; // Impuestos_item = Σ(impuesto_i% * Subtotal_item)
   precioFinalItem?: number; // Precio_Final_item = Subtotal_item + Impuestos_item
+  montoMargenRiesgoItem?: number; // Cuota parte de contingencia/riesgo asignada al ítem
 
   // Campos de venta al cliente
   costoUnitario?: number; // Costo por unidad del renglón (insumos + MO + servicios)

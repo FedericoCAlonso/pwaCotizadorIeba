@@ -1331,8 +1331,13 @@ export function usePresupuestoEditorViewModel({
     toast.info('Partida eliminada');
   };
 
-  const handleOpenMaterialsInCatalog = () => {
+  const handleOpenMaterialsInCatalog = async () => {
     if (!onViewMaterialsInCatalog) return;
+    try {
+      await flushAutoSave();
+    } catch (e) {
+      console.warn('Could not flush autosave before opening catalog:', e);
+    }
     const matQtyMap: Record<string, { cantidad: number; unidad: string }> = {};
     const idsSet = new Set<string>();
     const namesSet = new Set<string>();

@@ -179,7 +179,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setSyncState('syncing');
     setSyncErrorMessage(null);
     try {
-      const res = await syncEngine.executeSync(provider || activeProvider);
+      const targetProviderType = provider || activeProvider;
+      if (targetProviderType === 'google_drive') {
+        const gdrive = syncEngine.getGoogleDriveProvider();
+        if (!gdrive.getAccessToken()) {
+          // El usuario solicitó explícitamente sincronizar con el token expirado.
+          // Se permite re-autenticar interactivamente mediante el popup de Google en este contexto de clic de usuario.
+          const ok = await gdrive.connect();
+          if (!ok) {
+            throw new Error('Autenticación cancelada. Inicia sesión con Google para sincronizar tus datos.');
+          }
+        }
+      }
+      const res = await syncEngine.executeSync(targetProviderType);
       setSyncState('synced');
       setLastSyncTime(new Date());
       setLastResult(res);
