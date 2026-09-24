@@ -11,7 +11,8 @@ import {
 import {
   calcularTotalesPresupuesto,
   calcularCostoTareaTipo,
-  roundMoney
+  roundMoney,
+  safeNum
 } from '../core/calculations';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -171,15 +172,18 @@ export function usePresupuestoDetailViewModel({
         const costoInsumosNeto = roundMoney(nextSnap.reduce((acc, i) => acc + i.subtotalInsumo, 0));
         const costoInsumosFinal = roundMoney(nextSnap.reduce((acc, i) => acc + (i.subtotalInsumoFinal ?? i.subtotalInsumo), 0));
         const costoInsumos = isFacturaC_or_X ? costoInsumosFinal : costoInsumosNeto;
+        const hasSnapshots = (nextSnap && nextSnap.length > 0) || (it.manoObraSnapshot && it.manoObraSnapshot.length > 0);
         const costoMO = it.costoManoObra || 0;
-        const costoDirectoTotal = roundMoney(costoInsumos + costoMO);
+        const costoDirectoTotal = hasSnapshots
+          ? roundMoney(costoInsumos + costoMO)
+          : (safeNum(it.costoDirectoTotal) > 0 ? safeNum(it.costoDirectoTotal) : roundMoney(safeNum(it.costoUnitario) * (it.cantidad || 1)));
 
         return {
           ...it,
           insumosSnapshot: nextSnap,
           costoInsumos,
           costoDirectoTotal,
-          costoUnitario: roundMoney(costoDirectoTotal / (it.cantidad || 1)),
+          costoUnitario: safeNum(it.costoUnitario) > 0 ? it.costoUnitario : roundMoney(costoDirectoTotal / (it.cantidad || 1)),
           costoTotal: costoDirectoTotal
         };
       });

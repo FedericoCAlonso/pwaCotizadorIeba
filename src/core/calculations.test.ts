@@ -21,9 +21,6 @@ import {
   calcularEstimacionParametricaMaterial,
   calcularConsumosTareaTipo,
   resolverMaterialPorFiltro,
-  calcularSinergiaManoObra,
-  estimarCuadrillaPorPlazo,
-  sonItemsCompatiblesParaSinergia,
   actualizarSnapshotsInsumosConCatalogo,
   analizarCambiosPreciosPresupuesto,
   aplicarActualizacionPreciosPresupuesto,
@@ -1723,92 +1720,21 @@ describe('14. Motor de Optimización de Sinergia de Obra & Cuadrilla', () => {
     }
   ];
 
-  it('calcula la sinergia determinística de mano de obra (consolidación de setup y bono tándem)', () => {
-    // 1 Operario (sin bono tándem, solo setup consolidado)
-    const sinergia1Op = calcularSinergiaManoObra({
-      items: mockItems,
-      operarios: 1,
-      horasEfectivasJornada: 7.0
-    });
-
-    expect(sinergia1Op.horasTeoricasTotal).toBe(17);
-    expect(sinergia1Op.operarios).toBe(1);
-    expect(sinergia1Op.bonoTandemHs).toBe(0);
-    expect(sinergia1Op.ahorroSetupHs).toBeGreaterThan(0);
-    expect(sinergia1Op.factorSinergia).toBeLessThan(1.0);
-    expect(sinergia1Op.tiempoObraHorasReloj).toBe(sinergia1Op.horasFinales);
-    expect(sinergia1Op.jornadasEstimadas).toBe(roundMoney(sinergia1Op.horasFinales / 7.0));
-    expect(sinergia1Op.sonCompatibles).toBe(true);
-
-    // 2 Operarios (setup consolidado + 10% bono tándem: 1 Oficial + 1 Ayudante)
-    const mockCatMO: CategoriaManoDeObra[] = [
-      { id: 'mo-of', nombre: 'Oficial Electricista', costoHora: 14000, rol: 'oficial', fechaActualizacion: '' },
-      { id: 'mo-ay', nombre: 'Ayudante Práctico', costoHora: 10000, rol: 'ayudante', fechaActualizacion: '' }
-    ];
-
-    const sinergia2Ops = calcularSinergiaManoObra({
-      items: mockItems,
-      operarios: 2,
-      horasEfectivasJornada: 7.0,
-      categoriasManoObra: mockCatMO
-    });
-
-    expect(sinergia2Ops.horasTeoricasTotal).toBe(17);
-    expect(sinergia2Ops.operarios).toBe(2);
-    expect(sinergia2Ops.composicionCuadrillaTexto).toBe('1 Oficial + 1 Ayudante');
-    expect(sinergia2Ops.tarifaPonderadaCuadrilla).toBe(12000); // (14000 + 10000) / 2
-    expect(sinergia2Ops.bonoTandemHs).toBe(roundMoney(17 * 0.10));
-    expect(sinergia2Ops.horasFinales).toBeLessThan(sinergia1Op.horasFinales);
-    expect(sinergia2Ops.factorSinergia).toBeLessThan(1.0);
-    expect(sinergia2Ops.tiempoObraHorasReloj).toBe(roundMoney(sinergia2Ops.horasFinales / 2));
-    expect(sinergia2Ops.jornadasEstimadas).toBe(roundMoney(sinergia2Ops.horasFinales / 14.0));
-
-    // 3 Operarios: 2 Oficiales + 1 Ayudante
-    const sinergia3Ops = calcularSinergiaManoObra({
-      items: mockItems,
-      operarios: 3,
-      horasEfectivasJornada: 7.0,
-      categoriasManoObra: mockCatMO
-    });
-
-    expect(sinergia3Ops.operarios).toBe(3);
-    expect(sinergia3Ops.composicionCuadrillaTexto).toBe('2 Oficiales + 1 Ayudante');
-    expect(sinergia3Ops.tarifaPonderadaCuadrilla).toBe(roundMoney((2 * 14000 + 10000) / 3)); // 12666.67
-    expect(sinergia3Ops.jornadasEstimadas).toBeLessThan(sinergia2Ops.jornadasEstimadas);
-
-    // 4 Operarios (2 cuadrillas: 2 Oficiales + 2 Ayudantes)
-    const sinergia4Ops = calcularSinergiaManoObra({
-      items: mockItems,
-      operarios: 4,
-      horasEfectivasJornada: 7.0,
-      categoriasManoObra: mockCatMO
-    });
-
-    expect(sinergia4Ops.operarios).toBe(4);
-    expect(sinergia4Ops.composicionCuadrillaTexto).toBe('2 Oficiales + 2 Ayudantes');
-    expect(sinergia4Ops.tarifaPonderadaCuadrilla).toBe(12000);
-    expect(sinergia4Ops.tiempoObraHorasReloj).toBe(roundMoney(sinergia2Ops.tiempoObraHorasReloj / 2));
-    expect(sinergia4Ops.jornadasEstimadas).toBe(roundMoney(sinergia2Ops.jornadasEstimadas / 2));
-  });
-
   it('aplica el Margen de Riesgo Global sobre el Costo Directo en calcularTotalesPresupuesto', () => {
     const sinRiesgo = calcularTotalesPresupuesto({
       items: mockItems,
       margenPorcentaje: 30,
       margenRiesgoPorcentaje: 0,
-      impuestosDetalle: [],
-      factorSinergiaManoObra: 1.0
+      impuestosDetalle: []
     });
 
     const conRiesgo20 = calcularTotalesPresupuesto({
       items: mockItems,
       margenPorcentaje: 30,
       margenRiesgoPorcentaje: 20,
-      impuestosDetalle: [],
-      factorSinergiaManoObra: 1.0
+      impuestosDetalle: []
     });
 
-    // Costo directo base (C base) sin riesgo
     const cBase = sinRiesgo.costoGlobal;
     expect(conRiesgo20.costoDirectoBase).toBe(cBase);
     expect(conRiesgo20.montoMargenRiesgo).toBe(roundMoney(cBase * 0.20));
@@ -1816,41 +1742,53 @@ describe('14. Motor de Optimización de Sinergia de Obra & Cuadrilla', () => {
     expect(conRiesgo20.precioFinalGlobal).toBeGreaterThan(sinRiesgo.precioFinalGlobal);
   });
 
-  it('integra factorSinergiaManoObra en calcularTotalesPresupuesto reduciendo el costo de MOD', () => {
-    const sinSinergia = calcularTotalesPresupuesto({
-      items: mockItems,
+  it('distribuye correctamente subtotales y precios en cotizaciones con 2 o más partidas sin acumular el total en la primera', () => {
+    const item1: ItemPresupuesto = {
+      id: 'p-1',
+      descripcion: 'Partida 1: Tablero',
+      cantidad: 1,
+      unidad: 'gl',
+      costoDirectoTotal: 100000,
+      costoUnitario: 100000,
+      costoInsumos: 0,
+      costoManoObra: 100000,
+      precioVentaUnitario: 0,
+      precioVentaTotal: 0,
+      insumosSnapshot: [],
+      manoObraSnapshot: []
+    };
+    const item2: ItemPresupuesto = {
+      id: 'p-2',
+      descripcion: 'Partida 2: Tendido de cañería',
+      cantidad: 1,
+      unidad: 'gl',
+      costoDirectoTotal: 150000,
+      costoUnitario: 150000,
+      costoInsumos: 0,
+      costoManoObra: 150000,
+      precioVentaUnitario: 0,
+      precioVentaTotal: 0,
+      insumosSnapshot: [],
+      manoObraSnapshot: []
+    };
+
+    const res = calcularTotalesPresupuesto({
+      items: [item1, item2],
       margenPorcentaje: 30,
-      impuestosDetalle: [],
-      factorSinergiaManoObra: 1.0
+      impuestosDetalle: []
     });
 
-    const conSinergia = calcularTotalesPresupuesto({
-      items: mockItems,
-      margenPorcentaje: 30,
-      impuestosDetalle: [],
-      factorSinergiaManoObra: 0.85
-    });
+    expect(res.itemsCalculados.length).toBe(2);
+    expect(res.itemsCalculados[0].precioVentaTotal).toBeLessThan(res.precioFinalGlobal);
+    expect(res.itemsCalculados[1].precioVentaTotal).toBeLessThan(res.precioFinalGlobal);
+    expect(res.itemsCalculados[0].precioVentaTotal).toBeGreaterThan(0);
+    expect(res.itemsCalculados[1].precioVentaTotal).toBeGreaterThan(0);
 
-    // MOD con sinergia debe ser exactamente 85% de la teórica
-    expect(conSinergia.subtotalManoObra).toBe(roundMoney(sinSinergia.subtotalManoObra * 0.85));
-    expect(conSinergia.ahorroSinergiaManoObra).toBeGreaterThan(0);
-    expect(conSinergia.totalARS).toBeLessThan(sinSinergia.totalARS);
-  });
+    const sumaVenta = roundMoney((res.itemsCalculados[0].precioVentaTotal || 0) + (res.itemsCalculados[1].precioVentaTotal || 0));
+    expect(sumaVenta).toBe(res.precioFinalGlobal);
 
-  it('no aplica sinergia por defecto cuando hay 1 solo ítem o ítems no compatibles', () => {
-    const singleItem = [mockItems[0]];
-    expect(sonItemsCompatiblesParaSinergia(singleItem)).toBe(false);
-
-    const resSingle = calcularSinergiaManoObra({
-      items: singleItem,
-      operarios: 2
-    });
-
-    // Con 1 solo ítem, el factor de sinergia debe ser estrictamente 1.0
-    expect(resSingle.factorSinergia).toBe(1.0);
-    expect(resSingle.ahorroSetupHs).toBe(0);
-    expect(resSingle.bonoTandemHs).toBe(0);
-    expect(resSingle.sonCompatibles).toBe(false);
+    expect(res.itemsCalculados[0].incidencia).toBeCloseTo(0.4, 2);
+    expect(res.itemsCalculados[1].incidencia).toBeCloseTo(0.6, 2);
   });
 
   it('evalúa la tarea tipo por defecto de recableado con cuadrilla sincronizada e insumos condicionales', () => {
@@ -2828,100 +2766,6 @@ describe('22. Motor de Actualización Integral de Precios y Tarifas', () => {
     expect(resAll.resumen.dolarActualizado).toBe(true);
   });
 
-  describe('estimarCuadrillaPorPlazo', () => {
-    const testItems: ItemPresupuesto[] = [
-      {
-        id: 'it-1',
-        tipoItem: 'tarea_tipo',
-        descripcion: 'Bocas de Iluminación',
-        unidad: 'u',
-        cantidad: 10,
-        insumosSnapshot: [],
-        costoInsumos: 50000,
-        costoManoObra: 100000,
-        costoDirectoTotal: 150000,
-        precioVentaUnitario: 15000,
-        precioVentaTotal: 150000,
-        manoObraSnapshot: [
-          { categoriaId: 'oficial', nombreCategoria: 'Oficial', horasTotales: 20, costoHoraCongelado: 5000, subtotalManoObra: 100000 }
-        ]
-      },
-      {
-        id: 'it-2',
-        tipoItem: 'tarea_tipo',
-        descripcion: 'Tomacorrientes',
-        unidad: 'u',
-        cantidad: 5,
-        insumosSnapshot: [],
-        costoInsumos: 25000,
-        costoManoObra: 40000,
-        costoDirectoTotal: 65000,
-        precioVentaUnitario: 13000,
-        precioVentaTotal: 65000,
-        manoObraSnapshot: [
-          { categoriaId: 'oficial', nombreCategoria: 'Oficial', horasTotales: 7.5, costoHoraCongelado: 5000, subtotalManoObra: 40000 }
-        ]
-      }
-    ];
-
-    it('estima adecuadamente la cuadrilla cuando el plazo es holgado', () => {
-      // Total horas brutas = 27.5 hs. Con 8h/día y 5 días de plazo (capacidad = 40 hs/op), 1 operario alcanza.
-      const res = estimarCuadrillaPorPlazo({
-        items: testItems,
-        diasObjetivo: 5,
-        horasEfectivasJornada: 8.0
-      });
-
-      expect(res.esFactible).toBe(true);
-      expect(res.operariosSugeridos).toBe(1);
-      expect(res.sinergiaSugerida.diasEnterosObra).toBeLessThanOrEqual(5);
-    });
-
-    it('sugiere cuadrilla mayor cuando el plazo es acotado', () => {
-      // Con 1 día de plazo a 8h/día, 1 operario necesita ~26 hs de trabajo -> no llega en 1 día.
-      // 2 operarios hacen ~12h reloj -> no llegan en 1 día a 8h/día.
-      // Se requieren más operarios para entrar en 1 día.
-      const res = estimarCuadrillaPorPlazo({
-        items: testItems,
-        diasObjetivo: 1,
-        horasEfectivasJornada: 8.0
-      });
-
-      expect(res.operariosSugeridos).toBeGreaterThanOrEqual(3);
-      expect(res.sinergiaSugerida.diasEnterosObra).toBeLessThanOrEqual(2);
-    });
-
-    it('ajusta la estimación según la ventana horaria (consorcio 4h vs normal 8h)', () => {
-      // 3 días de obra:
-      // A 8h/día -> capacidad 24 hs por operario -> 2 operarios alcanzan holgadamente
-      const res8h = estimarCuadrillaPorPlazo({
-        items: testItems,
-        diasObjetivo: 3,
-        horasEfectivasJornada: 8.0
-      });
-
-      // A 4h/día -> capacidad 12 hs por operario -> necesita más operarios para terminar en 3 días
-      const res4h = estimarCuadrillaPorPlazo({
-        items: testItems,
-        diasObjetivo: 3,
-        horasEfectivasJornada: 4.0
-      });
-
-      expect(res4h.operariosSugeridos).toBeGreaterThanOrEqual(res8h.operariosSugeridos);
-    });
-
-    it('maneja listas sin mano de obra sin lanzar excepciones', () => {
-      const res = estimarCuadrillaPorPlazo({
-        items: [],
-        diasObjetivo: 3,
-        horasEfectivasJornada: 8.0
-      });
-
-      expect(res.operariosSugeridos).toBe(1);
-      expect(res.esFactible).toBe(true);
-      expect(res.mensaje).toContain('No hay partidas');
-    });
-  });
 
   describe('Ítems libres y partidas ad-hoc con Costo Base en calcularTotalesPresupuesto', () => {
     it('calcula costo global, subtotal, precio final y venta unitaria para un ítem libre con costoUnitario', () => {
@@ -2993,35 +2837,6 @@ describe('22. Motor de Actualización Integral de Precios y Tarifas', () => {
       expect(result.itemsCalculados[0].precioVentaTotal).toBeGreaterThan(30000);
       expect(result.itemsCalculados[0].precioVentaClienteUnitario).toBe(result.itemsCalculados[0].precioVentaTotal);
     });
-
-    it('no reduce el costo base de un ítem libre por sinergia de cuadrilla', () => {
-      const freeItem: ItemPresupuesto = {
-        id: 'free-item-3',
-        tipoItem: 'item_libre',
-        descripcion: 'Montaje ad-hoc',
-        cantidad: 1,
-        unidad: 'u',
-        costoUnitario: 10000,
-        costoInsumos: 0,
-        costoManoObra: 0,
-        costoServiciosTercerizados: 0,
-        costoDirectoTotal: 10000,
-        precioVentaUnitario: 0,
-        precioVentaTotal: 0,
-        insumosSnapshot: [],
-        manoObraSnapshot: []
-      };
-
-      const resultConSinergia = calcularTotalesPresupuesto({
-        items: [freeItem],
-        factorSinergiaManoObra: 0.85,
-        impuestosDetalle: []
-      });
-
-      expect(resultConSinergia.costoGlobal).toBe(10000);
-      expect(resultConSinergia.itemsCalculados[0].costoDirectoTotal).toBe(10000);
-      expect(resultConSinergia.itemsCalculados[0].costoManoObra).toBe(10000);
-    });
   });
 
   describe('Conversiones de Convenio UOCRA (Hora <-> Jornada)', () => {
@@ -3047,78 +2862,9 @@ describe('22. Motor de Actualización Integral de Precios y Tarifas', () => {
       // Manejo seguro de ceros o negativos
       expect(calcularCostoJornadaDesdeHora(0)).toBe(0);
     });
-
-    it('calcula costoJornadasCompletas en calcularSinergiaManoObra cubriendo el piso de jornadas de convenio', () => {
-      const mockCatMO: CategoriaManoDeObra[] = [
-        { id: 'mo-of', nombre: 'Oficial Electricista', costoHora: 10000, rol: 'oficial', fechaActualizacion: '' },
-        { id: 'mo-ay', nombre: 'Ayudante Práctico', costoHora: 8000, rol: 'ayudante', fechaActualizacion: '' }
-      ];
-
-      const testItems: ItemPresupuesto[] = [
-        {
-          id: 'it-1',
-          descripcion: 'Cableado Vivienda',
-          cantidad: 1,
-          unidad: 'u',
-          costoInsumos: 0,
-          costoManoObra: 60000,
-          costoDirectoTotal: 60000,
-          costoTotal: 60000,
-          precioVentaUnitario: 60000,
-          precioVentaTotal: 60000,
-          insumosSnapshot: [],
-          manoObraSnapshot: [
-            {
-              categoriaId: 'mo-of',
-              nombreCategoria: 'Oficial Electricista',
-              horasUnitarias: 6,
-              horasTotales: 6,
-              costoHoraCongelado: 10000,
-              subtotalManoObra: 60000
-            }
-          ]
-        },
-        {
-          id: 'it-2',
-          descripcion: 'Tablero Seccional',
-          cantidad: 1,
-          unidad: 'u',
-          costoInsumos: 0,
-          costoManoObra: 32000,
-          costoDirectoTotal: 32000,
-          costoTotal: 32000,
-          precioVentaUnitario: 32000,
-          precioVentaTotal: 32000,
-          insumosSnapshot: [],
-          manoObraSnapshot: [
-            {
-              categoriaId: 'mo-ay',
-              nombreCategoria: 'Ayudante Práctico',
-              horasUnitarias: 4,
-              horasTotales: 4,
-              costoHoraCongelado: 8000,
-              subtotalManoObra: 32000
-            }
-          ]
-        }
-      ];
-
-      const res = calcularSinergiaManoObra({
-        items: testItems,
-        operarios: 2,
-        horasEfectivasJornada: 9.0,
-        categoriasManoObra: mockCatMO
-      });
-
-      expect(res.costoJornadasCompletas).toBeDefined();
-      expect(res.costoJornadasCompletas).toBeGreaterThan(0);
-      expect(res.tarifaPonderadaCuadrilla).toBe(9000); // (10000 + 8000) / 2
-      // Horas devengadas por jornadas enteras = diasEnterosObra * operarios * horasEfectivas
-      expect(res.horasDevengadasJornal).toBe(res.diasEnterosObra * 2 * 9.0);
-      expect(res.costoJornadasCompletas).toBe(roundMoney(res.horasDevengadasJornal * res.tarifaPonderadaCuadrilla));
-    });
   });
 });
+
 
 
 

@@ -64,7 +64,6 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     manoObraList,
     manoObraMap,
     totales,
-    sinergiaManoObra,
     activeTab,
     setActiveTab,
     clienteId,
@@ -158,20 +157,6 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     setShowActualizarPreciosModal,
     analisisPreciosModal,
     handleConfirmActualizarPrecios,
-    estrategiaCuadrilla,
-    setEstrategiaCuadrilla,
-    nivelConfianzaCuadrilla,
-    setNivelConfianzaCuadrilla,
-    aplicarOptimizacionCuadrilla,
-    setAplicarOptimizacionCuadrilla,
-    operariosCuadrilla,
-    setOperariosCuadrilla,
-    horasJornadaCuadrilla,
-    setHorasJornadaCuadrilla,
-    modoPlanificacionCuadrilla,
-    setModoPlanificacionCuadrilla,
-    diasObjetivoObra,
-    setDiasObjetivoObra,
     margenRiesgoPorcentaje,
     setMargenRiesgoPorcentaje,
     nivelMargenRiesgo,
@@ -682,7 +667,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             onSelectTab={setActiveTab}
             clienteNombre={selectedCliente?.nombre}
             itemsCount={items.length}
-            cuadrillaBadge={sinergiaManoObra?.sonCompatibles ? `${sinergiaManoObra.operarios || operariosCuadrilla} op` : undefined}
+            cuadrillaBadge={gastosConfig.filter((g) => g.aplica).length > 0 ? `${gastosConfig.filter((g) => g.aplica).length}` : undefined}
             precioFinalFormatted={totales.precioFinalGlobal > 0 ? formatARS(totales.precioFinalGlobal) : undefined}
           />
 
@@ -756,22 +741,6 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
         {activeTab === 'cuadrilla' && (
           <CuadrillaTab
-            items={items}
-            estrategia={estrategiaCuadrilla}
-            nivelConfianza={nivelConfianzaCuadrilla}
-            aplicarOptimizacion={aplicarOptimizacionCuadrilla}
-            operarios={operariosCuadrilla}
-            horasJornada={horasJornadaCuadrilla}
-            modoPlanificacion={modoPlanificacionCuadrilla}
-            diasObjetivo={diasObjetivoObra}
-            manoObraList={manoObraList}
-            onChangeEstrategia={setEstrategiaCuadrilla}
-            onChangeNivelConfianza={setNivelConfianzaCuadrilla}
-            onToggleOptimizacion={setAplicarOptimizacionCuadrilla}
-            onChangeOperarios={setOperariosCuadrilla}
-            onChangeHorasJornada={setHorasJornadaCuadrilla}
-            onChangeModoPlanificacion={setModoPlanificacionCuadrilla}
-            onChangeDiasObjetivo={setDiasObjetivoObra}
             totales={totales}
             gastosConfig={gastosConfig}
             onOpenGastoModal={(g) => {

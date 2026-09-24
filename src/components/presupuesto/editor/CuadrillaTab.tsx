@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Users,
   HardHat,
   Package,
   Truck,
@@ -15,34 +14,12 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import {
-  ItemPresupuesto,
-  CategoriaManoDeObra,
-  EstrategiaCuadrilla,
-  NivelConfianzaSinergia,
-  ModoPlanificacionCuadrilla,
   GastoPresupuestoConfig,
   DestinoGasto
 } from '../../../core/types';
 import { formatARS, TotalesPresupuestoResultado } from '../../../core/calculations';
-import { PlanificadorCuadrillaCard } from '../PlanificadorCuadrillaCard';
 
 interface CuadrillaTabProps {
-  items: ItemPresupuesto[];
-  estrategia: EstrategiaCuadrilla;
-  nivelConfianza: NivelConfianzaSinergia;
-  aplicarOptimizacion: boolean;
-  operarios: number;
-  horasJornada: number;
-  modoPlanificacion: ModoPlanificacionCuadrilla;
-  diasObjetivo: number;
-  manoObraList: CategoriaManoDeObra[];
-  onChangeEstrategia: (est: EstrategiaCuadrilla) => void;
-  onChangeNivelConfianza: (nivel: NivelConfianzaSinergia) => void;
-  onToggleOptimizacion: (activar: boolean) => void;
-  onChangeOperarios: (n: number) => void;
-  onChangeHorasJornada: (h: number) => void;
-  onChangeModoPlanificacion: (modo: ModoPlanificacionCuadrilla) => void;
-  onChangeDiasObjetivo: (dias: number) => void;
   totales: TotalesPresupuestoResultado;
   gastosConfig: GastoPresupuestoConfig[];
   onOpenGastoModal: (gastoToEdit?: GastoPresupuestoConfig) => void;
@@ -56,22 +33,6 @@ interface CuadrillaTabProps {
 }
 
 export const CuadrillaTab: React.FC<CuadrillaTabProps> = ({
-  items,
-  estrategia,
-  nivelConfianza,
-  aplicarOptimizacion,
-  operarios,
-  horasJornada,
-  modoPlanificacion,
-  diasObjetivo,
-  manoObraList,
-  onChangeEstrategia,
-  onChangeNivelConfianza,
-  onToggleOptimizacion,
-  onChangeOperarios,
-  onChangeHorasJornada,
-  onChangeModoPlanificacion,
-  onChangeDiasObjetivo,
   totales,
   gastosConfig,
   onOpenGastoModal,
@@ -114,27 +75,7 @@ export const CuadrillaTab: React.FC<CuadrillaTabProps> = ({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* 1. Planificador de Cuadrilla & Sinergia de Obra */}
-      <PlanificadorCuadrillaCard
-        items={items}
-        operarios={operarios}
-        horasEfectivasJornada={horasJornada}
-        onSelectHorasEfectivasJornada={onChangeHorasJornada}
-        modoPlanificacion={modoPlanificacion}
-        onSelectModoPlanificacion={onChangeModoPlanificacion}
-        diasObjetivo={diasObjetivo}
-        onSelectDiasObjetivo={onChangeDiasObjetivo}
-        aplicarOptimizacion={aplicarOptimizacion}
-        onSelectOperarios={onChangeOperarios}
-        onToggleAplicarOptimizacion={onToggleOptimizacion}
-        categoriasManoObra={manoObraList}
-        estrategiaSeleccionada={estrategia}
-        nivelConfianza={nivelConfianza}
-        onSelectEstrategia={onChangeEstrategia}
-        onSelectNivelConfianza={onChangeNivelConfianza}
-      />
-
-      {/* 2. Gastos Directos & Logística de Obra */}
+      {/* Gastos Directos & Logística de Obra */}
       <div className="bg-surface-container-low rounded-3xl p-4 sm:p-6 border border-outline-variant/20 shadow-xs space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-outline-variant/15">
           <div className="flex items-center gap-3">

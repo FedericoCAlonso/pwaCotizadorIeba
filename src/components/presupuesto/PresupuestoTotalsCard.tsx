@@ -91,11 +91,6 @@ export const PresupuestoTotalsCard: React.FC<PresupuestoTotalsCardProps> = ({
             </div>
             <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs sm:text-sm text-on-surface-variant font-mono">
               <span>Base: {formatARS(totales.subtotalManoObraBase)}</span>
-              {totales.ahorroSinergiaManoObra > 0 && (
-                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                  ⚡ -{formatARS(totales.ahorroSinergiaManoObra)} sinergia
-                </span>
-              )}
               {totales.gastosManoObraTotal > 0 && (
                 <span className="text-amber-600 dark:text-amber-400 font-semibold">
                   +{formatARS(totales.gastosManoObraTotal)} cargas/gastos MO

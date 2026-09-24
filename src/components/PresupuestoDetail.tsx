@@ -13,8 +13,6 @@ import {
   MoreVertical,
   Printer,
   Check,
-  HardHat,
-  Clock,
   MessageSquare
 } from 'lucide-react';
 import { AppConfig, Presupuesto, EstadoPresupuesto, InsumoEnTarea, ManoObraEnTarea, MaterialFilterContext } from '../core/types';
@@ -474,7 +472,10 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
                 <tr>
                   <td className="px-4 py-4 text-slate-400 font-mono text-center w-10">1</td>
                   <td className="px-4 py-4 font-semibold text-slate-900">
-                    Provisión de materiales y mano de obra para instalaciones eléctricas según relevamiento.
+                    <div>Provisión integral de materiales y mano de obra según especificaciones de cotización.</div>
+                    <div className="text-xs text-slate-500 font-normal mt-1">
+                      Comprende el total de trabajos, provisiones e instalaciones presupuestadas.
+                    </div>
                   </td>
                   <td className="px-4 py-4 text-center font-mono">1 gl</td>
                   <td className="px-4 py-4 text-right font-mono font-bold">
@@ -532,41 +533,6 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
               );
             })()}
           </div>
-
-          {/* Sinergia de Tareas & Cuadrilla Banner */}
-          {(presupuesto.sinergiaManoObra || presupuesto.planificacionCuadrilla) && (
-            <div className="bg-primary/5 p-4 rounded-2xl border border-primary/20 text-left space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold text-primary flex items-center gap-1.5">
-                    <HardHat className="w-4 h-4 text-primary" />
-                    Cuadrilla: {presupuesto.operariosCuadrilla ?? presupuesto.sinergiaManoObra?.operarios ?? presupuesto.planificacionCuadrilla?.operariosTotales ?? 2} {((presupuesto.operariosCuadrilla ?? presupuesto.sinergiaManoObra?.operarios ?? presupuesto.planificacionCuadrilla?.operariosTotales ?? 2) === 1) ? 'Operario' : 'Operarios'}
-                  </span>
-                  {(presupuesto.jornadasEstimadas || presupuesto.sinergiaManoObra?.jornadasEstimadas) ? (
-                    <span className="text-xs font-bold text-on-surface flex items-center gap-1 bg-surface-container px-2 py-0.5 rounded-lg border border-outline-variant/30">
-                      <Clock className="w-3.5 h-3.5 text-primary" />
-                      Plazo: {presupuesto.jornadasEstimadas ?? presupuesto.sinergiaManoObra?.jornadasEstimadas} {((presupuesto.jornadasEstimadas ?? presupuesto.sinergiaManoObra?.jornadasEstimadas) === 1) ? 'Jornada' : 'Jornadas'} ({presupuesto.tiempoObraHorasReloj ?? presupuesto.sinergiaManoObra?.tiempoObraHorasReloj} hs reloj)
-                    </span>
-                  ) : null}
-                </div>
-                <div className="flex items-center gap-2">
-                  {(presupuesto.factorSinergiaManoObra && presupuesto.factorSinergiaManoObra < 1.0) && (
-                    <span className="text-xs font-mono font-bold bg-primary/10 text-primary px-2.5 py-1 rounded-full">
-                      Sinergia: {Math.round((1 - presupuesto.factorSinergiaManoObra) * 100)}% de ahorro MOD
-                    </span>
-                  )}
-                  {presupuesto.margenRiesgoPorcentaje ? (
-                    <span className="text-xs font-mono font-bold bg-secondary-container text-on-secondary-container px-2.5 py-1 rounded-full">
-                      Riesgo: +{presupuesto.margenRiesgoPorcentaje}%
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-              <p className="text-xs text-on-surface-variant leading-relaxed">
-                {presupuesto.sinergiaManoObra?.explicacion || presupuesto.planificacionCuadrilla?.explicacionOptimizacion}
-              </p>
-            </div>
-          )}
 
           {/* Grand Total Box */}
           <div className="bg-slate-100 p-5 sm:p-6 rounded-2xl border border-slate-300 space-y-3 text-right">

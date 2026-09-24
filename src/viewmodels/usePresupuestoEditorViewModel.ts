@@ -15,9 +15,6 @@ import {
   ImpuestoItem,
   ParametrosEstimacionMaterial,
   MaterialFilterContext,
-  EstrategiaCuadrilla,
-  NivelConfianzaSinergia,
-  ModoPlanificacionCuadrilla,
   NivelMargenRiesgo,
   CapituloPresupuesto,
   GastoPresupuestoConfig,
@@ -25,10 +22,6 @@ import {
 } from '../core/types';
 import {
   calcularTotalesPresupuesto,
-  calcularSinergiaManoObra,
-  estimarCuadrillaPorPlazo,
-  calcularOptimizacionCuadrilla,
-  sonItemsCompatiblesParaSinergia,
   calcularCostoTareaTipo,
   calcularConsumosTareaTipo,
   ConsumosCalculadosResultado,
@@ -60,14 +53,8 @@ function computeEditorStatePayload(state: {
   condicionesPagoTexto: string;
   impuestosDetalle: any[];
   opcionesEmision: any;
-  operariosCuadrilla: number;
-  horasJornadaCuadrilla: number;
-  modoPlanificacionCuadrilla: string;
-  diasObjetivoObra: number;
   margenRiesgoPorcentaje: number;
   nivelMargenRiesgo: string;
-  aplicarOptimizacionCuadrilla: boolean;
-  estrategiaCuadrilla: string;
   dslText?: string;
   notasInternas?: string;
   notasCliente?: string;
@@ -88,14 +75,8 @@ function computeEditorStatePayload(state: {
     condicionesPagoTexto: state.condicionesPagoTexto,
     impuestosDetalle: state.impuestosDetalle,
     opcionesEmision: state.opcionesEmision,
-    operariosCuadrilla: state.operariosCuadrilla,
-    horasJornadaCuadrilla: state.horasJornadaCuadrilla,
-    modoPlanificacionCuadrilla: state.modoPlanificacionCuadrilla,
-    diasObjetivoObra: state.diasObjetivoObra,
     margenRiesgoPorcentaje: state.margenRiesgoPorcentaje,
     nivelMargenRiesgo: state.nivelMargenRiesgo,
-    aplicarOptimizacionCuadrilla: state.aplicarOptimizacionCuadrilla,
-    estrategiaCuadrilla: state.estrategiaCuadrilla,
     dslText: state.dslText || '',
     notasInternas: state.notasInternas || '',
     notasCliente: state.notasCliente || ''
@@ -222,15 +203,7 @@ export function usePresupuestoEditorViewModel({
   const [showActualizarPreciosModal, setShowActualizarPreciosModal] = useState(false);
   const [analisisPreciosModal, setAnalisisPreciosModal] = useState<AnalisisCambiosPreciosPresupuesto | null>(null);
 
-  const [estrategiaCuadrilla, setEstrategiaCuadrilla] = useState<EstrategiaCuadrilla>('optima');
-  const [nivelConfianzaCuadrilla, setNivelConfianzaCuadrilla] = useState<NivelConfianzaSinergia>(80);
-  const [aplicarOptimizacionCuadrilla, setAplicarOptimizacionCuadrilla] = useState<boolean>(false);
-
-  // Sinergia Determinística & Cuadrilla
-  const [operariosCuadrilla, setOperariosCuadrilla] = useState<number>(config.operariosCuadrillaDefault ?? 2);
-  const [horasJornadaCuadrilla, setHorasJornadaCuadrilla] = useState<number>(config.horasEfectivasJornadaDefault ?? 8.0);
-  const [modoPlanificacionCuadrilla, setModoPlanificacionCuadrilla] = useState<ModoPlanificacionCuadrilla>('equipo');
-  const [diasObjetivoObra, setDiasObjetivoObra] = useState<number>(3);
+  // Margen de Riesgo Global
   const [margenRiesgoPorcentaje, setMargenRiesgoPorcentaje] = useState<number>(config.margenRiesgoDefaultPct ?? 0);
   const [nivelMargenRiesgo, setNivelMargenRiesgo] = useState<NivelMargenRiesgo>('bajo');
 
@@ -273,26 +246,11 @@ export function usePresupuestoEditorViewModel({
       setCapitulos(existingPresupuesto.capitulos || []);
       setItems(existingPresupuesto.items || []);
       
-      if (existingPresupuesto.operariosCuadrilla !== undefined) {
-        setOperariosCuadrilla(existingPresupuesto.operariosCuadrilla);
-      }
-      if (existingPresupuesto.horasJornadaCuadrilla !== undefined) {
-        setHorasJornadaCuadrilla(existingPresupuesto.horasJornadaCuadrilla);
-      }
-      if (existingPresupuesto.modoPlanificacionCuadrilla !== undefined) {
-        setModoPlanificacionCuadrilla(existingPresupuesto.modoPlanificacionCuadrilla);
-      }
-      if (existingPresupuesto.diasObjetivoObra !== undefined) {
-        setDiasObjetivoObra(existingPresupuesto.diasObjetivoObra);
-      }
       if (existingPresupuesto.margenRiesgoPorcentaje !== undefined) {
         setMargenRiesgoPorcentaje(existingPresupuesto.margenRiesgoPorcentaje);
       }
       if (existingPresupuesto.nivelMargenRiesgo) {
         setNivelMargenRiesgo(existingPresupuesto.nivelMargenRiesgo);
-      }
-      if (existingPresupuesto.aplicarSinergiaManoObra !== undefined) {
-        setAplicarOptimizacionCuadrilla(existingPresupuesto.aplicarSinergiaManoObra);
       }
       
       const loadedGastos = existingPresupuesto.gastosConfig && existingPresupuesto.gastosConfig.length > 0
@@ -326,12 +284,6 @@ export function usePresupuestoEditorViewModel({
       if (existingPresupuesto.calculosVariables !== undefined) {
         setCalculosVariables(existingPresupuesto.calculosVariables);
       }
-      if (existingPresupuesto.planificacionCuadrilla) {
-        if (existingPresupuesto.planificacionCuadrilla.estrategia) {
-          setEstrategiaCuadrilla(existingPresupuesto.planificacionCuadrilla.estrategia);
-        }
-        setAplicarOptimizacionCuadrilla(existingPresupuesto.planificacionCuadrilla.aplicarOptimizacionAlPresupuesto ?? false);
-      }
 
       isInitializedRef.current = true;
       isDirtyRef.current = false;
@@ -353,14 +305,8 @@ export function usePresupuestoEditorViewModel({
         condicionesPagoTexto: existingPresupuesto.condicionesPagoTexto || '',
         impuestosDetalle: existingPresupuesto.impuestosDetalle || [],
         opcionesEmision: existingPresupuesto.opcionesEmision,
-        operariosCuadrilla: existingPresupuesto.operariosCuadrilla ?? (config.operariosCuadrillaDefault ?? 2),
-        horasJornadaCuadrilla: existingPresupuesto.horasJornadaCuadrilla ?? (config.horasEfectivasJornadaDefault ?? 8.0),
-        modoPlanificacionCuadrilla: existingPresupuesto.modoPlanificacionCuadrilla || 'equipo',
-        diasObjetivoObra: existingPresupuesto.diasObjetivoObra ?? 3,
         margenRiesgoPorcentaje: existingPresupuesto.margenRiesgoPorcentaje ?? (config.margenRiesgoDefaultPct ?? 0),
         nivelMargenRiesgo: existingPresupuesto.nivelMargenRiesgo || 'bajo',
-        aplicarOptimizacionCuadrilla: existingPresupuesto.planificacionCuadrilla?.aplicarOptimizacionAlPresupuesto ?? existingPresupuesto.aplicarSinergiaManoObra ?? false,
-        estrategiaCuadrilla: existingPresupuesto.planificacionCuadrilla?.estrategia || 'equilibrada',
         dslText: existingPresupuesto.dslText || ''
       });
     } else {
@@ -414,14 +360,8 @@ export function usePresupuestoEditorViewModel({
         condicionesPagoTexto: '',
         impuestosDetalle: [],
         opcionesEmision: undefined,
-        operariosCuadrilla: config.operariosCuadrillaDefault ?? 2,
-        horasJornadaCuadrilla: config.horasEfectivasJornadaDefault ?? 8.0,
-        modoPlanificacionCuadrilla: 'equipo',
-        diasObjetivoObra: 3,
         margenRiesgoPorcentaje: config.margenRiesgoDefaultPct ?? 0,
         nivelMargenRiesgo: 'bajo',
-        aplicarOptimizacionCuadrilla: false,
-        estrategiaCuadrilla: 'equilibrada',
         dslText: ''
       });
     }
@@ -451,38 +391,6 @@ export function usePresupuestoEditorViewModel({
     }
   }, [presupuestoId, existingPresupuesto, costosIndirectos]);
 
-  // ─── Sinergia Determinística de Tareas & Cuadrilla ─────────────────────────
-  const sinergiaManoObra = useMemo(() => {
-    return calcularSinergiaManoObra({
-      items,
-      operarios: operariosCuadrilla,
-      horasEfectivasJornada: horasJornadaCuadrilla,
-      categoriasManoObra: manoObraList
-    });
-  }, [items, operariosCuadrilla, horasJornadaCuadrilla, manoObraList]);
-
-  const estimacionPorPlazo = useMemo(() => {
-    return estimarCuadrillaPorPlazo({
-      items,
-      diasObjetivo: diasObjetivoObra,
-      horasEfectivasJornada: horasJornadaCuadrilla,
-      categoriasManoObra: manoObraList
-    });
-  }, [items, diasObjetivoObra, horasJornadaCuadrilla, manoObraList]);
-
-  // Compatibilidad con Card y componentes existentes
-  const resultadoCuadrilla = useMemo(() => {
-    return calcularOptimizacionCuadrilla({
-      items,
-      costosIndirectosCatalog: costosIndirectos,
-      costosIndirectosConfig,
-      categoriasManoObra: manoObraList,
-      estrategiaSeleccionada: estrategiaCuadrilla,
-      nivelConfianza: nivelConfianzaCuadrilla,
-      aplicarOptimizacion: aplicarOptimizacionCuadrilla
-    });
-  }, [items, costosIndirectos, costosIndirectosConfig, manoObraList, estrategiaCuadrilla, nivelConfianzaCuadrilla, aplicarOptimizacionCuadrilla]);
-
   // ─── Real-Time Layered Calculations (Model Layer) ─────────────────────────────
   const totales = useMemo(() => {
     return calcularTotalesPresupuesto({
@@ -495,12 +403,9 @@ export function usePresupuestoEditorViewModel({
       margenRiesgoPorcentaje,
       tipoFactura,
       impuestosDetalle,
-      cotizacionMonedaExtranjera: cotizacionDolar,
-      factorSinergiaManoObra: (aplicarOptimizacionCuadrilla && sonItemsCompatiblesParaSinergia(items))
-        ? sinergiaManoObra.factorSinergia
-        : 1.0
+      cotizacionMonedaExtranjera: cotizacionDolar
     });
-  }, [items, capitulos, gastosConfig, costosIndirectosConfig, costosIndirectos, margenPorcentaje, margenRiesgoPorcentaje, tipoFactura, impuestosDetalle, cotizacionDolar, config, aplicarOptimizacionCuadrilla, sinergiaManoObra]);
+  }, [items, capitulos, gastosConfig, costosIndirectosConfig, costosIndirectos, margenPorcentaje, margenRiesgoPorcentaje, tipoFactura, impuestosDetalle, cotizacionDolar]);
 
   // ─── Auto-Save Engine (Gmail-style Draft Persistence) ─────────────────────
   const executeAutoSave = useCallback(async () => {
@@ -526,14 +431,8 @@ export function usePresupuestoEditorViewModel({
       condicionesPagoTexto,
       impuestosDetalle,
       opcionesEmision,
-      operariosCuadrilla,
-      horasJornadaCuadrilla,
-      modoPlanificacionCuadrilla,
-      diasObjetivoObra,
       margenRiesgoPorcentaje,
       nivelMargenRiesgo,
-      aplicarOptimizacionCuadrilla,
-      estrategiaCuadrilla,
       dslText: dslText || ''
     });
 
@@ -579,22 +478,10 @@ export function usePresupuestoEditorViewModel({
         costosIndirectosConfig: gastosConfig.length > 0 ? gastosConfig : costosIndirectosConfig,
         costosIndirectosAplicados: totales.costosIndirectosAplicados,
 
-        // Sinergia Determinística de Tareas & Margen de Riesgo Global
-        operariosCuadrilla,
-        horasJornadaCuadrilla,
-        modoPlanificacionCuadrilla,
-        diasObjetivoObra,
+        // Margen de Riesgo Global
         margenRiesgoPorcentaje,
         nivelMargenRiesgo,
         montoMargenRiesgo: totales.montoMargenRiesgo,
-        aplicarSinergiaManoObra: aplicarOptimizacionCuadrilla,
-        factorSinergiaManoObra: (aplicarOptimizacionCuadrilla && sonItemsCompatiblesParaSinergia(items))
-          ? sinergiaManoObra.factorSinergia
-          : 1.0,
-        tiempoObraHorasReloj: sinergiaManoObra.tiempoObraHorasReloj,
-        jornadasEstimadas: sinergiaManoObra.jornadasEstimadas,
-        sinergiaManoObra,
-        planificacionCuadrilla: resultadoCuadrilla.planificacion,
 
         // Calculation Engine
         costoGlobal: totales.costoGlobal,
@@ -649,11 +536,10 @@ export function usePresupuestoEditorViewModel({
     }
   }, [
     items, clienteId, direccionObra, capitulos, existingPresupuesto, numero, config, validezDias, tipoFactura,
-    gastosConfig, costosIndirectosConfig, totales, operariosCuadrilla, horasJornadaCuadrilla,
-    modoPlanificacionCuadrilla, diasObjetivoObra, margenRiesgoPorcentaje,
-    nivelMargenRiesgo, aplicarOptimizacionCuadrilla, sinergiaManoObra, resultadoCuadrilla,
+    gastosConfig, costosIndirectosConfig, totales,
+    margenRiesgoPorcentaje, nivelMargenRiesgo,
     margenPorcentaje, opcionesEmision, mostrarDolar, nombreDolar, cotizacionDolar,
-    condicionesPagoTexto, onDraftAutoSaved, estrategiaCuadrilla, dslText, calculatedCells, calculosVariables
+    condicionesPagoTexto, onDraftAutoSaved, dslText, calculatedCells, calculosVariables
   ]);
 
   const latestAutoSaveRef = useRef(executeAutoSave);
@@ -680,14 +566,8 @@ export function usePresupuestoEditorViewModel({
       condicionesPagoTexto,
       impuestosDetalle,
       opcionesEmision,
-      operariosCuadrilla,
-      horasJornadaCuadrilla,
-      modoPlanificacionCuadrilla,
-      diasObjetivoObra,
       margenRiesgoPorcentaje,
       nivelMargenRiesgo,
-      aplicarOptimizacionCuadrilla,
-      estrategiaCuadrilla,
       dslText: dslText || ''
     });
 
@@ -724,10 +604,8 @@ export function usePresupuestoEditorViewModel({
   }, [
     items, clienteId, direccionObra, capitulos, validezDias, tipoFactura, margenPorcentaje,
     gastosConfig, costosIndirectosConfig, mostrarDolar, nombreDolar, cotizacionDolar,
-    condicionesPagoTexto, impuestosDetalle, opcionesEmision, operariosCuadrilla,
-    horasJornadaCuadrilla, modoPlanificacionCuadrilla, diasObjetivoObra,
-    margenRiesgoPorcentaje, nivelMargenRiesgo, aplicarOptimizacionCuadrilla,
-    estrategiaCuadrilla, dslText
+    condicionesPagoTexto, impuestosDetalle, opcionesEmision,
+    margenRiesgoPorcentaje, nivelMargenRiesgo, dslText
   ]);
 
   useEffect(() => {
@@ -1630,22 +1508,11 @@ export function usePresupuestoEditorViewModel({
       costosIndirectosConfig: gastosConfig.length > 0 ? gastosConfig : costosIndirectosConfig,
       costosIndirectosAplicados: totales.costosIndirectosAplicados,
 
-      // Sinergia Determinística de Tareas & Margen de Riesgo Global
-      operariosCuadrilla,
-      horasJornadaCuadrilla,
-      modoPlanificacionCuadrilla,
-      diasObjetivoObra,
+      // Margen de Riesgo Global
       margenRiesgoPorcentaje,
       nivelMargenRiesgo,
       montoMargenRiesgo: totales.montoMargenRiesgo,
-      aplicarSinergiaManoObra: aplicarOptimizacionCuadrilla,
-      factorSinergiaManoObra: (aplicarOptimizacionCuadrilla && sonItemsCompatiblesParaSinergia(items))
-        ? sinergiaManoObra.factorSinergia
-        : 1.0,
-      tiempoObraHorasReloj: sinergiaManoObra.tiempoObraHorasReloj,
-      jornadasEstimadas: sinergiaManoObra.jornadasEstimadas,
-      sinergiaManoObra,
-      planificacionCuadrilla: resultadoCuadrilla.planificacion,
+      factorSinergiaManoObra: 1.0,
 
       // Calculation Engine
       costoGlobal: totales.costoGlobal,
@@ -1705,14 +1572,8 @@ export function usePresupuestoEditorViewModel({
       condicionesPagoTexto,
       impuestosDetalle,
       opcionesEmision: finalEmission,
-      operariosCuadrilla,
-      horasJornadaCuadrilla,
-      modoPlanificacionCuadrilla,
-      diasObjetivoObra,
       margenRiesgoPorcentaje,
       nivelMargenRiesgo,
-      aplicarOptimizacionCuadrilla,
-      estrategiaCuadrilla,
       dslText: dslText || '',
       notasInternas,
       notasCliente
@@ -1853,30 +1714,11 @@ export function usePresupuestoEditorViewModel({
     opcionesEmision,
     setOpcionesEmision,
 
-    // Sinergia Determinística & Margen de Riesgo Global
-    operariosCuadrilla,
-    setOperariosCuadrilla,
-    horasJornadaCuadrilla,
-    setHorasJornadaCuadrilla,
-    modoPlanificacionCuadrilla,
-    setModoPlanificacionCuadrilla,
-    diasObjetivoObra,
-    setDiasObjetivoObra,
+    // Margen de Riesgo Global
     margenRiesgoPorcentaje,
     setMargenRiesgoPorcentaje,
     nivelMargenRiesgo,
     setNivelMargenRiesgo,
-    sinergiaManoObra,
-    estimacionPorPlazo,
-
-    // Planificación de Cuadrilla y Sinergia (Compatibilidad)
-    estrategiaCuadrilla,
-    setEstrategiaCuadrilla,
-    nivelConfianzaCuadrilla,
-    setNivelConfianzaCuadrilla,
-    aplicarOptimizacionCuadrilla,
-    setAplicarOptimizacionCuadrilla,
-    resultadoCuadrilla,
 
     // Modal States
     showItemPickerModal,

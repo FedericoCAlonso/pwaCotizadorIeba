@@ -2,7 +2,7 @@ import React from 'react';
 import {
   Building2,
   ListChecks,
-  Users,
+  Truck,
   Receipt
 } from 'lucide-react';
 import { PresupuestoEditorTab } from '../../../viewmodels/usePresupuestoEditorViewModel';
@@ -50,8 +50,8 @@ export const PresupuestoEditorTabBar: React.FC<PresupuestoEditorTabBarProps> = (
     {
       id: 'cuadrilla',
       stepNumber: '3',
-      label: 'Cuadrilla & Gastos',
-      icon: Users,
+      label: 'Gastos & Logística',
+      icon: Truck,
       badge: cuadrillaBadge
     },
     {
