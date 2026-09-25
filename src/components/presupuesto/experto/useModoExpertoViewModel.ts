@@ -142,6 +142,14 @@ export function useModoExpertoViewModel(
   const isFocusedRef = useRef(false);
   const lastTouchTimeRef = useRef(0);
 
+  const handleFocus = useCallback(() => {
+    isFocusedRef.current = true;
+  }, []);
+
+  const handleBlur = useCallback(() => {
+    isFocusedRef.current = false;
+  }, []);
+
   const [cursorLineCol, setCursorLineCol] = useState<{ line: number; col: number }>({ line: 1, col: 1 });
 
   const updateCursorPos = useCallback((el: HTMLTextAreaElement) => {
@@ -439,7 +447,8 @@ export function useModoExpertoViewModel(
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (initialDslText && initialDslText.trim().length > 0 && initialDslText !== dslText && !isFocusedRef.current) {
+    const isEditorActive = isFocusedRef.current || Boolean(editorViewRef.current?.hasFocus);
+    if (initialDslText && initialDslText.trim().length > 0 && initialDslText !== dslText && !isEditorActive) {
       setDslText(initialDslText);
       handleParseAndSync(initialDslText);
     }
@@ -461,7 +470,11 @@ export function useModoExpertoViewModel(
   // Sincronizar desde cambios externos del ViewModel hacia el texto
   useEffect(() => {
     if (isInternalUpdateRef.current) return;
-    if (isFocusedRef.current || (textareaRef.current && document.activeElement === textareaRef.current)) return;
+    const isEditorActive =
+      isFocusedRef.current ||
+      Boolean(editorViewRef.current?.hasFocus) ||
+      (textareaRef.current && document.activeElement === textareaRef.current);
+    if (isEditorActive) return;
 
     const freshDSL = serializePresupuestoToDSL({
       clienteId,
@@ -1549,6 +1562,8 @@ export function useModoExpertoViewModel(
     updateCursorPos,
     updateMenuPosition,
     handleCloseSlashMenu,
+    handleFocus,
+    handleBlur,
     isFocusedRef
   };
 }

@@ -38,7 +38,7 @@ export const ModoExpertoToolbar: React.FC<ModoExpertoToolbarProps> = ({
         type="button"
         {...createToolbarAction(() =>
           insertSnippet(
-            '\n  - 1 u Reparación y Armado de Tablero:\n      materiales:\n        - Tablero Modular DIN 24 Módulos Superficie Chapa Metálica Puerta Ciega IP40:\n            cantidad: 1\n            marca: Gabexel\n      mano_obra:\n        - 4 h Oficial Electricista\n'
+            '\n  - 1 u Reparación y Armado de Tablero:\n      materiales:\n        - Tablero Modular DIN 24 Módulos Superficie Chapa Metálica Puerta Ciega IP40:\n            cantidad: 1\n            marca: Gabexel\n            precio_unitario: 45000\n      mano_obra:\n        - 4 h Oficial Electricista: $ 8500\n'
           )
         )}
         className="px-2.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl font-bold flex items-center gap-1 border border-primary/30 transition shrink-0 cursor-pointer min-h-[34px]"

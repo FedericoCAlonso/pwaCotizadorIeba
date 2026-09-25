@@ -752,6 +752,13 @@ function serializeSingleItem(it: ItemPresupuesto, lines: string[], indent: strin
       });
     }
 
+    if (it.valoresParametros && Object.keys(it.valoresParametros).length > 0) {
+      lines.push(`${indent}  parametros:`);
+      Object.entries(it.valoresParametros).forEach(([pKey, pVal]) => {
+        lines.push(`${indent}    ${pKey}: ${pVal}`);
+      });
+    }
+
     if (it.condicionTrabajo && it.condicionTrabajo !== 'normal') {
       lines.push(`${indent}  condicion: ${it.condicionTrabajo}`);
     }
@@ -823,9 +830,11 @@ function parseQuantityAndName(
     str = str.replace(condMatch[0], '').trim();
   }
 
-  // 2. Precio manual (: $ 15.000 o : $ =precio o : =precio o = $ 15.000 o : 15000 o : $ precio_var o : precio_var o : costo 15000)
+  // 2. Precio manual (: $ 15.000 o : $ =precio o : =precio o = $ 15.000 o : 15000 o : $ precio_var o : precio_var o : costo 15000 o precio_unitario: 1500 $/u)
   let precioManual: number | undefined = undefined;
-  const priceMatch = str.match(/(?:[:=]\s*(?:costo|precio)?\s*:?\s*\$?\s*|\b(?:costo|precio)\s*:?\s*\$?\s*)(=(?:[^\n\r]+)|[0-9.,]+|[a-zA-Z_]\w*(?:\s*[+\-*/]\s*[a-zA-Z0-9_]+)*)\s*$/i);
+  const priceMatch = str.match(
+    /(?:[:=]\s*(?:(?:precio|costo)(?:_unitario|_u)?|p_u|\$\/u|\$\/h)?\s*:?\s*\$?\s*|\b(?:precio|costo)(?:_unitario|_u)?\s*:?\s*\$?\s*|\b(?:p_u|\$\/u|\$\/h)\s*:?\s*\$?\s*)(=(?:[^\n\r]+)|[0-9.,]+|[a-zA-Z_]\w*(?:\s*[+\-*/]\s*[a-zA-Z0-9_]+)*)(?:\s*(?:\$\s*\/\s*[a-zA-ZáéíóúÁÉÍÓÚ²³]+|\/\s*[a-zA-ZáéíóúÁÉÍÓÚ²³]+|c\/u|por\s+unidad))?\s*$/i
+  );
   if (priceMatch) {
     const rawPrice = priceMatch[1].trim();
     const cleanRawPrice = rawPrice.replace(/^=\s*/, '').replace(/^\$\s*/, '');
@@ -838,8 +847,8 @@ function parseQuantityAndName(
       str = str.slice(0, priceMatch.index).trim();
     }
   } else {
-    // Soportar precio al final con prefijo "$" sin requerir ":" o "=" (ej: "10 u Boca $ 12.500")
-    const dollarPriceMatch = str.match(/(?:\s+\$\s*)([0-9.,]+|[a-zA-Z_]\w*(?:\s*[+\-*/]\s*[a-zA-Z0-9_]+)*)\s*$/);
+    // Soportar precio al final con prefijo "$" sin requerir ":" o "=" (ej: "10 u Boca $ 12.500" o "10 u Boca $ 12.500 /u")
+    const dollarPriceMatch = str.match(/(?:\s+\$\s*)([0-9.,]+|[a-zA-Z_]\w*(?:\s*[+\-*/]\s*[a-zA-Z0-9_]+)*)(?:\s*(?:\/\s*[a-zA-ZáéíóúÁÉÍÓÚ²³]+|c\/u|por\s+unidad))?\s*$/i);
     if (dollarPriceMatch) {
       const rawPrice = dollarPriceMatch[1].trim();
       const isNum = /^[0-9.,]+$/.test(rawPrice);
@@ -1417,7 +1426,12 @@ export function preprocessYamlText(yamlText: string): string {
         const nextTrimmed = nextLine.trim();
         const nextIndent = (nextLine.match(/^\s*/)?.[0] || '').length;
         const currentIndent = (line.match(/^\s*/)?.[0] || '').length;
-        if (nextIndent > currentIndent && /^(cantidad|cant|precio|costo|producto|marca|unidad|horas|notas|calculo|calculos):\s*/i.test(nextTrimmed)) {
+        if (
+          nextIndent > currentIndent &&
+          /^(materiales|insumos|mano_obra|manoobra|mo|servicios|servicio|subcontratos|cantidad|cant|qty|precio|precio_unitario|precio_u|costo|costo_unitario|price|cost|producto|prod|marca|unidad|un|horas|hora|notas|calculo|calculos|condicion):\s*/i.test(
+            nextTrimmed
+          )
+        ) {
           lines[i] = line + ':';
         }
       }
@@ -1438,6 +1452,16 @@ export function preprocessYamlText(yamlText: string): string {
       if (!val.startsWith('"') && !val.startsWith("'")) {
         const escapedVal = val.replace(/"/g, '\\"');
         lines[i] = `${prefix}"${escapedVal}"${comment}`;
+      }
+    }
+
+    // 2c. Proteger números con separador de miles es-AR (ej: 'precio_unitario: 15.000') para que yaml.parse no los convierta en float
+    const thousandsNumberMatch = line.match(/^(\s*(?:-\s*)?[-\w\.\sáéíóúÁÉÍÓÚñÑüÜ]+:\s*)(\$?\s*\d{1,3}(?:\.\d{3})+(?:,\d+)?)\s*$/);
+    if (thousandsNumberMatch) {
+      const prefix = thousandsNumberMatch[1];
+      const numVal = thousandsNumberMatch[2].trim();
+      if (!numVal.startsWith('"') && !numVal.startsWith("'")) {
+        lines[i] = `${prefix}"${numVal}"`;
       }
     }
   }
@@ -2638,7 +2662,15 @@ function parseAndAddItem(
       const cantidad = taskQtyRaw !== undefined ? evaluateExpressionOrNumber(taskQtyRaw, taskScope) : 1;
       const unidad = String(rawItem.unidad ?? rawItem.un ?? rawItem.unit ?? 'u').trim();
       const condicion = String(rawItem.condicion || rawItem.condicionTrabajo || 'normal').toLowerCase() as any;
-      const taskPrecioRaw = rawItem.precio ?? rawItem.costo ?? rawItem.price;
+      const taskPrecioRaw =
+        rawItem.precio_unitario ??
+        rawItem.precio_u ??
+        rawItem['$/u'] ??
+        rawItem.costo_unitario ??
+        rawItem.precio ??
+        rawItem.costo ??
+        rawItem.price ??
+        rawItem.preciounitario;
       const precioManual = taskPrecioRaw !== undefined ? evaluateExpressionOrNumber(taskPrecioRaw, taskScope) : undefined;
 
       const rawMateriales = rawItem.materiales ?? rawItem.insumos;
@@ -2667,6 +2699,7 @@ function parseAndAddItem(
           context,
           diagnostics,
           scope: taskScope,
+          parametros: Object.keys(taskScope).length > 0 ? taskScope : undefined,
           yamlText,
           itemLine
         });
@@ -2869,12 +2902,22 @@ function parseAndAddItem(
         (taskContent.condicion || taskContent.condicionTrabajo || 'normal').toLowerCase();
 
       const taskPrecioRaw =
-        taskContent.precio !== undefined
+        taskContent.precio_unitario !== undefined
+          ? taskContent.precio_unitario
+          : taskContent.precio_u !== undefined
+          ? taskContent.precio_u
+          : taskContent['$/u'] !== undefined
+          ? taskContent['$/u']
+          : taskContent.costo_unitario !== undefined
+          ? taskContent.costo_unitario
+          : taskContent.precio !== undefined
           ? taskContent.precio
           : taskContent.costo !== undefined
           ? taskContent.costo
           : taskContent.price !== undefined
           ? taskContent.price
+          : taskContent.preciounitario !== undefined
+          ? taskContent.preciounitario
           : undefined;
 
       const precioManual = taskPrecioRaw !== undefined
@@ -2894,7 +2937,14 @@ function parseAndAddItem(
                   typeof el === 'object' &&
                   el !== null &&
                   (el.cantidad !== undefined ||
+                    el.cant !== undefined ||
+                    el.qty !== undefined ||
                     el.precio !== undefined ||
+                    el.precio_unitario !== undefined ||
+                    el.precio_u !== undefined ||
+                    el['$/u'] !== undefined ||
+                    el.costo !== undefined ||
+                    el.costo_unitario !== undefined ||
                     el.producto !== undefined ||
                     el.marca !== undefined ||
                     el.unidad !== undefined)
@@ -2941,7 +2991,14 @@ function parseAndAddItem(
                   el !== null &&
                   (el.cantidad !== undefined ||
                     el.horas !== undefined ||
-                    el.precio !== undefined)
+                    el.precio !== undefined ||
+                    el.precio_unitario !== undefined ||
+                    el.precio_u !== undefined ||
+                    el['$/h'] !== undefined ||
+                    el['$/u'] !== undefined ||
+                    el.costo !== undefined ||
+                    el.costo_unitario !== undefined ||
+                    el.valor_hora !== undefined)
               );
               if (isPropertyArray) {
                 const mergedProps: any = {};
@@ -3007,6 +3064,7 @@ function parseAndAddItem(
           context,
           diagnostics,
           scope: taskScope,
+          parametros: Object.keys(taskScope).length > 0 ? taskScope : undefined,
           yamlText,
           itemLine
         });
@@ -3034,7 +3092,7 @@ function parseAndAddItem(
 
 const VALID_MATERIAL_KEYS = new Set([
   'cantidad', 'cant', 'qty', 'c',
-  'precio', 'costo', 'price', 'cost',
+  'precio', 'costo', 'price', 'cost', 'precio_unitario', 'precio_u', 'p_u', '$/u', 'preciounitario', 'costo_unitario', 'unit_price',
   'producto', 'prod', 'marca', 'brand', 'modelo',
   'unidad', 'un', 'unit',
   'formula', 'calculo', 'calculos',
@@ -3043,7 +3101,7 @@ const VALID_MATERIAL_KEYS = new Set([
 
 const VALID_MO_KEYS = new Set([
   'horas', 'hora', 'cantidad', 'cant', 'qty',
-  'precio', 'costo', 'price', 'cost',
+  'precio', 'costo', 'price', 'cost', 'precio_unitario', 'precio_u', 'p_u', '$/h', '$/u', 'valor_hora', 'costo_unitario', 'preciounitario', 'unit_price',
   'categoria', 'nombre', 'descripcion', 'notas',
   'formula', 'calculo', 'calculos'
 ]);
@@ -3148,6 +3206,8 @@ function buildCompositeItem(params: {
   context: ParseDSLContext;
   diagnostics: DSLDiagnostic[];
   scope?: Record<string, number>;
+  parametros?: Record<string, number>;
+  valoresVariables?: Record<string, number>;
   yamlText?: string;
   itemLine?: number;
 }) {
@@ -3166,6 +3226,8 @@ function buildCompositeItem(params: {
     context,
     diagnostics,
     scope,
+    parametros,
+    valoresVariables,
     yamlText,
     itemLine
   } = params;
@@ -3195,7 +3257,24 @@ function buildCompositeItem(params: {
         // Formato estructurado explícito: { nombre: "...", cantidad: 2, marca: "...", precio: 1000 }
         mNombre = String(mItem.nombre).trim();
         mMarca = mItem.producto ? String(mItem.producto).trim() : (mItem.marca ? String(mItem.marca).trim() : undefined);
-        const mItemPrecioRaw = mItem.precio !== undefined ? mItem.precio : (mItem.costo !== undefined ? mItem.costo : mItem.price);
+        const mItemPrecioRaw =
+          mItem.precio_unitario !== undefined
+            ? mItem.precio_unitario
+            : mItem.precio_u !== undefined
+            ? mItem.precio_u
+            : mItem['$/u'] !== undefined
+            ? mItem['$/u']
+            : mItem.costo_unitario !== undefined
+            ? mItem.costo_unitario
+            : mItem.precio !== undefined
+            ? mItem.precio
+            : mItem.costo !== undefined
+            ? mItem.costo
+            : mItem.price !== undefined
+            ? mItem.price
+            : mItem.preciounitario !== undefined
+            ? mItem.preciounitario
+            : undefined;
         mPrecio = mItemPrecioRaw !== undefined ? evaluateExpressionOrNumber(mItemPrecioRaw, scope) : undefined;
         const mItemQty = mItem.cantidad !== undefined ? mItem.cantidad : (mItem.cant !== undefined ? mItem.cant : mItem.qty);
         if (mItemQty !== undefined) {
@@ -3237,7 +3316,24 @@ function buildCompositeItem(params: {
         if (propSource.producto || propSource.marca) {
           mMarca = String(propSource.producto || propSource.marca).trim();
         }
-        const propSourcePrecio = propSource.precio !== undefined ? propSource.precio : (propSource.costo !== undefined ? propSource.costo : propSource.price);
+        const propSourcePrecio =
+          propSource.precio_unitario !== undefined
+            ? propSource.precio_unitario
+            : propSource.precio_u !== undefined
+            ? propSource.precio_u
+            : propSource['$/u'] !== undefined
+            ? propSource['$/u']
+            : propSource.costo_unitario !== undefined
+            ? propSource.costo_unitario
+            : propSource.precio !== undefined
+            ? propSource.precio
+            : propSource.costo !== undefined
+            ? propSource.costo
+            : propSource.price !== undefined
+            ? propSource.price
+            : propSource.preciounitario !== undefined
+            ? propSource.preciounitario
+            : undefined;
         if (propSourcePrecio !== undefined) {
           mPrecio = evaluateExpressionOrNumber(propSourcePrecio, scope);
         } else if (val !== undefined && val !== null && typeof val !== 'object') {
@@ -3398,8 +3494,32 @@ function buildCompositeItem(params: {
           moHoras = evaluateExpressionOrNumber(rawHours, scope);
         }
       }
-      if (propSource.precio !== undefined) {
-        moPrecio = evaluateExpressionOrNumber(propSource.precio, scope);
+      const rawMoPrecio =
+        propSource.precio_unitario !== undefined
+          ? propSource.precio_unitario
+          : propSource.precio_u !== undefined
+          ? propSource.precio_u
+          : propSource.p_u !== undefined
+          ? propSource.p_u
+          : propSource['$/h'] !== undefined
+          ? propSource['$/h']
+          : propSource['$/u'] !== undefined
+          ? propSource['$/u']
+          : propSource.costo_unitario !== undefined
+          ? propSource.costo_unitario
+          : propSource.valor_hora !== undefined
+          ? propSource.valor_hora
+          : propSource.precio !== undefined
+          ? propSource.precio
+          : propSource.costo !== undefined
+          ? propSource.costo
+          : propSource.price !== undefined
+          ? propSource.price
+          : propSource.preciounitario !== undefined
+          ? propSource.preciounitario
+          : undefined;
+      if (rawMoPrecio !== undefined) {
+        moPrecio = evaluateExpressionOrNumber(rawMoPrecio, scope);
       } else if (val !== undefined && val !== null && typeof val !== 'object') {
         moPrecio = evaluateExpressionOrNumber(val, scope);
       }
@@ -3517,7 +3637,22 @@ function buildCompositeItem(params: {
       if (propSource.cantidad !== undefined) {
         sCant = evaluateExpressionOrNumber(propSource.cantidad, scope);
       }
-      const rawPrice = propSource.precio !== undefined ? propSource.precio : (propSource.costo !== undefined ? propSource.costo : val);
+      const rawPrice =
+        propSource.precio_unitario !== undefined
+          ? propSource.precio_unitario
+          : propSource.precio_u !== undefined
+          ? propSource.precio_u
+          : propSource.p_u !== undefined
+          ? propSource.p_u
+          : propSource['$/u'] !== undefined
+          ? propSource['$/u']
+          : propSource.costo_unitario !== undefined
+          ? propSource.costo_unitario
+          : propSource.precio !== undefined
+          ? propSource.precio
+          : propSource.costo !== undefined
+          ? propSource.costo
+          : val;
       if (rawPrice !== undefined && typeof rawPrice !== 'object') {
         sPrecio = evaluateExpressionOrNumber(rawPrice, scope);
       }
@@ -3571,6 +3706,8 @@ function buildCompositeItem(params: {
     insumosSnapshot,
     manoObraSnapshot,
     formulaHonorarios: matchedTarea?.formulaHonorarios,
+    valoresParametros: parametros || (scope && Object.keys(scope).length > 0 ? scope : undefined),
+    valoresVariables: valoresVariables,
     esAdHoc: true
   };
 
@@ -3806,6 +3943,7 @@ function buildAndPushItem(params: {
         precioManual,
         precioVentaUnitario: directCost,
         precioVentaTotal: directTotal,
+        valoresParametros: parametros && Object.keys(parametros).length > 0 ? parametros : undefined,
         insumosSnapshot: existingItem?.insumosSnapshot || [],
         manoObraSnapshot: existingItem?.manoObraSnapshot || []
       };
@@ -4507,13 +4645,13 @@ export function handleYamlSmartEnter(params: {
   if (/^-\s*$/.test(trimmed)) {
     let unindented = '';
     if (leadingWhitespace.length >= 8) {
-      // De nivel legacy (8 espacios + "- ") a 6 espacios
+      // De nivel legacy (8 espacios + "- ") a 6 espacios de sección
       unindented = '      ';
     } else if (leadingWhitespace.length >= 6) {
-      // De nivel 3 (6 espacios + "- ") a nivel 2 (4 espacios)
+      // De nivel de viñeta de material estándar (6 espacios + "- ") a nivel de sección (4 espacios)
       unindented = '    ';
     } else if (leadingWhitespace.length >= 2) {
-      // De nivel 1 (2 espacios + "- ") a nivel 0 (raíz/capítulo)
+      // De nivel de partida ("  - ") a nivel raíz/capítulo (0 espacios)
       unindented = '';
     } else {
       unindented = '';
@@ -4527,17 +4665,26 @@ export function handleYamlSmartEnter(params: {
   }
 
   // Caso 2.5: Renglón vacío con sangría (ej: "            " o "        " o "    ")
-  // Al presionar Enter en una línea vacía, desindenta un nivel hacia afuera en la jerarquía YAML
+  // Al presionar Enter en una línea vacía, desindenta o cicla al siguiente nivel jerárquico
   if (trimmed === '' && leadingWhitespace.length >= 2) {
     let unindented = '';
-    if (leadingWhitespace.length >= 10) {
-      // De nivel legacy (10 o 12 espacios) a 8 espacios + viñeta
-      unindented = '        - ';
-    } else if (leadingWhitespace.length >= 8) {
-      // De nivel 4 (8 espacios de atributos) a nivel 3 (6 espacios + "- ")
-      unindented = '      - ';
+    if (leadingWhitespace.length >= 8) {
+      // De nivel de modificadores de material (8, 10 o 12 espacios) a nivel de nuevo material con viñeta
+      // Buscar la sangría de viñeta del material anterior si existe en el bloque
+      let parentBulletIndent = '      - ';
+      for (let i = linesBefore.length - 2; i >= 0; i--) {
+        const raw = linesBefore[i];
+        const tr = raw.trim();
+        if (!tr || tr.startsWith('#')) continue;
+        const ind = raw.match(/^\s*/)?.[0] || '';
+        if (tr.startsWith('- ') && ind.length >= 6) {
+          parentBulletIndent = ind + '- ';
+          break;
+        }
+      }
+      unindented = parentBulletIndent;
     } else if (leadingWhitespace.length >= 4) {
-      // De nivel 2 o 3 (4 o 6 espacios de sub-bloques) a nivel 1 (2 espacios + "- ")
+      // De nivel de modificadores de partida (4 o 6 espacios de sub-bloques) a nueva partida ("  - ")
       unindented = '  - ';
     } else {
       // De nivel 1 (2 espacios) a nivel 0 (raíz)
@@ -4651,68 +4798,10 @@ export function handleYamlSmartEnter(params: {
     };
   }
 
-  // Caso 5.5: Renglón de propiedad de ítem (ej: "cantidad: 25 u", "precio: 1500", "producto: Prysmian", "porcentaje: 10%")
-  // Al presionar Enter tras completar la propiedad, desindenta automáticamente al nivel de viñeta del ítem
-  const isPropertyLine = /^\s*(cantidad|precio|costo|producto|marca|unidad|horas|porcentaje|pct|monto|formula|aplica_a|destino)\s*:/i.test(trimmed);
-  if (isPropertyLine && leadingWhitespace.length >= 4) {
-    let nextBulletIndent = '  - ';
-    if (leadingWhitespace.length >= 10) {
-      // Propiedad legacy (12 espacios) -> ítem legacy (8 espacios + "- ")
-      nextBulletIndent = '        - ';
-    } else if (leadingWhitespace.length >= 6) {
-      // Atributo estándar (8 espacios) -> ítem estándar (6 espacios + "- ")
-      nextBulletIndent = '      - ';
-    } else {
-      // Atributo de partida (4 espacios) o gasto -> partida/gasto hermano (2 espacios + "- ")
-      nextBulletIndent = '  - ';
-    }
-
-    const firstNewline = textAfter.indexOf('\n');
-    const restOfCurrentLine = firstNewline >= 0 ? textAfter.slice(0, firstNewline) : textAfter;
-    const followingDoc = firstNewline >= 0 ? textAfter.slice(firstNewline + 1) : '';
-
-    const fullCurrentLine = currentLine + restOfCurrentLine;
-
-    // Verificar si hay propiedades hermanas pertenecientes al mismo bloque en las siguientes líneas
-    let skipLinesCount = 0;
-    if (followingDoc) {
-      const docLines = followingDoc.split('\n');
-      for (let i = 0; i < docLines.length; i++) {
-        const line = docLines[i];
-        const tr = line.trim();
-        if (!tr) break; // línea en blanco termina el bloque
-        const ind = line.match(/^\s*/)?.[0] || '';
-        if (ind.length >= leadingWhitespace.length) {
-          skipLinesCount++;
-        } else {
-          break;
-        }
-      }
-
-      if (skipLinesCount > 0) {
-        const preservedLines = docLines.slice(0, skipLinesCount).join('\n');
-        const remainingDoc = docLines.slice(skipLinesCount).join('\n');
-        const beforeBlock = textBefore.substring(0, lastLineStart);
-        const blockWithSiblings = fullCurrentLine + '\n' + preservedLines;
-        const newText = beforeBlock + blockWithSiblings + '\n' + nextBulletIndent + (remainingDoc ? '\n' + remainingDoc : '');
-        const newCursorPos = beforeBlock.length + blockWithSiblings.length + 1 + nextBulletIndent.length;
-        return {
-          newText,
-          newCursorPos
-        };
-      }
-    }
-
-    const beforeBlock = textBefore.substring(0, lastLineStart);
-    const newText = beforeBlock + fullCurrentLine + '\n' + nextBulletIndent + (followingDoc ? '\n' + followingDoc : '');
-    const newCursorPos = beforeBlock.length + fullCurrentLine.length + 1 + nextBulletIndent.length;
-    return {
-      newText,
-      newCursorPos
-    };
-  }
-
-  // Caso 6: Renglón normal (ej: comentarios o texto sin propiedad específica) -> Mantiene la sangría actual
+  // Caso 6: Renglón normal (ej: propiedades de ítem, comentarios o texto libre) -> Mantiene la sangría actual
+  // Al pulsar Enter tras una propiedad (ej: "precio_unitario: 1500"), queda en el mismo nivel de modificador
+  // para permitir cargar otra propiedad. Si pulsa Enter nuevamente en el renglón vacío, Caso 2.5 y Caso 2
+  // realizan el descenso progresivo (8 espacios -> '      - ' -> '    ' -> '  - ' -> '')
   const nextIndent = leadingWhitespace;
   const newText = textBefore + '\n' + nextIndent + textAfter;
   return {

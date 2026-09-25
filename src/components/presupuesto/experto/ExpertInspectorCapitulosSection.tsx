@@ -6,11 +6,13 @@ import { formatARS } from '../../../core/calculations';
 interface ExpertInspectorCapitulosSectionProps {
   capitulos: CapituloPresupuesto[];
   items: ItemPresupuesto[];
+  itemsCalculados?: ItemPresupuesto[];
 }
 
 export const ExpertInspectorCapitulosSection: React.FC<ExpertInspectorCapitulosSectionProps> = ({
   capitulos,
-  items
+  items,
+  itemsCalculados
 }) => {
   const [expandedCaps, setExpandedCaps] = useState<Record<string, boolean>>(() => {
     // Por defecto expandir todos los capítulos si hay <= 3, o el primero
@@ -28,13 +30,20 @@ export const ExpertInspectorCapitulosSection: React.FC<ExpertInspectorCapitulosS
     }));
   };
 
+  const effectiveItems = React.useMemo(() => {
+    if (itemsCalculados && itemsCalculados.length > 0) {
+      return itemsCalculados;
+    }
+    return items;
+  }, [items, itemsCalculados]);
+
   // Agrupar ítems por capítulo (o huérfanos sin capítulo)
   const itemsByCap = React.useMemo(() => {
     const map = new Map<string, ItemPresupuesto[]>();
     capitulos.forEach((c) => map.set(c.id, []));
     const sinCapitulo: ItemPresupuesto[] = [];
 
-    items.forEach((it) => {
+    effectiveItems.forEach((it) => {
       if (it.capituloId && map.has(it.capituloId)) {
         map.get(it.capituloId)!.push(it);
       } else {
@@ -43,7 +52,7 @@ export const ExpertInspectorCapitulosSection: React.FC<ExpertInspectorCapitulosS
     });
 
     return { map, sinCapitulo };
-  }, [capitulos, items]);
+  }, [capitulos, effectiveItems]);
 
   const catalogItemsCount = items.filter((it) => Boolean(it.tareaTipoId)).length;
   const customItemsCount = items.filter((it) => !it.tareaTipoId).length;
@@ -160,6 +169,51 @@ export const ExpertInspectorCapitulosSection: React.FC<ExpertInspectorCapitulosS
                                   Condición: {it.condicionTrabajo}
                                 </span>
                               )}
+
+                              {/* Parámetros de la partida paramétrica */}
+                              {it.valoresParametros && Object.keys(it.valoresParametros).length > 0 && (
+                                <div className="mt-1 flex flex-wrap items-center gap-1">
+                                  <span className="text-[9px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                                    Parámetros:
+                                  </span>
+                                  {Object.entries(it.valoresParametros).map(([pKey, pVal]) => (
+                                    <span
+                                      key={pKey}
+                                      className="inline-flex items-center gap-1 text-[10px] font-mono bg-surface-container-highest px-1.5 py-0.5 rounded-md text-on-surface border border-outline-variant/30"
+                                      title={`Parámetro: ${pKey} = ${pVal}`}
+                                    >
+                                      <span className="text-primary font-semibold">{pKey}:</span>
+                                      <span>{typeof pVal === 'number' ? pVal : String(pVal)}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Variables locales calculadas */}
+                              {it.valoresVariables && Object.keys(it.valoresVariables).length > 0 && (
+                                <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                                  <span className="text-[9px] font-semibold text-secondary uppercase tracking-wider">
+                                    Variables:
+                                  </span>
+                                  {Object.entries(it.valoresVariables).map(([vKey, vVal]) => (
+                                    <span
+                                      key={vKey}
+                                      className="inline-flex items-center gap-1 text-[10px] font-mono bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-md border border-secondary/20"
+                                      title={`Variable calculada: ${vKey} = ${vVal}`}
+                                    >
+                                      <span className="font-semibold">{vKey}:</span>
+                                      <span>{typeof vVal === 'number' ? Math.round(vVal * 100) / 100 : String(vVal)}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Cláusula técnica de exclusiones / protección */}
+                              {it.clausulaExclusiones && (
+                                <span className="text-[10px] text-amber-600 dark:text-amber-400 block mt-0.5 truncate" title={it.clausulaExclusiones}>
+                                  ⚠️ {it.clausulaExclusiones}
+                                </span>
+                              )}
                             </div>
 
                             <div className="text-right shrink-0 font-mono text-xs font-bold text-on-surface">
@@ -177,18 +231,32 @@ export const ExpertInspectorCapitulosSection: React.FC<ExpertInspectorCapitulosS
 
           {/* Partidas sin capítulo (si existieran) */}
           {itemsByCap.sinCapitulo.length > 0 && (
-            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-2 space-y-1 text-xs">
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-2 space-y-1.5 text-xs">
               <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 block">
                 Partidas sin capítulo ({itemsByCap.sinCapitulo.length}):
               </span>
               {itemsByCap.sinCapitulo.map((it, idx) => (
-                <div key={it.id || idx} className="flex items-center justify-between text-[11px]">
-                  <span className="truncate text-on-surface">
-                    {it.cantidad} {it.unidad} {it.descripcion}
-                  </span>
-                  <span className="font-mono font-bold text-on-surface ml-2">
-                    {formatARS(it.precioVentaTotal || it.costoTotal || 0)}
-                  </span>
+                <div key={it.id || idx} className="space-y-0.5 py-1 first:pt-0 border-b border-outline-variant/10 last:border-b-0">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="truncate text-on-surface font-semibold">
+                      {it.cantidad} {it.unidad} {it.descripcion}
+                    </span>
+                    <span className="font-mono font-bold text-on-surface ml-2">
+                      {formatARS(it.precioVentaTotal || it.costoTotal || 0)}
+                    </span>
+                  </div>
+                  {it.valoresParametros && Object.keys(it.valoresParametros).length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1">
+                      {Object.entries(it.valoresParametros).map(([pKey, pVal]) => (
+                        <span
+                          key={pKey}
+                          className="inline-flex items-center gap-1 text-[9px] font-mono bg-surface-container-highest px-1 py-0.2 rounded text-on-surface"
+                        >
+                          <span className="text-primary font-semibold">{pKey}:</span> {pVal}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

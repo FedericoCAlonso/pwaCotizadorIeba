@@ -1371,31 +1371,20 @@ dolar: USD Blue
       expect(replacementLine).toContain('            precio: 1510');
     });
 
-    it('handleYamlSmartEnter desindenta correctamente al nivel del ítem al presionar Enter en una propiedad de material', () => {
-      // Caso 1: Terminar de completar cantidad en bloque con propiedades hermanas debajo (producto y precio)
-      const resWithSiblings = handleYamlSmartEnter({
-        textBefore: '      materiales:\n        - Cable Unipolar 1.5 mm²:\n            cantidad: 25 m',
-        textAfter: '\n            producto: Prysmian\n            precio: 1200\n        - Térmica:'
-      });
-
-      expect(resWithSiblings.newText).toContain('            cantidad: 25 m\n            producto: Prysmian\n            precio: 1200\n        - \n        - Térmica:');
-      expect(resWithSiblings.newText.indexOf('        - \n')).toBeGreaterThan(0);
-
-      // Caso 2: Terminar de completar cantidad en bloque sin más propiedades debajo
-      const resWithoutSiblings = handleYamlSmartEnter({
+    it('handleYamlSmartEnter mantiene la sangría de modificador en la 1ra pulsación y desindenta a viñeta en la 2da', () => {
+      // 1ra pulsación: Al presionar Enter en una propiedad ("cantidad: 25 m"), permanece en el nivel de modificador
+      const resFirstEnter = handleYamlSmartEnter({
         textBefore: '      materiales:\n        - Cable Unipolar 1.5 mm²:\n            cantidad: 25 m',
         textAfter: ''
       });
+      expect(resFirstEnter.newText).toBe('      materiales:\n        - Cable Unipolar 1.5 mm²:\n            cantidad: 25 m\n            ');
 
-      expect(resWithoutSiblings.newText.endsWith('        - ')).toBe(true);
-
-      // Caso 3: Terminar de completar cantidad cuando el cursor está en el número o antes de la unidad
-      const resCursorInQty = handleYamlSmartEnter({
-        textBefore: '      materiales:\n        - Cable Unipolar 1.5 mm²:\n            cantidad: 25',
-        textAfter: ' m\n            producto: Prysmian\n            precio: 1200'
+      // 2da pulsación: Al presionar Enter en el renglón vacío de propiedades, desindenta para nuevo ítem con guión
+      const resSecondEnter = handleYamlSmartEnter({
+        textBefore: resFirstEnter.newText,
+        textAfter: ''
       });
-
-      expect(resCursorInQty.newText).toContain('            cantidad: 25 m\n            producto: Prysmian\n            precio: 1200\n        - ');
+      expect(resSecondEnter.newText.endsWith('        - ')).toBe(true);
     });
 
     it('handleYamlSmartEnter no divide la línea al completar cantidad en ítem de material inline', () => {
@@ -2673,12 +2662,19 @@ Capítulo 1:
       });
       expect(r5.newText).toBe('Capítulo 1:\n  - Boca:\n    materiales:\n      - Cable 2.5 mm²:\n        cantidad: ');
 
-      // Nivel 4 (Atributo "        cantidad: 20") -> Siguiente renglón desindenta a ítem hermano (Nivel 3: "      - ")
+      // Nivel 4 (Atributo "        cantidad: 20") -> 1er Enter permanece en modificador ("        ")
       const r6 = handleYamlSmartEnter({
         textBefore: 'Capítulo 1:\n  - Boca:\n    materiales:\n      - Cable 2.5 mm²:\n        cantidad: 20',
         textAfter: ''
       });
-      expect(r6.newText).toBe('Capítulo 1:\n  - Boca:\n    materiales:\n      - Cable 2.5 mm²:\n        cantidad: 20\n      - ');
+      expect(r6.newText).toBe('Capítulo 1:\n  - Boca:\n    materiales:\n      - Cable 2.5 mm²:\n        cantidad: 20\n        ');
+
+      // 2do Enter en renglón vacío de nivel 4 ("        ") -> Desindenta a nuevo ítem con guión (Nivel 3: "      - ")
+      const r6_2 = handleYamlSmartEnter({
+        textBefore: r6.newText,
+        textAfter: ''
+      });
+      expect(r6_2.newText).toBe('Capítulo 1:\n  - Boca:\n    materiales:\n      - Cable 2.5 mm²:\n        cantidad: 20\n      - ');
 
       // Viñeta vacía de nivel 3 ("      - ") -> Desindenta a nivel 2 ("    ")
       const r7 = handleYamlSmartEnter({
@@ -3492,5 +3488,135 @@ Capítulo Planta Baja:
       expect(res.items[0].descripcion).toContain('Boca de Iluminación');
       expect(res.items[1].descripcion).toContain('Tablero');
     });
+
+    describe('Mejoras Modo Experto: Enter Secuencial y Cómputo APU con precio_unitario', () => {
+      it('ejecuta la secuencia completa de 5 pulsaciones de Enter desde un modificador de material hasta la raíz', () => {
+        // Estado inicial: cursor al final de "precio_unitario: 1500"
+        const initialText = 'Capítulo 1:\n  - Partida:\n      materiales:\n        - Cable:\n            cantidad: 10\n            precio_unitario: 1500';
+
+        // 1ª pulsación: Queda en nivel de modificador de ese material (misma sangría de 12 espacios)
+        const enter1 = handleYamlSmartEnter({ textBefore: initialText, textAfter: '' });
+        expect(enter1.newText).toBe(initialText + '\n            ');
+
+        // 2ª pulsación: En renglón vacío con sangría de modificador, desindenta para nuevo material con guión ("        - ")
+        const enter2 = handleYamlSmartEnter({ textBefore: enter1.newText, textAfter: '' });
+        expect(enter2.newText).toBe(initialText + '\n        - ');
+
+        // 3ª pulsación: En viñeta vacía de material ("        - "), borra guión y desindenta a modificador de partida ("      " o "    ")
+        const enter3 = handleYamlSmartEnter({ textBefore: enter2.newText, textAfter: '' });
+        expect(enter3.newText.endsWith('    ') || enter3.newText.endsWith('      ')).toBe(true);
+        expect(enter3.newText.endsWith('- ')).toBe(false);
+
+        // 4ª pulsación: En nivel de modificador de partida vacío ("    "), desindenta a nueva partida ("  - ")
+        const enter4 = handleYamlSmartEnter({ textBefore: initialText + '\n    ', textAfter: '' });
+        expect(enter4.newText).toBe(initialText + '\n  - ');
+
+        // 5ª pulsación: En viñeta vacía de partida ("  - "), borra guión y desindenta a nivel raíz ("")
+        const enter5 = handleYamlSmartEnter({ textBefore: initialText + '\n  - ', textAfter: '' });
+        expect(enter5.newText).toBe(initialText + '\n');
+      });
+
+      it('computa partidas APU compuestas con precio_unitario, precio_u y sufijos de unidad sin quedar en cero', () => {
+        const dsl = `
+Capítulo Instalación:
+  - 1 u Tablero Principal y Armado:
+      materiales:
+        - Gabinete Modular 24 Polos:
+            cantidad: 1
+            precio_unitario: 45000
+        - Interruptor Diferencial 40A:
+            cantidad: 2
+            precio_u: 15000
+      mano_obra:
+        - 4 h Oficial Electricista: 8500 $/h
+`;
+        const res = parseDSLToPresupuesto(dsl, {
+          tareasTipo: [],
+          insumosMap: new Map(),
+          manoObraMap: new Map(),
+          clientes: []
+        });
+
+        expect(res.diagnostics.filter((d) => d.type === 'error')).toHaveLength(0);
+        expect(res.items).toHaveLength(1);
+
+        const item = res.items[0];
+        // Materiales: 45000*1 + 15000*2 = 75000
+        // Mano de Obra: 4*8500 = 34000
+        // Costo directo total = 109000
+        expect(item.costoDirectoTotal).toBe(109000);
+        expect(item.costoUnitario).toBe(109000);
+        expect(item.insumosSnapshot).toHaveLength(2);
+        expect(item.manoObraSnapshot).toHaveLength(1);
+        expect(item.insumosSnapshot[0].precioUnitarioCongelado).toBe(45000);
+        expect(item.insumosSnapshot[1].precioUnitarioCongelado).toBe(15000);
+      });
+
+      it('soporta precios con sufijos naturales ($/u, /u, c/u, $/h) en partidas simples y mano de obra', () => {
+        const dsl = `
+Capítulo Líneas:
+  - 10 u Bocas de Iluminación: 1500 $/u
+  - 5 m Canalización Plástica: $ 2500 /m
+  - 1 gl Puesta a Tierra: 35000 c/u
+`;
+        const res = parseDSLToPresupuesto(dsl, {
+          tareasTipo: [],
+          insumosMap: new Map(),
+          manoObraMap: new Map(),
+          clientes: []
+        });
+
+        expect(res.items).toHaveLength(3);
+        expect(res.items[0].precioManual).toBe(1500);
+        expect(res.items[0].descripcion).toBe('Bocas de Iluminación');
+        expect(res.items[1].precioManual).toBe(2500);
+        expect(res.items[1].descripcion).toBe('Canalización Plástica');
+        expect(res.items[2].precioManual).toBe(35000);
+        expect(res.items[2].descripcion).toBe('Puesta a Tierra');
+      });
+
+      it('auto-completa dos puntos en partida padre sin romper la sintaxis YAML cuando sigue materiales:', () => {
+        const dsl = `
+Capítulo Principal:
+  - 10 u Tablero Seccional
+      materiales:
+        - Gabinete:
+            cantidad: 1
+            precio_unitario: 25000
+`;
+        const res = parseDSLToPresupuesto(dsl, {
+          tareasTipo: [],
+          insumosMap: new Map(),
+          manoObraMap: new Map(),
+          clientes: []
+        });
+
+        expect(res.diagnostics.filter((d) => d.type === 'error')).toHaveLength(0);
+        expect(res.items).toHaveLength(1);
+        expect(res.items[0].descripcion).toBe('Tablero Seccional');
+        expect(res.items[0].costoDirectoTotal).toBe(25000 * 10);
+      });
+
+      it('protege números con puntos de miles es-AR (ej: 45.000) para no convertirlos a decimales en YAML', () => {
+        const dsl = `
+Capítulo 1:
+  - 1 u Tablero:
+      materiales:
+        - Gabinete:
+            cantidad: 1
+            precio_unitario: 45.000
+`;
+        const res = parseDSLToPresupuesto(dsl, {
+          tareasTipo: [],
+          insumosMap: new Map(),
+          manoObraMap: new Map(),
+          clientes: []
+        });
+
+        expect(res.items).toHaveLength(1);
+        expect(res.items[0].costoDirectoTotal).toBe(45000);
+      });
+    });
   });
 });
+

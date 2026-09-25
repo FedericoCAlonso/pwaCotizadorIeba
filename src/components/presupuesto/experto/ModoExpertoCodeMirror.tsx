@@ -11,6 +11,7 @@ import {
   keymap
 } from '@codemirror/view';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { Prec } from '@codemirror/state';
 import { tags as t } from '@lezer/highlight';
 import {
   DSLDiagnostic,
@@ -171,6 +172,9 @@ export interface ModoExpertoCodeMirrorProps {
   onCursorChange?: (line: number, col: number, pos: number) => void;
   onNavigateField?: () => void;
   onSlashTrigger?: (info: SlashTriggerInfo) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  onSave?: () => void;
 }
 
 export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
@@ -182,7 +186,10 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
   onEditorReady,
   onCursorChange,
   onNavigateField,
-  onSlashTrigger
+  onSlashTrigger,
+  onFocus,
+  onBlur,
+  onSave
 }) => {
   const cmRef = useRef<ReactCodeMirrorRef>(null);
   const editorViewRef = useRef<EditorView | null>(null);
@@ -322,19 +329,29 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
           }
           return false;
         }
+      },
+      {
+        key: 'Mod-s',
+        run: () => {
+          if (onSave) {
+            onSave();
+            return true;
+          }
+          return false;
+        }
       }
     ]);
-  }, [onNavigateField]);
+  }, [onNavigateField, onSave]);
 
   // Extensiones integradas de CodeMirror 6
   const extensions = useMemo(() => {
     return [
+      Prec.highest(customKeymap),
       yaml(),
       syntaxHighlighting(dslHighlightStyle),
       dslTokensPlugin,
       dslLinterExtension,
       lintGutter(),
-      customKeymap,
       editorTheme
     ];
   }, [dslLinterExtension, customKeymap]);
@@ -433,6 +450,8 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
         onChange={onChange}
         onUpdate={handleUpdate}
         onCreateEditor={handleCreateEditor}
+        onFocus={onFocus}
+        onBlur={onBlur}
       />
     </div>
   );

@@ -338,7 +338,7 @@ export function generateSlashSuggestions({
         blockSnippet += `    producto: ${ins.marca}\n`;
       }
       if (ins.precioActual && ins.precioActual > 0) {
-        blockSnippet += `    precio: ${Math.round(ins.precioActual)}\n`;
+        blockSnippet += `    precio_unitario: ${Math.round(ins.precioActual)}\n`;
       }
 
       // Opción 1: Bloque con propiedades prellenadas
@@ -350,7 +350,7 @@ export function generateSlashSuggestions({
         subtitle: `Material · Bloque con propiedades · $ ${priceStr} / ${defaultUnit}${brandSub}${ins.categoria ? ` · ${ins.categoria}` : ''}`,
         snippet: blockSnippet,
         icon: Package,
-        extraText: `${ins.categoria || ''} ${ins.marca || ''} ${ins.unidad || ''} ${ins.notas || ''} bloque propiedades cantidad producto precio`
+        extraText: `${ins.categoria || ''} ${ins.marca || ''} ${ins.unidad || ''} ${ins.notas || ''} bloque propiedades cantidad producto precio precio_unitario`
       });
 
       // Opción 2: Línea compacta
@@ -388,11 +388,11 @@ export function generateSlashSuggestions({
     list.push({
       id: 'prop-precio',
       category: 'directiva',
-      title: 'precio: [Monto]',
-      subtitle: 'Propiedad · Precio unitario manual para este material (ej: 1250)',
-      snippet: 'precio: ',
+      title: 'precio_unitario: [$/u]',
+      subtitle: 'Propiedad · Precio unitario ($/u) manual para este material (ej: 1250)',
+      snippet: 'precio_unitario: ',
       icon: DollarSign,
-      extraText: 'precio costo valor'
+      extraText: 'precio precio_unitario unitario $/u costo valor'
     });
     list.push({
       id: 'prop-marca',
@@ -461,11 +461,11 @@ export function generateSlashSuggestions({
     list.push({
       id: 'prop-mo-precio',
       category: 'directiva',
-      title: 'precio: [Costo Hora]',
-      subtitle: 'Propiedad · Costo por hora manual de la categoría',
-      snippet: 'precio: ',
+      title: 'precio_unitario: [$/h]',
+      subtitle: 'Propiedad · Costo o precio por hora ($/h) de la categoría (ej: 8500)',
+      snippet: 'precio_unitario: ',
       icon: DollarSign,
-      extraText: 'precio valor costo hora'
+      extraText: 'precio precio_unitario valor costo hora $/h'
     });
 
     // Directivas de transición hacia Materiales o Condición
@@ -527,11 +527,11 @@ export function generateSlashSuggestions({
     list.push({
       id: 'prop-serv-precio',
       category: 'directiva',
-      title: 'precio: [Monto]',
-      subtitle: 'Propiedad · Precio o costo del servicio',
-      snippet: 'precio: ',
+      title: 'precio_unitario: [$/u]',
+      subtitle: 'Propiedad · Precio o costo unitario ($/u) del servicio tercerizado (ej: 25000)',
+      snippet: 'precio_unitario: ',
       icon: DollarSign,
-      extraText: 'precio costo valor'
+      extraText: 'precio precio_unitario costo valor $/u'
     });
 
     list.push({
@@ -580,11 +580,11 @@ export function generateSlashSuggestions({
     list.push({
       id: 'prop-item-precio',
       category: 'directiva',
-      title: 'precio: [Monto]',
-      subtitle: 'Propiedad · Precio unitario manual cerrado para la partida',
-      snippet: 'precio: ',
+      title: 'precio_unitario: [$/u]',
+      subtitle: 'Propiedad · Precio unitario ($/u) de venta directa para esta partida',
+      snippet: 'precio_unitario: ',
       icon: DollarSign,
-      extraText: 'precio valor costo manual monto cerrado'
+      extraText: 'precio precio_unitario unitario $/u valor costo manual monto cerrado'
     });
 
     list.push({
@@ -904,7 +904,7 @@ export function generateSlashSuggestions({
       category: 'tarea',
       title: '⚡ Partida a Medida (APU)',
       subtitle: 'Crea un trabajo con despiece de materiales y mano de obra',
-      snippet: `- Tablero a Medida:\n    materiales:\n      - 1 u Gabinete DIN 24 módulos\n    mano_obra:\n      - 6 h Oficial\n`,
+      snippet: `- Tablero a Medida:\n    materiales:\n      - 1 u Gabinete DIN 24 módulos: $ 45000\n    mano_obra:\n      - 6 h Oficial Electricista: $ 8500\n`,
       icon: Layers,
       extraText: 'apu partida a medida despiece materiales mano de obra'
     });
@@ -1186,10 +1186,10 @@ export function generateSlashSuggestions({
         id: 'cmd-trabajo-tipo',
         category: 'tarea',
         title: '⚡ Trabajo Tipo (Plantilla Paramétrica)',
-        subtitle: 'Plantilla de trabajo con variables locales, materiales y mano de obra',
-        snippet: `- Reparación y Armado de Tablero:\n    cantidad: 1 u\n    calculos:\n      modulos: 24\n      termicas: 6\n    materiales:\n      - 1 u Tablero Modular DIN =modulos Módulos Superficie Chapa Metálica Puerta Ciega IP40:\n          marca: Gabexel\n      - =termicas u Interruptor Termomagnético 2P\n    mano_obra:\n      - 4 h Oficial Electricista\n`,
+        subtitle: 'Plantilla de trabajo con parámetros editables, materiales y mano de obra',
+        snippet: `- Reparación y Armado de Tablero:\n    cantidad: 1 u\n    parametros:\n      modulos: 24\n      termicas: 6\n    materiales:\n      - 1 u Tablero Modular DIN =modulos Módulos Superficie Chapa Metálica Puerta Ciega IP40:\n          marca: Gabexel\n          precio_unitario: 45000\n      - =termicas u Interruptor Termomagnético 2P: $ 8500\n    mano_obra:\n      - 4 h Oficial Electricista: $ 8500\n`,
         icon: Layers,
-        extraText: 'trabajo tipo plantilla parametrica calculos materiales mano de obra partida'
+        extraText: 'trabajo tipo plantilla parametrica calculos parametros materiales mano de obra partida'
       });
     }
 

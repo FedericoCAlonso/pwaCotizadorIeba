@@ -160,6 +160,9 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = (props) => {
                     vm.setMenuPosition(info.pos);
                   }
                 }}
+                onFocus={vm.handleFocus}
+                onBlur={vm.handleBlur}
+                onSave={props.onSaveDraft}
               />
 
               {/* Popover contextual de autocompletado */}

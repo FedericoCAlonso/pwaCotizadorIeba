@@ -167,7 +167,7 @@ export const ExpertInspector: React.FC<ExpertInspectorProps> = ({
       />
 
       {/* ─── 3. Capítulos & Partidas Detectados en Tiempo Real ─── */}
-      <ExpertInspectorCapitulosSection capitulos={capitulos} items={items} />
+      <ExpertInspectorCapitulosSection capitulos={capitulos} items={items} itemsCalculados={totales?.itemsCalculados} />
 
       {/* ─── 4. Celdas de Cálculo y Variables en Vivo ─── */}
       {calculatedCells && calculatedCells.length > 0 && (

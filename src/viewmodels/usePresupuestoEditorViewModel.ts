@@ -36,7 +36,7 @@ import {
 import { useInsumosMap } from '../hooks/useInsumosMap';
 import { useToast } from '../contexts/ToastContext';
 import { TareaFormData } from '../components/tareasTipo/TareaEditorModal';
-import { serializePresupuestoToDSL } from '../components/presupuesto/experto/dslParser';
+import { serializePresupuestoToDSL, parseDSLToPresupuesto } from '../components/presupuesto/experto/dslParser';
 function computeEditorStatePayload(state: {
   items: any[];
   clienteId: string;
@@ -410,7 +410,12 @@ export function usePresupuestoEditorViewModel({
   // ─── Auto-Save Engine (Gmail-style Draft Persistence) ─────────────────────
   const executeAutoSave = useCallback(async () => {
     // Only auto-save if there's actual content (items, selected client, or chapters) or it was an existing quote
-    const hasContent = items.length > 0 || Boolean(clienteId) || capitulos.length > 0 || Boolean(existingPresupuesto);
+    const hasContent =
+      items.length > 0 ||
+      Boolean(clienteId) ||
+      capitulos.length > 0 ||
+      Boolean(dslText && dslText.trim().length > 0) ||
+      Boolean(existingPresupuesto);
     if (!hasContent) {
       return;
     }
@@ -457,7 +462,61 @@ export function usePresupuestoEditorViewModel({
 
       const finalEmission = opcionesEmision;
 
-      const itemsToSave = (totales.itemsCalculados.length > 0 ? totales.itemsCalculados : items).map(it => ({
+      let currentItems = items;
+      let currentCapitulos = capitulos;
+      let currentGastos = gastosConfig;
+      let currentClienteId = clienteId;
+      let currentDireccionObra = direccionObra;
+      let currentTipoFactura = tipoFactura;
+      let currentValidezDias = validezDias;
+      let currentMargenPorcentaje = margenPorcentaje;
+      let currentNivelMargenRiesgo = nivelMargenRiesgo;
+      let currentMargenRiesgoPorcentaje = margenRiesgoPorcentaje;
+      let currentCalculatedCells = calculatedCells;
+      let currentCalculosVariables = calculosVariables;
+
+      if (dslText && dslText.trim()) {
+        const parsed = parseDSLToPresupuesto(dslText, {
+          clientes,
+          tareasTipo,
+          insumosMap,
+          manoObraMap,
+          config,
+          existingItems: items,
+          existingCapitulos: capitulos,
+          existingGastos: gastosConfig,
+          costosIndirectosCatalog: costosIndirectos
+        });
+        currentItems = parsed.items;
+        currentCapitulos = parsed.capitulos;
+        currentGastos = parsed.gastosConfig;
+        if (parsed.calculatedCells) currentCalculatedCells = parsed.calculatedCells;
+        if (parsed.calculosVariables) currentCalculosVariables = parsed.calculosVariables;
+        if (parsed.clienteId) currentClienteId = parsed.clienteId;
+        if (parsed.direccionObra) currentDireccionObra = parsed.direccionObra;
+        if (parsed.tipoFactura) currentTipoFactura = parsed.tipoFactura;
+        if (parsed.validezDias) currentValidezDias = parsed.validezDias;
+        if (parsed.margenPorcentaje !== null && parsed.margenPorcentaje !== undefined) {
+          currentMargenPorcentaje = parsed.margenPorcentaje;
+        }
+        if (parsed.nivelMargenRiesgo) currentNivelMargenRiesgo = parsed.nivelMargenRiesgo;
+        if (parsed.margenRiesgoPorcentaje !== undefined) currentMargenRiesgoPorcentaje = parsed.margenRiesgoPorcentaje;
+      }
+
+      const freshTotales = calcularTotalesPresupuesto({
+        items: currentItems,
+        capitulos: currentCapitulos,
+        gastosConfig: currentGastos,
+        costosIndirectosConfig: currentGastos.length > 0 ? currentGastos : costosIndirectosConfig,
+        costosIndirectosCatalog: costosIndirectos,
+        beneficioPorcentaje: safeNum(currentMargenPorcentaje),
+        margenRiesgoPorcentaje: currentMargenRiesgoPorcentaje,
+        tipoFactura: currentTipoFactura,
+        impuestosDetalle,
+        cotizacionMonedaExtranjera: cotizacionDolar
+      });
+
+      const itemsToSave = (freshTotales.itemsCalculados.length > 0 ? freshTotales.itemsCalculados : currentItems).map(it => ({
         ...it,
         cantidad: safeNum(it.cantidad) || 1,
         precioManual: it.precioManual !== undefined ? safeNum(it.precioManual) : undefined,
@@ -467,55 +526,55 @@ export function usePresupuestoEditorViewModel({
       const finalPresupuesto: Presupuesto = {
         id: existingPresupuesto?.id || draftIdRef.current,
         numero: numeroStr,
-        clienteId: clienteId || '',
-        direccionObra: direccionObra.trim() || undefined,
+        clienteId: currentClienteId || '',
+        direccionObra: currentDireccionObra.trim() || undefined,
         fechaEmision: existingPresupuesto?.fechaEmision || now,
-        validezDias: safeNum(validezDias) > 0 ? safeNum(validezDias) : (config.validezDiasPorDefecto || 15),
-        tipoFactura,
-        capitulos,
+        validezDias: safeNum(currentValidezDias) > 0 ? safeNum(currentValidezDias) : (config.validezDiasPorDefecto || 15),
+        tipoFactura: currentTipoFactura,
+        capitulos: currentCapitulos,
         items: itemsToSave,
-        gastosConfig,
-        costosIndirectosConfig: gastosConfig.length > 0 ? gastosConfig : costosIndirectosConfig,
-        costosIndirectosAplicados: totales.costosIndirectosAplicados,
+        gastosConfig: currentGastos,
+        costosIndirectosConfig: currentGastos.length > 0 ? currentGastos : costosIndirectosConfig,
+        costosIndirectosAplicados: freshTotales.costosIndirectosAplicados,
 
         // Margen de Riesgo Global
-        margenRiesgoPorcentaje,
-        nivelMargenRiesgo,
-        montoMargenRiesgo: totales.montoMargenRiesgo,
+        margenRiesgoPorcentaje: currentMargenRiesgoPorcentaje,
+        nivelMargenRiesgo: currentNivelMargenRiesgo,
+        montoMargenRiesgo: freshTotales.montoMargenRiesgo,
 
         // Calculation Engine
-        costoGlobal: totales.costoGlobal,
-        gastosGeneralesTotal: totales.gastosGeneralesTotal,
-        beneficioPorcentaje: safeNum(margenPorcentaje),
-        beneficioMonto: totales.beneficioMonto,
-        subtotalSinImpuestos: totales.subtotalSinImpuestos,
-        montoImpuestosTotal: totales.montoImpuestosTotal,
-        precioFinalGlobal: totales.precioFinalGlobal,
-        coeficienteK: totales.coeficienteK,
+        costoGlobal: freshTotales.costoGlobal,
+        gastosGeneralesTotal: freshTotales.gastosGeneralesTotal,
+        beneficioPorcentaje: safeNum(currentMargenPorcentaje),
+        beneficioMonto: freshTotales.beneficioMonto,
+        subtotalSinImpuestos: freshTotales.subtotalSinImpuestos,
+        montoImpuestosTotal: freshTotales.montoImpuestosTotal,
+        precioFinalGlobal: freshTotales.precioFinalGlobal,
+        coeficienteK: freshTotales.coeficienteK,
         opcionesEmision: finalEmission,
 
         // Compatibility fields
-        subtotalInsumos: totales.subtotalInsumos,
-        subtotalManoObra: totales.subtotalManoObra,
-        subtotalServiciosTercerizados: totales.subtotalServiciosTercerizados,
-        subtotalCostosDirectos: totales.costoGlobal,
-        subtotalCostosIndirectos: totales.gastosGeneralesTotal,
-        costoTotalObra: totales.costoTotalObra,
-        margenPorcentaje: safeNum(margenPorcentaje),
-        montoGanancia: totales.beneficioMonto,
-        impuestosDetalle: totales.impuestosCalculados,
-        impuestosPorcentaje: totales.impuestosPorcentajeTotal,
-        montoImpuestos: totales.montoImpuestosTotal,
-        totalARS: totales.precioFinalGlobal,
+        subtotalInsumos: freshTotales.subtotalInsumos,
+        subtotalManoObra: freshTotales.subtotalManoObra,
+        subtotalServiciosTercerizados: freshTotales.subtotalServiciosTercerizados,
+        subtotalCostosDirectos: freshTotales.costoGlobal,
+        subtotalCostosIndirectos: freshTotales.gastosGeneralesTotal,
+        costoTotalObra: freshTotales.costoTotalObra,
+        margenPorcentaje: safeNum(currentMargenPorcentaje),
+        montoGanancia: freshTotales.beneficioMonto,
+        impuestosDetalle: freshTotales.impuestosCalculados,
+        impuestosPorcentaje: freshTotales.impuestosPorcentajeTotal,
+        montoImpuestos: freshTotales.montoImpuestosTotal,
+        totalARS: freshTotales.precioFinalGlobal,
         mostrarReferenciaMonedaExtranjera: mostrarDolar,
         nombreMonedaExtranjera: nombreDolar,
         cotizacionMonedaExtranjera: safeNum(cotizacionDolar) > 0 ? safeNum(cotizacionDolar) : (config.dolarReferenciaValor || 1200),
-        totalMonedaExtranjera: totales.totalMonedaExtranjera,
+        totalMonedaExtranjera: freshTotales.totalMonedaExtranjera,
         condicionesPagoTexto: finalEmission.condicionesComerciales || condicionesPagoTexto,
         estado: existingPresupuesto?.estado || 'borrador',
         dslText,
-        calculatedCells,
-        calculosVariables,
+        calculatedCells: currentCalculatedCells,
+        calculosVariables: currentCalculosVariables,
         fechaModificacion: now,
         createdAt: existingPresupuesto?.createdAt || now,
         updatedAt: now,
@@ -1469,7 +1528,7 @@ export function usePresupuestoEditorViewModel({
         toast.warning('Agrega al menos una partida o tarea a la cotización.');
         return;
       }
-    } else if (items.length === 0 && !clienteId && capitulos.length === 0) {
+    } else if (items.length === 0 && !clienteId && capitulos.length === 0 && !dslText?.trim()) {
       toast.warning('Agrega al menos una partida o selecciona un cliente para guardar el borrador.');
       return;
     }
@@ -1492,7 +1551,75 @@ export function usePresupuestoEditorViewModel({
 
     const finalEmission = emissionOptionsOverride || opcionesEmision;
 
-    const itemsToSave = (totales.itemsCalculados.length > 0 ? totales.itemsCalculados : items).map(it => ({
+    let currentItems = items;
+    let currentCapitulos = capitulos;
+    let currentGastos = gastosConfig;
+    let currentClienteId = clienteId;
+    let currentDireccionObra = direccionObra;
+    let currentTipoFactura = tipoFactura;
+    let currentValidezDias = validezDias;
+    let currentMargenPorcentaje = margenPorcentaje;
+    let currentNivelMargenRiesgo = nivelMargenRiesgo;
+    let currentMargenRiesgoPorcentaje = margenRiesgoPorcentaje;
+    let currentCalculatedCells = calculatedCells;
+    let currentCalculosVariables = calculosVariables;
+
+    if (dslText && dslText.trim()) {
+      const parsed = parseDSLToPresupuesto(dslText, {
+        clientes,
+        tareasTipo,
+        insumosMap,
+        manoObraMap,
+        config,
+        existingItems: items,
+        existingCapitulos: capitulos,
+        existingGastos: gastosConfig,
+        costosIndirectosCatalog: costosIndirectos
+      });
+      currentItems = parsed.items;
+      currentCapitulos = parsed.capitulos;
+      currentGastos = parsed.gastosConfig;
+      if (parsed.calculatedCells) currentCalculatedCells = parsed.calculatedCells;
+      if (parsed.calculosVariables) currentCalculosVariables = parsed.calculosVariables;
+      if (parsed.clienteId) currentClienteId = parsed.clienteId;
+      if (parsed.direccionObra) currentDireccionObra = parsed.direccionObra;
+      if (parsed.tipoFactura) currentTipoFactura = parsed.tipoFactura;
+      if (parsed.validezDias) currentValidezDias = parsed.validezDias;
+      if (parsed.margenPorcentaje !== null && parsed.margenPorcentaje !== undefined) {
+        currentMargenPorcentaje = parsed.margenPorcentaje;
+      }
+      if (parsed.nivelMargenRiesgo) currentNivelMargenRiesgo = parsed.nivelMargenRiesgo;
+      if (parsed.margenRiesgoPorcentaje !== undefined) currentMargenRiesgoPorcentaje = parsed.margenRiesgoPorcentaje;
+
+      // Sincronizar estado local en React
+      setItems(currentItems);
+      setCapitulos(currentCapitulos);
+      setGastosConfig(currentGastos);
+      if (currentCalculatedCells) setCalculatedCells(currentCalculatedCells);
+      if (currentCalculosVariables) setCalculosVariables(currentCalculosVariables);
+      if (currentClienteId !== clienteId) setClienteId(currentClienteId);
+      if (currentDireccionObra !== direccionObra) setDireccionObra(currentDireccionObra);
+      if (currentTipoFactura !== tipoFactura) setTipoFactura(currentTipoFactura);
+      if (currentValidezDias !== validezDias) setValidezDias(currentValidezDias);
+      if (currentMargenPorcentaje !== margenPorcentaje) setMargenPorcentaje(currentMargenPorcentaje);
+      if (currentNivelMargenRiesgo !== nivelMargenRiesgo) setNivelMargenRiesgo(currentNivelMargenRiesgo);
+      if (currentMargenRiesgoPorcentaje !== margenRiesgoPorcentaje) setMargenRiesgoPorcentaje(currentMargenRiesgoPorcentaje);
+    }
+
+    const freshTotales = calcularTotalesPresupuesto({
+      items: currentItems,
+      capitulos: currentCapitulos,
+      gastosConfig: currentGastos,
+      costosIndirectosConfig: currentGastos.length > 0 ? currentGastos : costosIndirectosConfig,
+      costosIndirectosCatalog: costosIndirectos,
+      beneficioPorcentaje: safeNum(currentMargenPorcentaje),
+      margenRiesgoPorcentaje: currentMargenRiesgoPorcentaje,
+      tipoFactura: currentTipoFactura,
+      impuestosDetalle,
+      cotizacionMonedaExtranjera: cotizacionDolar
+    });
+
+    const itemsToSave = (freshTotales.itemsCalculados.length > 0 ? freshTotales.itemsCalculados : currentItems).map(it => ({
       ...it,
       cantidad: safeNum(it.cantidad) || 1,
       precioManual: it.precioManual !== undefined ? safeNum(it.precioManual) : undefined,
@@ -1502,51 +1629,51 @@ export function usePresupuestoEditorViewModel({
     const finalPresupuesto: Presupuesto = {
       id: existingPresupuesto?.id || draftIdRef.current,
       numero: numeroStr,
-      clienteId: clienteId || '',
-      direccionObra: direccionObra.trim() || undefined,
+      clienteId: currentClienteId || '',
+      direccionObra: currentDireccionObra.trim() || undefined,
       fechaEmision: existingPresupuesto?.fechaEmision || now,
-      validezDias: safeNum(validezDias) > 0 ? safeNum(validezDias) : (config.validezDiasPorDefecto || 15),
-      tipoFactura,
-      capitulos,
+      validezDias: safeNum(currentValidezDias) > 0 ? safeNum(currentValidezDias) : (config.validezDiasPorDefecto || 15),
+      tipoFactura: currentTipoFactura,
+      capitulos: currentCapitulos,
       items: itemsToSave,
-      gastosConfig,
-      costosIndirectosConfig: gastosConfig.length > 0 ? gastosConfig : costosIndirectosConfig,
-      costosIndirectosAplicados: totales.costosIndirectosAplicados,
+      gastosConfig: currentGastos,
+      costosIndirectosConfig: currentGastos.length > 0 ? currentGastos : costosIndirectosConfig,
+      costosIndirectosAplicados: freshTotales.costosIndirectosAplicados,
 
       // Margen de Riesgo Global
-      margenRiesgoPorcentaje,
-      nivelMargenRiesgo,
-      montoMargenRiesgo: totales.montoMargenRiesgo,
+      margenRiesgoPorcentaje: currentMargenRiesgoPorcentaje,
+      nivelMargenRiesgo: currentNivelMargenRiesgo,
+      montoMargenRiesgo: freshTotales.montoMargenRiesgo,
       factorSinergiaManoObra: 1.0,
 
       // Calculation Engine
-      costoGlobal: totales.costoGlobal,
-      gastosGeneralesTotal: totales.gastosGeneralesTotal,
-      beneficioPorcentaje: safeNum(margenPorcentaje),
-      beneficioMonto: totales.beneficioMonto,
-      subtotalSinImpuestos: totales.subtotalSinImpuestos,
-      montoImpuestosTotal: totales.montoImpuestosTotal,
-      precioFinalGlobal: totales.precioFinalGlobal,
-      coeficienteK: totales.coeficienteK,
+      costoGlobal: freshTotales.costoGlobal,
+      gastosGeneralesTotal: freshTotales.gastosGeneralesTotal,
+      beneficioPorcentaje: safeNum(currentMargenPorcentaje),
+      beneficioMonto: freshTotales.beneficioMonto,
+      subtotalSinImpuestos: freshTotales.subtotalSinImpuestos,
+      montoImpuestosTotal: freshTotales.montoImpuestosTotal,
+      precioFinalGlobal: freshTotales.precioFinalGlobal,
+      coeficienteK: freshTotales.coeficienteK,
       opcionesEmision: finalEmission,
 
       // Compatibility fields
-      subtotalInsumos: totales.subtotalInsumos,
-      subtotalManoObra: totales.subtotalManoObra,
-      subtotalServiciosTercerizados: totales.subtotalServiciosTercerizados,
-      subtotalCostosDirectos: totales.costoGlobal,
-      subtotalCostosIndirectos: totales.gastosGeneralesTotal,
-      costoTotalObra: totales.costoTotalObra,
-      margenPorcentaje: safeNum(margenPorcentaje),
-      montoGanancia: totales.beneficioMonto,
-      impuestosDetalle: totales.impuestosCalculados,
-      impuestosPorcentaje: totales.impuestosPorcentajeTotal,
-      montoImpuestos: totales.montoImpuestosTotal,
-      totalARS: totales.precioFinalGlobal,
+      subtotalInsumos: freshTotales.subtotalInsumos,
+      subtotalManoObra: freshTotales.subtotalManoObra,
+      subtotalServiciosTercerizados: freshTotales.subtotalServiciosTercerizados,
+      subtotalCostosDirectos: freshTotales.costoGlobal,
+      subtotalCostosIndirectos: freshTotales.gastosGeneralesTotal,
+      costoTotalObra: freshTotales.costoTotalObra,
+      margenPorcentaje: safeNum(currentMargenPorcentaje),
+      montoGanancia: freshTotales.beneficioMonto,
+      impuestosDetalle: freshTotales.impuestosCalculados,
+      impuestosPorcentaje: freshTotales.impuestosPorcentajeTotal,
+      montoImpuestos: freshTotales.montoImpuestosTotal,
+      totalARS: freshTotales.precioFinalGlobal,
       mostrarReferenciaMonedaExtranjera: mostrarDolar,
       nombreMonedaExtranjera: nombreDolar,
       cotizacionMonedaExtranjera: safeNum(cotizacionDolar) > 0 ? safeNum(cotizacionDolar) : (config.dolarReferenciaValor || 1200),
-      totalMonedaExtranjera: totales.totalMonedaExtranjera,
+      totalMonedaExtranjera: freshTotales.totalMonedaExtranjera,
       condicionesPagoTexto: finalEmission.condicionesComerciales || condicionesPagoTexto,
       estado: targetEstado,
       notasInternas: notasInternas || existingPresupuesto?.notasInternas,
