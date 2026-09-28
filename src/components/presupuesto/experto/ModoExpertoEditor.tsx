@@ -84,6 +84,7 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = (props) => {
             onOpenGastosModal={() => vm.setShowGastosModal(true)}
             onNavigateField={vm.handleNavigateField}
             onOpenListaMateriales={onOpenListaMateriales}
+            onApply={vm.handleApply}
           />
 
           {/* Lienzo del Editor con Números de Línea y Autocompletado */}

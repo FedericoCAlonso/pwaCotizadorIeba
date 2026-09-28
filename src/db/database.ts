@@ -205,6 +205,10 @@ export class CotizadorDatabase extends Dexie {
     this.version(6).stores({
       contactos: 'id, razonSocial, nombre, cuitDni, *roles, *etiquetas, tipoProveedor, deleted, updatedAt'
     });
+
+    this.version(7).stores({
+      presupuestos: 'id, numero, clienteId, estado, fechaEmision, presupuestoOrigenId, revision, deleted, updatedAt'
+    });
   }
 }
 

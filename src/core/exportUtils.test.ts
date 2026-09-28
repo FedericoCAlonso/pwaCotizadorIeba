@@ -6,6 +6,7 @@ describe('PDF and LaTeX Export Utils', () => {
   const mockPresupuesto: Presupuesto = {
     id: 'p-1',
     numero: 'COT-2026-001',
+    revision: 1,
     clienteId: 'cli-1',
     fechaEmision: '2026-08-21T00:00:00.000Z',
     validezDias: 15,

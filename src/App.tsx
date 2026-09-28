@@ -21,6 +21,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useTheme } from './hooks/useTheme';
 import { useToast } from './contexts/ToastContext';
 import { usePwaBackNavigation } from './hooks/usePwaBackNavigation';
+import { generateUUID } from './core/uuid';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('presupuestos');
@@ -151,7 +152,7 @@ export function App() {
 
     const duplicated: Presupuesto = {
       ...p,
-      id: `pres-${crypto.randomUUID()}`,
+      id: `pres-${generateUUID()}`,
       numero: newNumero,
       fechaEmision: new Date().toISOString(),
       estado: 'borrador',

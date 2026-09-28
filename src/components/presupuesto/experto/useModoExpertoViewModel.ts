@@ -18,6 +18,7 @@ import { TotalesPresupuestoResultado, calcularPrecioNeto, calcularPrecioFinal } 
 import {
   serializePresupuestoToDSL,
   parseDSLToPresupuesto,
+  validateYamlStructure,
   DSLDiagnostic,
   detectCursorContext,
   detectSuggestTrigger,
@@ -301,7 +302,10 @@ export function useModoExpertoViewModel(
     }
   }, [dslText]);
 
-  const handleParseAndSyncRef = useRef<((textToParse: string) => void) | null>(null);
+  const handleValidateText = useCallback((text: string) => {
+    const diags = validateYamlStructure(text);
+    setDiagnostics(diags);
+  }, []);
 
   const [isQuickCreateMatOpen, setIsQuickCreateMatOpen] = useState(false);
   const [formDataQuickMat, setFormDataQuickMat] = useState<{
@@ -328,99 +332,107 @@ export function useModoExpertoViewModel(
   const isInternalUpdateRef = useRef(false);
   const parseDebounceTimerRef = useRef<any>(null);
 
-  // Parseo y sincronización del YAML con el ViewModel
-  const handleParseAndSync = useCallback(
-    (textToParse: string) => {
-      const result = parseDSLToPresupuesto(textToParse, {
-        clientes,
-        tareasTipo,
-        insumosMap,
-        manoObraMap,
-        config,
-        existingItems: items,
-        existingCapitulos: capitulos,
-        existingGastos: gastosConfig,
-        costosIndirectosCatalog: catalogCostosIndirectos
-      });
-
-      setDiagnostics(result.diagnostics);
-      setCalculatedCells(result.calculatedCells || []);
-      setClienteMatched(result.clienteMatched);
-      setClienteQuery(result.clienteQuery);
-
-      onDslTextChange?.(textToParse);
-      onCalculatedCellsChange?.(result.calculatedCells || []);
-      if (result.calculosVariables) {
-        onCalculosVariablesChange?.(result.calculosVariables);
-      }
-
-      isInternalUpdateRef.current = true;
-
-      if (result.clienteId !== clienteId) setClienteId(result.clienteId);
-      if (result.direccionObra !== direccionObra) setDireccionObra(result.direccionObra);
-      if (result.tipoFactura !== tipoFactura) setTipoFactura(result.tipoFactura);
-      if (result.validezDias !== validezDias) setValidezDias(result.validezDias);
-      if (result.margenPorcentaje !== margenPorcentaje) setMargenPorcentaje(result.margenPorcentaje);
-
-      if (setNivelMargenRiesgo && result.nivelMargenRiesgo !== nivelMargenRiesgo) {
-        setNivelMargenRiesgo(result.nivelMargenRiesgo);
-      }
-      if (setMargenRiesgoPorcentaje && result.margenRiesgoPorcentaje !== margenRiesgoPorcentaje) {
-        setMargenRiesgoPorcentaje(result.margenRiesgoPorcentaje);
-      }
-
-      if (result.mostrarDolar !== mostrarDolar) setMostrarDolar(result.mostrarDolar);
-      if (result.nombreDolar !== nombreDolar) setNombreDolar(result.nombreDolar);
-      if (result.cotizacionDolar !== cotizacionDolar) setCotizacionDolar(result.cotizacionDolar);
-
-      setCapitulos(result.capitulos);
-      setItems(result.items);
-      setGastosConfig(result.gastosConfig);
-
-      setTimeout(() => {
-        isInternalUpdateRef.current = false;
-      }, 300);
-    },
-    [
+  // Validación y aplicación explícita del YAML al modelo (solo al pulsar Aplicar)
+  const handleApply = useCallback(() => {
+    const textToParse = latestDslTextRef.current || dslText;
+    const result = parseDSLToPresupuesto(textToParse, {
       clientes,
       tareasTipo,
       insumosMap,
       manoObraMap,
       config,
-      items,
-      capitulos,
-      gastosConfig,
-      catalogCostosIndirectos,
-      clienteId,
-      direccionObra,
-      tipoFactura,
-      validezDias,
-      margenPorcentaje,
-      nivelMargenRiesgo,
-      margenRiesgoPorcentaje,
-      mostrarDolar,
-      nombreDolar,
-      cotizacionDolar,
-      setClienteId,
-      setDireccionObra,
-      setTipoFactura,
-      setValidezDias,
-      setMargenPorcentaje,
-      setNivelMargenRiesgo,
-      setMargenRiesgoPorcentaje,
-      setMostrarDolar,
-      setNombreDolar,
-      setCotizacionDolar,
-      setCapitulos,
-      setItems,
-      setGastosConfig,
-      onDslTextChange,
-      onCalculatedCellsChange,
-      onCalculosVariablesChange
-    ]
-  );
+      existingItems: items,
+      existingCapitulos: capitulos,
+      existingGastos: gastosConfig,
+      costosIndirectosCatalog: catalogCostosIndirectos
+    });
 
-  handleParseAndSyncRef.current = handleParseAndSync;
+    setDiagnostics(result.diagnostics);
+
+    const hasErrors = result.diagnostics.some((d) => d.type === 'error');
+    if (hasErrors) {
+      toast.error('Corrige los errores en el texto antes de aplicar los cambios al modelo.');
+      return false;
+    }
+
+    setCalculatedCells(result.calculatedCells || []);
+    setClienteMatched(result.clienteMatched);
+    setClienteQuery(result.clienteQuery);
+
+    onDslTextChange?.(textToParse);
+    onCalculatedCellsChange?.(result.calculatedCells || []);
+    if (result.calculosVariables) {
+      onCalculosVariablesChange?.(result.calculosVariables);
+    }
+
+    isInternalUpdateRef.current = true;
+
+    if (result.clienteId !== clienteId) setClienteId(result.clienteId);
+    if (result.direccionObra !== direccionObra) setDireccionObra(result.direccionObra);
+    if (result.tipoFactura !== tipoFactura) setTipoFactura(result.tipoFactura);
+    if (result.validezDias !== validezDias) setValidezDias(result.validezDias);
+    if (result.margenPorcentaje !== margenPorcentaje) setMargenPorcentaje(result.margenPorcentaje);
+
+    if (setNivelMargenRiesgo && result.nivelMargenRiesgo !== nivelMargenRiesgo) {
+      setNivelMargenRiesgo(result.nivelMargenRiesgo);
+    }
+    if (setMargenRiesgoPorcentaje && result.margenRiesgoPorcentaje !== margenRiesgoPorcentaje) {
+      setMargenRiesgoPorcentaje(result.margenRiesgoPorcentaje);
+    }
+
+    if (result.mostrarDolar !== mostrarDolar) setMostrarDolar(result.mostrarDolar);
+    if (result.nombreDolar !== nombreDolar) setNombreDolar(result.nombreDolar);
+    if (result.cotizacionDolar !== cotizacionDolar) setCotizacionDolar(result.cotizacionDolar);
+
+    setCapitulos(result.capitulos);
+    setItems(result.items);
+    setGastosConfig(result.gastosConfig);
+
+    setTimeout(() => {
+      isInternalUpdateRef.current = false;
+    }, 300);
+
+    toast.success('Cambios aplicados exitosamente a la cotización');
+    return true;
+  }, [
+    dslText,
+    clientes,
+    tareasTipo,
+    insumosMap,
+    manoObraMap,
+    config,
+    items,
+    capitulos,
+    gastosConfig,
+    catalogCostosIndirectos,
+    clienteId,
+    direccionObra,
+    tipoFactura,
+    validezDias,
+    margenPorcentaje,
+    nivelMargenRiesgo,
+    margenRiesgoPorcentaje,
+    mostrarDolar,
+    nombreDolar,
+    cotizacionDolar,
+    setClienteId,
+    setDireccionObra,
+    setTipoFactura,
+    setValidezDias,
+    setMargenPorcentaje,
+    setNivelMargenRiesgo,
+    setMargenRiesgoPorcentaje,
+    setMostrarDolar,
+    setNombreDolar,
+    setCotizacionDolar,
+    setCapitulos,
+    setItems,
+    setGastosConfig,
+    onDslTextChange,
+    onCalculatedCellsChange,
+    onCalculosVariablesChange,
+    toast
+  ]);
 
   const applyHistoryEntry = useCallback(
     (targetIndex: number) => {
@@ -431,44 +443,32 @@ export function useModoExpertoViewModel(
       isApplyingHistoryRef.current = true;
       historyIndexRef.current = targetIndex;
       setDslText(nextText);
-      handleParseAndSync(nextText);
+      const diags = validateYamlStructure(nextText);
+      setDiagnostics(diags);
       isApplyingHistoryRef.current = false;
     },
-    [dslText, handleParseAndSync]
+    [dslText]
   );
 
-  // Sincronizar hacia el editor al montar y si el documento se cargó desde la BD
-  const hasMountedRef = useRef(false);
-  useEffect(() => {
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-      handleParseAndSync(dslText);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
+  // Sincronizar hacia el editor si se provee initialDslText y el editor no está activo
   useEffect(() => {
     const isEditorActive = isFocusedRef.current || Boolean(editorViewRef.current?.hasFocus);
     if (initialDslText && initialDslText.trim().length > 0 && initialDslText !== dslText && !isEditorActive) {
       setDslText(initialDslText);
-      handleParseAndSync(initialDslText);
+      const diags = validateYamlStructure(initialDslText);
+      setDiagnostics(diags);
     }
   }, [initialDslText]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Al desmontar, flushear cualquier parseo pendiente sin recrear el efecto en cada render
-  useEffect(() => {
-    return () => {
-      if (parseDebounceTimerRef.current) {
-        clearTimeout(parseDebounceTimerRef.current);
-      }
-
-      if (latestDslTextRef.current && handleParseAndSyncRef.current) {
-        handleParseAndSyncRef.current(latestDslTextRef.current);
-      }
-    };
-  }, []);
-
   // Sincronizar desde cambios externos del ViewModel hacia el texto
+  const hasMountedExternalSyncRef = useRef(false);
   useEffect(() => {
+    if (!hasMountedExternalSyncRef.current) {
+      hasMountedExternalSyncRef.current = true;
+      if (initialDslText && initialDslText.trim().length > 0) {
+        return;
+      }
+    }
     if (isInternalUpdateRef.current) return;
     const isEditorActive =
       isFocusedRef.current ||
@@ -607,13 +607,14 @@ export function useModoExpertoViewModel(
         setIsQuickCreateMatOpen(false);
 
         setTimeout(() => {
-          handleParseAndSync(dslText);
+          const diags = validateYamlStructure(dslText);
+          setDiagnostics(diags);
         }, 60);
       } catch (err: any) {
         toast.error('Error al guardar material en catálogo: ' + (err?.message || 'Error desconocido'));
       }
     },
-    [formDataQuickMat, proveedores, toast, handleParseAndSync, dslText]
+    [formDataQuickMat, proveedores, toast, dslText]
   );
 
   const [activeFieldInfo, setActiveFieldInfo] = useState<{ label: string; text: string } | null>(null);
@@ -835,7 +836,8 @@ export function useModoExpertoViewModel(
       clearTimeout(parseDebounceTimerRef.current);
     }
     parseDebounceTimerRef.current = setTimeout(() => {
-      handleParseAndSync(newText);
+      const diags = validateYamlStructure(newText);
+      setDiagnostics(diags);
     }, 250);
   };
 
@@ -922,7 +924,7 @@ export function useModoExpertoViewModel(
       const lines = tb.split('\n');
       setCursorLineCol({ line: lines.length, col: lines[lines.length - 1].length + 1 });
       setDslText(smartTab.newText);
-      handleParseAndSync(smartTab.newText);
+      setDiagnostics(validateYamlStructure(smartTab.newText));
 
       setTimeout(() => {
         if (textareaRef.current) {
@@ -950,7 +952,7 @@ export function useModoExpertoViewModel(
           const lines = tb.split('\n');
           setCursorLineCol({ line: lines.length, col: lines[lines.length - 1].length + 1 });
           setDslText(smartBack.newText);
-          handleParseAndSync(smartBack.newText);
+          setDiagnostics(validateYamlStructure(smartBack.newText));
 
           setTimeout(() => {
             if (textareaRef.current) {
@@ -981,7 +983,7 @@ export function useModoExpertoViewModel(
       setCursorLineCol({ line: lines.length, col: lines[lines.length - 1].length + 1 });
       setDslText(newText);
       latestDslTextRef.current = newText;
-      handleParseAndSync(newText);
+      setDiagnostics(validateYamlStructure(newText));
 
       const tbLastLineStart = tb.lastIndexOf('\n') + 1;
       const tbCurrentLine = tb.slice(tbLastLineStart);
@@ -1039,7 +1041,7 @@ export function useModoExpertoViewModel(
     const lines = tb.split('\n');
     setCursorLineCol({ line: lines.length, col: lines[lines.length - 1].length + 1 });
     setDslText(newText);
-    handleParseAndSync(newText);
+    handleValidateText(newText);
 
     setTimeout(() => {
       if (textareaRef.current) {
@@ -1126,7 +1128,7 @@ export function useModoExpertoViewModel(
       currentIndent: ''
     });
 
-    handleParseAndSync(newText);
+    handleValidateText(newText);
 
     if (editorViewRef.current) {
       const view = editorViewRef.current;
@@ -1198,9 +1200,9 @@ export function useModoExpertoViewModel(
       }
 
       setDslText(updatedDsl);
-      handleParseAndSync(updatedDsl);
+      handleValidateText(updatedDsl);
     },
-    [dslText, direccionObra, handleParseAndSync]
+    [dslText, direccionObra, handleValidateText]
   );
 
   const handleSetDireccionObraFromUI = useCallback(
@@ -1212,9 +1214,9 @@ export function useModoExpertoViewModel(
         updatedDsl = updatedDsl.replace(/^cliente\s*:[^\r\n]*/mi, (match) => `${match}\nobra: ${direccion}`);
       }
       setDslText(updatedDsl);
-      handleParseAndSync(updatedDsl);
+      handleValidateText(updatedDsl);
     },
-    [dslText, handleParseAndSync]
+    [dslText, handleValidateText]
   );
 
   const handleOpenQuickCliente = useCallback((initialName?: string) => {
@@ -1275,7 +1277,7 @@ export function useModoExpertoViewModel(
     }
 
     setDslText(newText);
-    handleParseAndSync(newText);
+    handleValidateText(newText);
 
     setTimeout(() => {
       textarea.focus();
@@ -1330,7 +1332,7 @@ export function useModoExpertoViewModel(
 
     setDslText(newText);
     latestDslTextRef.current = newText;
-    handleParseAndSync(newText);
+    handleValidateText(newText);
 
     setTimeout(() => {
       textarea.focus();
@@ -1436,7 +1438,7 @@ export function useModoExpertoViewModel(
       const start = cursorPosRef.current.start || 0;
       const newText = dslText.substring(0, start) + snippet + dslText.substring(start);
       setDslText(newText);
-      handleParseAndSync(newText);
+      handleValidateText(newText);
       return;
     }
 
@@ -1447,7 +1449,7 @@ export function useModoExpertoViewModel(
 
     cursorPosRef.current = { start: newPos, end: newPos };
     setDslText(newText);
-    handleParseAndSync(newText);
+    handleValidateText(newText);
 
     setTimeout(() => {
       if (textareaRef?.current) {
@@ -1462,9 +1464,9 @@ export function useModoExpertoViewModel(
       setDslText(newText);
       latestDslTextRef.current = newText;
       onDslTextChange?.(newText);
-      handleParseAndSync(newText);
+      handleValidateText(newText);
     },
-    [onDslTextChange, handleParseAndSync]
+    [onDslTextChange, handleValidateText]
   );
 
   const lineCount = dslText.split('\n').length;
@@ -1564,7 +1566,8 @@ export function useModoExpertoViewModel(
     handleCloseSlashMenu,
     handleFocus,
     handleBlur,
-    isFocusedRef
+    isFocusedRef,
+    handleApply
   };
 }
 

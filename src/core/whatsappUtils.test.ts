@@ -23,6 +23,7 @@ describe('whatsappUtils', () => {
   const mockPresupuesto: Presupuesto = {
     id: 'pres-1',
     numero: 'IEBA-2026-1045',
+    revision: 1,
     clienteId: 'cli-1',
     fechaEmision: '2026-08-28T10:00:00.000Z',
     validezDias: 10,

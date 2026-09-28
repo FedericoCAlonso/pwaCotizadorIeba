@@ -18,7 +18,8 @@ import {
   NivelMargenRiesgo,
   CapituloPresupuesto,
   GastoPresupuestoConfig,
-  CalculatedCell
+  CalculatedCell,
+  ParametroItem
 } from '../core/types';
 import {
   calcularTotalesPresupuesto,
@@ -30,6 +31,7 @@ import {
   aplicarActualizacionPreciosPresupuesto,
   AnalisisCambiosPreciosPresupuesto,
   OpcionesActualizacionPrecios,
+  evaluarParametrosYLineasItem,
   roundMoney,
   safeNum
 } from '../core/calculations';
@@ -37,6 +39,7 @@ import { useInsumosMap } from '../hooks/useInsumosMap';
 import { useToast } from '../contexts/ToastContext';
 import { TareaFormData } from '../components/tareasTipo/TareaEditorModal';
 import { serializePresupuestoToDSL, parseDSLToPresupuesto } from '../components/presupuesto/experto/dslParser';
+import { generateUUID } from '../core/uuid';
 function computeEditorStatePayload(state: {
   items: any[];
   clienteId: string;
@@ -55,7 +58,6 @@ function computeEditorStatePayload(state: {
   opcionesEmision: any;
   margenRiesgoPorcentaje: number;
   nivelMargenRiesgo: string;
-  dslText?: string;
   notasInternas?: string;
   notasCliente?: string;
 }): string {
@@ -77,13 +79,12 @@ function computeEditorStatePayload(state: {
     opcionesEmision: state.opcionesEmision,
     margenRiesgoPorcentaje: state.margenRiesgoPorcentaje,
     nivelMargenRiesgo: state.nivelMargenRiesgo,
-    dslText: state.dslText || '',
     notasInternas: state.notasInternas || '',
     notasCliente: state.notasCliente || ''
   });
 }
 
-export type PresupuestoEditorTab = 'cliente' | 'partidas' | 'cuadrilla' | 'comercial';
+export type PresupuestoEditorTab = 'cliente' | 'partidas' | 'gastos' | 'comercial';
 
 export interface UsePresupuestoEditorViewModelProps {
   presupuestoId?: string;
@@ -134,6 +135,8 @@ export function usePresupuestoEditorViewModel({
   const [clienteId, setClienteId] = useState<string>(initialClienteId || '');
   const [direccionObra, setDireccionObra] = useState<string>('');
   const [numero, setNumero] = useState<string>('');
+  const [revision, setRevision] = useState<number>(1);
+  const [presupuestoOrigenId, setPresupuestoOrigenId] = useState<string | undefined>(undefined);
   const [validezDias, setValidezDias] = useState<number>(config.validezDiasPorDefecto || 15);
   const [margenPorcentaje, setMargenPorcentaje] = useState<number | null>(config.margenPorDefectoPct || 30);
   const [tipoFactura, setTipoFactura] = useState<TipoFactura>(config.tipoFacturaPorDefecto || 'Factura C');
@@ -210,7 +213,7 @@ export function usePresupuestoEditorViewModel({
   const newPresupuestoInitializedRef = useRef(false);
 
   // ─── Auto-Save State & Tracking ───────────────────────────────────────────
-  const draftIdRef = useRef<string>(presupuestoId || `pres-${crypto.randomUUID()}`);
+  const draftIdRef = useRef<string>(presupuestoId || `pres-${generateUUID()}`);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [lastAutoSaveTime, setLastAutoSaveTime] = useState<string | null>(null);
   const isInitializedRef = useRef<boolean>(false);
@@ -236,10 +239,27 @@ export function usePresupuestoEditorViewModel({
         // No sobreescribir los estados locales con las emisiones de useLiveQuery provocadas por autoguardados.
         return;
       }
-      loadedPresupuestoIdRef.current = existingPresupuesto.id;
+      const isEnviadoOAprobado = existingPresupuesto.estado === 'enviado' || existingPresupuesto.estado === 'aprobado';
+      if (isEnviadoOAprobado) {
+        const nextRev = (existingPresupuesto.revision || 1) + 1;
+        const baseNumero = existingPresupuesto.numero.replace(/-R\d+$/, '');
+        const newNumero = `${baseNumero}-R${nextRev}`;
+        const newId = `pres-${generateUUID()}`;
+        draftIdRef.current = newId;
+        loadedPresupuestoIdRef.current = newId;
+        setNumero(newNumero);
+        setRevision(nextRev);
+        setPresupuestoOrigenId(existingPresupuesto.id);
+        toast.info(`Editando como nueva revisión R${nextRev} de ${existingPresupuesto.numero}`);
+      } else {
+        loadedPresupuestoIdRef.current = existingPresupuesto.id;
+        setNumero(existingPresupuesto.numero);
+        setRevision(existingPresupuesto.revision || 1);
+        setPresupuestoOrigenId(existingPresupuesto.presupuestoOrigenId);
+      }
+
       setClienteId(existingPresupuesto.clienteId);
       setDireccionObra(existingPresupuesto.direccionObra || '');
-      setNumero(existingPresupuesto.numero);
       setValidezDias(existingPresupuesto.validezDias);
       setMargenPorcentaje(existingPresupuesto.beneficioPorcentaje ?? existingPresupuesto.margenPorcentaje ?? 30);
       setTipoFactura(existingPresupuesto.tipoFactura);
@@ -268,9 +288,6 @@ export function usePresupuestoEditorViewModel({
       setCondicionesPagoTexto(existingPresupuesto.condicionesPagoTexto || '');
       if (existingPresupuesto.opcionesEmision) {
         setOpcionesEmision(existingPresupuesto.opcionesEmision);
-      }
-      if (existingPresupuesto.dslText !== undefined) {
-        setDslText(existingPresupuesto.dslText);
       }
       if (existingPresupuesto.notasInternas !== undefined) {
         setNotasInternas(existingPresupuesto.notasInternas);
@@ -306,8 +323,7 @@ export function usePresupuestoEditorViewModel({
         impuestosDetalle: existingPresupuesto.impuestosDetalle || [],
         opcionesEmision: existingPresupuesto.opcionesEmision,
         margenRiesgoPorcentaje: existingPresupuesto.margenRiesgoPorcentaje ?? (config.margenRiesgoDefaultPct ?? 0),
-        nivelMargenRiesgo: existingPresupuesto.nivelMargenRiesgo || 'bajo',
-        dslText: existingPresupuesto.dslText || ''
+        nivelMargenRiesgo: existingPresupuesto.nivelMargenRiesgo || 'bajo'
       });
     } else {
       if (isInitializedRef.current) {
@@ -361,8 +377,7 @@ export function usePresupuestoEditorViewModel({
         impuestosDetalle: [],
         opcionesEmision: undefined,
         margenRiesgoPorcentaje: config.margenRiesgoDefaultPct ?? 0,
-        nivelMargenRiesgo: 'bajo',
-        dslText: ''
+        nivelMargenRiesgo: 'bajo'
       });
     }
   }, [existingPresupuesto, config, costosIndirectos]);
@@ -437,8 +452,7 @@ export function usePresupuestoEditorViewModel({
       impuestosDetalle,
       opcionesEmision,
       margenRiesgoPorcentaje,
-      nivelMargenRiesgo,
-      dslText: dslText || ''
+      nivelMargenRiesgo
     });
 
     // Si el contenido es idéntico a lo que ya está guardado en disco, NO volver a guardar
@@ -475,48 +489,20 @@ export function usePresupuestoEditorViewModel({
       let currentCalculatedCells = calculatedCells;
       let currentCalculosVariables = calculosVariables;
 
-      if (dslText && dslText.trim()) {
-        const parsed = parseDSLToPresupuesto(dslText, {
-          clientes,
-          tareasTipo,
-          insumosMap,
-          manoObraMap,
-          config,
-          existingItems: items,
-          existingCapitulos: capitulos,
-          existingGastos: gastosConfig,
-          costosIndirectosCatalog: costosIndirectos
-        });
-        currentItems = parsed.items;
-        currentCapitulos = parsed.capitulos;
-        currentGastos = parsed.gastosConfig;
-        if (parsed.calculatedCells) currentCalculatedCells = parsed.calculatedCells;
-        if (parsed.calculosVariables) currentCalculosVariables = parsed.calculosVariables;
-        if (parsed.clienteId) currentClienteId = parsed.clienteId;
-        if (parsed.direccionObra) currentDireccionObra = parsed.direccionObra;
-        if (parsed.tipoFactura) currentTipoFactura = parsed.tipoFactura;
-        if (parsed.validezDias) currentValidezDias = parsed.validezDias;
-        if (parsed.margenPorcentaje !== null && parsed.margenPorcentaje !== undefined) {
-          currentMargenPorcentaje = parsed.margenPorcentaje;
-        }
-        if (parsed.nivelMargenRiesgo) currentNivelMargenRiesgo = parsed.nivelMargenRiesgo;
-        if (parsed.margenRiesgoPorcentaje !== undefined) currentMargenRiesgoPorcentaje = parsed.margenRiesgoPorcentaje;
-      }
-
       const freshTotales = calcularTotalesPresupuesto({
-        items: currentItems,
-        capitulos: currentCapitulos,
-        gastosConfig: currentGastos,
-        costosIndirectosConfig: currentGastos.length > 0 ? currentGastos : costosIndirectosConfig,
+        items,
+        capitulos,
+        gastosConfig,
+        costosIndirectosConfig: gastosConfig.length > 0 ? gastosConfig : costosIndirectosConfig,
         costosIndirectosCatalog: costosIndirectos,
-        beneficioPorcentaje: safeNum(currentMargenPorcentaje),
-        margenRiesgoPorcentaje: currentMargenRiesgoPorcentaje,
-        tipoFactura: currentTipoFactura,
+        beneficioPorcentaje: safeNum(margenPorcentaje),
+        margenRiesgoPorcentaje,
+        tipoFactura,
         impuestosDetalle,
         cotizacionMonedaExtranjera: cotizacionDolar
       });
 
-      const itemsToSave = (freshTotales.itemsCalculados.length > 0 ? freshTotales.itemsCalculados : currentItems).map(it => ({
+      const itemsToSave = (freshTotales.itemsCalculados.length > 0 ? freshTotales.itemsCalculados : items).map(it => ({
         ...it,
         cantidad: safeNum(it.cantidad) || 1,
         precioManual: it.precioManual !== undefined ? safeNum(it.precioManual) : undefined,
@@ -524,28 +510,30 @@ export function usePresupuestoEditorViewModel({
       }));
 
       const finalPresupuesto: Presupuesto = {
-        id: existingPresupuesto?.id || draftIdRef.current,
+        id: loadedPresupuestoIdRef.current || draftIdRef.current,
         numero: numeroStr,
-        clienteId: currentClienteId || '',
-        direccionObra: currentDireccionObra.trim() || undefined,
+        revision: revision || 1,
+        presupuestoOrigenId: presupuestoOrigenId || undefined,
+        clienteId: clienteId || '',
+        direccionObra: direccionObra.trim() || undefined,
         fechaEmision: existingPresupuesto?.fechaEmision || now,
-        validezDias: safeNum(currentValidezDias) > 0 ? safeNum(currentValidezDias) : (config.validezDiasPorDefecto || 15),
-        tipoFactura: currentTipoFactura,
-        capitulos: currentCapitulos,
+        validezDias: safeNum(validezDias) > 0 ? safeNum(validezDias) : (config.validezDiasPorDefecto || 15),
+        tipoFactura,
+        capitulos,
         items: itemsToSave,
-        gastosConfig: currentGastos,
-        costosIndirectosConfig: currentGastos.length > 0 ? currentGastos : costosIndirectosConfig,
+        gastosConfig,
+        costosIndirectosConfig: gastosConfig.length > 0 ? gastosConfig : costosIndirectosConfig,
         costosIndirectosAplicados: freshTotales.costosIndirectosAplicados,
 
         // Margen de Riesgo Global
-        margenRiesgoPorcentaje: currentMargenRiesgoPorcentaje,
-        nivelMargenRiesgo: currentNivelMargenRiesgo,
+        margenRiesgoPorcentaje,
+        nivelMargenRiesgo,
         montoMargenRiesgo: freshTotales.montoMargenRiesgo,
 
         // Calculation Engine
         costoGlobal: freshTotales.costoGlobal,
         gastosGeneralesTotal: freshTotales.gastosGeneralesTotal,
-        beneficioPorcentaje: safeNum(currentMargenPorcentaje),
+        beneficioPorcentaje: safeNum(margenPorcentaje),
         beneficioMonto: freshTotales.beneficioMonto,
         subtotalSinImpuestos: freshTotales.subtotalSinImpuestos,
         montoImpuestosTotal: freshTotales.montoImpuestosTotal,
@@ -560,7 +548,7 @@ export function usePresupuestoEditorViewModel({
         subtotalCostosDirectos: freshTotales.costoGlobal,
         subtotalCostosIndirectos: freshTotales.gastosGeneralesTotal,
         costoTotalObra: freshTotales.costoTotalObra,
-        margenPorcentaje: safeNum(currentMargenPorcentaje),
+        margenPorcentaje: safeNum(margenPorcentaje),
         montoGanancia: freshTotales.beneficioMonto,
         impuestosDetalle: freshTotales.impuestosCalculados,
         impuestosPorcentaje: freshTotales.impuestosPorcentajeTotal,
@@ -572,9 +560,8 @@ export function usePresupuestoEditorViewModel({
         totalMonedaExtranjera: freshTotales.totalMonedaExtranjera,
         condicionesPagoTexto: finalEmission.condicionesComerciales || condicionesPagoTexto,
         estado: existingPresupuesto?.estado || 'borrador',
-        dslText,
-        calculatedCells: currentCalculatedCells,
-        calculosVariables: currentCalculosVariables,
+        calculatedCells,
+        calculosVariables,
         fechaModificacion: now,
         createdAt: existingPresupuesto?.createdAt || now,
         updatedAt: now,
@@ -594,11 +581,11 @@ export function usePresupuestoEditorViewModel({
       setAutoSaveStatus('error');
     }
   }, [
-    items, clienteId, direccionObra, capitulos, existingPresupuesto, numero, config, validezDias, tipoFactura,
+    items, clienteId, direccionObra, capitulos, existingPresupuesto, numero, revision, presupuestoOrigenId, config, validezDias, tipoFactura,
     gastosConfig, costosIndirectosConfig, totales,
     margenRiesgoPorcentaje, nivelMargenRiesgo,
     margenPorcentaje, opcionesEmision, mostrarDolar, nombreDolar, cotizacionDolar,
-    condicionesPagoTexto, onDraftAutoSaved, dslText, calculatedCells, calculosVariables
+    condicionesPagoTexto, onDraftAutoSaved, calculatedCells, calculosVariables
   ]);
 
   const latestAutoSaveRef = useRef(executeAutoSave);
@@ -626,8 +613,7 @@ export function usePresupuestoEditorViewModel({
       impuestosDetalle,
       opcionesEmision,
       margenRiesgoPorcentaje,
-      nivelMargenRiesgo,
-      dslText: dslText || ''
+      nivelMargenRiesgo
     });
 
     // Si el contenido actual coincide con lo último guardado en disco, NO hacer nada ni marcar dirty
@@ -641,7 +627,6 @@ export function usePresupuestoEditorViewModel({
       Boolean(clienteId) ||
       capitulos.length > 0 ||
       Boolean(existingPresupuesto) ||
-      Boolean(dslText && dslText.trim().length > 0) ||
       Boolean(direccionObra && direccionObra.trim().length > 0) ||
       gastosConfig.length > 0;
     if (!hasContent) {
@@ -805,7 +790,7 @@ export function usePresupuestoEditorViewModel({
 
   const handleAddServicioDirecto = (capituloId?: string) => {
     const newItem: ItemPresupuesto = {
-      id: `item-${crypto.randomUUID()}`,
+      id: `item-${generateUUID()}`,
       capituloId,
       tipoItem: 'servicio_tercerizado',
       descripcion: 'Alquiler de Equipo / Servicio Tercerizado',
@@ -824,7 +809,7 @@ export function usePresupuestoEditorViewModel({
       manoObraSnapshot: [],
       serviciosTercerizados: [
         {
-          id: `serv-${crypto.randomUUID()}`,
+          id: `serv-${generateUUID()}`,
           descripcion: 'Alquiler de Equipo / Servicio',
           costo: 0
         }
@@ -891,7 +876,7 @@ export function usePresupuestoEditorViewModel({
     const costoServicios = costData.costoServiciosUnitario ?? (tarea.honorarioBase || tarea.costoServicioDirecto || 0);
 
     const newItem: ItemPresupuesto = {
-      id: `item-${crypto.randomUUID()}`,
+      id: `item-${generateUUID()}`,
       capituloId,
       tareaTipoId: tarea.id,
       descripcion: tarea.nombre,
@@ -1027,7 +1012,7 @@ export function usePresupuestoEditorViewModel({
       // Agregando nuevo ítem: 1 unidad base de ensamble
       const cant = 1;
       const newItem: ItemPresupuesto = {
-        id: `item-${crypto.randomUUID()}`,
+        id: `item-${generateUUID()}`,
         capituloId: targetCapituloForNewParametric,
         tareaTipoId: tarea.id,
         descripcion: tarea.nombre,
@@ -1139,7 +1124,7 @@ export function usePresupuestoEditorViewModel({
     const precioUnitarioComputable = isFacturaC_or_X ? precioFinal : precioNeto;
 
     const newItem: ItemPresupuesto = {
-      id: `item-${crypto.randomUUID()}`,
+      id: `item-${generateUUID()}`,
       descripcion: insumo.nombre,
       cantidad,
       unidad: insumo.unidad || 'u',
@@ -1173,7 +1158,7 @@ export function usePresupuestoEditorViewModel({
 
   const handleAddDirectItem = (capituloId?: string, descripcion = '') => {
     const newItem: ItemPresupuesto = {
-      id: `item-${crypto.randomUUID()}`,
+      id: `item-${generateUUID()}`,
       capituloId,
       tipoItem: 'item_libre',
       descripcion: descripcion || '',
@@ -1380,7 +1365,133 @@ export function usePresupuestoEditorViewModel({
   const handleUpdateItem = (index: number, updatedItem: ItemPresupuesto) => {
     setItems(prev => {
       const next = [...prev];
+      const prevItem = next[index];
+      // Si el ítem estaba vinculado a una tarea tipo y se modificaron sus líneas directamente, desacoplarlo con aviso
+      if (prevItem?.tareaTipoId && !prevItem.desacoplado && !updatedItem.desacoplado) {
+        const linesChanged =
+          JSON.stringify(prevItem.insumosSnapshot) !== JSON.stringify(updatedItem.insumosSnapshot) ||
+          JSON.stringify(prevItem.manoObraSnapshot) !== JSON.stringify(updatedItem.manoObraSnapshot) ||
+          JSON.stringify(prevItem.serviciosTercerizados) !== JSON.stringify(updatedItem.serviciosTercerizados);
+        if (linesChanged) {
+          updatedItem = { ...updatedItem, desacoplado: true };
+          toast.info(`La partida "${updatedItem.descripcion}" se ha desacoplado de su tarea tipo base.`);
+        }
+      }
       next[index] = updatedItem;
+      return next;
+    });
+  };
+
+  const handleDesacoplarItem = (index: number) => {
+    setItems(prev => {
+      const next = [...prev];
+      if (next[index]) {
+        next[index] = { ...next[index], desacoplado: true };
+        toast.info(`Ítem "${next[index].descripcion}" desacoplado de la tarea tipo.`);
+      }
+      return next;
+    });
+  };
+
+  const handleActualizarVersionTareaTipo = (index: number) => {
+    setItems(prev => {
+      const next = [...prev];
+      const item = next[index];
+      if (!item || !item.tareaTipoId) return prev;
+      const targetTarea = tareasTipo.find(t => t.id === item.tareaTipoId);
+      if (!targetTarea) {
+        toast.warning('No se encontró la tarea tipo correspondiente en el catálogo.');
+        return prev;
+      }
+      const newVersion = targetTarea.version ?? 1;
+      if (item.tareaTipoVersion && item.tareaTipoVersion >= newVersion) {
+        toast.info('El ítem ya se encuentra en la versión más reciente.');
+        return prev;
+      }
+
+      // Re-evaluar líneas desde la nueva versión conservando valores de parámetros existentes
+      const currentParamValues: Record<string, any> = {};
+      (item.parametros || []).forEach(p => { currentParamValues[p.nombre || p.id] = p.valor; });
+      if (item.valoresParametros) {
+        Object.assign(currentParamValues, item.valoresParametros);
+      }
+
+      const mergedParametros: ParametroItem[] = (targetTarea.parametros || []).map(tp => ({
+        id: tp.id,
+        nombre: tp.nombre || tp.id,
+        unidad: tp.unidad,
+        valor: currentParamValues[tp.nombre || tp.id] !== undefined ? currentParamValues[tp.nombre || tp.id] : tp.valorDefault,
+        opciones: tp.opciones,
+        origen: 'tarea_tipo'
+      }));
+
+      const evaluacion = evaluarParametrosYLineasItem({
+        ...item,
+        parametros: mergedParametros,
+        tareaTipoId: targetTarea.id,
+        tareaTipoVersion: newVersion,
+        desacoplado: false
+      }, {
+        tareaTipo: targetTarea,
+        calculosVariables,
+        calculatedCells
+      });
+
+      next[index] = {
+        ...evaluacion.item,
+        descripcion: targetTarea.nombre,
+        unidad: targetTarea.unidad,
+        naturaleza: targetTarea.naturaleza,
+        parametros: mergedParametros,
+        tareaTipoVersion: newVersion,
+        desacoplado: false
+      };
+
+      toast.success(`Ítem "${item.descripcion}" actualizado a la versión ${newVersion} de la tarea tipo.`);
+      return next;
+    });
+  };
+
+  const handleUpdateItemParametros = (index: number, parametros: ParametroItem[]) => {
+    setItems(prev => {
+      const next = [...prev];
+      const item = next[index];
+      if (!item) return prev;
+      const targetCap = capitulos.find(c => c.id === item.capituloId);
+      const targetTarea = item.tareaTipoId ? tareasTipo.find(t => t.id === item.tareaTipoId) : undefined;
+      const evaluacion = evaluarParametrosYLineasItem({
+        ...item,
+        parametros
+      }, {
+        capitulo: targetCap,
+        tareaTipo: targetTarea,
+        calculosVariables,
+        calculatedCells
+      });
+
+      next[index] = evaluacion.item;
+      return next;
+    });
+  };
+
+  const handleUpdateItemCantidad = (index: number, nuevaCantidad: number) => {
+    setItems(prev => {
+      const next = [...prev];
+      const item = next[index];
+      if (!item) return prev;
+      const targetCap = capitulos.find(c => c.id === item.capituloId);
+      const targetTarea = item.tareaTipoId ? tareasTipo.find(t => t.id === item.tareaTipoId) : undefined;
+      const evaluacion = evaluarParametrosYLineasItem({
+        ...item,
+        cantidad: nuevaCantidad
+      }, {
+        capitulo: targetCap,
+        tareaTipo: targetTarea,
+        calculosVariables,
+        calculatedCells
+      });
+
+      next[index] = evaluacion.item;
       return next;
     });
   };
@@ -1528,7 +1639,7 @@ export function usePresupuestoEditorViewModel({
         toast.warning('Agrega al menos una partida o tarea a la cotización.');
         return;
       }
-    } else if (items.length === 0 && !clienteId && capitulos.length === 0 && !dslText?.trim()) {
+    } else if (items.length === 0 && !clienteId && capitulos.length === 0) {
       toast.warning('Agrega al menos una partida o selecciona un cliente para guardar el borrador.');
       return;
     }
@@ -1551,75 +1662,20 @@ export function usePresupuestoEditorViewModel({
 
     const finalEmission = emissionOptionsOverride || opcionesEmision;
 
-    let currentItems = items;
-    let currentCapitulos = capitulos;
-    let currentGastos = gastosConfig;
-    let currentClienteId = clienteId;
-    let currentDireccionObra = direccionObra;
-    let currentTipoFactura = tipoFactura;
-    let currentValidezDias = validezDias;
-    let currentMargenPorcentaje = margenPorcentaje;
-    let currentNivelMargenRiesgo = nivelMargenRiesgo;
-    let currentMargenRiesgoPorcentaje = margenRiesgoPorcentaje;
-    let currentCalculatedCells = calculatedCells;
-    let currentCalculosVariables = calculosVariables;
-
-    if (dslText && dslText.trim()) {
-      const parsed = parseDSLToPresupuesto(dslText, {
-        clientes,
-        tareasTipo,
-        insumosMap,
-        manoObraMap,
-        config,
-        existingItems: items,
-        existingCapitulos: capitulos,
-        existingGastos: gastosConfig,
-        costosIndirectosCatalog: costosIndirectos
-      });
-      currentItems = parsed.items;
-      currentCapitulos = parsed.capitulos;
-      currentGastos = parsed.gastosConfig;
-      if (parsed.calculatedCells) currentCalculatedCells = parsed.calculatedCells;
-      if (parsed.calculosVariables) currentCalculosVariables = parsed.calculosVariables;
-      if (parsed.clienteId) currentClienteId = parsed.clienteId;
-      if (parsed.direccionObra) currentDireccionObra = parsed.direccionObra;
-      if (parsed.tipoFactura) currentTipoFactura = parsed.tipoFactura;
-      if (parsed.validezDias) currentValidezDias = parsed.validezDias;
-      if (parsed.margenPorcentaje !== null && parsed.margenPorcentaje !== undefined) {
-        currentMargenPorcentaje = parsed.margenPorcentaje;
-      }
-      if (parsed.nivelMargenRiesgo) currentNivelMargenRiesgo = parsed.nivelMargenRiesgo;
-      if (parsed.margenRiesgoPorcentaje !== undefined) currentMargenRiesgoPorcentaje = parsed.margenRiesgoPorcentaje;
-
-      // Sincronizar estado local en React
-      setItems(currentItems);
-      setCapitulos(currentCapitulos);
-      setGastosConfig(currentGastos);
-      if (currentCalculatedCells) setCalculatedCells(currentCalculatedCells);
-      if (currentCalculosVariables) setCalculosVariables(currentCalculosVariables);
-      if (currentClienteId !== clienteId) setClienteId(currentClienteId);
-      if (currentDireccionObra !== direccionObra) setDireccionObra(currentDireccionObra);
-      if (currentTipoFactura !== tipoFactura) setTipoFactura(currentTipoFactura);
-      if (currentValidezDias !== validezDias) setValidezDias(currentValidezDias);
-      if (currentMargenPorcentaje !== margenPorcentaje) setMargenPorcentaje(currentMargenPorcentaje);
-      if (currentNivelMargenRiesgo !== nivelMargenRiesgo) setNivelMargenRiesgo(currentNivelMargenRiesgo);
-      if (currentMargenRiesgoPorcentaje !== margenRiesgoPorcentaje) setMargenRiesgoPorcentaje(currentMargenRiesgoPorcentaje);
-    }
-
     const freshTotales = calcularTotalesPresupuesto({
-      items: currentItems,
-      capitulos: currentCapitulos,
-      gastosConfig: currentGastos,
-      costosIndirectosConfig: currentGastos.length > 0 ? currentGastos : costosIndirectosConfig,
+      items,
+      capitulos,
+      gastosConfig,
+      costosIndirectosConfig: gastosConfig.length > 0 ? gastosConfig : costosIndirectosConfig,
       costosIndirectosCatalog: costosIndirectos,
-      beneficioPorcentaje: safeNum(currentMargenPorcentaje),
-      margenRiesgoPorcentaje: currentMargenRiesgoPorcentaje,
-      tipoFactura: currentTipoFactura,
+      beneficioPorcentaje: safeNum(margenPorcentaje),
+      margenRiesgoPorcentaje,
+      tipoFactura,
       impuestosDetalle,
       cotizacionMonedaExtranjera: cotizacionDolar
     });
 
-    const itemsToSave = (freshTotales.itemsCalculados.length > 0 ? freshTotales.itemsCalculados : currentItems).map(it => ({
+    const itemsToSave = (freshTotales.itemsCalculados.length > 0 ? freshTotales.itemsCalculados : items).map(it => ({
       ...it,
       cantidad: safeNum(it.cantidad) || 1,
       precioManual: it.precioManual !== undefined ? safeNum(it.precioManual) : undefined,
@@ -1627,29 +1683,30 @@ export function usePresupuestoEditorViewModel({
     }));
 
     const finalPresupuesto: Presupuesto = {
-      id: existingPresupuesto?.id || draftIdRef.current,
+      id: loadedPresupuestoIdRef.current || draftIdRef.current,
       numero: numeroStr,
-      clienteId: currentClienteId || '',
-      direccionObra: currentDireccionObra.trim() || undefined,
+      revision: revision || 1,
+      presupuestoOrigenId: presupuestoOrigenId || undefined,
+      clienteId: clienteId || '',
+      direccionObra: direccionObra.trim() || undefined,
       fechaEmision: existingPresupuesto?.fechaEmision || now,
-      validezDias: safeNum(currentValidezDias) > 0 ? safeNum(currentValidezDias) : (config.validezDiasPorDefecto || 15),
-      tipoFactura: currentTipoFactura,
-      capitulos: currentCapitulos,
+      validezDias: safeNum(validezDias) > 0 ? safeNum(validezDias) : (config.validezDiasPorDefecto || 15),
+      tipoFactura,
+      capitulos,
       items: itemsToSave,
-      gastosConfig: currentGastos,
-      costosIndirectosConfig: currentGastos.length > 0 ? currentGastos : costosIndirectosConfig,
+      gastosConfig,
+      costosIndirectosConfig: gastosConfig.length > 0 ? gastosConfig : costosIndirectosConfig,
       costosIndirectosAplicados: freshTotales.costosIndirectosAplicados,
 
       // Margen de Riesgo Global
-      margenRiesgoPorcentaje: currentMargenRiesgoPorcentaje,
-      nivelMargenRiesgo: currentNivelMargenRiesgo,
+      margenRiesgoPorcentaje,
+      nivelMargenRiesgo,
       montoMargenRiesgo: freshTotales.montoMargenRiesgo,
-      factorSinergiaManoObra: 1.0,
 
       // Calculation Engine
       costoGlobal: freshTotales.costoGlobal,
       gastosGeneralesTotal: freshTotales.gastosGeneralesTotal,
-      beneficioPorcentaje: safeNum(currentMargenPorcentaje),
+      beneficioPorcentaje: safeNum(margenPorcentaje),
       beneficioMonto: freshTotales.beneficioMonto,
       subtotalSinImpuestos: freshTotales.subtotalSinImpuestos,
       montoImpuestosTotal: freshTotales.montoImpuestosTotal,
@@ -1664,7 +1721,7 @@ export function usePresupuestoEditorViewModel({
       subtotalCostosDirectos: freshTotales.costoGlobal,
       subtotalCostosIndirectos: freshTotales.gastosGeneralesTotal,
       costoTotalObra: freshTotales.costoTotalObra,
-      margenPorcentaje: safeNum(currentMargenPorcentaje),
+      margenPorcentaje: safeNum(margenPorcentaje),
       montoGanancia: freshTotales.beneficioMonto,
       impuestosDetalle: freshTotales.impuestosCalculados,
       impuestosPorcentaje: freshTotales.impuestosPorcentajeTotal,
@@ -1678,7 +1735,6 @@ export function usePresupuestoEditorViewModel({
       estado: targetEstado,
       notasInternas: notasInternas || existingPresupuesto?.notasInternas,
       notasCliente: notasCliente || existingPresupuesto?.notasCliente,
-      dslText,
       calculatedCells,
       calculosVariables,
       fechaModificacion: now,
@@ -1706,7 +1762,6 @@ export function usePresupuestoEditorViewModel({
       opcionesEmision: finalEmission,
       margenRiesgoPorcentaje,
       nivelMargenRiesgo,
-      dslText: dslText || '',
       notasInternas,
       notasCliente
     });
@@ -1816,6 +1871,10 @@ export function usePresupuestoEditorViewModel({
     setDireccionObra,
     numero,
     setNumero,
+    revision,
+    setRevision,
+    presupuestoOrigenId,
+    setPresupuestoOrigenId,
     validezDias,
     setValidezDias,
     margenPorcentaje,
@@ -1906,6 +1965,10 @@ export function usePresupuestoEditorViewModel({
     handleAddCustomItem,
     handleUpdateItemNotasTecnicas,
     handleUpdateItem,
+    handleDesacoplarItem,
+    handleActualizarVersionTareaTipo,
+    handleUpdateItemParametros,
+    handleUpdateItemCantidad,
     handleRemoveItem,
     handleToggleTax,
     handleUpdateTaxPct,

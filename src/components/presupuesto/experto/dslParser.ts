@@ -554,11 +554,6 @@ export function serializePresupuestoToDSL(data: {
   forceRegenerate?: boolean;
   preserveCalculosFromDsl?: string;
 }): string {
-  // Si la cotización tiene un dslText persistido original y NO se pidió regeneración forzada, retornarlo directamente
-  if (!data.forceRegenerate && data.dslText && data.dslText.trim()) {
-    return data.dslText;
-  }
-
   const items = data.items || [];
   const capitulos = data.capitulos || [];
 
@@ -716,16 +711,18 @@ function serializeSingleItem(it: ItemPresupuesto, lines: string[], indent: strin
   } else if (hasCustomSnapshots) {
     // Tarea compuesta con despiece a medida
     lines.push(`${indent}- ${it.descripcion}:`);
+    const childIndent = `${indent}    `;
+    const subChildIndent = `${childIndent}  `;
     const qtyDisplay = it.formulaCantidad || it.cantidad;
     if (qtyDisplay && (it.formulaCantidad || it.cantidad !== 1)) {
-      lines.push(`${indent}  cantidad: ${qtyDisplay}`);
+      lines.push(`${childIndent}cantidad: ${qtyDisplay}`);
     }
     if (it.unidad && it.unidad !== 'u') {
-      lines.push(`${indent}  unidad: ${it.unidad}`);
+      lines.push(`${childIndent}unidad: ${it.unidad}`);
     }
 
     if (it.insumosSnapshot && it.insumosSnapshot.length > 0) {
-      lines.push(`${indent}  materiales:`);
+      lines.push(`${childIndent}materiales:`);
       it.insumosSnapshot.forEach((ins) => {
         const itemQty = safeNum(it.cantidad) > 0 ? safeNum(it.cantidad) : 1;
         const unitQty = (ins as any).cantidadUnitaria !== undefined
@@ -735,12 +732,12 @@ function serializeSingleItem(it: ItemPresupuesto, lines: string[], indent: strin
         const cantUnit = `${cantDisplay} ${ins.unidad || 'u'}`;
         const priceStr = (ins.precioUnitarioCongelado || 0) > 0 ? `: $ ${Math.round(ins.precioUnitarioCongelado).toLocaleString('es-AR')}` : '';
         const brandStr = ins.marca ? ` [${ins.marca}]` : '';
-        lines.push(`${indent}    - ${cantUnit} ${ins.nombre}${brandStr}${priceStr ? ' ' + priceStr : ''}`);
+        lines.push(`${subChildIndent}- ${cantUnit} ${ins.nombre}${brandStr}${priceStr ? ' ' + priceStr : ''}`);
       });
     }
 
     if (it.manoObraSnapshot && it.manoObraSnapshot.length > 0) {
-      lines.push(`${indent}  mano_obra:`);
+      lines.push(`${childIndent}mano_obra:`);
       it.manoObraSnapshot.forEach((mo) => {
         const itemQty = safeNum(it.cantidad) > 0 ? safeNum(it.cantidad) : 1;
         const unitHs = (mo as any).horasUnitarias !== undefined
@@ -748,43 +745,60 @@ function serializeSingleItem(it: ItemPresupuesto, lines: string[], indent: strin
           : (mo.horasTotales > 0 ? roundMoney(mo.horasTotales / itemQty) : 1);
         const hsDisplay = mo.formulaHoras || unitHs;
         const moPriceStr = (mo.costoHoraCongelado || 0) > 0 ? `: $ ${Math.round(mo.costoHoraCongelado).toLocaleString('es-AR')}` : '';
-        lines.push(`${indent}    - ${hsDisplay} h ${mo.nombreCategoria}${moPriceStr ? ' ' + moPriceStr : ''}`);
+        lines.push(`${subChildIndent}- ${hsDisplay} h ${mo.nombreCategoria}${moPriceStr ? ' ' + moPriceStr : ''}`);
       });
     }
 
-    if (it.valoresParametros && Object.keys(it.valoresParametros).length > 0) {
-      lines.push(`${indent}  parametros:`);
-      Object.entries(it.valoresParametros).forEach(([pKey, pVal]) => {
-        lines.push(`${indent}    ${pKey}: ${pVal}`);
-      });
+    const hasParams = (it.parametros && it.parametros.length > 0) || (it.valoresParametros && Object.keys(it.valoresParametros).length > 0);
+    if (hasParams) {
+      lines.push(`${childIndent}parametros:`);
+      if (it.parametros && it.parametros.length > 0) {
+        it.parametros.forEach((p) => {
+          const valStr = p.formula || p.valor;
+          lines.push(`${subChildIndent}${p.id}: ${valStr}`);
+        });
+      } else if (it.valoresParametros) {
+        Object.entries(it.valoresParametros).forEach(([pKey, pVal]) => {
+          lines.push(`${subChildIndent}${pKey}: ${pVal}`);
+        });
+      }
     }
 
     if (it.condicionTrabajo && it.condicionTrabajo !== 'normal') {
-      lines.push(`${indent}  condicion: ${it.condicionTrabajo}`);
+      lines.push(`${childIndent}condicion: ${it.condicionTrabajo}`);
     }
 
     if (it.precioManual && it.precioManual > 0) {
-      lines.push(`${indent}  precio: $ ${Math.round(it.precioManual).toLocaleString('es-AR')}`);
+      lines.push(`${childIndent}precio: $ ${Math.round(it.precioManual).toLocaleString('es-AR')}`);
     }
-  } else if (it.valoresParametros && Object.keys(it.valoresParametros).length > 0) {
+  } else if ((it.parametros && it.parametros.length > 0) || (it.valoresParametros && Object.keys(it.valoresParametros).length > 0)) {
     // Tarea de catálogo con parámetros configurados
     lines.push(`${indent}- ${it.descripcion}:`);
+    const childIndent = `${indent}    `;
+    const subChildIndent = `${childIndent}  `;
     const qtyDisplay = it.formulaCantidad || it.cantidad;
     if (qtyDisplay && (it.formulaCantidad || it.cantidad !== 1)) {
-      lines.push(`${indent}  cantidad: ${qtyDisplay}`);
+      lines.push(`${childIndent}cantidad: ${qtyDisplay}`);
     }
     if (it.unidad && it.unidad !== 'u') {
-      lines.push(`${indent}  unidad: ${it.unidad}`);
+      lines.push(`${childIndent}unidad: ${it.unidad}`);
     }
-    lines.push(`${indent}  parametros:`);
-    Object.entries(it.valoresParametros).forEach(([pKey, pVal]) => {
-      lines.push(`${indent}    ${pKey}: ${pVal}`);
-    });
+    lines.push(`${childIndent}parametros:`);
+    if (it.parametros && it.parametros.length > 0) {
+      it.parametros.forEach((p) => {
+        const valStr = p.formula || p.valor;
+        lines.push(`${subChildIndent}${p.id}: ${valStr}`);
+      });
+    } else if (it.valoresParametros) {
+      Object.entries(it.valoresParametros).forEach(([pKey, pVal]) => {
+        lines.push(`${subChildIndent}${pKey}: ${pVal}`);
+      });
+    }
     if (it.condicionTrabajo && it.condicionTrabajo !== 'normal') {
-      lines.push(`${indent}  condicion: ${it.condicionTrabajo}`);
+      lines.push(`${childIndent}condicion: ${it.condicionTrabajo}`);
     }
     if (it.precioManual && it.precioManual > 0) {
-      lines.push(`${indent}  precio: $ ${Math.round(it.precioManual).toLocaleString('es-AR')}`);
+      lines.push(`${childIndent}precio: $ ${Math.round(it.precioManual).toLocaleString('es-AR')}`);
     }
   } else {
     // Tarea simple o directa
@@ -1896,6 +1910,20 @@ export function validateYamlStructure(yamlText: string): DSLDiagnostic[] {
     }
   }
 
+  // 4. Verificación de sintaxis YAML con YAML.parse
+  try {
+    const preprocessed = preprocessYamlText(yamlText);
+    YAML.parse(preprocessed);
+  } catch (err: any) {
+    const lineNum = err.linePos?.[0]?.line || 1;
+    const errMsg = err.message ? err.message.split('\n')[0] : 'Error de sintaxis en el archivo YAML';
+    diagnostics.push({
+      line: lineNum,
+      type: 'error',
+      message: `Error de sintaxis YAML (línea ${lineNum}): ${errMsg}`
+    });
+  }
+
   return diagnostics;
 }
 
@@ -1908,7 +1936,7 @@ export function parseDSLToPresupuesto(
 ): ParseDSLResult {
   const diagnostics: DSLDiagnostic[] = [];
 
-  // Validación de Integridad Estructural (huérfanos, indentaciones impares)
+  // Validación de Integridad Estructural (huérfanos, indentaciones impares, sintaxis YAML)
   const structuralDiagnostics = validateYamlStructure(yamlText);
   diagnostics.push(...structuralDiagnostics);
 
@@ -1918,13 +1946,15 @@ export function parseDSLToPresupuesto(
   try {
     parsed = YAML.parse(preprocessed);
   } catch (err: any) {
-    const lineNum = err.linePos?.[0]?.line || 1;
-    const errMsg = err.message ? err.message.split('\n')[0] : 'Error de sintaxis en el archivo YAML';
-    diagnostics.push({
-      line: lineNum,
-      type: 'error',
-      message: `Error de sintaxis YAML (línea ${lineNum}): ${errMsg}`
-    });
+    if (!diagnostics.some((d) => d.type === 'error' && d.message.includes('Error de sintaxis YAML'))) {
+      const lineNum = err.linePos?.[0]?.line || 1;
+      const errMsg = err.message ? err.message.split('\n')[0] : 'Error de sintaxis en el archivo YAML';
+      diagnostics.push({
+        line: lineNum,
+        type: 'error',
+        message: `Error de sintaxis YAML (línea ${lineNum}): ${errMsg}`
+      });
+    }
   }
 
   // Si el archivo está vacío o sólo tenía comentarios

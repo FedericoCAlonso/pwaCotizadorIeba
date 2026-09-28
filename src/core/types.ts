@@ -427,6 +427,7 @@ export interface CuadrillaRecomendada {
 export interface TareaTipo {
   id: string;
   nombre: string;
+  version?: number; // Versión de la tarea tipo en catálogo (default: 1)
   categoria: string;
   unidad: string;
   naturaleza?: NaturalezaTrabajo; // 'instalacion' | 'servicio_profesional' | 'servicio_tercerizado'
@@ -529,6 +530,9 @@ export interface ServicioTercerizado {
   nombreProveedor?: string;
   descripcion: string;
   costo: number;
+  cantidad?: number;
+  formulaCosto?: string;
+  formulaCantidad?: string;
   margenPropio?: number;
   validezCotizacionTercero?: string;
   hitoPagoSugerido?: string;
@@ -574,11 +578,24 @@ export interface CostoIndirectoSnapshot {
   montoCalculado: number;
 }
 
+export interface ParametroItem {
+  id: string; // identificador en fórmulas (ej: "bocas", "circuitos", "superficie")
+  nombre: string;
+  unidad?: string;
+  valor: number;
+  formula?: string; // ej: "=superficie * 2" o expresión aritmética
+  opciones?: { label: string; valor: number }[];
+  origen?: 'propio' | 'tarea_tipo' | 'capitulo' | 'cotizacion';
+}
+
 export interface ItemPresupuesto {
   id: string;
   capituloId?: string;
   tipoItem?: 'tarea_tipo' | 'material_directo' | 'servicio_tercerizado' | 'item_libre';
   tareaTipoId?: string;
+  tareaTipoVersion?: number; // Versión de la tarea tipo asociada
+  desacoplado?: boolean; // True si el ítem fue desacoplado de la tarea tipo al editar sus líneas
+  erroresFormulas?: Record<string, string>; // Errores de fórmulas (ej: ciclos, variables no definidas)
   materialId?: string;
   productoId?: string;
   ofertaId?: string;
@@ -589,6 +606,7 @@ export interface ItemPresupuesto {
   formulaCantidad?: string; // Phase 3: Fórmula matemática calculada opcional
   unidad: string;
 
+  parametros?: ParametroItem[]; // Parámetros unificados del ítem
   insumosSnapshot: InsumoSnapshot[];
   manoObraSnapshot: ManoObraSnapshot[];
   serviciosTercerizados?: ServicioTercerizado[];
@@ -683,101 +701,16 @@ export interface Proyecto {
   deleted?: boolean;
 }
 
-// ─── 10b. Sinergia Determinística de Tareas & Margen de Riesgo Global ─────────
+// ─── 10b. Margen de Riesgo Global ──────────────────────────────────────────
 export type NivelMargenRiesgo = 'bajo' | 'medio' | 'alto' | 'personalizado';
-
-export interface SinergiaManoObraResultado {
-  operarios: number;
-  horasTeoricasTotal: number; // Horas-Hombre brutas sumadas
-  horasSetupAislado: number;
-  horasSetupConsolidado: number;
-  ahorroSetupHs: number;
-  bonoTandemHs: number;
-  horasFinales: number; // Horas-Hombre sinérgicas (consumo MOD)
-  horasEfectivasJornada: number; // Capacidad neta diaria por operario (ej: 7.0 hs)
-  tiempoObraHorasReloj: number; // Tiempo físico de obra en horas de reloj (horasFinales / operarios)
-  jornadasEstimadas: number; // Días / Jornadas fraccionales = horasFinales / (operarios * horasEfectivasJornada)
-  diasEnterosObra: number; // Jornadas enteras cerradas de convenio: Math.ceil(jornadasEstimadas)
-  horasDevengadasJornal: number; // Horas totales a pagar por convenio = diasEnterosObra * operarios * horasEfectivasJornada
-  costoJornadasCompletas: number; // Costo total devengado por jornadas enteras cerradas = horasDevengadasJornal * tarifaPonderadaCuadrilla
-  tarifaPonderadaCuadrilla: number; // Tarifa horaria ponderada según roles (Oficiales vs Ayudantes)
-  composicionCuadrillaTexto: string; // ej: "2 Oficiales + 1 Ayudante"
-  factorSinergia: number; // Factor multiplicador (ej: 0.82)
-  costoManoObraBase: number;
-  costoManoObraSinergico: number;
-  ahorroManoObraARS: number;
-  sonCompatibles: boolean;
-  explicacion: string;
-}
-
-export type ModoPlanificacionCuadrilla = 'equipo' | 'plazo';
-
-export interface EstimacionCuadrillaPorPlazoResultado {
-  diasObjetivo: number;
-  horasEfectivasJornada: number;
-  operariosSugeridos: number;
-  sinergiaSugerida: SinergiaManoObraResultado;
-  opciones: SinergiaManoObraResultado[];
-  esFactible: boolean;
-  cuadrillaExactaFraccional: number;
-  mensaje: string;
-}
-
-// Compatibilidad retroactiva transitoria
-export type EstrategiaCuadrilla = 'minima' | 'optima' | 'rapida' | 'personalizada';
-export type NivelConfianzaSinergia = 50 | 80 | 90 | 95;
-
-export interface OpcionCuadrillaSimulada {
-  estrategia: EstrategiaCuadrilla;
-  titulo: string;
-  subtitulo: string;
-  operariosOficiales: number;
-  operariosAyudantes: number;
-  operariosTotales: number;
-  factorSinergia: number;
-  horasTotales: number;
-  horasBaseTeoricas?: number;
-  desvioEstandarHoras?: number;
-  jornadasDias: number;
-  costoManoObraARS: number;
-  costoLogisticaARS: number;
-  costoTotalEjecucionARS: number;
-  ahorroRespectoBaseARS: number;
-  nivelRiesgo: 'muy_bajo' | 'bajo' | 'medio' | 'alto';
-  descripcionRiesgo: string;
-  recomendado: boolean;
-}
-
-export interface PlanificacionCuadrilla {
-  estrategia?: EstrategiaCuadrilla;
-  nivelConfianza?: NivelConfianzaSinergia;
-  zScore?: number;
-  desvioEstandarHoras?: number;
-  coeficienteVariacionPct?: number;
-  horasTeoricasTotal: number;
-  horasSetupTotal: number;
-  horasNetasTotal: number;
-  horasMediaEsperada?: number;
-  factorSinergiaAplicado: number;
-  horasFinalesOptimizadas: number;
-  operariosOficiales: number;
-  operariosAyudantes: number;
-  operariosTotales: number;
-  jornadasEstimadas: number;
-  costoManoObraEstimado: number;
-  costoLogisticaEstimado: number;
-  costoTotalEjecucion: number;
-  ahorroEstimadoARS: number;
-  nivelRiesgoParate?: 'muy_bajo' | 'bajo' | 'medio' | 'alto';
-  explicacionOptimizacion: string;
-  aplicarOptimizacionAlPresupuesto: boolean;
-}
 
 export interface CapituloPresupuesto {
   id: string;
   nombre: string;
   orden?: number;
   descripcion?: string;
+  variables?: Record<string, number | string>;
+  parametros?: ParametroItem[];
 }
 
 export type DestinoGasto = 'materiales' | 'mano_obra' | 'servicios' | 'costo_indirecto';
@@ -814,6 +747,8 @@ export interface CalculatedCell {
 export interface Presupuesto {
   id: string;
   numero: string;
+  revision: number; // Revisión secuencial de la cotización (1, 2, ...)
+  presupuestoOrigenId?: string; // ID de la cotización original si es una copia/revisión
   clienteId: string;
   proyectoId?: string;
   direccionObra?: string; // Dirección o ubicación específica de la obra para esta cotización
@@ -828,23 +763,13 @@ export interface Presupuesto {
   costosIndirectosConfig?: CostoIndirectoItemConfig[];
   costosIndirectosAplicados: CostoIndirectoSnapshot[];
 
-  // ─── Sinergia de Tareas & Margen de Riesgo Global ───
-  operariosCuadrilla?: number; // Cantidad manual de operarios (default: 2)
-  horasJornadaCuadrilla?: number; // Horas de trabajo disponibles por jornada (ej: 4, 8, 9)
-  modoPlanificacionCuadrilla?: ModoPlanificacionCuadrilla; // 'equipo' | 'plazo'
-  diasObjetivoObra?: number; // Plazo objetivo en días de obra
+  // ─── Margen de Riesgo Global ───
   margenRiesgoPorcentaje?: number; // % margen de riesgo sobre costo directo (ej: 20%)
   nivelMargenRiesgo?: NivelMargenRiesgo; // 'bajo' (10%), 'medio' (20%), 'alto' (35%), 'personalizado'
   montoMargenRiesgo?: number; // Monto en ARS del margen de riesgo
-  aplicarSinergiaManoObra?: boolean;
-  factorSinergiaManoObra?: number;
-  tiempoObraHorasReloj?: number; // Tiempo de obra en horas de reloj en el sitio
-  jornadasEstimadas?: number; // Cantidad de jornadas / días de obra
-  sinergiaManoObra?: SinergiaManoObraResultado;
-  planificacionCuadrilla?: PlanificacionCuadrilla; // Compatibilidad retroactiva
 
   // ─── Motor de Cálculo: C → GG → B → S → Impuestos → Precio Final & K ───
-  costoGlobal?: number; // C = Σ(Insumos + Mano de Obra + Servicios)
+  costoGlobal?: number; // C = Σ(Insumos + Mano de Obra + Servicios) + MargenRiesgo
   gastosGeneralesTotal?: number; // GG total = Σ(GG fijos) + Σ(GG% × C)
   beneficioPorcentaje?: number; // % beneficio aplicado sobre (C + GG)
   beneficioMonto?: number; // B = %beneficio × (C + GG)
@@ -856,7 +781,7 @@ export interface Presupuesto {
   // Opciones de Emisión y Presentación para el Cliente
   opcionesEmision?: OpcionesEmisionPresupuesto;
 
-  // Campos de compatibilidad
+  // Campos de compatibilidad y desgloses
   subtotalInsumos: number;
   subtotalManoObra: number;
   subtotalServiciosTercerizados?: number;
@@ -885,8 +810,7 @@ export interface Presupuesto {
   notasInternas?: string;
   notasCliente?: string;
 
-  // ─── Modo Experto & Celdas de Cálculo ───
-  dslText?: string;
+  // ─── Modo Experto & Celdas de Cálculo (dslText no se persiste) ───
   calculatedCells?: CalculatedCell[];
   calculosVariables?: Record<string, number | string>;
 

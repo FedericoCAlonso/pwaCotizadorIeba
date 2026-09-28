@@ -31,9 +31,11 @@ import {
   GastoPresupuestoConfig,
   ParametroTrabajoTipo,
   DestinoGasto,
-  ModalidadGasto
+  ModalidadGasto,
+  ParametroItem,
+  CalculatedCell
 } from './types';
-import { evaluateMathExpression, evaluateCondition } from './mathEvaluator';
+import { evaluateMathExpression, evaluateCondition, RESERVED_KEYWORDS } from './mathEvaluator';
 
 // ─── Helper monetario (auditoría #7: CRITICAL) ───────────────────────────────
 /**
@@ -2629,4 +2631,319 @@ export function calcularCostoJornadaDesdeHora(costoHora: number, horasJornada: n
   const ch = safeNum(costoHora);
   if (ch <= 0) return 0;
   return roundMoney(ch * hs);
+}
+
+// ─── 15. Evaluación en Cascada de Parámetros y Fórmulas de Ítems ──────────────
+
+export interface ContextoEvaluacionItem {
+  capitulo?: CapituloPresupuesto;
+  calculosVariables?: Record<string, number | string>;
+  calculatedCells?: CalculatedCell[];
+  tareaTipo?: TareaTipo;
+}
+
+export interface ResultadoEvaluacionItem {
+  item: ItemPresupuesto;
+  errores: Record<string, string>;
+}
+
+/**
+ * Reevalúa las fórmulas de un ítem y sus líneas (insumos, mano de obra, servicios),
+ * resolviendo nombres en cascada y detectando referencias circulares y variables no definidas.
+ *
+ * Cascada de resolución:
+ * 1. Parámetros del ítem (item.parametros)
+ * 2. Parámetros / variables del capítulo (capitulo.parametros / capitulo.variables)
+ * 3. Variables de la cotización (calculosVariables / calculatedCells)
+ * 4. Valores por defecto de la tarea tipo (tareaTipo.parametros)
+ *
+ * 'cantidad' es una palabra reservada del ítem: las fórmulas de sus líneas leen item.cantidad.
+ */
+export function evaluarParametrosYLineasItem(
+  item: ItemPresupuesto,
+  contexto: ContextoEvaluacionItem = {}
+): ResultadoEvaluacionItem {
+  const errores: Record<string, string> = {};
+
+  // 1. Construir scope base de menor a mayor prioridad
+  const scope: Record<string, number> = {};
+
+  // Prioridad 4: Tarea Tipo por defecto
+  if (contexto.tareaTipo?.parametros) {
+    for (const p of contexto.tareaTipo.parametros) {
+      if (p.id !== 'cantidad') {
+        scope[p.id] = safeNum(p.valorDefault);
+      }
+    }
+  }
+
+  // Prioridad 3: Variables de la cotización
+  if (contexto.calculosVariables) {
+    for (const [k, v] of Object.entries(contexto.calculosVariables)) {
+      if (k !== 'cantidad') {
+        scope[k] = typeof v === 'number' ? v : safeNum(parseFloat(String(v)));
+      }
+    }
+  }
+  if (contexto.calculatedCells) {
+    for (const cell of contexto.calculatedCells) {
+      if (cell.name !== 'cantidad') {
+        scope[cell.name] = safeNum(cell.evaluatedValue);
+      }
+    }
+  }
+
+  // Prioridad 2: Capítulo
+  if (contexto.capitulo?.variables) {
+    for (const [k, v] of Object.entries(contexto.capitulo.variables)) {
+      if (k !== 'cantidad') {
+        scope[k] = typeof v === 'number' ? v : safeNum(parseFloat(String(v)));
+      }
+    }
+  }
+  if (contexto.capitulo?.parametros) {
+    for (const p of contexto.capitulo.parametros) {
+      if (p.id !== 'cantidad') {
+        scope[p.id] = safeNum(p.valor);
+      }
+    }
+  }
+
+  // Prioridad 1: Parámetros del ítem
+  const itemParams: ParametroItem[] = [...(item.parametros || [])];
+  if (item.valoresParametros && itemParams.length === 0) {
+    for (const [k, v] of Object.entries(item.valoresParametros)) {
+      if (k !== 'cantidad') {
+        itemParams.push({
+          id: k,
+          nombre: k,
+          valor: safeNum(v),
+          origen: 'propio'
+        });
+      }
+    }
+  }
+
+  // Validar palabra reservada 'cantidad' en parámetros del ítem
+  const cantParamIdx = itemParams.findIndex(p => p.id === 'cantidad');
+  if (cantParamIdx !== -1) {
+    errores['param_cantidad'] = "El nombre 'cantidad' es una palabra reservada del ítem y no puede usarse como parámetro auxiliar.";
+    itemParams.splice(cantParamIdx, 1);
+  }
+
+  // Detección de ciclos y evaluación de parámetros del ítem
+  const paramMap = new Map<string, ParametroItem>();
+  itemParams.forEach(p => paramMap.set(p.id, p));
+
+  const extractIdentifiers = (formula: string): string[] => {
+    if (!formula) return [];
+    const clean = formula.startsWith('=') ? formula.substring(1) : formula;
+    const matches = clean.match(/[a-zA-Z_]\w*/g) || [];
+    return matches.filter(id => !RESERVED_KEYWORDS.has(id.toLowerCase()));
+  };
+
+  const resolvedParams = new Set<string>();
+  const evaluatingParams = new Set<string>();
+
+  const evaluateParam = (paramId: string) => {
+    if (resolvedParams.has(paramId)) return;
+    if (evaluatingParams.has(paramId)) {
+      errores[`param_${paramId}`] = `Referencia circular detectada en el parámetro '${paramId}'.`;
+      return;
+    }
+
+    evaluatingParams.add(paramId);
+    const param = paramMap.get(paramId);
+    if (!param) return;
+
+    if (param.formula && param.formula.trim().startsWith('=')) {
+      const deps = extractIdentifiers(param.formula);
+      for (const dep of deps) {
+        if (paramMap.has(dep)) {
+          evaluateParam(dep);
+        } else if (scope[dep] === undefined && dep !== 'cantidad') {
+          errores[`param_${paramId}`] = `Variable no definida '${dep}' en la fórmula del parámetro '${param.nombre || paramId}'.`;
+        }
+      }
+
+      const currentParamScope: Record<string, number> = { ...scope };
+      resolvedParams.forEach(id => {
+        const p = paramMap.get(id);
+        if (p) currentParamScope[id] = p.valor;
+      });
+
+      const evalRes = evaluateMathExpression(param.formula, currentParamScope);
+      if (evalRes.isValid && evalRes.value !== null) {
+        param.valor = evalRes.value;
+      } else if (!errores[`param_${paramId}`]) {
+        errores[`param_${paramId}`] = evalRes.error || `Error evaluando fórmula en parámetro '${param.nombre || paramId}'.`;
+      }
+    }
+
+    evaluatingParams.delete(paramId);
+    resolvedParams.add(paramId);
+    scope[paramId] = param.valor;
+  };
+
+  for (const param of itemParams) {
+    evaluateParam(param.id);
+  }
+
+  // 2. Evaluar cantidad del ítem si tiene fórmula
+  let itemCantidad = safeNum(item.cantidad);
+  if (item.formulaCantidad && item.formulaCantidad.trim().startsWith('=')) {
+    const deps = extractIdentifiers(item.formulaCantidad);
+    for (const dep of deps) {
+      if (scope[dep] === undefined) {
+        errores['formulaCantidad'] = `Variable no definida '${dep}' en la fórmula de cantidad del ítem.`;
+      }
+    }
+    const evalCant = evaluateMathExpression(item.formulaCantidad, scope);
+    if (evalCant.isValid && evalCant.value !== null) {
+      itemCantidad = Math.max(0, evalCant.value);
+    } else if (!errores['formulaCantidad']) {
+      errores['formulaCantidad'] = evalCant.error || 'Error al evaluar la fórmula de cantidad.';
+    }
+  }
+
+  // Scope final para las líneas: incluye la cantidad del ítem como 'cantidad'
+  const lineScope: Record<string, number> = {
+    ...scope,
+    cantidad: itemCantidad
+  };
+
+  // 3. Evaluar InsumosSnapshot
+  let subtotalInsumos = 0;
+  const updatedInsumos = (item.insumosSnapshot || []).map((insumo, idx) => {
+    let cantTotal = safeNum(insumo.cantidadTotal);
+    if (insumo.formulaCantidad && insumo.formulaCantidad.trim().startsWith('=')) {
+      const deps = extractIdentifiers(insumo.formulaCantidad);
+      for (const dep of deps) {
+        if (lineScope[dep] === undefined) {
+          errores[`insumo_${idx}`] = `Variable no definida '${dep}' en la fórmula de cantidad del material '${insumo.nombre}'.`;
+        }
+      }
+      const evalRes = evaluateMathExpression(insumo.formulaCantidad, lineScope);
+      if (evalRes.isValid && evalRes.value !== null) {
+        cantTotal = Math.max(0, evalRes.value);
+      } else if (!errores[`insumo_${idx}`]) {
+        errores[`insumo_${idx}`] = evalRes.error || `Error en fórmula del material '${insumo.nombre}'.`;
+      }
+    } else if (insumo.cantidadUnitaria !== undefined && insumo.cantidadUnitaria > 0) {
+      cantTotal = roundMoney(insumo.cantidadUnitaria * itemCantidad);
+    }
+
+    const precioUnit = safeNum(insumo.precioUnitarioCongelado);
+    const subtotal = roundMoney(precioUnit * cantTotal);
+    const alicuota = insumo.alicuotaIVA !== undefined ? safeNum(insumo.alicuotaIVA) : 21;
+    const finalUnit = insumo.precioFinalUnitarioCongelado ?? roundMoney(precioUnit * (1 + alicuota / 100));
+    const subtotalFinal = roundMoney(finalUnit * cantTotal);
+
+    subtotalInsumos = roundMoney(subtotalInsumos + subtotal);
+
+    return {
+      ...insumo,
+      cantidadTotal: cantTotal,
+      subtotalInsumo: subtotal,
+      subtotalInsumoFinal: subtotalFinal
+    };
+  });
+
+  // 4. Evaluar ManoObraSnapshot
+  let subtotalManoObra = 0;
+  const updatedManoObra = (item.manoObraSnapshot || []).map((mo, idx) => {
+    let hsTotales = safeNum(mo.horasTotales);
+    if (mo.formulaHoras && mo.formulaHoras.trim().startsWith('=')) {
+      const deps = extractIdentifiers(mo.formulaHoras);
+      for (const dep of deps) {
+        if (lineScope[dep] === undefined) {
+          errores[`mo_${idx}`] = `Variable no definida '${dep}' en la fórmula de horas de '${mo.nombreCategoria}'.`;
+        }
+      }
+      const evalRes = evaluateMathExpression(mo.formulaHoras, lineScope);
+      if (evalRes.isValid && evalRes.value !== null) {
+        hsTotales = Math.max(0, evalRes.value);
+      } else if (!errores[`mo_${idx}`]) {
+        errores[`mo_${idx}`] = evalRes.error || `Error en fórmula de horas de '${mo.nombreCategoria}'.`;
+      }
+    } else if (mo.horasUnitarias !== undefined && mo.horasUnitarias > 0) {
+      hsTotales = roundMoney(mo.horasUnitarias * itemCantidad);
+    }
+
+    const costoHora = safeNum(mo.costoHoraCongelado);
+    const subtotal = roundMoney(costoHora * hsTotales);
+    subtotalManoObra = roundMoney(subtotalManoObra + subtotal);
+
+    return {
+      ...mo,
+      horasTotales: hsTotales,
+      subtotalManoObra: subtotal
+    };
+  });
+
+  // 5. Evaluar ServiciosTercerizados
+  let subtotalServicios = 0;
+  const updatedServicios = (item.serviciosTercerizados || []).map((serv, idx) => {
+    let cant = safeNum(serv.cantidad) > 0 ? safeNum(serv.cantidad) : 1;
+    let costoUnit = safeNum(serv.costo);
+
+    if (serv.formulaCantidad && serv.formulaCantidad.trim().startsWith('=')) {
+      const deps = extractIdentifiers(serv.formulaCantidad);
+      for (const dep of deps) {
+        if (lineScope[dep] === undefined) {
+          errores[`serv_cant_${idx}`] = `Variable no definida '${dep}' en la fórmula de cantidad del servicio '${serv.descripcion}'.`;
+        }
+      }
+      const evalRes = evaluateMathExpression(serv.formulaCantidad, lineScope);
+      if (evalRes.isValid && evalRes.value !== null) {
+        cant = Math.max(0, evalRes.value);
+      }
+    }
+
+    if (serv.formulaCosto && serv.formulaCosto.trim().startsWith('=')) {
+      const deps = extractIdentifiers(serv.formulaCosto);
+      for (const dep of deps) {
+        if (lineScope[dep] === undefined) {
+          errores[`serv_costo_${idx}`] = `Variable no definida '${dep}' en la fórmula de costo del servicio '${serv.descripcion}'.`;
+        }
+      }
+      const evalRes = evaluateMathExpression(serv.formulaCosto, lineScope);
+      if (evalRes.isValid && evalRes.value !== null) {
+        costoUnit = Math.max(0, evalRes.value);
+      }
+    }
+
+    const totalServ = roundMoney(costoUnit * cant);
+    subtotalServicios = roundMoney(subtotalServicios + totalServ);
+
+    return {
+      ...serv,
+      cantidad: cant,
+      costo: costoUnit
+    };
+  });
+
+  const costoDirecto = roundMoney(subtotalInsumos + subtotalManoObra + subtotalServicios);
+  const costoUnitario = itemCantidad > 0 ? roundMoney(costoDirecto / itemCantidad) : costoDirecto;
+
+  return {
+    item: {
+      ...item,
+      cantidad: itemCantidad,
+      parametros: itemParams,
+      valoresParametros: scope,
+      insumosSnapshot: updatedInsumos,
+      manoObraSnapshot: updatedManoObra,
+      serviciosTercerizados: updatedServicios,
+      costoInsumos: subtotalInsumos,
+      costoManoObra: subtotalManoObra,
+      costoServicios: subtotalServicios,
+      costoServiciosTercerizados: subtotalServicios,
+      costoDirectoTotal: costoDirecto,
+      costoTotal: costoDirecto,
+      costoUnitario,
+      erroresFormulas: Object.keys(errores).length > 0 ? errores : undefined
+    },
+    errores
+  };
 }

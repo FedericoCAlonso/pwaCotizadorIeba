@@ -23,6 +23,7 @@ const { mockPresupuesto } = vi.hoisted(() => {
   const mockPresupuesto: Presupuesto = {
     id: 'pres-123',
     numero: 'IEBA-2026-0042',
+    revision: 1,
     clienteId: 'cli-1',
     fechaEmision: new Date().toISOString(),
     validezDias: 15,

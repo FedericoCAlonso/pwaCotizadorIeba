@@ -1875,23 +1875,30 @@ Capitulo 1:
       expect(mo?.formulaHoras).toBe('=bocas * 0.5');
     });
 
-    it('serializePresupuestoToDSL preserva dslText exactamente si está presente', () => {
-      const customDsl = `# Presupuesto de prueba con comentarios
-calculos:
-  ambientes: 3 # dormitorios
+    it('serializePresupuestoToDSL se genera siempre desde el modelo y no de una copia cacheada obsoleta', () => {
+      const parsed = parseDSLToPresupuesto(`calculos:
+  ambientes: 3
   bocas: =ambientes * 8
 
 Iluminación:
-  - =bocas u Bocas de techo: $ 15.000`;
-
-      const serialized = serializePresupuestoToDSL({
-        items: [],
-        capitulos: [],
-        gastosConfig: [],
-        dslText: customDsl
+  - =bocas u Bocas de techo: $ 15.000`, {
+        clientes: mockClientes,
+        tareasTipo: mockTareas,
+        insumosMap: mockInsumosMap,
+        manoObraMap: mockManoObraMap
       });
 
-      expect(serialized).toBe(customDsl);
+      const serialized = serializePresupuestoToDSL({
+        items: parsed.items,
+        capitulos: parsed.capitulos,
+        gastosConfig: parsed.gastosConfig,
+        calculosVariables: parsed.calculosVariables,
+        calculatedCells: parsed.calculatedCells
+      });
+
+      expect(serialized).toContain('Iluminación');
+      expect(serialized).toContain('Bocas de techo');
+      expect(serialized).toContain('ambientes: 3');
     });
 
     it('serializePresupuestoToDSL serializa calculosVariables y formulas si dslText no está provisto', () => {

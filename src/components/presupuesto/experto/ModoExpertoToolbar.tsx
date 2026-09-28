@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Zap, Package, FolderPlus, Truck } from 'lucide-react';
+import { Plus, Zap, Package, FolderPlus, Truck, Check } from 'lucide-react';
 
 interface ModoExpertoToolbarProps {
   createToolbarAction: (action: () => void) => {
@@ -13,6 +13,7 @@ interface ModoExpertoToolbarProps {
   onOpenGastosModal: () => void;
   onNavigateField: (direction?: 'forward' | 'backward') => void;
   onOpenListaMateriales?: () => void;
+  onApply?: () => void;
 }
 
 export const ModoExpertoToolbar: React.FC<ModoExpertoToolbarProps> = ({
@@ -21,7 +22,8 @@ export const ModoExpertoToolbar: React.FC<ModoExpertoToolbarProps> = ({
   onOpenMultiMaterialModal,
   onOpenGastosModal,
   onNavigateField,
-  onOpenListaMateriales
+  onOpenListaMateriales,
+  onApply
 }) => {
   return (
     <div className="expert-toolbar flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
@@ -160,6 +162,18 @@ export const ModoExpertoToolbar: React.FC<ModoExpertoToolbarProps> = ({
         <span>⏭ Campo</span>
         <kbd className="hidden sm:inline text-[9px] opacity-75 font-mono">Alt+Enter</kbd>
       </button>
+
+      {onApply && (
+        <button
+          type="button"
+          onClick={onApply}
+          className="px-3.5 py-1.5 bg-primary text-on-primary rounded-xl font-bold flex items-center gap-1.5 shadow-xs hover:bg-primary/90 transition ml-auto shrink-0 cursor-pointer min-h-[34px]"
+          title="Validar texto y aplicar cambios a la cotización"
+        >
+          <Check className="w-4 h-4" />
+          <span>Aplicar</span>
+        </button>
+      )}
     </div>
   );
 };
