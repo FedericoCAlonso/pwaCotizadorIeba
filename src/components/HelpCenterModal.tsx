@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   X, HelpCircle, FileSpreadsheet, Layers, FileText, Smartphone, Cloud,
-  Download, Search, BookOpen, CheckCircle2, Package, Users
+  Download, Search, BookOpen, CheckCircle2, Package, Users, Truck
 } from 'lucide-react';
 import helpMessages from '../data/helpMessages.json';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -32,7 +32,8 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
     Layers,
     FileText,
     Smartphone,
-    Cloud
+    Cloud,
+    Truck
   };
 
   const categories = helpMessages.helpCenter.categories;
@@ -178,7 +179,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
 
         {/* Modal Footer */}
         <div className="pt-3 border-t border-outline-variant/20 flex justify-between items-center shrink-0 mt-2">
-          <span className="text-xs text-on-surface-variant font-mono">Cotizador Eléctrico — IEBA v1.3.0</span>
+          <span className="text-xs text-on-surface-variant font-mono">Cotizador Eléctrico — IEBA v1.4.0</span>
           <button
             type="button"
             onClick={onClose}

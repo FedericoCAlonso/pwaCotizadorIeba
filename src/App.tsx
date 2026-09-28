@@ -277,7 +277,7 @@ export function App() {
 
       {/* Footer */}
       <footer className="no-print py-4 text-center text-xs text-on-surface-variant/70">
-        Cotizador Eléctrico IEBA — Standalone · Offline-First · PWA
+        Cotizador Eléctrico IEBA v1.4.0 — Standalone · Offline-First · PWA
       </footer>
 
       {/* Config Modal */}

@@ -115,7 +115,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'contactos' as const, label: 'Contactos', icon: Users },
     { id: 'insumos' as const, label: 'Catálogo', icon: Package },
     { id: 'manoObra' as const, label: 'Tarifas MO', icon: HardHat },
-    { id: 'costosIndirectos' as const, label: 'Logística', icon: Truck },
+    { id: 'logistica' as const, label: 'Logística', icon: Truck },
     { id: 'tareasTipo' as const, label: 'Tareas Tipo', icon: Layers },
     { id: 'registroTrabajo' as const, label: 'Historial Obra', icon: Clock },
   ];
@@ -510,33 +510,38 @@ export const Header: React.FC<HeaderProps> = ({
         })}
 
         {/* 5th Mobile Navigation Item: "Más" (Drawer Trigger) */}
-        <button
-          role="tab"
-          aria-selected={!['presupuestos', 'insumos', 'contactos', 'registroTrabajo'].includes(activeTab)}
-          aria-haspopup="dialog"
-          onClick={() => setShowMobileDrawer(true)}
-          className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl min-w-[64px] min-h-[48px] transition-all"
-          aria-label="Abrir menú de herramientas y más opciones"
-        >
-          <div
-            className={`px-4 py-1 rounded-full flex items-center justify-center transition-all ${
-              !['presupuestos', 'insumos', 'contactos', 'registroTrabajo'].includes(activeTab) || showMobileDrawer
-                ? 'bg-secondary-container text-on-secondary-container font-semibold scale-105'
-                : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <Menu className="w-5 h-5" aria-hidden="true" />
-          </div>
-          <span
-            className={`text-xs tracking-tight mt-0.5 transition-colors ${
-              !['presupuestos', 'insumos', 'contactos', 'registroTrabajo'].includes(activeTab)
-                ? 'font-bold text-primary'
-                : 'font-medium text-on-surface-variant'
-            }`}
-          >
-            Más
-          </span>
-        </button>
+        {(() => {
+          const isMoreActive = !navItems.slice(0, 4).some((item) => item.id === activeTab);
+          return (
+            <button
+              role="tab"
+              aria-selected={isMoreActive}
+              aria-haspopup="dialog"
+              onClick={() => setShowMobileDrawer(true)}
+              className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl min-w-[64px] min-h-[48px] transition-all"
+              aria-label="Abrir menú de herramientas y más opciones"
+            >
+              <div
+                className={`px-4 py-1 rounded-full flex items-center justify-center transition-all ${
+                  isMoreActive || showMobileDrawer
+                    ? 'bg-secondary-container text-on-secondary-container font-semibold scale-105'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                <Menu className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <span
+                className={`text-xs tracking-tight mt-0.5 transition-colors ${
+                  isMoreActive
+                    ? 'font-bold text-primary'
+                    : 'font-medium text-on-surface-variant'
+                }`}
+              >
+                Más
+              </span>
+            </button>
+          );
+        })()}
       </nav>
 
       {/* M3 Mobile Bottom Sheet Drawer for "Más" items */}

@@ -26,8 +26,8 @@
       },
       {
         "id": "presupuestos",
-        "title": "Emisión de Presupuesto",
-        "description": "Agrega ítems de obra, aplica coeficientes de utilidad y exporta la cotización en PDF.",
+        "title": "Planilla de Árbol & Emisión",
+        "description": "Estructura la obra en capítulos y partidas, ajusta rendimientos con el panel lateral y exporta en PDF o Excel.",
         "targetTab": "presupuestos",
         "actionText": "Crear Cotización"
       }
@@ -169,28 +169,80 @@
       },
       {
         "id": "cotizacion",
-        "title": "Editor de Presupuestos y PDF",
+        "title": "Planilla de Árbol & Cotizaciones",
         "iconName": "FileText",
-        "summary": "Estructura de costos, indirectos, impuestos y exportación del documento comercial.",
+        "summary": "Estructura jerárquica de obra, edición ágil de rubros, cálculo paramétrico y emisión de presupuestos.",
         "sections": [
           {
-            "heading": "Composición del Precio de Venta",
-            "content": "El precio de cada ítem de presupuesto se calcula aplicando la fórmula estándar de ingeniería:",
+            "heading": "Planilla de Árbol Jerárquica (TreeSheet)",
+            "content": "La grilla principal organiza el presupuesto de forma visual y ordenada por Capítulos y Partidas/Renglones de obra:",
             "bullets": [
-              "Costo Directo = Insumos + Mano de Obra + Servicios Subcontratados.",
-              "Condición de Obra: Modificador por dificultad (Normal: 1.0x, Dificultosa: 1.25x, Favorable: 0.9x).",
-              "Precio Venta Ítem = Costo Directo × Modificador × (1 + Margen % / 100).",
-              "Total Obra = Suma de Partidas + Gastos Indirectos (Movilidad, Logística, Seguros) + Impuestos."
+              "Organización por Capítulos: Agrupa tus ítems según etapas de obra (Acometida, Canalizaciones, Circuitos, etc.) con subtotales automáticos por capítulo.",
+              "Desglose Dinámico en Grilla: Cada renglón permite expandir en un clic el despiece de insumos, horas de mano de obra y servicios subcontratados directamente en la tabla.",
+              "Acciones Rápidas: Duplicación, eliminación, cambio de capítulo y reordenamiento de renglones al instante."
             ]
           },
           {
-            "heading": "Emisión de Documentos y PDF",
-            "content": "Genera el comprobante profesional listo para entregar al cliente:",
+            "heading": "Panel Lateral y Drawer Móvil de Edición",
+            "content": "Al hacer clic sobre cualquier partida se despliega el panel de edición (columna derecha en escritorio, Bottom Sheet en pantallas móviles):",
             "bullets": [
-              "Congelamiento de Precios: Al emitir, se crea un snapshot inmutable de costos para proteger la rentabilidad.",
-              "Personalización: Incluye datos de la empresa, validez de la oferta, plazos de ejecución y condiciones de pago.",
-              "Exportación PDF: Generación limpia en PDF para imprimir o compartir digitalmente."
+              "Parámetros de Tarea: Modifica variables dinámicas (bocas, metros, dificultad) recalculando los rendimientos en tiempo real.",
+              "Búsqueda Predictiva de Materiales: Incorpora insumos buscando por nombre o código en vivo sin diálogos bloqueantes.",
+              "Mano de Obra y Servicios: Añade categorías UOCRA u horas adicionales y servicios de terceros de manera directa.",
+              "Notas Técnicas: Agrega descripciones y observaciones específicas por partida."
             ]
+          },
+          {
+            "heading": "Paleta de Comandos Rápida (Ctrl + K)",
+            "content": "Presiona el botón de comando en la barra superior o el atajo Ctrl+K para abrir el buscador universal de Tareas Tipo del catálogo e insertar partidas completas precalculadas en segundos."
+          },
+          {
+            "heading": "Composición de Precios y Totales en Vivo",
+            "content": "La barra inferior en vivo (LiveTotalsBar) refleja al instante la estructura comercial calculada en cascada:",
+            "bullets": [
+              "Costo Directo Base: Insumos + Mano de Obra + Servicios Subcontratados.",
+              "Coeficientes Globales: Modificador por condición de obra (Normal, Dificultosa, Favorable), margen de ganancia y gastos generales.",
+              "Logística e Indirectos: Integración directa de traslados, viáticos y combustible.",
+              "Precio Final: Desglose neto e IVA para emisión comercial transparente."
+            ]
+          },
+          {
+            "heading": "Emisión de Documentos y PDF / Excel",
+            "content": "Genera el comprobante profesional listo para compartir con el cliente:",
+            "bullets": [
+              "Congelamiento de Precios: Al emitir, se crea un snapshot inmutable de costos para proteger la rentabilidad de la obra.",
+              "Personalización: Incluye datos de la empresa, validez de la oferta, plazos de ejecución y condiciones de pago.",
+              "Exportación PDF y Excel: Generación limpia en PDF para imprimir o compartir, y exportación tabular detallada en formato .xlsx."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "logistica",
+        "title": "Logística y Costos Indirectos de Obra",
+        "iconName": "Truck",
+        "summary": "Planificación de movilidad, fletes de materiales, viáticos de cuadrilla y gastos operativos.",
+        "sections": [
+          {
+            "heading": "Movilidad, Traslados y Combustible",
+            "content": "Permite estimar los costos asociados al desplazamiento del equipo hacia y desde el sitio de obra:",
+            "bullets": [
+              "Cómputo de Viajes: Estimación de la cantidad de traslados según jornadas estimadas y visitas técnicas.",
+              "Distancia y Consumo: Cálculo basado en kilómetros recorridos, rendimiento de combustible y tarifas vigentes.",
+              "Peajes y Estacionamiento: Carga de gastos de tránsito y peajes recurrentes."
+            ]
+          },
+          {
+            "heading": "Fletes y Transporte de Materiales",
+            "content": "Contempla el transporte pesado de insumos eléctricos (cañerías, bandejas, cables pesados, tableros) desde el distribuidor hasta el sitio de instalación."
+          },
+          {
+            "heading": "Viáticos y Gastos de Cuadrilla",
+            "content": "Cálculo de comidas, refrigerios y alojamiento para proyectos de envergadura o fuera del área habitual de cobertura."
+          },
+          {
+            "heading": "Prorrateo en el Presupuesto",
+            "content": "Todos los costos indirectos definidos en Logística se integran a la cotización activa, garantizando que el presupuesto cubra el costo operativo real sin diluir el margen de beneficio."
           }
         ]
       },
@@ -242,13 +294,14 @@
         "summary": "Acciones rápidas, navegación instantánea y guardado con el teclado.",
         "sections": [
           {
-            "heading": "Acciones Rápidas (+, Ctrl+S, Esc, /)",
+            "heading": "Acciones Rápidas (+, Ctrl+S, Esc, Ctrl+K)",
             "content": "Optimiza tu flujo diario con atajos estándar de teclado:",
             "bullets": [
               "+ o N: Crea un nuevo presupuesto, material, tarea o contacto según la pantalla activa.",
               "Ctrl+S / Cmd+S: Guarda el presupuesto o formulario actual de inmediato.",
-              "Escape: Cierra ventanas emergentes o vuelve al listado principal.",
-              "/ o Ctrl+K: Pone el foco directamente en la barra de búsqueda.",
+              "Ctrl+K / Cmd+K: Abre la Paleta de Comandos rápida para insertar Tareas Tipo en la Planilla de Árbol.",
+              "Escape: Cierra ventanas emergentes, paneles laterales o vuelve al listado principal.",
+              "/ : Pone el foco directamente en la barra de búsqueda.",
               "? o F1: Abre la ventana interactiva de atajos de teclado."
             ]
           },
