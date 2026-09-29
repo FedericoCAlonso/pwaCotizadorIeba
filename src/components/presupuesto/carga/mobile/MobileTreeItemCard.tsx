@@ -10,46 +10,42 @@ import {
   Trash2,
   Sliders,
   BookmarkPlus,
-  ChevronDown,
   ChevronRight,
   Plus,
-  Minus
+  Minus,
+  Layers
 } from 'lucide-react';
-import {
-  ItemPresupuesto,
-  Insumo,
-  CategoriaManoDeObra,
-  ParametroItem
-} from '../../../../core/types';
+import { ItemPresupuesto, Insumo, CategoriaManoDeObra, ParametroItem } from '../../../../core/types';
 import { formatARS, safeNum } from '../../../../core/calculations';
 import { useHaptics } from '../../../../hooks/useHaptics';
-import { TreeSheetItemBreakdown } from '../TreeSheetItemBreakdown';
 
 export interface MobileTreeItemCardProps {
   item: ItemPresupuesto;
   isSelected: boolean;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
   onSelect: () => void;
   onOpenQuantitySheet: () => void;
   onQuickStepQty: (delta: number) => void;
   onOpenQuickParamModal?: (itemId: string) => void;
+  onOpenDetail: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
   onSaveAsTareaTipo?: () => void;
-  insumosMap: Map<string, Insumo>;
-  manoObraMap: Map<string, CategoriaManoDeObra>;
+  // Optional legacy props
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
+  insumosMap?: Map<string, Insumo>;
+  manoObraMap?: Map<string, CategoriaManoDeObra>;
   calculosVariables?: Record<string, number | string>;
-  onAddMaterial: (material: Insumo, cantidad: number, formula?: string) => void;
-  onRemoveMaterial: (index: number) => void;
-  onUpdateMaterialFormula: (index: number, formula: string) => void;
-  onOpenMaterialCatalog: () => void;
-  onAddLabor: (categoriaId: string, horas: number, formula?: string) => void;
-  onRemoveLabor: (index: number) => void;
-  onUpdateLaborFormula: (index: number, formula: string) => void;
-  onAddService: (descripcion: string, costo: number) => void;
-  onRemoveService: (index: number) => void;
+  onAddMaterial?: (material: Insumo, cantidad: number, formula?: string) => void;
+  onRemoveMaterial?: (index: number) => void;
+  onUpdateMaterialFormula?: (index: number, formula: string) => void;
+  onOpenMaterialCatalog?: () => void;
+  onAddLabor?: (categoriaId: string, horas: number, formula?: string) => void;
+  onRemoveLabor?: (index: number) => void;
+  onUpdateLaborFormula?: (index: number, formula: string) => void;
+  onAddService?: (descripcion: string, costo: number) => void;
+  onRemoveService?: (index: number) => void;
   onUpdateNotas?: (notas: string, exclusiones?: string) => void;
   onUpdateParametros?: (parametros: ParametroItem[]) => void;
 }
@@ -57,36 +53,20 @@ export interface MobileTreeItemCardProps {
 export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
   item,
   isSelected,
-  isExpanded,
-  onToggleExpand,
   onSelect,
   onOpenQuantitySheet,
   onQuickStepQty,
   onOpenQuickParamModal,
+  onOpenDetail,
   onMoveUp,
   onMoveDown,
   onRemove,
-  onSaveAsTareaTipo,
-  insumosMap,
-  manoObraMap,
-  calculosVariables,
-  onAddMaterial,
-  onRemoveMaterial,
-  onUpdateMaterialFormula,
-  onOpenMaterialCatalog,
-  onAddLabor,
-  onRemoveLabor,
-  onUpdateLaborFormula,
-  onAddService,
-  onRemoveService,
-  onUpdateNotas,
-  onUpdateParametros
+  onSaveAsTareaTipo
 }) => {
   const haptics = useHaptics();
   const [showActionMenu, setShowActionMenu] = useState(false);
 
   // Cálculos deterministas
-  const cant = safeNum(item.cantidad) > 0 ? safeNum(item.cantidad) : 1;
   const costoDirectoTotal = item.costoDirectoTotal ?? item.costoTotal ?? 0;
   const precioFinalItem = item.precioFinalItem ?? item.precioVentaTotal ?? item.costoDirectoTotal ?? 0;
 
@@ -199,7 +179,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
                   setShowActionMenu(false);
                   onMoveUp();
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-on-surface hover:bg-surface-container rounded-xl cursor-pointer"
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-on-surface hover:bg-surface-container rounded-xl cursor-pointer min-h-[38px]"
               >
                 <ArrowUp className="w-3.5 h-3.5 text-primary" />
                 <span>Mover arriba</span>
@@ -210,7 +190,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
                   setShowActionMenu(false);
                   onMoveDown();
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-on-surface hover:bg-surface-container rounded-xl cursor-pointer"
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-on-surface hover:bg-surface-container rounded-xl cursor-pointer min-h-[38px]"
               >
                 <ArrowDown className="w-3.5 h-3.5 text-primary" />
                 <span>Mover abajo</span>
@@ -222,7 +202,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
                     setShowActionMenu(false);
                     onOpenQuickParamModal(item.id);
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-secondary hover:bg-surface-container rounded-xl cursor-pointer"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-secondary hover:bg-surface-container rounded-xl cursor-pointer min-h-[38px]"
                 >
                   <Sliders className="w-3.5 h-3.5" />
                   <span>Configurar parámetros</span>
@@ -235,7 +215,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
                     setShowActionMenu(false);
                     onSaveAsTareaTipo();
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-tertiary hover:bg-surface-container rounded-xl cursor-pointer"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-tertiary hover:bg-surface-container rounded-xl cursor-pointer min-h-[38px]"
                 >
                   <BookmarkPlus className="w-3.5 h-3.5" />
                   <span>Guardar en catálogo</span>
@@ -249,7 +229,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
                   haptics.warning();
                   onRemove();
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-error hover:bg-error-container/30 rounded-xl cursor-pointer"
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-error hover:bg-error-container/30 rounded-xl cursor-pointer min-h-[38px]"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Eliminar partida</span>
@@ -270,7 +250,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
               haptics.tick();
               onQuickStepQty(-1);
             }}
-            className="w-9 h-9 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer active:scale-95"
+            className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer active:scale-95"
             aria-label="Restar 1 unidad"
           >
             <Minus className="w-3.5 h-3.5" />
@@ -283,7 +263,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
               haptics.selection();
               onOpenQuantitySheet();
             }}
-            className="px-2.5 h-9 flex items-center gap-1 font-mono text-xs font-bold text-on-surface hover:text-primary transition-colors cursor-pointer border-x border-outline-variant/20"
+            className="px-3 h-10 flex items-center gap-1 font-mono text-xs font-bold text-on-surface hover:text-primary transition-colors cursor-pointer border-x border-outline-variant/20"
             title="Tocar para editar cantidad con keypad"
           >
             <span>{item.cantidad}</span>
@@ -299,7 +279,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
               haptics.tick();
               onQuickStepQty(+1);
             }}
-            className="w-9 h-9 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer active:scale-95"
+            className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer active:scale-95"
             aria-label="Sumar 1 unidad"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -317,48 +297,23 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
         </div>
       </div>
 
-      {/* ─── Fila 3: Botón de Expansión de Rubros Desglosados ─── */}
+      {/* ─── Fila 3: Botón Ergonómico de Detalle y Despiece de Rubros ─── */}
       <button
         type="button"
         onClick={(e) => {
           e.stopPropagation();
           haptics.selection();
-          onToggleExpand();
+          onOpenDetail();
         }}
-        className="w-full px-3 py-2 bg-surface hover:bg-surface-container-low border-t border-outline-variant/15 flex items-center justify-between text-xs text-on-surface-variant cursor-pointer transition-colors"
+        className="w-full px-3 py-2.5 bg-surface hover:bg-surface-container-low border-t border-outline-variant/15 flex items-center justify-between text-xs text-on-surface-variant cursor-pointer transition-colors active:bg-surface-container"
+        aria-label={`Ver desglose y despiece de ${item.descripcion}`}
       >
-        <span className="font-medium">
-          {isExpanded ? 'Ocultar despiece de rubros' : 'Ver materiales, mano de obra y notas'}
-        </span>
-        {isExpanded ? (
-          <ChevronDown className="w-4 h-4 text-primary shrink-0" />
-        ) : (
-          <ChevronRight className="w-4 h-4 opacity-70 shrink-0" />
-        )}
-      </button>
-
-      {/* Despiece Desplegado */}
-      {isExpanded && (
-        <div className="border-t border-outline-variant/20 bg-surface">
-          <TreeSheetItemBreakdown
-            item={item}
-            insumosMap={insumosMap}
-            manoObraMap={manoObraMap}
-            calculosVariables={calculosVariables}
-            onAddMaterial={onAddMaterial}
-            onRemoveMaterial={onRemoveMaterial}
-            onUpdateMaterialFormula={onUpdateMaterialFormula}
-            onOpenMaterialCatalog={onOpenMaterialCatalog}
-            onAddLabor={onAddLabor}
-            onRemoveLabor={onRemoveLabor}
-            onUpdateLaborFormula={onUpdateLaborFormula}
-            onAddService={onAddService}
-            onRemoveService={onRemoveService}
-            onUpdateNotasTecnicas={onUpdateNotas}
-            onUpdateParametros={onUpdateParametros}
-          />
+        <div className="flex items-center gap-2 font-medium text-primary">
+          <Layers className="w-4 h-4 text-primary" />
+          <span>Detalle y Despiece {totalComponentes > 0 ? `(${totalComponentes} rubros)` : ''}</span>
         </div>
-      )}
+        <ChevronRight className="w-4 h-4 text-primary shrink-0" />
+      </button>
     </div>
   );
 };

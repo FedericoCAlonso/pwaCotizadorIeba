@@ -9,6 +9,7 @@ import { useTreeSheetViewModel } from '../../../../viewmodels/useTreeSheetViewMo
 import { MobileTreeItemCard } from './MobileTreeItemCard';
 import { MobileChapterCard } from './MobileChapterCard';
 import { MobileQuantitySheet } from './MobileQuantitySheet';
+import { MobileItemDetailSheet } from './MobileItemDetailSheet';
 
 export interface TreeSheetMobileListProps {
   items: ItemPresupuesto[];
@@ -35,13 +36,29 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
   insumosMap,
   manoObraMap,
   calculosVariables,
-  onSaveAsTareaTipo,
-  onOpenParametricJobModal,
-  tareasTipo
+  onSaveAsTareaTipo
 }) => {
   const [quantitySheetItemId, setQuantitySheetItemId] = useState<string | null>(null);
+  const [activeDetailItemId, setActiveDetailItemId] = useState<string | null>(null);
 
   const quantitySheetItem = items.find((it) => it.id === quantitySheetItemId) || null;
+
+  const currentDetailIndex = activeDetailItemId ? items.findIndex((it) => it.id === activeDetailItemId) : -1;
+  const activeDetailItem = activeDetailItemId
+    ? (calculatedItemsMap.get(activeDetailItemId) || items.find((it) => it.id === activeDetailItemId) || null)
+    : null;
+
+  const handleNextDetailItem = () => {
+    if (currentDetailIndex >= 0 && currentDetailIndex < items.length - 1) {
+      setActiveDetailItemId(items[currentDetailIndex + 1].id);
+    }
+  };
+
+  const handlePrevDetailItem = () => {
+    if (currentDetailIndex > 0) {
+      setActiveDetailItemId(items[currentDetailIndex - 1].id);
+    }
+  };
 
   const handleQuickStepQty = (itemId: string, delta: number) => {
     const raw = items.find((it) => it.id === itemId);
@@ -106,34 +123,15 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
                 key={item.id}
                 item={item}
                 isSelected={vm.selectedItemId === item.id}
-                isExpanded={vm.expandedItems.has(item.id)}
-                onToggleExpand={() => vm.toggleItemExpand(item.id)}
                 onSelect={() => vm.handleSelectRow(item.id, null)}
                 onOpenQuantitySheet={() => setQuantitySheetItemId(item.id)}
                 onQuickStepQty={(delta) => handleQuickStepQty(item.id, delta)}
                 onOpenQuickParamModal={vm.handleOpenQuickParamModal}
+                onOpenDetail={() => setActiveDetailItemId(item.id)}
                 onMoveUp={() => vm.handleMoveItem(item.id, 'up')}
                 onMoveDown={() => vm.handleMoveItem(item.id, 'down')}
                 onRemove={() => vm.handleRemoveItem(item.id)}
                 onSaveAsTareaTipo={onSaveAsTareaTipo ? () => onSaveAsTareaTipo(item) : undefined}
-                insumosMap={insumosMap}
-                manoObraMap={manoObraMap}
-                calculosVariables={calculosVariables}
-                onAddMaterial={(mat, qty, formula) => vm.handleAddMaterialToItem(item.id, mat, qty, formula)}
-                onRemoveMaterial={(mIdx) => vm.handleRemoveMaterialFromItem(item.id, mIdx)}
-                onUpdateMaterialFormula={(mIdx, formula) => vm.handleUpdateMaterialFormula(item.id, mIdx, formula)}
-                onOpenMaterialCatalog={() => vm.handleOpenMaterialPicker(item.id)}
-                onAddLabor={(catId, hs, formula) => vm.handleAddLaborToItem(item.id, catId, hs, formula)}
-                onRemoveLabor={(lIdx) => vm.handleRemoveLaborFromItem(item.id, lIdx)}
-                onUpdateLaborFormula={(lIdx, formula) => vm.handleUpdateLaborFormula(item.id, lIdx, formula)}
-                onAddService={(desc, cost) => vm.handleAddServiceToItem(item.id, desc, cost)}
-                onRemoveService={(sIdx) => vm.handleRemoveServiceFromItem(item.id, sIdx)}
-                onUpdateNotas={(notas, exclusiones) => {
-                  setItems((prev) =>
-                    prev.map((it) => (it.id === item.id ? { ...it, notasTecnicas: notas, clausulaExclusiones: exclusiones } : it))
-                  );
-                }}
-                onUpdateParametros={(params) => vm.handleUpdateItemParametros(item.id, params)}
               />
             );
           })}
@@ -183,34 +181,15 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
                         key={item.id}
                         item={item}
                         isSelected={vm.selectedItemId === item.id}
-                        isExpanded={vm.expandedItems.has(item.id)}
-                        onToggleExpand={() => vm.toggleItemExpand(item.id)}
                         onSelect={() => vm.handleSelectRow(item.id, item.capituloId || null)}
                         onOpenQuantitySheet={() => setQuantitySheetItemId(item.id)}
                         onQuickStepQty={(delta) => handleQuickStepQty(item.id, delta)}
                         onOpenQuickParamModal={vm.handleOpenQuickParamModal}
+                        onOpenDetail={() => setActiveDetailItemId(item.id)}
                         onMoveUp={() => vm.handleMoveItem(item.id, 'up')}
                         onMoveDown={() => vm.handleMoveItem(item.id, 'down')}
                         onRemove={() => vm.handleRemoveItem(item.id)}
                         onSaveAsTareaTipo={onSaveAsTareaTipo ? () => onSaveAsTareaTipo(item) : undefined}
-                        insumosMap={insumosMap}
-                        manoObraMap={manoObraMap}
-                        calculosVariables={calculosVariables}
-                        onAddMaterial={(mat, qty, formula) => vm.handleAddMaterialToItem(item.id, mat, qty, formula)}
-                        onRemoveMaterial={(mIdx) => vm.handleRemoveMaterialFromItem(item.id, mIdx)}
-                        onUpdateMaterialFormula={(mIdx, formula) => vm.handleUpdateMaterialFormula(item.id, mIdx, formula)}
-                        onOpenMaterialCatalog={() => vm.handleOpenMaterialPicker(item.id)}
-                        onAddLabor={(catId, hs, formula) => vm.handleAddLaborToItem(item.id, catId, hs, formula)}
-                        onRemoveLabor={(lIdx) => vm.handleRemoveLaborFromItem(item.id, lIdx)}
-                        onUpdateLaborFormula={(lIdx, formula) => vm.handleUpdateLaborFormula(item.id, lIdx, formula)}
-                        onAddService={(desc, cost) => vm.handleAddServiceToItem(item.id, desc, cost)}
-                        onRemoveService={(sIdx) => vm.handleRemoveServiceFromItem(item.id, sIdx)}
-                        onUpdateNotas={(notas, exclusiones) => {
-                          setItems((prev) =>
-                            prev.map((it) => (it.id === item.id ? { ...it, notasTecnicas: notas, clausulaExclusiones: exclusiones } : it))
-                          );
-                        }}
-                        onUpdateParametros={(params) => vm.handleUpdateItemParametros(item.id, params)}
                       />
                     );
                   })
@@ -230,6 +209,37 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
           calculosVariables={calculosVariables}
           onConfirm={handleConfirmQuantity}
           onOpenQuickParams={vm.handleOpenQuickParamModal}
+        />
+      )}
+
+      {/* Bottom Sheet de Detalle y Despiece de Partida (Un Ojo, Una Mano) */}
+      {activeDetailItem && (
+        <MobileItemDetailSheet
+          isOpen={Boolean(activeDetailItemId)}
+          onClose={() => setActiveDetailItemId(null)}
+          item={activeDetailItem}
+          insumosMap={insumosMap}
+          manoObraMap={manoObraMap}
+          calculosVariables={calculosVariables}
+          currentIndex={currentDetailIndex}
+          totalItems={items.length}
+          onPrevItem={handlePrevDetailItem}
+          onNextItem={handleNextDetailItem}
+          onAddMaterial={(mat, qty, formula) => vm.handleAddMaterialToItem(activeDetailItem.id, mat, qty, formula)}
+          onRemoveMaterial={(mIdx) => vm.handleRemoveMaterialFromItem(activeDetailItem.id, mIdx)}
+          onUpdateMaterialFormula={(mIdx, formula) => vm.handleUpdateMaterialFormula(activeDetailItem.id, mIdx, formula)}
+          onOpenMaterialCatalog={() => vm.handleOpenMaterialPicker(activeDetailItem.id)}
+          onAddLabor={(catId, hs, formula) => vm.handleAddLaborToItem(activeDetailItem.id, catId, hs, formula)}
+          onRemoveLabor={(lIdx) => vm.handleRemoveLaborFromItem(activeDetailItem.id, lIdx)}
+          onUpdateLaborFormula={(lIdx, formula) => vm.handleUpdateLaborFormula(activeDetailItem.id, lIdx, formula)}
+          onAddService={(desc, cost) => vm.handleAddServiceToItem(activeDetailItem.id, desc, cost)}
+          onRemoveService={(sIdx) => vm.handleRemoveServiceFromItem(activeDetailItem.id, sIdx)}
+          onUpdateNotas={(notas, exclusiones) => {
+            setItems((prev) =>
+              prev.map((it) => (it.id === activeDetailItem.id ? { ...it, notasTecnicas: notas, clausulaExclusiones: exclusiones } : it))
+            );
+          }}
+          onUpdateParametros={(params) => vm.handleUpdateItemParametros(activeDetailItem.id, params)}
         />
       )}
     </div>

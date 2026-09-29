@@ -29,25 +29,13 @@ describe('MobileTreeItemCard', () => {
       <MobileTreeItemCard
         item={mockItem}
         isSelected={false}
-        isExpanded={false}
-        onToggleExpand={vi.fn()}
         onSelect={vi.fn()}
         onOpenQuantitySheet={vi.fn()}
         onQuickStepQty={vi.fn()}
+        onOpenDetail={vi.fn()}
         onMoveUp={vi.fn()}
         onMoveDown={vi.fn()}
         onRemove={vi.fn()}
-        insumosMap={new Map()}
-        manoObraMap={new Map()}
-        onAddMaterial={vi.fn()}
-        onRemoveMaterial={vi.fn()}
-        onUpdateMaterialFormula={vi.fn()}
-        onOpenMaterialCatalog={vi.fn()}
-        onAddLabor={vi.fn()}
-        onRemoveLabor={vi.fn()}
-        onUpdateLaborFormula={vi.fn()}
-        onAddService={vi.fn()}
-        onRemoveService={vi.fn()}
       />
     );
 
@@ -64,25 +52,13 @@ describe('MobileTreeItemCard', () => {
       <MobileTreeItemCard
         item={mockItem}
         isSelected={false}
-        isExpanded={false}
-        onToggleExpand={vi.fn()}
         onSelect={vi.fn()}
         onOpenQuantitySheet={vi.fn()}
         onQuickStepQty={handleQuickStep}
+        onOpenDetail={vi.fn()}
         onMoveUp={vi.fn()}
         onMoveDown={vi.fn()}
         onRemove={vi.fn()}
-        insumosMap={new Map()}
-        manoObraMap={new Map()}
-        onAddMaterial={vi.fn()}
-        onRemoveMaterial={vi.fn()}
-        onUpdateMaterialFormula={vi.fn()}
-        onOpenMaterialCatalog={vi.fn()}
-        onAddLabor={vi.fn()}
-        onRemoveLabor={vi.fn()}
-        onUpdateLaborFormula={vi.fn()}
-        onAddService={vi.fn()}
-        onRemoveService={vi.fn()}
       />
     );
 
@@ -102,31 +78,41 @@ describe('MobileTreeItemCard', () => {
       <MobileTreeItemCard
         item={mockItem}
         isSelected={false}
-        isExpanded={false}
-        onToggleExpand={vi.fn()}
         onSelect={vi.fn()}
         onOpenQuantitySheet={handleOpenSheet}
         onQuickStepQty={vi.fn()}
+        onOpenDetail={vi.fn()}
         onMoveUp={vi.fn()}
         onMoveDown={vi.fn()}
         onRemove={vi.fn()}
-        insumosMap={new Map()}
-        manoObraMap={new Map()}
-        onAddMaterial={vi.fn()}
-        onRemoveMaterial={vi.fn()}
-        onUpdateMaterialFormula={vi.fn()}
-        onOpenMaterialCatalog={vi.fn()}
-        onAddLabor={vi.fn()}
-        onRemoveLabor={vi.fn()}
-        onUpdateLaborFormula={vi.fn()}
-        onAddService={vi.fn()}
-        onRemoveService={vi.fn()}
       />
     );
 
     const qtyPill = screen.getByTitle('Tocar para editar cantidad con keypad');
     fireEvent.click(qtyPill);
     expect(handleOpenSheet).toHaveBeenCalled();
+  });
+
+  it('el botón de Detalle y Despiece dispara onOpenDetail', () => {
+    const handleOpenDetail = vi.fn();
+
+    render(
+      <MobileTreeItemCard
+        item={mockItem}
+        isSelected={false}
+        onSelect={vi.fn()}
+        onOpenQuantitySheet={vi.fn()}
+        onQuickStepQty={vi.fn()}
+        onOpenDetail={handleOpenDetail}
+        onMoveUp={vi.fn()}
+        onMoveDown={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    );
+
+    const detailBtn = screen.getByLabelText(`Ver desglose y despiece de ${mockItem.descripcion}`);
+    fireEvent.click(detailBtn);
+    expect(handleOpenDetail).toHaveBeenCalled();
   });
 
   it('el menú contextual táctil abre las opciones de mover y eliminar', () => {
@@ -137,25 +123,13 @@ describe('MobileTreeItemCard', () => {
       <MobileTreeItemCard
         item={mockItem}
         isSelected={false}
-        isExpanded={false}
-        onToggleExpand={vi.fn()}
         onSelect={vi.fn()}
         onOpenQuantitySheet={vi.fn()}
         onQuickStepQty={vi.fn()}
+        onOpenDetail={vi.fn()}
         onMoveUp={handleMoveUp}
         onMoveDown={vi.fn()}
         onRemove={handleRemove}
-        insumosMap={new Map()}
-        manoObraMap={new Map()}
-        onAddMaterial={vi.fn()}
-        onRemoveMaterial={vi.fn()}
-        onUpdateMaterialFormula={vi.fn()}
-        onOpenMaterialCatalog={vi.fn()}
-        onAddLabor={vi.fn()}
-        onRemoveLabor={vi.fn()}
-        onUpdateLaborFormula={vi.fn()}
-        onAddService={vi.fn()}
-        onRemoveService={vi.fn()}
       />
     );
 
