@@ -3624,6 +3624,92 @@ Capítulo 1:
         expect(res.items[0].costoDirectoTotal).toBe(45000);
       });
     });
+
+    describe('Costos Indirectos y Parámetros Globales Arbitrarios', () => {
+      it('parsea correctamente costos_indirectos en formato lista y mapa', () => {
+        const dslLista = `
+costos_indirectos:
+  - Flete y Traslados: 5% sobre costo_directo
+  - Seguro de Obra: $ 15.000
+Capítulo 1:
+  - 1 u Instalación: $ 50.000
+`;
+        const res1 = parseDSLToPresupuesto(dslLista, {
+          tareasTipo: [],
+          insumosMap: new Map(),
+          manoObraMap: new Map(),
+          clientes: []
+        });
+
+        expect(res1.gastosConfig).toHaveLength(2);
+        expect(res1.gastosConfig[0].nombre).toBe('Flete y Traslados');
+        expect(res1.gastosConfig[0].modalidad).toBe('porcentual');
+        expect(res1.gastosConfig[0].valor).toBe(5);
+        expect(res1.gastosConfig[1].nombre).toBe('Seguro de Obra');
+        expect(res1.gastosConfig[1].modalidad).toBe('monto_fijo');
+        expect(res1.gastosConfig[1].valor).toBe(15000);
+
+        // Formato Mapa / Diccionario
+        const dslMapa = `
+costos_indirectos:
+  Flete: 6% sobre costo_directo
+  Volquetes: $ 25.000
+Capítulo 1:
+  - 1 u Instalación: $ 50.000
+`;
+        const res2 = parseDSLToPresupuesto(dslMapa, {
+          tareasTipo: [],
+          insumosMap: new Map(),
+          manoObraMap: new Map(),
+          clientes: []
+        });
+
+        expect(res2.gastosConfig).toHaveLength(2);
+        expect(res2.gastosConfig[0].nombre).toBe('Flete');
+        expect(res2.gastosConfig[0].valor).toBe(6);
+        expect(res2.gastosConfig[1].nombre).toBe('Volquetes');
+        expect(res2.gastosConfig[1].valor).toBe(25000);
+      });
+
+      it('extrae parámetros globales arbitrarios y evalúa decisiones condicionales en partidas', () => {
+        const dsl = `
+superficie: 180 m2
+altura: 3.5 m
+trifasica: si
+
+Capítulo 1:
+  - =si(trifasica == 1, 4, 2) u Conductores: $ 2.500
+  - =si(altura > 3, 20, 10) u Horas de Andamio: $ 5.000
+`;
+        const res = parseDSLToPresupuesto(dsl, {
+          tareasTipo: [],
+          insumosMap: new Map(),
+          manoObraMap: new Map(),
+          clientes: []
+        });
+
+        expect(res.calculosVariables?.superficie).toBe(180);
+        expect(res.calculosVariables?.altura).toBe(3.5);
+        expect(res.calculosVariables?.trifasica).toBe(1);
+
+        expect(res.items).toHaveLength(2);
+        // trifasica == 1 -> cantidad = 4
+        expect(res.items[0].cantidad).toBe(4);
+        // altura (3.5) > 3 -> cantidad = 20
+        expect(res.items[1].cantidad).toBe(20);
+      });
+
+      it('parseLocalizedNumber interpreta unidades con números (m2, m3), negativos y booleanos', () => {
+        expect(parseLocalizedNumber('150 m2')).toBe(150);
+        expect(parseLocalizedNumber('100 m³')).toBe(100);
+        expect(parseLocalizedNumber('3.5 m')).toBe(3.5);
+        expect(parseLocalizedNumber('-500')).toBe(-500);
+        expect(parseLocalizedNumber('-$ 1.500,50')).toBe(-1500.5);
+        expect(parseLocalizedNumber('si')).toBe(1);
+        expect(parseLocalizedNumber('sí')).toBe(1);
+        expect(parseLocalizedNumber('no')).toBe(0);
+      });
+    });
   });
 });
 

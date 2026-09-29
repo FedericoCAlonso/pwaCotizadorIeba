@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Search, Plus, BookOpen, Check } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Search, Plus, BookOpen } from 'lucide-react';
 import { Insumo } from '../../../core/types';
 import { formatARS } from '../../../core/calculations';
 
@@ -22,9 +23,18 @@ export const InlineMaterialSearchAdd: React.FC<InlineMaterialSearchAddProps> = (
   const [cantidadStr, setCantidadStr] = useState('1');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
 
+  const [dropdownCoords, setDropdownCoords] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+    width: number;
+    openUpwards: boolean;
+  } | null>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const qtyInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const allInsumos = useMemo(() => Array.from(insumosMap.values()), [insumosMap]);
 
@@ -42,12 +52,53 @@ export const InlineMaterialSearchAdd: React.FC<InlineMaterialSearchAddProps> = (
       .slice(0, 8);
   }, [allInsumos, query]);
 
-  // Manejar clic fuera para cerrar dropdown
+  // Cálculo dinámico de posición y dropup si está cerca del fondo
+  const updateDropdownPosition = () => {
+    if (!inputRef.current) return;
+    const rect = inputRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const estimatedHeight = 224; // max-h-56
+
+    const openUpwards = spaceBelow < estimatedHeight && spaceAbove > 180;
+    const width = Math.max(rect.width, 300);
+    const left = Math.max(10, Math.min(rect.left, window.innerWidth - width - 10));
+
+    setDropdownCoords({
+      left,
+      width,
+      openUpwards,
+      top: openUpwards ? undefined : rect.bottom + 4,
+      bottom: openUpwards ? window.innerHeight - rect.top + 4 : undefined
+    });
+  };
+
+  useEffect(() => {
+    if (isOpenDropdown && matches.length > 0) {
+      updateDropdownPosition();
+      const handleScrollOrResize = () => {
+        updateDropdownPosition();
+      };
+      window.addEventListener('scroll', handleScrollOrResize, true);
+      window.addEventListener('resize', handleScrollOrResize);
+      return () => {
+        window.removeEventListener('scroll', handleScrollOrResize, true);
+        window.removeEventListener('resize', handleScrollOrResize);
+      };
+    }
+  }, [isOpenDropdown, matches.length]);
+
+  // Manejar clic fuera para cerrar dropdown considerando el portal
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpenDropdown(false);
+      const target = e.target as Node;
+      if (
+        (containerRef.current && containerRef.current.contains(target)) ||
+        (dropdownRef.current && dropdownRef.current.contains(target))
+      ) {
+        return;
       }
+      setIsOpenDropdown(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -103,7 +154,10 @@ export const InlineMaterialSearchAdd: React.FC<InlineMaterialSearchAddProps> = (
               setHighlightedIndex(0);
             }}
             onFocus={() => {
-              if (query.trim().length >= 2) setIsOpenDropdown(true);
+              if (query.trim().length >= 2) {
+                updateDropdownPosition();
+                setIsOpenDropdown(true);
+              }
             }}
             onKeyDown={(e) => {
               if (isOpenDropdown && matches.length > 0) {
@@ -127,38 +181,54 @@ export const InlineMaterialSearchAdd: React.FC<InlineMaterialSearchAddProps> = (
             className="w-full pl-8 pr-3 py-1.5 bg-surface border border-outline-variant/40 rounded-xl text-on-surface focus:outline-none focus:border-primary text-xs placeholder:text-on-surface-variant/50"
           />
 
-          {/* Menú flotante de resultados predictivos */}
-          {isOpenDropdown && matches.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 bg-surface-container-high border border-outline-variant/30 rounded-xl shadow-lg z-50 overflow-hidden max-h-56 overflow-y-auto divide-y divide-outline-variant/15">
-              {matches.map((ins, idx) => (
-                <div
-                  key={ins.id}
-                  onClick={() => handleSelect(ins)}
-                  className={`px-3 py-2 flex items-center justify-between gap-2 cursor-pointer transition-colors ${
-                    idx === highlightedIndex
-                      ? 'bg-primary-container text-on-primary-container'
-                      : 'hover:bg-surface-container text-on-surface'
-                  }`}
-                >
-                  <div className="flex flex-col truncate">
-                    <span className="font-semibold truncate">{ins.nombre}</span>
-                    <span className="text-[10px] text-on-surface-variant/70">
-                      {ins.marca ? `${ins.marca} · ` : ''}
-                      {ins.categoria || 'General'}
-                    </span>
+          {/* Menú flotante de resultados predictivos montado vía Portal */}
+          {isOpenDropdown &&
+            matches.length > 0 &&
+            dropdownCoords &&
+            typeof document !== 'undefined' &&
+            createPortal(
+              <div
+                ref={dropdownRef}
+                style={{
+                  position: 'fixed',
+                  top: dropdownCoords.top !== undefined ? `${dropdownCoords.top}px` : undefined,
+                  bottom: dropdownCoords.bottom !== undefined ? `${dropdownCoords.bottom}px` : undefined,
+                  left: `${dropdownCoords.left}px`,
+                  width: `${dropdownCoords.width}px`,
+                  zIndex: 99999
+                }}
+                className="bg-surface-container-high border border-outline-variant/40 rounded-2xl shadow-md3-3 overflow-hidden max-h-56 overflow-y-auto divide-y divide-outline-variant/15 text-on-surface animate-in fade-in zoom-in-95 duration-100"
+              >
+                {matches.map((ins, idx) => (
+                  <div
+                    key={ins.id}
+                    onClick={() => handleSelect(ins)}
+                    className={`px-3 py-2 flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                      idx === highlightedIndex
+                        ? 'bg-primary-container text-on-primary-container'
+                        : 'hover:bg-surface-container text-on-surface'
+                    }`}
+                  >
+                    <div className="flex flex-col truncate">
+                      <span className="font-semibold truncate text-xs">{ins.nombre}</span>
+                      <span className="text-[10px] text-on-surface-variant/70">
+                        {ins.marca ? `${ins.marca} · ` : ''}
+                        {ins.categoria || 'General'}
+                      </span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-mono font-bold text-xs block">
+                        {formatARS(ins.precioActual ?? ins.precioNeto ?? ins.precioFinal ?? 0)}
+                      </span>
+                      <span className="text-[10px] text-on-surface-variant font-mono">
+                        por {ins.unidad || 'u'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className="font-mono font-bold text-xs block">
-                      {formatARS(ins.precioActual ?? ins.precioNeto ?? ins.precioFinal ?? 0)}
-                    </span>
-                    <span className="text-[10px] text-on-surface-variant font-mono">
-                      por {ins.unidad || 'u'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>,
+              document.body
+            )}
         </div>
 
         {/* Input de cantidad o fórmula */}

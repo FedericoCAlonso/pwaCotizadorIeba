@@ -5,22 +5,28 @@ import {
   Truck,
   Trash2,
   FunctionSquare,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  Sliders
 } from 'lucide-react';
 import {
   ItemPresupuesto,
   Insumo,
-  CategoriaManoDeObra
+  CategoriaManoDeObra,
+  ParametroItem
 } from '../../../core/types';
 import { formatARS } from '../../../core/calculations';
 import { InlineMaterialSearchAdd } from './InlineMaterialSearchAdd';
 import { InlineLaborAdd } from './InlineLaborAdd';
 import { InlineServiceAdd } from './InlineServiceAdd';
+import { TreeSheetItemParametersSection } from './TreeSheetItemParametersSection';
 
 interface TreeSheetItemBreakdownProps {
   item: ItemPresupuesto;
   insumosMap: Map<string, Insumo>;
   manoObraMap: Map<string, CategoriaManoDeObra>;
+  calculosVariables?: Record<string, number | string>;
+  initialTab?: RubroTab;
   onAddMaterial: (material: Insumo, cantidad: number, formula?: string) => void;
   onRemoveMaterial: (index: number) => void;
   onUpdateMaterialFormula: (index: number, formula: string) => void;
@@ -30,14 +36,18 @@ interface TreeSheetItemBreakdownProps {
   onUpdateLaborFormula: (index: number, formula: string) => void;
   onAddService: (descripcion: string, costo: number) => void;
   onRemoveService: (index: number) => void;
+  onUpdateNotasTecnicas?: (notas: string, exclusiones?: string) => void;
+  onUpdateParametros?: (parametros: ParametroItem[]) => void;
 }
 
-type RubroTab = 'materiales' | 'mano_obra' | 'servicios';
+type RubroTab = 'materiales' | 'mano_obra' | 'servicios' | 'parametros' | 'notas';
 
 export const TreeSheetItemBreakdown: React.FC<TreeSheetItemBreakdownProps> = ({
   item,
   insumosMap,
   manoObraMap,
+  calculosVariables,
+  initialTab = 'materiales',
   onAddMaterial,
   onRemoveMaterial,
   onUpdateMaterialFormula,
@@ -46,9 +56,11 @@ export const TreeSheetItemBreakdown: React.FC<TreeSheetItemBreakdownProps> = ({
   onRemoveLabor,
   onUpdateLaborFormula,
   onAddService,
-  onRemoveService
+  onRemoveService,
+  onUpdateNotasTecnicas,
+  onUpdateParametros
 }) => {
-  const [activeTab, setActiveTab] = useState<RubroTab>('materiales');
+  const [activeTab, setActiveTab] = useState<RubroTab>(initialTab);
   const [selectedFormulaIndex, setSelectedFormulaIndex] = useState<{
     type: 'material' | 'mo';
     index: number;
@@ -117,21 +129,55 @@ export const TreeSheetItemBreakdown: React.FC<TreeSheetItemBreakdownProps> = ({
             <Truck className="w-3.5 h-3.5" />
             <span>Servicios ({servicios.length})</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('parametros');
+              setSelectedFormulaIndex(null);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+              activeTab === 'parametros'
+                ? 'bg-surface text-secondary shadow-xs'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5" />
+            <span>Parámetros ({(item.parametros || []).length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('notas');
+              setSelectedFormulaIndex(null);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+              activeTab === 'notas'
+                ? 'bg-surface text-primary shadow-xs'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Notas {item.notasTecnicas ? '•' : ''}</span>
+          </button>
         </div>
 
         {/* Subtotal del rubro activo */}
-        <div className="font-mono text-xs text-on-surface-variant">
-          Subtotal {activeTab === 'materiales' ? 'Insumos' : activeTab === 'mano_obra' ? 'M.O.' : 'Servicios'}:{' '}
-          <strong className="text-on-surface font-bold">
-            {formatARS(
-              activeTab === 'materiales'
-                ? totalInsumos
-                : activeTab === 'mano_obra'
-                ? totalMo
-                : totalServ
-            )}
-          </strong>
-        </div>
+        {activeTab !== 'notas' && activeTab !== 'parametros' && (
+          <div className="font-mono text-xs text-on-surface-variant">
+            Subtotal {activeTab === 'materiales' ? 'Insumos' : activeTab === 'mano_obra' ? 'M.O.' : 'Servicios'}:{' '}
+            <strong className="text-on-surface font-bold">
+              {formatARS(
+                activeTab === 'materiales'
+                  ? totalInsumos
+                  : activeTab === 'mano_obra'
+                  ? totalMo
+                  : totalServ
+              )}
+            </strong>
+          </div>
+        )}
       </div>
 
       {/* ─── Pestaña Materiales ─── */}
@@ -383,6 +429,45 @@ export const TreeSheetItemBreakdown: React.FC<TreeSheetItemBreakdownProps> = ({
             <InlineServiceAdd onAddService={onAddService} />
           </div>
         </div>
+      )}
+
+      {/* ─── Pestaña Notas y Cláusulas Técnicas ─── */}
+      {activeTab === 'notas' && (
+        <div className="space-y-3 p-1">
+          <div>
+            <label className="block text-xs font-bold text-on-surface mb-1">
+              Notas y Especificaciones Técnicas
+            </label>
+            <textarea
+              rows={3}
+              value={item.notasTecnicas || ''}
+              onChange={(e) => onUpdateNotasTecnicas?.(e.target.value, item.clausulaExclusiones)}
+              placeholder="Detalles constructivos, marca requerida, alcances o aclaraciones..."
+              className="w-full p-2.5 text-xs bg-surface border border-outline-variant/30 rounded-xl text-on-surface focus:outline-none focus:border-primary transition-colors resize-y"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-on-surface mb-1">
+              Cláusula de Exclusiones
+            </label>
+            <textarea
+              rows={2}
+              value={item.clausulaExclusiones || ''}
+              onChange={(e) => onUpdateNotasTecnicas?.(item.notasTecnicas || '', e.target.value)}
+              placeholder="Exclusiones específicas para esta partida (ej: no incluye apertura de zanjas en hormigón)..."
+              className="w-full p-2.5 text-xs bg-surface border border-outline-variant/30 rounded-xl text-on-surface focus:outline-none focus:border-primary transition-colors resize-y"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ─── Pestaña Parámetros Locales y Variables Globales ─── */}
+      {activeTab === 'parametros' && (
+        <TreeSheetItemParametersSection
+          parametros={item.parametros}
+          calculosVariables={calculosVariables}
+          onUpdateParametros={(params) => onUpdateParametros?.(params)}
+        />
       )}
     </div>
   );

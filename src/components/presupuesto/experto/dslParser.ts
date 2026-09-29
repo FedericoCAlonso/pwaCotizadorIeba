@@ -115,7 +115,26 @@ function isCalculationRootDirective(line: string): boolean {
 export function parseLocalizedNumber(valStr: string | number): number {
   if (typeof valStr === 'number') return isNaN(valStr) ? 0 : valStr;
   if (!valStr) return 0;
-  const cleaned = String(valStr).trim().replace(/[^0-9,\.]/g, '');
+  const raw = String(valStr).trim();
+  if (!raw) return 0;
+
+  // Reconocer booleanos frecuentes en español o inglés
+  if (/^(si|sí|true|verdadero|s|v)$/i.test(raw)) return 1;
+  if (/^(no|false|falso|n|f)$/i.test(raw)) return 0;
+
+  // Extraer el prefijo numérico con signo opcional y símbolo de moneda $ opcional
+  // Soporta: "-$ 1.500,50 m2", "150 m2", "150m2", "- 10", "$ 15.000", "25%"
+  const match = raw.match(/^([+-]?)\s*\$?\s*([0-9]+(?:[.,][0-9]+)*(?:[.,][0-9]+)?)/);
+  if (!match) {
+    const fallbackMatch = raw.match(/([+-]?)\s*\$?\s*([0-9]+(?:[.,][0-9]+)*)/);
+    if (!fallbackMatch) return 0;
+    const sign = fallbackMatch[1] === '-' ? -1 : 1;
+    const cleaned = fallbackMatch[2];
+    return sign * (parseFloat(cleaned) || 0);
+  }
+
+  const sign = match[1] === '-' ? -1 : 1;
+  const cleaned = match[2];
   if (!cleaned) return 0;
 
   // Si tiene coma y punto (ej: "1.200,50" o "1,200.50")
@@ -124,29 +143,30 @@ export function parseLocalizedNumber(valStr: string | number): number {
     const lastDot = cleaned.lastIndexOf('.');
     if (lastComma > lastDot) {
       // Formato es-AR: 1.200,50
-      return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+      return sign * parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
     } else {
       // Formato en-US: 1,200.50
-      return parseFloat(cleaned.replace(/,/g, ''));
+      return sign * parseFloat(cleaned.replace(/,/g, ''));
     }
   }
 
   // Si tiene solo coma (ej: "12,5" o "12,50" o "35,000")
   if (cleaned.includes(',')) {
     if (/^\d{1,3}(,\d{3})+$/.test(cleaned)) {
-      return parseFloat(cleaned.replace(/,/g, ''));
+      return sign * parseFloat(cleaned.replace(/,/g, ''));
     }
-    return parseFloat(cleaned.replace(',', '.'));
+    return sign * parseFloat(cleaned.replace(',', '.'));
   }
 
   // Si tiene solo puntos (ej: "35.000" o "1.250.000" o "12.5")
   if (cleaned.includes('.')) {
     if (/^\d{1,3}(\.\d{3})+$/.test(cleaned)) {
-      return parseFloat(cleaned.replace(/\./g, ''));
+      return sign * parseFloat(cleaned.replace(/\./g, ''));
     }
   }
 
-  return parseFloat(cleaned) || 0;
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? 0 : sign * parsed;
 }
 
 /**
@@ -847,7 +867,7 @@ function parseQuantityAndName(
   // 2. Precio manual (: $ 15.000 o : $ =precio o : =precio o = $ 15.000 o : 15000 o : $ precio_var o : precio_var o : costo 15000 o precio_unitario: 1500 $/u)
   let precioManual: number | undefined = undefined;
   const priceMatch = str.match(
-    /(?:[:=]\s*(?:(?:precio|costo)(?:_unitario|_u)?|p_u|\$\/u|\$\/h)?\s*:?\s*\$?\s*|\b(?:precio|costo)(?:_unitario|_u)?\s*:?\s*\$?\s*|\b(?:p_u|\$\/u|\$\/h)\s*:?\s*\$?\s*)(=(?:[^\n\r]+)|[0-9.,]+|[a-zA-Z_]\w*(?:\s*[+\-*/]\s*[a-zA-Z0-9_]+)*)(?:\s*(?:\$\s*\/\s*[a-zA-ZáéíóúÁÉÍÓÚ²³]+|\/\s*[a-zA-ZáéíóúÁÉÍÓÚ²³]+|c\/u|por\s+unidad))?\s*$/i
+    /(?:(?<![=<>!:])(?::\s*=?|=(?![=><]))\s*(?:(?:precio|costo)(?:_unitario|_u)?|p_u|\$\/u|\$\/h)?\s*:?\s*\$?\s*|\b(?:precio|costo)(?:_unitario|_u)?\s*:?\s*\$?\s*|\b(?:p_u|\$\/u|\$\/h)\s*:?\s*\$?\s*)(=(?:[^\n\r]+)|[0-9.,]+|[a-zA-Z_]\w*(?:\s*[+\-*/]\s*[a-zA-Z0-9_]+)*)(?:\s*(?:\$\s*\/\s*[a-zA-ZáéíóúÁÉÍÓÚ²³]+|\/\s*[a-zA-ZáéíóúÁÉÍÓÚ²³]+|c\/u|por\s+unidad))?\s*$/i
   );
   if (priceMatch) {
     const rawPrice = priceMatch[1].trim();
@@ -1996,6 +2016,11 @@ export function parseDSLToPresupuesto(
     'riesgo',
     'dolar',
     'gastos',
+    'costos_indirectos',
+    'costos_indirecto',
+    'costosIndirectos',
+    'gastos_indirectos',
+    'gastosIndirectos',
     'calculos',
     'variables',
     'parametros',
@@ -2007,7 +2032,7 @@ export function parseDSLToPresupuesto(
 
   const isReservedRootKey = (k: string): boolean => {
     if (isCalculationKey(k)) return true;
-    return /^(cliente|obra|factura|validez|margen|riesgo|dolar|totales|gastos|condiciones_pago|partidas|partidas_generales|partidas\s+generales|capitulo|capitulos|cap[íi]tulo|cap[íi]tulos)$/i.test(k.trim());
+    return /^(cliente|obra|factura|validez|margen|riesgo|dolar|totales|gastos|costos_indirectos|costosindirectos|costos_indirecto|costosindirecto|costos\s+indirectos|costos\s+indirecto|gastos_indirectos|gastosindirectos|gastos\s+indirectos|condiciones_pago|partidas|partidas_generales|partidas\s+generales|capitulo|capitulos|cap[íi]tulo|cap[íi]tulos)$/i.test(k.trim());
   };
 
   const isChapterObject = (val: any): boolean => {
@@ -2032,7 +2057,7 @@ export function parseDSLToPresupuesto(
     if (isChapterObject(v)) return; // Es capítulo como objeto
 
     // Si tiene typo evidente de una directiva raíz reservada, no tratar como variable
-    if (findClosestMatch(k, VALID_ROOT_DIRECTIVES, 2)) return;
+    if (findClosestMatch(k, VALID_ROOT_DIRECTIVES, k.length <= 6 ? 1 : 2)) return;
 
     if (typeof v === 'number') {
       rootVariables[k.trim()] = v;
@@ -2042,13 +2067,16 @@ export function parseDSLToPresupuesto(
       calculosVariables[k.trim()] = v ? 1 : 0;
     } else if (typeof v === 'string') {
       const s = v.trim();
-      const isNum = /^\$?\s*-?[0-9]+(?:[.,][0-9]+)?$/.test(s);
+      const numVal = parseLocalizedNumber(s);
+      const isNum = /^\$?\s*-?[0-9]+(?:[.,][0-9]+)?/.test(s) || numVal !== 0;
+      const isBoolWord = /^(si|sí|true|verdadero|no|false|falso)$/i.test(s);
       const isForm = s.startsWith('=') || isFormulaString(s);
       const hasMathOp = /[+\-*/^%]/.test(s) && /[a-zA-Z0-9]/.test(s);
       const isVarIdentifier = /^[a-zA-Z_]\w*$/.test(s);
-      if (isNum || isForm || hasMathOp || isVarIdentifier) {
-        rootVariables[k.trim()] = v;
-        calculosVariables[k.trim()] = v;
+      if (isNum || isBoolWord || isForm || hasMathOp || isVarIdentifier) {
+        const storedVal = isBoolWord ? numVal : (isNum && !isForm && !hasMathOp ? numVal : v);
+        rootVariables[k.trim()] = storedVal;
+        calculosVariables[k.trim()] = storedVal;
       }
     }
   });
@@ -2269,11 +2297,33 @@ export function parseDSLToPresupuesto(
     }
   }
 
-  // Gastos
+  // Gastos y Costos Indirectos (soporta lista y diccionario mapa)
   const gastosConfig: GastoPresupuestoConfig[] = [];
-  if (Array.isArray(parsed.gastos)) {
-    parsed.gastos.forEach((g: any, gIdx: number) => {
+  const rawGastos =
+    parsed.gastos ??
+    parsed.Gastos ??
+    parsed.costos_indirectos ??
+    parsed.costosIndirectos ??
+    parsed['costos indirectos'] ??
+    parsed['Costos Indirectos'] ??
+    parsed.costos_indirecto ??
+    parsed.costosIndirecto ??
+    parsed['costos indirecto'] ??
+    parsed.gastos_indirectos ??
+    parsed.gastosIndirectos ??
+    parsed['gastos indirectos'] ??
+    parsed['Gastos Indirectos'];
+
+  if (Array.isArray(rawGastos)) {
+    rawGastos.forEach((g: any, gIdx: number) => {
       const gasto = parseGastoItem(g, gIdx, context, globalScope);
+      if (gasto) {
+        gastosConfig.push(gasto);
+      }
+    });
+  } else if (rawGastos && typeof rawGastos === 'object') {
+    Object.entries(rawGastos).forEach(([k, v], gIdx) => {
+      const gasto = parseGastoItem({ [k]: v }, gIdx, context, globalScope);
       if (gasto) {
         gastosConfig.push(gasto);
       }
@@ -4009,7 +4059,7 @@ export function detectCursorContext(textBeforeCursor: string): CursorContextResu
   const trimmedCurrent = currentLine.trim();
   const currentIndentLen = currentIndent.length;
 
-  const reservedRootKeys = new Set(['cliente', 'obra', 'factura', 'validez', 'margen', 'riesgo', 'dolar', 'gastos', 'totales', 'calculos', 'variables']);
+  const reservedRootKeys = new Set(['cliente', 'obra', 'factura', 'validez', 'margen', 'riesgo', 'dolar', 'gastos', 'costos_indirectos', 'costos_indirecto', 'costosindirectos', 'gastos_indirectos', 'gastosindirectos', 'totales', 'calculos', 'variables', 'parametros']);
 
   // Si estamos en nivel raíz (indent 0) y no es viñeta:
   if (currentIndentLen === 0 && !trimmedCurrent.startsWith('-')) {
@@ -4100,9 +4150,9 @@ export function detectCursorContext(textBeforeCursor: string): CursorContextResu
       }
     }
 
-    // 4. Encabezados especiales a nivel raíz (indent === 0): "gastos:", "calculos:", "variables:", "parametros:"
+    // 4. Encabezados especiales a nivel raíz (indent === 0): "gastos:", "costos_indirectos:", "calculos:", "variables:", "parametros:"
     if (lineIndent === 0) {
-      if (/^gastos\s*:?/i.test(trimmed)) {
+      if (/^(gastos|costos_indirectos|costos|costos_indirecto|gastos_indirectos)\s*:?/i.test(trimmed)) {
         if (currentIndentLen > 0) {
           return { contextType: 'gastos', currentIndent, parentHeader: 'gastos' };
         }
@@ -4644,10 +4694,11 @@ export function handleYamlSmartEnter(params: {
     };
   }
 
-  // Caso 1.1: Cabecera de bloque "gastos:" a nivel raíz
-  const isGastosKeyword = /^-\s*gastos\s*:?$/i.test(trimmed) || /^gastos\s*:?$/i.test(trimmed);
+  // Caso 1.1: Cabecera de bloque "gastos:" o "costos_indirectos:" a nivel raíz
+  const isGastosKeyword = /^-\s*(gastos|costos_indirectos|costos|costos_indirecto|gastos_indirectos)\s*:?$/i.test(trimmed) || /^(gastos|costos_indirectos|costos|costos_indirecto|gastos_indirectos)\s*:?$/i.test(trimmed);
   if (isGastosKeyword && leadingWhitespace.length === 0) {
-    linesBefore[linesBefore.length - 1] = 'gastos:';
+    const rawDirect = trimmed.replace(/^-\s*/, '').replace(/:$/, '').trim();
+    linesBefore[linesBefore.length - 1] = `${rawDirect}:`;
     const updatedBefore = linesBefore.join('\n') + '\n  - ';
     return {
       newText: updatedBefore + textAfter,
@@ -4774,7 +4825,7 @@ export function handleYamlSmartEnter(params: {
     if (leadingWhitespace.length === 0) {
       // Nivel 0 (Capítulo a nivel raíz) -> siguiente renglón es partida (2 espacios + "- ")
       const rootKey = trimmed.replace(/^#+\s*/, '').replace(/:.*$/, '').trim().toLowerCase();
-      const reservedRoot = /^(cliente|obra|factura|validez|margen|riesgo|dolar|totales|gastos|calculos|variables|parametros)/i.test(rootKey);
+      const reservedRoot = /^(cliente|obra|factura|validez|margen|riesgo|dolar|totales|gastos|costos_indirectos|costos|costos_indirecto|gastos_indirectos|calculos|variables|parametros)/i.test(rootKey);
       if (!reservedRoot) {
         const nextIndent = '  - ';
         const newText = textBefore + '\n' + nextIndent + textAfter;
@@ -5280,7 +5331,7 @@ export function getFieldStops(dslText: string): FieldStop[] {
   let offset = 0;
 
   const reservedRootKeys = new Set([
-    'cliente', 'obra', 'factura', 'validez', 'margen', 'riesgo', 'dolar', 'gastos', 'totales', 'calculos', 'variables', 'capitulos', 'partidas'
+    'cliente', 'obra', 'factura', 'validez', 'margen', 'riesgo', 'dolar', 'gastos', 'costos_indirectos', 'costos_indirecto', 'costosindirectos', 'gastos_indirectos', 'totales', 'calculos', 'variables', 'parametros', 'capitulos', 'partidas'
   ]);
 
   for (let i = 0; i < lines.length; i++) {

@@ -5,7 +5,15 @@ import {
   AlertCircle,
   RefreshCw,
   Check,
-  Terminal
+  Terminal,
+  Plus,
+  ChevronDown,
+  Sliders,
+  Command,
+  FolderPlus,
+  BookOpen,
+  Pencil,
+  UserPlus
 } from 'lucide-react';
 import { ModoExpertoEditor } from './presupuesto/experto/ModoExpertoEditor';
 import {
@@ -25,7 +33,8 @@ import { useToast } from '../contexts/ToastContext';
 import { usePresupuestoEditorViewModel } from '../viewmodels/usePresupuestoEditorViewModel';
 import { usePresupuestoItemsOperations } from '../viewmodels/usePresupuestoItemsOperations';
 import { PresupuestoEditorModals, SaveAsTemplateData } from './presupuesto/editor/PresupuestoEditorModals';
-import { TreeSheetView } from './presupuesto/carga/TreeSheetView';
+import { TreeSheetView, TreeSheetViewRef } from './presupuesto/carga/TreeSheetView';
+import { QuoteProjectModal } from './presupuesto/QuoteProjectModal';
 
 interface PresupuestoEditorProps {
   presupuestoId?: string;
@@ -190,6 +199,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   const [parametricGastoToAdjust, setParametricGastoToAdjust] = useState<GastoPresupuestoConfig | null>(null);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [showListaMaterialesModal, setShowListaMaterialesModal] = useState(false);
+  const [showQuoteProjectModal, setShowQuoteProjectModal] = useState(false);
 
   // Detección y degradación en mobile: el modo experto requiere teclado físico y desktop
   useEffect(() => {
@@ -519,6 +529,28 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
 
 
+  const treeSheetRef = useRef<TreeSheetViewRef>(null);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isAddMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setIsAddMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsAddMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isAddMenuOpen]);
+
   useEffect(() => {
     const handleSave = () => handleSavePresupuesto('borrador');
     const handleNew = () => setShowItemPickerModal(true);
@@ -533,66 +565,193 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   }, [clienteId, existingPresupuesto, totales, margenPorcentaje, validezDias, tipoFactura, costosIndirectosConfig, opcionesEmision, config]);
 
   return (
-    <div className="space-y-4 sm:space-y-5 w-full pb-12">
-      {/* Top Action Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3.5 sm:gap-4 bg-surface-container p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-outline-variant/20">
-        <div className="flex items-center gap-3 sm:gap-4">
+    <div className="flex-1 min-h-0 w-full flex flex-col gap-2 overflow-hidden">
+      {/* Barra de Trabajo Superior Limpia y Unificada (Fila única) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-surface-container px-3 sm:px-5 py-2.5 sm:py-3 rounded-2xl border border-outline-variant/20 shadow-xs">
+        {/* Bloque Izquierdo: Volver + Encabezado Interactivo de Cliente y Obra */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             type="button"
             onClick={async () => {
               await flushAutoSave();
               onBack();
             }}
-            className="p-2 sm:p-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-full transition-colors shrink-0"
-            title="Volver (guarda el borrador automáticamente)"
+            className="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-full transition-colors shrink-0 cursor-pointer"
+            title="Volver a la lista (guarda borrador automáticamente)"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
-            <h2 className="text-lg sm:text-xl font-bold text-on-surface flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary shrink-0" />
-              <span>
-                {existingPresupuesto ? `Editar Cotización ${existingPresupuesto.numero}` : 'Nueva Cotización Eléctrica'}
+
+          {/* Tarjeta Clickeable / Botón Interactivo de Cliente y Obra */}
+          <button
+            type="button"
+            onClick={() => setShowQuoteProjectModal(true)}
+            className="group flex flex-col items-start px-2 py-1 -my-1 rounded-xl hover:bg-surface-container-highest/80 transition-colors cursor-pointer text-left min-w-0 max-w-[260px] sm:max-w-[380px] md:max-w-[480px] border border-transparent hover:border-outline-variant/30"
+            title="Clic para configurar cliente, obra y condiciones de la cotización"
+          >
+            {/* Línea Principal: Cliente y Obra */}
+            <div className="flex items-center gap-1.5 w-full min-w-0">
+              <FileText className="w-4 h-4 text-primary shrink-0 group-hover:scale-110 transition-transform" />
+
+              {selectedCliente ? (
+                <span className="font-bold text-xs sm:text-sm md:text-base text-on-surface truncate group-hover:text-primary transition-colors">
+                  {selectedCliente.nombre}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse">
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Asignar Cliente</span>
+                </span>
+              )}
+
+              <span className="text-outline-variant/60 font-normal shrink-0">·</span>
+
+              <span className="text-xs sm:text-sm font-medium text-on-surface-variant truncate">
+                {direccionObra.trim() || 'Sin obra'}
               </span>
-            </h2>
-            <div className="flex flex-wrap items-center gap-2 mt-1">
+
+              <Pencil className="w-3 h-3 text-on-surface-variant/40 group-hover:text-primary group-hover:opacity-100 opacity-60 transition-all shrink-0 ml-0.5" />
+            </div>
+
+            {/* Línea Secundaria: Número de Cotización, Revisión y Estado de Autoguardado */}
+            <div className="flex items-center gap-2 text-[10px] sm:text-[11px] font-mono text-on-surface-variant/70 mt-0.5 min-w-0">
+              <span className="truncate">
+                {numero || (existingPresupuesto ? existingPresupuesto.numero : 'Borrador')} · Rev {revision || 1}
+              </span>
+
+              {/* Micro-indicador de Autoguardado en Línea */}
               {autoSaveStatus === 'saving' && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-xs animate-pulse">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  Guardando borrador...
+                <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 shrink-0">
+                  <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                  <span className="hidden sm:inline">Guardando...</span>
                 </span>
               )}
               {autoSaveStatus === 'saved' && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
-                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                  Borrador guardado {lastAutoSaveTime ? `a las ${lastAutoSaveTime}` : 'automáticamente'}
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 shrink-0"
+                  title={`Guardado ${lastAutoSaveTime ? `a las ${lastAutoSaveTime}` : 'automáticamente'}`}
+                >
+                  <Check className="w-2.5 h-2.5 text-emerald-500" />
+                  <span className="hidden sm:inline">{lastAutoSaveTime ? `Guardado ${lastAutoSaveTime}` : 'Guardado'}</span>
                 </span>
               )}
               {autoSaveStatus === 'error' && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-error/10 text-error border border-error/20 shadow-xs">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  Error al autoguardar
-                </span>
-              )}
-              {autoSaveStatus === 'idle' && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-surface-container-highest text-on-surface-variant border border-outline-variant/30 shadow-xs">
-                  <span className="w-2 h-2 rounded-full bg-primary/70"></span>
-                  Autoguardado activo
+                <span className="inline-flex items-center gap-1 text-[10px] text-error shrink-0" title="Error al autoguardar">
+                  <AlertCircle className="w-2.5 h-2.5" />
+                  <span>Error</span>
                 </span>
               )}
             </div>
-          </div>
+          </button>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
-          {/* Selector de Modo: Árbol vs Experto vs Clásico */}
-          <div className="bg-surface-container rounded-2xl p-1 border border-outline-variant/30 flex items-center gap-1 shadow-2xs">
+        {/* Bloque Central: Botón Único de Inserción + Parámetros de Obra + Paleta de Comandos (en modo árbol) */}
+        {editorMode === 'arbol' && (
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Botón Único de Inserción: + Agregar ▾ */}
+            <div ref={addMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setIsAddMenuOpen((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold text-on-primary bg-primary hover:bg-primary/90 rounded-xl shadow-xs transition-all cursor-pointer active:scale-95 min-h-[34px]"
+                title="Agregar Partida, Capítulo o Tarea Tipo del Catálogo"
+                aria-expanded={isAddMenuOpen}
+                aria-haspopup="true"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Agregar</span>
+                <ChevronDown
+                  className={`w-3 h-3 transition-transform duration-200 ${
+                    isAddMenuOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {/* Menú Desplegable Flotante */}
+              {isAddMenuOpen && (
+                <div className="absolute left-0 top-full mt-1.5 w-60 sm:w-64 bg-surface-container-high border border-outline-variant/40 rounded-2xl shadow-md3-2 p-1.5 z-40 flex flex-col gap-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddMenuOpen(false);
+                      treeSheetRef.current?.handleCreateItem();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left rounded-xl hover:bg-surface-container-highest transition-colors cursor-pointer group"
+                  >
+                    <Plus className="w-4 h-4 text-secondary shrink-0" />
+                    <div>
+                      <span className="block text-xs font-bold text-on-surface">Nueva Partida</span>
+                      <span className="block text-[10px] text-on-surface-variant">Renglón en blanco para cómputo</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddMenuOpen(false);
+                      treeSheetRef.current?.handleCreateChapter();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left rounded-xl hover:bg-surface-container-highest transition-colors cursor-pointer group"
+                  >
+                    <FolderPlus className="w-4 h-4 text-primary shrink-0" />
+                    <div>
+                      <span className="block text-xs font-bold text-on-surface">Nuevo Capítulo</span>
+                      <span className="block text-[10px] text-on-surface-variant">Rubro o etapa de obra</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddMenuOpen(false);
+                      treeSheetRef.current?.openCatalogPicker();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left rounded-xl hover:bg-surface-container-highest transition-colors cursor-pointer group"
+                  >
+                    <BookOpen className="w-4 h-4 text-tertiary shrink-0" />
+                    <div>
+                      <span className="block text-xs font-bold text-on-surface">Desde Catálogo</span>
+                      <span className="block text-[10px] text-on-surface-variant">Tarea tipo con cómputo APU</span>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Parámetros de Obra */}
+            <button
+              type="button"
+              onClick={() => treeSheetRef.current?.openQuoteParameters()}
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-on-surface bg-surface-container-highest hover:bg-outline-variant/30 rounded-xl border border-outline-variant/30 transition-colors shadow-2xs cursor-pointer active:scale-95 min-h-[34px]"
+              title="Variables globales, gastos indirectos, margen de riesgo y beneficio"
+            >
+              <Sliders className="w-3.5 h-3.5 text-primary" />
+              <span className="hidden xs:inline">Parámetros</span>
+            </button>
+
+            {/* Paleta de Comandos Ctrl+K */}
+            <button
+              type="button"
+              onClick={() => treeSheetRef.current?.openCommandPalette()}
+              className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-on-surface-variant hover:text-on-surface bg-surface-container-lowest hover:bg-surface-container rounded-xl border border-outline-variant/30 transition-colors cursor-pointer min-h-[34px]"
+              title="Paleta de Comandos (Ctrl+K)"
+            >
+              <Command className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-mono">Ctrl+K</span>
+            </button>
+          </div>
+        )}
+
+        {/* Bloque Derecho: Switch Árbol/Experto + Botón Guardar */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto sm:ml-0">
+          {/* Selector de Modo: Árbol vs Experto */}
+          <div className="bg-surface-container-highest p-0.5 rounded-xl border border-outline-variant/30 flex items-center gap-0.5 shadow-2xs">
             <button
               type="button"
               onClick={() => handleToggleEditorMode('arbol')}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer min-h-[36px] ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 editorMode === 'arbol'
-                  ? 'bg-surface-container-lowest text-primary shadow-xs'
+                  ? 'bg-surface text-primary shadow-xs'
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
@@ -603,7 +762,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               type="button"
               onClick={() => handleToggleEditorMode('experto')}
               disabled={isMobile}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 min-h-[36px] ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                 isMobile
                   ? 'opacity-40 cursor-not-allowed text-on-surface-variant'
                   : editorMode === 'experto'
@@ -618,71 +777,74 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             >
               <Terminal className="w-3.5 h-3.5" />
               <span>Experto</span>
-              <kbd className="hidden md:inline text-[10px] opacity-70 font-mono">Alt+E</kbd>
+              <kbd className="hidden lg:inline text-[9px] opacity-70 font-mono">Alt+E</kbd>
             </button>
           </div>
 
           <button
             type="button"
             onClick={() => handleSavePresupuesto('borrador')}
-            className="px-4 py-2 bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface font-semibold rounded-2xl text-xs sm:text-sm transition-colors border border-outline-variant/30 min-h-[40px] cursor-pointer flex items-center gap-2 shadow-2xs active:scale-95"
+            className="px-3.5 py-1.5 bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface font-semibold rounded-xl text-xs sm:text-sm transition-colors border border-outline-variant/30 min-h-[36px] cursor-pointer flex items-center gap-2 shadow-2xs active:scale-95"
             title="Guardar estado actual del borrador"
           >
             <Check className="w-4 h-4 text-primary" />
-            <span>Guardar Borrador</span>
+            <span className="hidden xs:inline">Guardar Borrador</span>
           </button>
         </div>
       </div>
 
       {editorMode === 'experto' ? (
-        <ModoExpertoEditor
-          initialDslText={dslText}
-          onDslTextChange={setDslText}
-          savedCalculatedCells={calculatedCells}
-          onCalculatedCellsChange={setCalculatedCells}
-          savedCalculosVariables={calculosVariables}
-          onCalculosVariablesChange={setCalculosVariables}
-          clientes={clientes}
-          clienteId={clienteId}
-          setClienteId={setClienteId}
-          direccionObra={direccionObra}
-          setDireccionObra={setDireccionObra}
-          tipoFactura={tipoFactura}
-          setTipoFactura={handleTipoFacturaChange}
-          validezDias={validezDias}
-          setValidezDias={setValidezDias}
-          margenPorcentaje={margenPorcentaje}
-          setMargenPorcentaje={setMargenPorcentaje}
-          nivelMargenRiesgo={nivelMargenRiesgo}
-          setNivelMargenRiesgo={setNivelMargenRiesgo}
-          margenRiesgoPorcentaje={margenRiesgoPorcentaje}
-          setMargenRiesgoPorcentaje={setMargenRiesgoPorcentaje}
-          mostrarDolar={mostrarDolar}
-          setMostrarDolar={setMostrarDolar}
-          nombreDolar={nombreDolar}
-          setNombreDolar={setNombreDolar}
-          cotizacionDolar={cotizacionDolar}
-          setCotizacionDolar={setCotizacionDolar}
-          capitulos={capitulos}
-          setCapitulos={setCapitulos}
-          items={items}
-          setItems={setItems}
-          gastosConfig={gastosConfig}
-          setGastosConfig={setGastosConfig}
-          totales={totales}
-          tareasTipo={tareasTipo}
-          insumosMap={insumosMap}
-          manoObraMap={manoObraMap}
-          config={config}
-          onEmitirClick={() => setShowEmitirModal(true)}
-          onSaveDraft={() => handleSavePresupuesto('borrador')}
-          onToggleGuidedMode={() => handleToggleEditorMode('arbol')}
-          onOpenListaMateriales={() => setShowListaMaterialesModal(true)}
-          onOpenMaterialsInCatalog={handleOpenMaterialsInCatalog}
-        />
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <ModoExpertoEditor
+            initialDslText={dslText}
+            onDslTextChange={setDslText}
+            savedCalculatedCells={calculatedCells}
+            onCalculatedCellsChange={setCalculatedCells}
+            savedCalculosVariables={calculosVariables}
+            onCalculosVariablesChange={setCalculosVariables}
+            clientes={clientes}
+            clienteId={clienteId}
+            setClienteId={setClienteId}
+            direccionObra={direccionObra}
+            setDireccionObra={setDireccionObra}
+            tipoFactura={tipoFactura}
+            setTipoFactura={handleTipoFacturaChange}
+            validezDias={validezDias}
+            setValidezDias={setValidezDias}
+            margenPorcentaje={margenPorcentaje}
+            setMargenPorcentaje={setMargenPorcentaje}
+            nivelMargenRiesgo={nivelMargenRiesgo}
+            setNivelMargenRiesgo={setNivelMargenRiesgo}
+            margenRiesgoPorcentaje={margenRiesgoPorcentaje}
+            setMargenRiesgoPorcentaje={setMargenRiesgoPorcentaje}
+            mostrarDolar={mostrarDolar}
+            setMostrarDolar={setMostrarDolar}
+            nombreDolar={nombreDolar}
+            setNombreDolar={setNombreDolar}
+            cotizacionDolar={cotizacionDolar}
+            setCotizacionDolar={setCotizacionDolar}
+            capitulos={capitulos}
+            setCapitulos={setCapitulos}
+            items={items}
+            setItems={setItems}
+            gastosConfig={gastosConfig}
+            setGastosConfig={setGastosConfig}
+            totales={totales}
+            tareasTipo={tareasTipo}
+            insumosMap={insumosMap}
+            manoObraMap={manoObraMap}
+            config={config}
+            onEmitirClick={() => setShowEmitirModal(true)}
+            onSaveDraft={() => handleSavePresupuesto('borrador')}
+            onToggleGuidedMode={() => handleToggleEditorMode('arbol')}
+            onOpenListaMateriales={() => setShowListaMaterialesModal(true)}
+            onOpenMaterialsInCatalog={handleOpenMaterialsInCatalog}
+          />
+        </div>
       ) : (
-        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+        <div className="flex-1 min-h-0 flex flex-col rounded-2xl border border-outline-variant/30 overflow-hidden shadow-xs bg-surface">
           <TreeSheetView
+            ref={treeSheetRef}
             items={items}
             setItems={setItems}
             capitulos={capitulos}
@@ -710,6 +872,13 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
             impuestosDetalle={impuestosDetalle}
             onToggleTax={handleToggleTax}
             onUpdateTaxPct={handleUpdateTaxPct}
+            onOpenParametricJobModal={(tarea, itemIndex) => {
+              if (itemIndex !== undefined && itemIndex !== null) {
+                handleOpenParametricModalForExistingItem(itemIndex);
+              } else {
+                handleOpenParametricModalForNewTask(tarea);
+              }
+            }}
             onSaveAsTareaTipo={handleSaveAsTemplateAction}
             onOpenTextMode={() => handleToggleEditorMode('experto')}
             onSaveDraft={() => handleSavePresupuesto('borrador')}
@@ -796,6 +965,25 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         setShowActualizarPreciosModal={setShowActualizarPreciosModal}
         analisisPreciosModal={analisisPreciosModal}
         onConfirmActualizarPrecios={handleConfirmActualizarPrecios}
+      />
+
+      {/* Modal de Configuración de Cliente y Obra */}
+      <QuoteProjectModal
+        isOpen={showQuoteProjectModal}
+        onClose={() => setShowQuoteProjectModal(false)}
+        clientes={clientes}
+        clienteId={clienteId}
+        onSelectCliente={setClienteId}
+        direccionObra={direccionObra}
+        onUpdateDireccionObra={setDireccionObra}
+        validezDias={validezDias}
+        onUpdateValidezDias={setValidezDias}
+        tipoFactura={tipoFactura}
+        onUpdateTipoFactura={handleTipoFacturaChange}
+        condicionesPagoTexto={condicionesPagoTexto}
+        onUpdateCondicionesPagoTexto={setCondicionesPagoTexto}
+        numero={numero}
+        revision={revision}
       />
     </div>
   );

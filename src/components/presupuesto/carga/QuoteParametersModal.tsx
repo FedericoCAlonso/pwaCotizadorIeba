@@ -16,15 +16,22 @@ import {
   CapituloPresupuesto,
   TipoFactura,
   ImpuestoItem,
-  NivelMargenRiesgo
+  NivelMargenRiesgo,
+  ItemPresupuesto,
+  ParametroItem
 } from '../../../core/types';
 import { generateUUID } from '../../../core/uuid';
+import { ProjectParametersTuningSection } from './ProjectParametersTuningSection';
 
 interface QuoteParametersModalProps {
   isOpen: boolean;
   onClose: () => void;
   calculosVariables?: Record<string, number | string>;
   onUpdateCalculosVariables?: (vars: Record<string, number | string>) => void;
+  items?: ItemPresupuesto[];
+  onUpdateItemParametros?: (itemId: string, parametros: ParametroItem[]) => void;
+  costoDirectoTotal?: number;
+  precioFinalGlobal?: number;
   gastosConfig?: GastoPresupuestoConfig[];
   onUpdateGastosConfig?: (gastos: GastoPresupuestoConfig[]) => void;
   capitulos?: CapituloPresupuesto[];
@@ -47,6 +54,10 @@ export const QuoteParametersModal: React.FC<QuoteParametersModalProps> = ({
   onClose,
   calculosVariables = {},
   onUpdateCalculosVariables,
+  items = [],
+  onUpdateItemParametros,
+  costoDirectoTotal,
+  precioFinalGlobal,
   gastosConfig = [],
   onUpdateGastosConfig,
   capitulos = [],
@@ -63,33 +74,7 @@ export const QuoteParametersModal: React.FC<QuoteParametersModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<TabKey>('variables');
 
-  // Formulario rápido para nueva variable
-  const [newVarName, setNewVarName] = useState('');
-  const [newVarValue, setNewVarValue] = useState('');
-
   if (!isOpen) return null;
-
-  const handleAddVariable = () => {
-    const raw = newVarName.trim().toLowerCase().replace(/\s+/g, '_');
-    if (!raw) return;
-    const val = newVarValue.trim();
-    const num = Number(val);
-    const finalVal = isNaN(num) || val.startsWith('=') ? val : num;
-
-    onUpdateCalculosVariables?.({
-      ...calculosVariables,
-      [raw]: finalVal
-    });
-
-    setNewVarName('');
-    setNewVarValue('');
-  };
-
-  const handleRemoveVariable = (key: string) => {
-    const copy = { ...calculosVariables };
-    delete copy[key];
-    onUpdateCalculosVariables?.(copy);
-  };
 
   const handleAddGasto = () => {
     const nombre = window.prompt('Nombre del gasto operativo o indirecto:');
@@ -127,8 +112,11 @@ export const QuoteParametersModal: React.FC<QuoteParametersModalProps> = ({
           <div className="flex items-center gap-2">
             <Sliders className="w-4 h-4 text-primary" />
             <h2 className="text-sm font-bold text-on-surface">
-              Parámetros de la Cotización
+              Parámetros Globales de la Cotización
             </h2>
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+              🌐 Ámbito Global
+            </span>
           </div>
           <button
             type="button"
@@ -141,122 +129,41 @@ export const QuoteParametersModal: React.FC<QuoteParametersModalProps> = ({
 
         {/* Pestañas de configuración */}
         <div className="flex border-b border-outline-variant/30 bg-surface-container-lowest px-4 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setActiveTab('variables')}
-            className={`py-2.5 px-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'variables'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <Variable className="w-3.5 h-3.5" />
-            <span>Variables ({Object.keys(calculosVariables).length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('gastos')}
-            className={`py-2.5 px-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'gastos'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <Briefcase className="w-3.5 h-3.5" />
-            <span>Gastos Indirectos ({gastosConfig.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('riesgo')}
-            className={`py-2.5 px-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'riesgo'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Margen de Riesgo</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('comercial')}
-            className={`py-2.5 px-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'comercial'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <Percent className="w-3.5 h-3.5" />
-            <span>Beneficio & Factura</span>
-          </button>
+          {[
+            { id: 'variables' as const, label: `Parámetros (${Object.keys(calculosVariables).length})`, icon: <Variable className="w-3.5 h-3.5" /> },
+            { id: 'gastos' as const, label: `Gastos Indirectos (${gastosConfig.length})`, icon: <Briefcase className="w-3.5 h-3.5" /> },
+            { id: 'riesgo' as const, label: 'Margen de Riesgo', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
+            { id: 'comercial' as const, label: 'Beneficio & Factura', icon: <Percent className="w-3.5 h-3.5" /> },
+          ].map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setActiveTab(t.id)}
+              className={`py-2.5 px-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === t.id
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              {t.icon}
+              <span>{t.label}</span>
+            </button>
+          ))}
         </div>
 
         {/* Contenido de la pestaña activa */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* 1. Variables de Cotización */}
+          {/* 1. Tablero Multinivel de Parámetros de Obra */}
           {activeTab === 'variables' && (
-            <div className="space-y-3">
-              <p className="text-xs text-on-surface-variant">
-                Las variables globales pueden usarse directamente en las fórmulas de ítems e insumos (ej: <code className="font-mono bg-surface-container px-1 rounded">=superficie * 1.5</code>).
-              </p>
-
-              {/* Formulario para agregar variable */}
-              <div className="flex items-center gap-2 p-2 bg-surface-container rounded-xl border border-outline-variant/30">
-                <input
-                  type="text"
-                  placeholder="Nombre variable (ej: superficie)"
-                  value={newVarName}
-                  onChange={(e) => setNewVarName(e.target.value)}
-                  className="flex-1 px-2.5 py-1 text-xs bg-surface border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none"
-                />
-                <input
-                  type="text"
-                  placeholder="Valor o fórmula"
-                  value={newVarValue}
-                  onChange={(e) => setNewVarValue(e.target.value)}
-                  className="w-36 px-2.5 py-1 text-xs font-mono bg-surface border border-outline-variant/30 rounded-lg text-on-surface focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddVariable}
-                  className="p-1.5 bg-primary text-on-primary rounded-lg hover:opacity-90 transition-opacity cursor-pointer"
-                  title="Agregar variable"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Lista de variables */}
-              <div className="space-y-1.5">
-                {Object.entries(calculosVariables).length === 0 ? (
-                  <p className="text-xs text-on-surface-variant/70 italic text-center py-4">
-                    Sin variables definidas en esta cotización.
-                  </p>
-                ) : (
-                  Object.entries(calculosVariables).map(([k, v]) => (
-                    <div
-                      key={k}
-                      className="flex items-center justify-between p-2 bg-surface-container-lowest rounded-lg border border-outline-variant/20 text-xs"
-                    >
-                      <span className="font-mono font-semibold text-primary">{k}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-on-surface">{String(v)}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveVariable(k)}
-                          className="p-1 text-on-surface-variant hover:text-error rounded hover:bg-error-container/20 cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+            <ProjectParametersTuningSection
+              calculosVariables={calculosVariables}
+              onUpdateCalculosVariables={onUpdateCalculosVariables}
+              items={items}
+              onUpdateItemParametros={onUpdateItemParametros}
+              capitulos={capitulos}
+              costoDirectoTotal={costoDirectoTotal}
+              precioFinalGlobal={precioFinalGlobal}
+            />
           )}
 
           {/* 2. Reglas de Gastos */}

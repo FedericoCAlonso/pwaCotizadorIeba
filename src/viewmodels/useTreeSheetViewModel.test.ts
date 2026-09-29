@@ -418,4 +418,80 @@ describe('useTreeSheetViewModel - Árbol-Planilla de Cotización', () => {
     });
     expect(hook.result.current.materialPickerItemId).toBeNull();
   });
+
+  it('navega fluidamente entre celdas (Tab y Shift+Tab) y crea fila automáticamente al final', () => {
+    const { hook } = createHook();
+
+    // 1. Iniciar en descripción del primer ítem
+    act(() => {
+      hook.result.current.handleStartEditCell('it-1', 'descripcion', 'Demolición manual');
+    });
+    expect(hook.result.current.editingCell).toMatchObject({
+      itemId: 'it-1',
+      field: 'descripcion'
+    });
+
+    // 2. Tab desde descripción -> debe saltar a cantidad del mismo ítem
+    act(() => {
+      hook.result.current.handleNavigateCell('next', 'descripcion');
+    });
+    expect(hook.result.current.editingCell).toMatchObject({
+      itemId: 'it-1',
+      field: 'cantidad'
+    });
+
+    // 3. Tab desde cantidad -> debe saltar a descripción del siguiente ítem (it-2)
+    act(() => {
+      hook.result.current.handleNavigateCell('next', 'cantidad');
+    });
+    expect(hook.result.current.editingCell).toMatchObject({
+      itemId: 'it-2',
+      field: 'descripcion'
+    });
+
+    // 4. Shift+Tab desde descripción de it-2 -> debe volver a cantidad de it-1
+    act(() => {
+      hook.result.current.handleNavigateCell('prev', 'descripcion');
+    });
+    expect(hook.result.current.editingCell).toMatchObject({
+      itemId: 'it-1',
+      field: 'cantidad'
+    });
+
+    // 5. Shift+Tab desde cantidad de it-1 -> debe volver a descripción de it-1
+    act(() => {
+      hook.result.current.handleNavigateCell('prev', 'cantidad');
+    });
+    expect(hook.result.current.editingCell).toMatchObject({
+      itemId: 'it-1',
+      field: 'descripcion'
+    });
+
+    // 6. Ir a cantidad del último ítem y presionar Tab -> debe crear una nueva partida
+    act(() => {
+      hook.result.current.handleStartEditCell('it-2', 'cantidad', '25');
+    });
+    act(() => {
+      hook.result.current.handleNavigateCell('next', 'cantidad');
+    });
+    // Debe haber creado un nuevo ítem y tenerlo en edición de descripción
+    expect(hook.result.current.editingCell?.field).toBe('descripcion');
+    expect(hook.result.current.editingCell?.itemId).not.toBe('it-1');
+    expect(hook.result.current.editingCell?.itemId).not.toBe('it-2');
+  });
+
+  it('gestiona la apertura y cierre del diálogo rápido de parámetros de partida', () => {
+    const { hook } = createHook();
+
+    expect(hook.result.current.quickParamModalItemId).toBeNull();
+    act(() => {
+      hook.result.current.handleOpenQuickParamModal('it-1');
+    });
+    expect(hook.result.current.quickParamModalItemId).toBe('it-1');
+
+    act(() => {
+      hook.result.current.handleCloseQuickParamModal();
+    });
+    expect(hook.result.current.quickParamModalItemId).toBeNull();
+  });
 });

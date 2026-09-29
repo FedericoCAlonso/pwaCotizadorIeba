@@ -5,11 +5,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
-  RotateCcw,
-  Sparkles,
-  Package,
-  Clock,
-  ShieldCheck,
   Plus,
   Minus
 } from 'lucide-react';
@@ -23,7 +18,7 @@ import {
   safeNum
 } from '../../core/calculations';
 import { evaluateCondition } from '../../core/mathEvaluator';
-import { useThumbArcGesture, Handedness } from '../../hooks/useThumbArcGesture';
+import { useThumbArcGesture } from '../../hooks/useThumbArcGesture';
 
 interface GestureParametricSheetProps {
   tarea: TareaTipo;
@@ -151,8 +146,6 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
   const {
     handedness,
     toggleHandedness,
-    isDragging,
-    touchPosition,
     arcProgress,
     lastGesture,
     handlers
@@ -176,10 +169,8 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
   // Path SVG del arco principal (Centro en esquina inferior: derecha para diestro, izquierda para zurdo)
   const arcPath = useMemo(() => {
     if (handedness === 'right') {
-      // Desde arriba en borde derecho (W, H - radius) hasta izquierda en borde inferior (W - radius, H)
       return `M ${W} ${H - radius} A ${radius} ${radius} 0 0 0 ${W - radius} ${H}`;
     } else {
-      // Desde arriba en borde izquierdo (0, H - radius) hasta derecha en borde inferior (radius, H)
       return `M 0 ${H - radius} A ${radius} ${radius} 0 0 1 ${radius} ${H}`;
     }
   }, [handedness, W, H, radius]);
@@ -195,10 +186,8 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
 
       let rad: number;
       if (handedness === 'right') {
-        // Desde horizontal izq (-180°) hasta vertical arriba (-90°)
         rad = (-180 + angleDeg) * (Math.PI / 180);
       } else {
-        // Desde vertical arriba (-90°) hasta horizontal der (0°)
         rad = (-90 + angleDeg) * (Math.PI / 180);
       }
 
@@ -253,8 +242,8 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
     const dy = e.clientY - topTouchStart.current.y;
     const dx = e.clientX - topTouchStart.current.x;
     if (Math.abs(dy) > 25 && Math.abs(dy) > Math.abs(dx)) {
-      if (dy < 0) handlePrevParam(); // Arriba: retroceder
-      else handleNextParam();        // Abajo: avanzar
+      if (dy < 0) handlePrevParam();
+      else handleNextParam();
     } else if (Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy)) {
       if (dx < 0) handleNextParam();
       else handlePrevParam();
@@ -263,16 +252,16 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#070A11] flex flex-col justify-between overflow-hidden text-slate-100 select-none touch-none animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 bg-surface flex flex-col justify-between overflow-hidden text-on-surface select-none touch-none animate-in fade-in duration-200">
       
       {/* 1. HEADER: Barra de Control Superior */}
-      <header className="px-4 pt-3 pb-2.5 bg-slate-900/60 border-b border-slate-800/80 backdrop-blur-md shrink-0">
+      <header className="px-4 pt-3 pb-2.5 bg-surface-container/80 border-b border-outline-variant/30 backdrop-blur-md shrink-0">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 truncate">
+            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary-container text-on-primary-container border border-primary/20 truncate">
               {tarea.categoria || 'Trabajo Tipo'}
             </span>
-            <h2 className="text-xs sm:text-sm font-bold text-slate-100 truncate">{tarea.nombre}</h2>
+            <h2 className="text-xs sm:text-sm font-bold text-on-surface truncate">{tarea.nombre}</h2>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
@@ -280,7 +269,7 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
             <button
               type="button"
               onClick={toggleHandedness}
-              className="px-2.5 py-1 text-xs font-bold rounded-xl bg-slate-800/90 border border-slate-700/80 text-cyan-300 hover:bg-slate-700 active:scale-95 transition flex items-center gap-1 shadow-xs"
+              className="px-2.5 py-1 text-xs font-bold rounded-xl bg-surface-container-highest border border-outline-variant/40 text-on-surface hover:bg-surface-container-high active:scale-95 transition flex items-center gap-1 shadow-xs cursor-pointer"
               title="Cambiar orientación de mano"
             >
               <span>{handedness === 'right' ? '✋ Diestro' : '🤚 Zurdo'}</span>
@@ -290,7 +279,7 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
             <button
               type="button"
               onClick={onSwitchToClassic}
-              className="p-1.5 rounded-xl bg-slate-800/70 text-slate-400 hover:text-slate-200 hover:bg-slate-700 active:scale-95 transition border border-slate-700/50"
+              className="p-1.5 rounded-xl bg-surface-container-highest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high active:scale-95 transition border border-outline-variant/30 cursor-pointer"
               title="Ver formulario clásico"
             >
               <Sliders className="w-4 h-4" />
@@ -300,7 +289,7 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-xl bg-slate-800/70 text-slate-400 hover:text-slate-200 hover:bg-slate-700 active:scale-95 transition border border-slate-700/50"
+              className="p-1.5 rounded-xl bg-surface-container-highest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high active:scale-95 transition border border-outline-variant/30 cursor-pointer"
               title="Cerrar"
             >
               <X className="w-5 h-5" />
@@ -317,12 +306,12 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
       >
         
         {/* Selector de Parámetros Segmentado */}
-        <div className="flex items-center justify-between gap-3 bg-slate-900/80 p-2 rounded-2xl border border-slate-800/80 shadow-md">
+        <div className="flex items-center justify-between gap-3 bg-surface-container p-2 rounded-2xl border border-outline-variant/30 shadow-xs">
           <button
             type="button"
             onClick={handlePrevParam}
             disabled={safeIndex === 0}
-            className="p-2 rounded-xl bg-slate-800 disabled:opacity-20 text-slate-200 hover:bg-slate-700 active:scale-95 transition"
+            className="p-2 rounded-xl bg-surface-container-highest disabled:opacity-20 text-on-surface hover:bg-surface-container-high active:scale-95 transition cursor-pointer"
             title="Parámetro anterior"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -334,15 +323,15 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
                 <div
                   key={idx}
                   className={`h-1.5 rounded-full transition-all duration-300 ${
-                    idx === safeIndex ? 'w-6 bg-cyan-400' : 'w-2 bg-slate-700'
+                    idx === safeIndex ? 'w-6 bg-primary' : 'w-2 bg-outline-variant'
                   }`}
                 />
               ))}
             </div>
-            <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-semibold block">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-primary font-semibold block">
               Paso {safeIndex + 1} de {visibleParams.length}
             </span>
-            <h3 className="text-sm sm:text-base font-extrabold text-slate-100 truncate">
+            <h3 className="text-sm sm:text-base font-extrabold text-on-surface truncate">
               {activeParam?.nombre}
             </h3>
           </div>
@@ -351,7 +340,7 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
             type="button"
             onClick={handleNextParam}
             disabled={safeIndex === visibleParams.length - 1}
-            className="p-2 rounded-xl bg-slate-800 disabled:opacity-20 text-slate-200 hover:bg-slate-700 active:scale-95 transition"
+            className="p-2 rounded-xl bg-surface-container-highest disabled:opacity-20 text-on-surface hover:bg-surface-container-high active:scale-95 transition cursor-pointer"
             title="Siguiente parámetro"
           >
             <ChevronRight className="w-4 h-4" />
@@ -360,35 +349,35 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
 
         {/* Display del Valor de Gran Formato */}
         <div className="my-auto text-center py-2">
-          <div className="inline-flex items-baseline gap-2 px-6 py-2.5 rounded-3xl bg-slate-900/90 border-2 border-cyan-500/30 shadow-[0_0_25px_rgba(6,182,212,0.15)]">
-            <span className="font-mono text-4xl sm:text-5xl font-black text-cyan-300 tracking-tight drop-shadow-sm">
+          <div className="inline-flex items-baseline gap-2 px-6 py-2.5 rounded-3xl bg-surface-container-high border-2 border-primary/30 shadow-md3-1">
+            <span className="font-mono text-4xl sm:text-5xl font-black text-primary tracking-tight">
               {renderDisplayValue()}
             </span>
           </div>
           {activeParam?.descripcion && (
-            <p className="text-xs text-slate-400 mt-1.5 max-w-sm mx-auto line-clamp-1">
+            <p className="text-xs text-on-surface-variant mt-1.5 max-w-sm mx-auto line-clamp-1">
               {activeParam.descripcion}
             </p>
           )}
         </div>
 
         {/* Cómputo Contextual en Tiempo Real */}
-        <div className="grid grid-cols-3 gap-2 bg-slate-900/70 p-2 rounded-2xl border border-slate-800/80 text-center">
+        <div className="grid grid-cols-3 gap-2 bg-surface-container p-2 rounded-2xl border border-outline-variant/30 text-center">
           <div className="px-1">
-            <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">Materiales</span>
-            <strong className="text-xs font-mono font-bold text-slate-200">
+            <span className="text-[9px] uppercase font-bold text-on-surface-variant block tracking-wider">Materiales</span>
+            <strong className="text-xs font-mono font-bold text-on-surface">
               {formatARS(calculosResultado.costoInsumosTotal)}
             </strong>
           </div>
-          <div className="px-1 border-l border-slate-800">
-            <span className="text-[9px] uppercase font-bold text-emerald-400/90 block tracking-wider">M. Obra</span>
-            <strong className="text-xs font-mono font-bold text-emerald-400">
+          <div className="px-1 border-l border-outline-variant/30">
+            <span className="text-[9px] uppercase font-bold text-secondary block tracking-wider">M. Obra</span>
+            <strong className="text-xs font-mono font-bold text-secondary">
               {formatARS(calculosResultado.costoManoObraTotal)}
             </strong>
           </div>
-          <div className="px-1 border-l border-slate-800">
-            <span className="text-[9px] uppercase font-black text-cyan-400 block tracking-wider">Total</span>
-            <strong className="text-xs font-mono font-black text-cyan-300">
+          <div className="px-1 border-l border-outline-variant/30">
+            <span className="text-[9px] uppercase font-black text-primary block tracking-wider">Total</span>
+            <strong className="text-xs font-mono font-black text-primary">
               {formatARS(calculosResultado.costoDirectoTotal)}
             </strong>
           </div>
@@ -398,7 +387,7 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
       {/* 3. ZONA DEL ARCO DE ATAQUE ("One Hand" Inferior) */}
       <section
         ref={padRef}
-        className="relative h-[48vh] bg-gradient-to-b from-slate-900/90 via-slate-950 to-black border-t-2 border-cyan-500/30 rounded-t-[2.5rem] flex flex-col justify-between p-4 overflow-hidden shadow-2xl cursor-grab active:cursor-grabbing"
+        className="relative h-[48vh] bg-surface-container-low border-t border-outline-variant/40 rounded-t-[2.5rem] flex flex-col justify-between p-4 overflow-hidden shadow-md3-3 cursor-grab active:cursor-grabbing"
         {...handlers}
       >
         {/* Dial de Precisión SVG Interactivo */}
@@ -408,13 +397,13 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
         >
           <defs>
             <linearGradient id="arcGlowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.2" />
+              <stop offset="0%" stopColor="#ca8a04" stopOpacity="0.9" />
+              <stop offset="100%" stopColor="#eab308" stopOpacity="0.3" />
             </linearGradient>
             <radialGradient id="puckGlow">
-              <stop offset="0%" stopColor="#22d3ee" stopOpacity="1" />
-              <stop offset="40%" stopColor="#06b6d4" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="#0891b2" stopOpacity="0" />
+              <stop offset="0%" stopColor="#eab308" stopOpacity="1" />
+              <stop offset="50%" stopColor="#ca8a04" stopOpacity="0.6" />
+              <stop offset="100%" stopColor="#854d0e" stopOpacity="0" />
             </radialGradient>
           </defs>
 
@@ -422,7 +411,7 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
           <path
             d={arcPath}
             fill="none"
-            stroke="#06b6d4"
+            stroke="#ca8a04"
             strokeWidth="16"
             strokeOpacity="0.12"
             strokeLinecap="round"
@@ -445,9 +434,9 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
               y1={t.y1}
               x2={t.x2}
               y2={t.y2}
-              stroke={t.isMajor ? '#22d3ee' : '#64748b'}
+              stroke={t.isMajor ? '#ca8a04' : '#94a3b8'}
               strokeWidth={t.isMajor ? 2 : 1}
-              strokeOpacity={t.isMajor ? 0.8 : 0.4}
+              strokeOpacity={t.isMajor ? 0.9 : 0.4}
             />
           ))}
 
@@ -463,46 +452,46 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
             cy={puckPosition.y}
             r="8"
             fill="#ffffff"
-            stroke="#06b6d4"
+            stroke="#ca8a04"
             strokeWidth="3"
           />
         </svg>
 
         {/* Marcadores de orientación polar (+ / -) */}
-        <div className="relative z-10 flex items-center justify-between text-xs font-mono font-bold text-slate-500 px-3 pt-1 pointer-events-none">
-          <span className="flex items-center gap-1 text-cyan-400/80">
+        <div className="relative z-10 flex items-center justify-between text-xs font-mono font-bold px-3 pt-1 pointer-events-none">
+          <span className="flex items-center gap-1 text-primary">
             <span>▲ Barrer hacia arriba: +</span>
           </span>
-          <span className="flex items-center gap-1 text-slate-400">
+          <span className="flex items-center gap-1 text-on-surface-variant">
             <span>Barrer hacia abajo: - ▼</span>
           </span>
         </div>
 
         {/* Feedback visual dinámico al mover el pulgar */}
         <div className="relative z-10 my-auto text-center pointer-events-none">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-slate-700/60 shadow-lg backdrop-blur-sm">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface-container-highest/90 border border-outline-variant/40 shadow-xs backdrop-blur-sm">
             {lastGesture === 'inc' && (
-              <span className="text-xs font-mono font-bold text-cyan-300 flex items-center gap-1 animate-pulse">
+              <span className="text-xs font-mono font-bold text-primary flex items-center gap-1 animate-pulse">
                 <Plus className="w-3.5 h-3.5" /> Incrementando...
               </span>
             )}
             {lastGesture === 'dec' && (
-              <span className="text-xs font-mono font-bold text-amber-300 flex items-center gap-1 animate-pulse">
+              <span className="text-xs font-mono font-bold text-secondary flex items-center gap-1 animate-pulse">
                 <Minus className="w-3.5 h-3.5" /> Disminuyendo...
               </span>
             )}
             {lastGesture === 'prev' && (
-              <span className="text-xs font-mono font-bold text-purple-300 flex items-center gap-1 animate-pulse">
+              <span className="text-xs font-mono font-bold text-tertiary flex items-center gap-1 animate-pulse">
                 <span>⬆ Retrocediendo dato</span>
               </span>
             )}
             {lastGesture === 'next' && (
-              <span className="text-xs font-mono font-bold text-emerald-300 flex items-center gap-1 animate-pulse">
+              <span className="text-xs font-mono font-bold text-primary flex items-center gap-1 animate-pulse">
                 <span>⬇ Avanzando dato</span>
               </span>
             )}
             {!lastGesture && (
-              <span className="text-xs text-slate-400 flex items-center gap-1.5">
+              <span className="text-xs text-on-surface-variant flex items-center gap-1.5">
                 <span>◄ Arco: valor • ↕ Arriba: retroceder / Abajo: avanzar ►</span>
               </span>
             )}
@@ -514,7 +503,7 @@ export const GestureParametricSheet: React.FC<GestureParametricSheetProps> = ({
           <button
             type="button"
             onClick={onConfirm}
-            className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(6,182,212,0.3)] hover:brightness-110 active:scale-[0.98] transition pointer-events-auto"
+            className="w-full py-3.5 px-4 rounded-2xl bg-primary text-on-primary font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-md hover:bg-primary/90 active:scale-[0.98] transition pointer-events-auto cursor-pointer"
           >
             <Check className="w-5 h-5 stroke-[2.5]" />
             <span>Confirmar e Insertar en Presupuesto</span>

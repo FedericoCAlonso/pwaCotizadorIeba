@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import {
   Link2,
   Unlink2,
@@ -7,17 +7,20 @@ import {
   ArrowUp,
   ArrowDown,
   Trash2,
-  PanelRightOpen,
+  Sliders,
+  BookmarkPlus,
   ChevronRight,
   ChevronDown
 } from 'lucide-react';
 import {
   ItemPresupuesto,
   Insumo,
-  CategoriaManoDeObra
+  CategoriaManoDeObra,
+  ParametroItem
 } from '../../../core/types';
-import { TotalViewMode, EditingCellState } from '../../../viewmodels/useTreeSheetViewModel';
-import { formatARS } from '../../../core/calculations';
+import { EditingCellState } from '../../../viewmodels/useTreeSheetViewModel';
+import { formatARS, safeNum } from '../../../core/calculations';
+import { evaluateMathExpression } from '../../../core/mathEvaluator';
 import { TreeSheetItemBreakdown } from './TreeSheetItemBreakdown';
 
 interface TreeSheetRowProps {
@@ -26,7 +29,6 @@ interface TreeSheetRowProps {
   isExpanded: boolean;
   onToggleExpand: () => void;
   editingCell: EditingCellState | null;
-  totalViewMode: TotalViewMode;
   insumosMap: Map<string, Insumo>;
   manoObraMap: Map<string, CategoriaManoDeObra>;
   onSelect: () => void;
@@ -34,10 +36,14 @@ interface TreeSheetRowProps {
   onUpdateEditingCellValue: (value: string) => void;
   onCommitEditCell: (field: 'descripcion' | 'cantidad') => void;
   onCancelEditCell: () => void;
+  onNavigateCell?: (direction: 'next' | 'prev', fromField: 'descripcion' | 'cantidad') => void;
+  onOpenQuickParamModal?: (itemId: string) => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
-  onOpenDetail: () => void;
+  onSaveAsTareaTipo?: () => void;
+  onOpenParametric?: () => void;
+  onUpdateNotas?: (notas: string, exclusiones?: string) => void;
   onAddMaterial: (material: Insumo, cantidad: number, formula?: string) => void;
   onRemoveMaterial: (index: number) => void;
   onUpdateMaterialFormula: (index: number, formula: string) => void;
@@ -47,6 +53,8 @@ interface TreeSheetRowProps {
   onUpdateLaborFormula: (index: number, formula: string) => void;
   onAddService: (descripcion: string, costo: number) => void;
   onRemoveService: (index: number) => void;
+  onUpdateParametros?: (parametros: ParametroItem[]) => void;
+  calculosVariables?: Record<string, number | string>;
 }
 
 export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
@@ -55,7 +63,6 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
   isExpanded,
   onToggleExpand,
   editingCell,
-  totalViewMode,
   insumosMap,
   manoObraMap,
   onSelect,
@@ -63,10 +70,14 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
   onUpdateEditingCellValue,
   onCommitEditCell,
   onCancelEditCell,
+  onNavigateCell,
+  onOpenQuickParamModal,
   onMoveUp,
   onMoveDown,
   onRemove,
-  onOpenDetail,
+  onSaveAsTareaTipo,
+  onOpenParametric,
+  onUpdateNotas,
   onAddMaterial,
   onRemoveMaterial,
   onUpdateMaterialFormula,
@@ -75,13 +86,41 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
   onRemoveLabor,
   onUpdateLaborFormula,
   onAddService,
-  onRemoveService
+  onRemoveService,
+  onUpdateParametros,
+  calculosVariables
 }) => {
+  const [overrideTab, setOverrideTab] = useState<'materiales' | 'mano_obra' | 'servicios' | 'parametros' | 'notas' | undefined>(undefined);
   const isEditingDesc = editingCell?.itemId === item.id && editingCell.field === 'descripcion';
   const isEditingQty = editingCell?.itemId === item.id && editingCell.field === 'cantidad';
 
   const descInputRef = useRef<HTMLInputElement>(null);
   const qtyInputRef = useRef<HTMLInputElement>(null);
+
+  // Previsualización evaluada en vivo cuando se edita una fórmula que inicia con '='
+  const liveEvaluatedQty = useMemo(() => {
+    if (!isEditingQty || !editingCell?.value?.trim().startsWith('=')) return null;
+    try {
+      const scope: Record<string, number> = {};
+      if (calculosVariables) {
+        for (const [k, v] of Object.entries(calculosVariables)) {
+          scope[k] = typeof v === 'number' ? v : Number(v) || 0;
+        }
+      }
+      if (item.parametros) {
+        for (const p of item.parametros) {
+          scope[p.id] = p.valor;
+        }
+      }
+      const evalRes = evaluateMathExpression(editingCell.value, scope);
+      if (evalRes && evalRes.isValid && typeof evalRes.value === 'number' && !isNaN(evalRes.value)) {
+        return Math.round(evalRes.value * 100) / 100;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, [isEditingQty, editingCell?.value, calculosVariables, item.parametros]);
 
   useEffect(() => {
     if (isEditingDesc && descInputRef.current) {
@@ -97,16 +136,26 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
     }
   }, [isEditingQty]);
 
-  // Total a mostrar según el modo activo
-  const totalAmount =
-    totalViewMode === 'costo'
-      ? item.costoDirectoTotal || 0
-      : (item.precioFinalItem ?? item.precioVentaTotal ?? item.costoDirectoTotal ?? 0);
+  // Cálculos deterministas por partida
+  const cant = safeNum(item.cantidad) > 0 ? safeNum(item.cantidad) : 1;
+  const costoDirectoTotal = item.costoDirectoTotal ?? item.costoTotal ?? 0;
+  const costoUnitario = item.costoUnitario !== undefined && safeNum(item.costoUnitario) > 0
+    ? item.costoUnitario
+    : (costoDirectoTotal / cant);
+  const precioFinalItem = item.precioFinalItem ?? item.precioVentaTotal ?? item.costoDirectoTotal ?? 0;
+  const precioVentaUnitario = item.precioVentaUnitario !== undefined && safeNum(item.precioVentaUnitario) > 0
+    ? item.precioVentaUnitario
+    : (precioFinalItem / cant);
 
   // Distintivo de procedencia
   const isLinked = Boolean(item.tareaTipoId && !item.desacoplado);
   const isDecoupled = Boolean(item.tareaTipoId && item.desacoplado);
   const hasFormulaErrors = Boolean(item.erroresFormulas && Object.keys(item.erroresFormulas).length > 0);
+  const isParametric = Boolean(
+    (item.parametros && item.parametros.length > 0) ||
+    item.tareaTipoConfig?.parametros?.length ||
+    item.formulaHonorarios
+  );
 
   const insumosCount = item.insumosSnapshot?.length || 0;
   const moCount = item.manoObraSnapshot?.length || 0;
@@ -136,7 +185,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               onToggleExpand();
             }}
             className="p-1 -ml-1 text-on-surface-variant hover:text-primary rounded-lg transition-colors cursor-pointer"
-            title={isExpanded ? 'Plegar rubros hijos' : 'Desplegar rubros (Materiales, Mano de Obra, Servicios)'}
+            title={isExpanded ? 'Plegar rubros hijos' : 'Desplegar rubros (Materiales, Mano de Obra, Servicios, Notas)'}
           >
             {isExpanded ? (
               <ChevronDown className="w-3.5 h-3.5 text-primary" />
@@ -172,9 +221,20 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               onChange={(e) => onUpdateEditingCellValue(e.target.value)}
               onBlur={() => onCommitEditCell('descripcion')}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Tab') {
                   e.preventDefault();
-                  onCommitEditCell('descripcion');
+                  if (onNavigateCell) {
+                    onNavigateCell(e.shiftKey ? 'prev' : 'next', 'descripcion');
+                  } else {
+                    onCommitEditCell('descripcion');
+                  }
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (onNavigateCell) {
+                    onNavigateCell('next', 'descripcion');
+                  } else {
+                    onCommitEditCell('descripcion');
+                  }
                 } else if (e.key === 'Escape') {
                   e.preventDefault();
                   onCancelEditCell();
@@ -191,7 +251,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               className="truncate text-on-surface flex items-center gap-1.5"
               title="Doble clic para editar descripción"
             >
-              <span className="truncate">{item.descripcion}</span>
+              <span className="truncate font-medium">{item.descripcion}</span>
               {totalComponentes > 0 && !isExpanded && (
                 <span
                   onClick={(e) => {
@@ -205,46 +265,87 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
                 </span>
               )}
               {item.parametros && item.parametros.length > 0 && (
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-surface-container text-on-surface-variant shrink-0">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOpenQuickParamModal) {
+                      onOpenQuickParamModal(item.id);
+                    } else {
+                      setOverrideTab('parametros');
+                      if (!isExpanded) onToggleExpand();
+                    }
+                  }}
+                  className="text-[10px] px-1.5 py-0.2 rounded bg-secondary-container/40 text-secondary hover:bg-secondary-container hover:text-on-secondary-container font-mono shrink-0 cursor-pointer transition-colors"
+                  title="Clic para configurar parámetros de la partida"
+                >
                   {item.parametros.length} p
-                </span>
+                </button>
               )}
             </div>
           )}
         </div>
 
-        {/* ─── Columna 2: Cantidad ─── */}
-        <div className="w-28 shrink-0 px-2 text-right">
+        {/* ─── Columna 2: Cantidad y Fórmulas ─── */}
+        <div className="relative w-24 sm:w-28 md:w-32 shrink-0 px-2 text-right">
           {isEditingQty ? (
-            <input
-              ref={qtyInputRef}
-              type="text"
-              value={editingCell?.value ?? ''}
-              onChange={(e) => onUpdateEditingCellValue(e.target.value)}
-              onBlur={() => onCommitEditCell('cantidad')}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  onCommitEditCell('cantidad');
-                } else if (e.key === 'Escape') {
-                  e.preventDefault();
-                  onCancelEditCell();
-                }
-              }}
-              className="w-full px-2 py-0.5 text-xs font-mono text-right bg-surface border border-primary rounded text-on-surface focus:outline-none"
-            />
+            <div className="absolute right-1 top-1/2 -translate-y-1/2 z-30 flex items-center gap-1.5 p-1 bg-surface border border-primary rounded-xl shadow-lg min-w-[200px] sm:min-w-[280px] md:min-w-[340px]">
+              <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                editingCell?.value?.startsWith('=') ? 'bg-secondary/20 text-secondary' : 'text-on-surface-variant'
+              }`}>
+                fx
+              </span>
+              <input
+                ref={qtyInputRef}
+                type="text"
+                value={editingCell?.value ?? ''}
+                onChange={(e) => onUpdateEditingCellValue(e.target.value)}
+                onBlur={() => onCommitEditCell('cantidad')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Tab') {
+                    e.preventDefault();
+                    if (onNavigateCell) {
+                      onNavigateCell(e.shiftKey ? 'prev' : 'next', 'cantidad');
+                    } else {
+                      onCommitEditCell('cantidad');
+                    }
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (onNavigateCell) {
+                      onNavigateCell('next', 'cantidad');
+                    } else {
+                      onCommitEditCell('cantidad');
+                    }
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    onCancelEditCell();
+                  }
+                }}
+                placeholder="10 o =superficie * 2"
+                className="flex-1 px-2 py-1 text-xs font-mono bg-surface border border-outline-variant/40 rounded-lg text-on-surface focus:outline-none focus:border-primary"
+              />
+              {liveEvaluatedQty !== null && (
+                <span
+                  className="text-[11px] font-mono font-semibold px-1.5 py-0.5 rounded bg-primary-container text-on-primary-container shrink-0"
+                  title="Resultado estimado en vivo"
+                >
+                  ≈ {liveEvaluatedQty} {item.unidad || 'u'}
+                </span>
+              )}
+            </div>
           ) : (
             <div
               onDoubleClick={(e) => {
                 e.stopPropagation();
                 onStartEditCell('cantidad');
               }}
-              className="truncate font-mono text-xs text-on-surface hover:text-primary transition-colors cursor-text"
+              className="truncate font-mono text-xs text-on-surface hover:text-primary transition-colors cursor-text flex items-center justify-end gap-1"
               title="Doble clic para editar cantidad o fórmula"
             >
               {item.formulaCantidad ? (
-                <span className="text-secondary font-semibold" title={item.formulaCantidad}>
-                  {item.cantidad} {item.unidad || 'u'}
+                <span className="flex items-center gap-1 text-secondary font-semibold" title={`Fórmula: ${item.formulaCantidad}`}>
+                  <span className="text-[10px] px-1 py-0.2 rounded bg-secondary/15 text-secondary">fx</span>
+                  <span>{item.cantidad} {item.unidad || 'u'}</span>
                 </span>
               ) : (
                 <span>
@@ -255,19 +356,36 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
           )}
         </div>
 
-        {/* ─── Columna 3: Total ─── */}
-        <div className="w-32 shrink-0 px-2 text-right">
-          <span
-            className={`font-mono font-medium text-xs ${
-              totalViewMode === 'costo' ? 'text-on-surface' : 'text-secondary font-semibold'
-            }`}
-          >
-            {formatARS(totalAmount)}
+        {/* ─── Columna 3: Costo Directo Unitario ─── */}
+        <div className="hidden sm:block w-24 sm:w-28 shrink-0 px-2 text-right font-mono text-xs text-on-surface-variant">
+          <span title="Costo directo por unidad">
+            {formatARS(costoUnitario)}
+          </span>
+        </div>
+
+        {/* ─── Columna 4: Costo Directo Total ─── */}
+        <div className="w-28 sm:w-32 shrink-0 px-2 text-right font-mono text-xs font-medium text-on-surface">
+          <span title="Costo directo total de materiales, mano de obra y servicios">
+            {formatARS(costoDirectoTotal)}
+          </span>
+        </div>
+
+        {/* ─── Columna 5: Precio Unitario Final ─── */}
+        <div className="hidden md:block w-24 sm:w-28 shrink-0 px-2 text-right font-mono text-xs text-primary/80 font-medium">
+          <span title="Precio de venta unitario final (con gastos indirectos, margen e impuestos)">
+            {formatARS(precioVentaUnitario)}
+          </span>
+        </div>
+
+        {/* ─── Columna 6: Precio Final Total ─── */}
+        <div className="w-28 sm:w-36 shrink-0 px-2 text-right font-mono text-xs sm:text-sm font-bold text-primary">
+          <span title="Precio final de venta total de la partida">
+            {formatARS(precioFinalItem)}
           </span>
         </div>
 
         {/* ─── Acciones Rápidas (visibles en hover o al seleccionar) ─── */}
-        <div className="flex items-center gap-1 w-24 justify-end shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1 w-20 sm:w-24 justify-end shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
           <button
             type="button"
             onClick={(e) => {
@@ -292,17 +410,45 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
             <ArrowDown className="w-3 h-3" />
           </button>
 
+          {/* Configurar parámetros y variables (disponible para todas las partidas) */}
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onOpenDetail();
+              if (onOpenQuickParamModal) {
+                onOpenQuickParamModal(item.id);
+              } else if (isParametric && onOpenParametric) {
+                onOpenParametric();
+              } else {
+                if (!isExpanded) {
+                  onToggleExpand();
+                }
+                setOverrideTab('parametros');
+              }
             }}
-            className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
-            title="Abrir inspector de la partida"
+            className={`p-1 rounded transition-colors cursor-pointer ${
+              (item.parametros && item.parametros.length > 0) || isParametric
+                ? 'text-primary hover:bg-primary-container/40'
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
+            }`}
+            title="Configurar parámetros y variables de la partida"
           >
-            <PanelRightOpen className="w-3 h-3" />
+            <Sliders className="w-3 h-3" />
           </button>
+
+          {onSaveAsTareaTipo && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSaveAsTareaTipo();
+              }}
+              className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-secondary transition-colors cursor-pointer"
+              title="Guardar como Tarea Tipo en Catálogo"
+            >
+              <BookmarkPlus className="w-3 h-3" />
+            </button>
+          )}
 
           <button
             type="button"
@@ -318,12 +464,14 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
         </div>
       </div>
 
-      {/* ─── Lista Hija Desplegada de Rubros (Materiales, Mano de Obra, Servicios) ─── */}
+      {/* ─── Lista Hija Desplegada de Rubros (Materiales, Mano de Obra, Servicios, Parámetros, Notas) ─── */}
       {isExpanded && (
         <TreeSheetItemBreakdown
           item={item}
           insumosMap={insumosMap}
           manoObraMap={manoObraMap}
+          calculosVariables={calculosVariables}
+          initialTab={overrideTab}
           onAddMaterial={onAddMaterial}
           onRemoveMaterial={onRemoveMaterial}
           onUpdateMaterialFormula={onUpdateMaterialFormula}
@@ -333,6 +481,8 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
           onUpdateLaborFormula={onUpdateLaborFormula}
           onAddService={onAddService}
           onRemoveService={onRemoveService}
+          onUpdateNotasTecnicas={onUpdateNotas}
+          onUpdateParametros={onUpdateParametros}
         />
       )}
     </div>

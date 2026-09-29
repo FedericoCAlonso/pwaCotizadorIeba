@@ -9,15 +9,19 @@ import {
   Check
 } from 'lucide-react';
 import { CapituloPresupuesto, ItemPresupuesto } from '../../../core/types';
-import { TotalViewMode } from '../../../viewmodels/useTreeSheetViewModel';
-import { formatARS } from '../../../core/calculations';
+import { formatARS, CapituloTotalResultado } from '../../../core/calculations';
 
 interface TreeSheetChapterRowProps {
   capitulo: CapituloPresupuesto;
   items: ItemPresupuesto[];
   isCollapsed: boolean;
   isSelected: boolean;
-  totalViewMode: TotalViewMode;
+  capituloTotales?: CapituloTotalResultado | {
+    costoDirecto?: number;
+    precioFinal?: number;
+    costoDirectoTotal?: number;
+    precioVentaTotal?: number;
+  };
   onToggleCollapse: () => void;
   onSelect: () => void;
   onAddItem: () => void;
@@ -30,7 +34,7 @@ export const TreeSheetChapterRow: React.FC<TreeSheetChapterRowProps> = ({
   items,
   isCollapsed,
   isSelected,
-  totalViewMode,
+  capituloTotales,
   onToggleCollapse,
   onSelect,
   onAddItem,
@@ -73,13 +77,18 @@ export const TreeSheetChapterRow: React.FC<TreeSheetChapterRowProps> = ({
     }
   };
 
-  // Subtotal del capítulo según modo de vista
-  const chapterTotal = items.reduce((acc, it) => {
-    if (totalViewMode === 'costo') {
-      return acc + (it.costoDirectoTotal || 0);
-    }
-    return acc + (it.precioFinalItem ?? it.precioVentaTotal ?? it.costoDirectoTotal ?? 0);
-  }, 0);
+  // Subtotales del capítulo calculados con precisión por el motor
+  const chapterCostoDirecto =
+    ('costoDirectoTotal' in (capituloTotales || {})
+      ? (capituloTotales as CapituloTotalResultado).costoDirectoTotal
+      : (capituloTotales as { costoDirecto?: number })?.costoDirecto) ??
+    items.reduce((acc, it) => acc + (it.costoDirectoTotal || 0), 0);
+
+  const chapterPrecioFinal =
+    ('precioVentaTotal' in (capituloTotales || {})
+      ? (capituloTotales as CapituloTotalResultado).precioVentaTotal
+      : (capituloTotales as { precioFinal?: number })?.precioFinal) ??
+    items.reduce((acc, it) => acc + (it.precioFinalItem ?? it.precioVentaTotal ?? it.costoDirectoTotal ?? 0), 0);
 
   return (
     <div
@@ -152,16 +161,25 @@ export const TreeSheetChapterRow: React.FC<TreeSheetChapterRowProps> = ({
         )}
       </div>
 
-      {/* Columna Derecha: Subtotal del capítulo y Acciones rápidas */}
-      <div className="flex items-center gap-3 shrink-0">
-        {/* Subtotal del capítulo */}
-        <div className="text-right">
-          <span className="text-xs font-mono font-bold text-on-surface">
-            {formatARS(chapterTotal)}
-          </span>
-          <span className="block text-[10px] text-on-surface-variant/80 uppercase tracking-wider font-semibold">
-            {totalViewMode === 'costo' ? 'Subtotal Costo' : 'Subtotal Venta'}
-          </span>
+      {/* Columna Derecha: Subtotales de Costo Directo y Precio Final y Acciones */}
+      <div className="flex items-center gap-3 sm:gap-5 shrink-0">
+        <div className="flex items-center gap-3 sm:gap-6 text-right">
+          <div className="hidden sm:block">
+            <span className="text-xs font-mono font-medium text-on-surface-variant">
+              {formatARS(chapterCostoDirecto)}
+            </span>
+            <span className="block text-[9px] text-on-surface-variant/70 uppercase tracking-wider font-semibold">
+              Costo Directo
+            </span>
+          </div>
+          <div>
+            <span className="text-xs sm:text-sm font-mono font-bold text-primary">
+              {formatARS(chapterPrecioFinal)}
+            </span>
+            <span className="block text-[9px] text-primary/80 uppercase tracking-wider font-bold">
+              Precio Final
+            </span>
+          </div>
         </div>
 
         {/* Acciones de capítulo visibles en hover o selección */}

@@ -88,6 +88,15 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
   const [isQuoteParametersOpen, setIsQuoteParametersOpen] = useState(false);
   const [isCatalogPickerOpen, setIsCatalogPickerOpen] = useState(false);
   const [catalogPickerTargetChapterId, setCatalogPickerTargetChapterId] = useState<string | undefined>(undefined);
+  const [quickParamModalItemId, setQuickParamModalItemId] = useState<string | null>(null);
+
+  const handleOpenQuickParamModal = useCallback((itemId: string) => {
+    setQuickParamModalItemId(itemId);
+  }, []);
+
+  const handleCloseQuickParamModal = useCallback(() => {
+    setQuickParamModalItemId(null);
+  }, []);
 
   // Seleccionar ítem activo
   const selectedItem = useMemo(() => {
@@ -425,6 +434,53 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
     [handleMoveItemToChapter]
   );
 
+  // Navegación fluida de celda en celda (Tab, Shift+Tab, Enter)
+  const handleNavigateCell = useCallback(
+    (direction: 'next' | 'prev', fromField: 'descripcion' | 'cantidad') => {
+      const currentCell = editingCellRef.current || editingCell;
+      const targetItemId = currentCell?.itemId || selectedItemId;
+      if (!targetItemId) return;
+
+      // Confirmar valor actual antes de cambiar de celda
+      handleCommitEditCell(targetItemId, fromField);
+
+      // Obtener secuencia de partidas visibles
+      const visibleItemRows = visibleRows.filter((r) => r.type === 'item');
+      const currentIndex = visibleItemRows.findIndex((r) => r.id === targetItemId);
+      if (currentIndex === -1) return;
+
+      if (direction === 'next') {
+        if (fromField === 'descripcion') {
+          // De descripción a cantidad en la misma partida
+          handleStartEditCell(targetItemId, 'cantidad');
+        } else {
+          // De cantidad a descripción en la siguiente partida
+          if (currentIndex + 1 < visibleItemRows.length) {
+            const nextItem = visibleItemRows[currentIndex + 1];
+            handleStartEditCell(nextItem.id, 'descripcion');
+          } else {
+            // Última partida: crear una nueva automáticamente
+            const currentItem = items.find((it) => it.id === targetItemId);
+            handleCreateItem(currentItem?.capituloId, 'after', targetItemId);
+          }
+        }
+      } else {
+        // Dirección 'prev' (Shift+Tab)
+        if (fromField === 'cantidad') {
+          // De cantidad a descripción en la misma partida
+          handleStartEditCell(targetItemId, 'descripcion');
+        } else {
+          // De descripción a cantidad en la partida anterior
+          if (currentIndex - 1 >= 0) {
+            const prevItem = visibleItemRows[currentIndex - 1];
+            handleStartEditCell(prevItem.id, 'cantidad');
+          }
+        }
+      }
+    },
+    [editingCell, selectedItemId, handleCommitEditCell, visibleRows, handleStartEditCell, items, handleCreateItem]
+  );
+
   // Manejador global de teclado en el Árbol-Planilla
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -445,31 +501,10 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
           handleCancelEditCell();
         } else if (e.key === 'Enter') {
           e.preventDefault();
-          const { itemId, field } = editingCell;
-          handleCommitEditCell(itemId, field);
-          if (field === 'descripcion') {
-            // Avanzar a editar la cantidad
-            handleStartEditCell(itemId, 'cantidad');
-          } else {
-            // Terminar edición y crear hermano con Enter
-            handleCreateItem(selectedItem?.capituloId, 'after', itemId);
-          }
+          handleNavigateCell('next', editingCell.field);
         } else if (e.key === 'Tab') {
           e.preventDefault();
-          const { itemId, field } = editingCell;
-          handleCommitEditCell(itemId, field);
-          if (e.shiftKey) {
-            if (field === 'cantidad') {
-              handleStartEditCell(itemId, 'descripcion');
-            }
-          } else {
-            if (field === 'descripcion') {
-              handleStartEditCell(itemId, 'cantidad');
-            } else {
-              // Tab desde cantidad crea o pasa a la siguiente fila
-              handleCreateItem(selectedItem?.capituloId, 'after', itemId);
-            }
-          }
+          handleNavigateCell(e.shiftKey ? 'prev' : 'next', editingCell.field);
         }
         return;
       }
@@ -519,14 +554,33 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
           // Crear nuevo ítem general
           handleCreateItem();
         }
+      } else if (e.key === 'F2') {
+        e.preventDefault();
+        if (selectedItemId) {
+          handleStartEditCell(selectedItemId, 'descripcion');
+        }
       } else if (e.key === 'Tab') {
         e.preventDefault();
         if (selectedItemId) {
-          if (e.shiftKey) {
-            handleUnindentItem(selectedItemId);
-          } else {
-            handleIndentItem(selectedItemId);
-          }
+          handleStartEditCell(selectedItemId, 'descripcion');
+        }
+      } else if (e.altKey && e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (selectedItemId) handleIndentItem(selectedItemId);
+      } else if (e.altKey && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (selectedItemId) handleUnindentItem(selectedItemId);
+      } else if (e.key === 'ArrowRight') {
+        if (selectedChapterId && collapsedChapters.has(selectedChapterId)) {
+          toggleChapterCollapse(selectedChapterId);
+        } else if (selectedItemId && !expandedItems.has(selectedItemId)) {
+          toggleItemExpand(selectedItemId);
+        }
+      } else if (e.key === 'ArrowLeft') {
+        if (selectedChapterId && !collapsedChapters.has(selectedChapterId)) {
+          toggleChapterCollapse(selectedChapterId);
+        } else if (selectedItemId && expandedItems.has(selectedItemId)) {
+          toggleItemExpand(selectedItemId);
         }
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedItemId && !editingCell) {
@@ -539,7 +593,7 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
       isCommandPaletteOpen,
       editingCell,
       handleCancelEditCell,
-      handleCommitEditCell,
+      handleNavigateCell,
       handleStartEditCell,
       handleCreateItem,
       selectedItem,
@@ -549,7 +603,11 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
       handleSelectRow,
       handleUnindentItem,
       handleIndentItem,
-      handleRemoveItem
+      handleRemoveItem,
+      collapsedChapters,
+      toggleChapterCollapse,
+      expandedItems,
+      toggleItemExpand
     ]
   );
 
@@ -1018,6 +1076,11 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
     setIsQuoteParametersOpen,
     isCatalogPickerOpen,
     setIsCatalogPickerOpen,
+    catalogPickerTargetChapterId,
+    setCatalogPickerTargetChapterId,
+    quickParamModalItemId,
+    handleOpenQuickParamModal,
+    handleCloseQuickParamModal,
 
     // Acciones de UI y teclado
     handleSelectRow,
@@ -1031,6 +1094,7 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
     handleUpdateEditingCellValue,
     handleCommitEditCell,
     handleCancelEditCell,
+    handleNavigateCell,
     handleKeyDown,
 
     // Acciones sobre árbol e ítems
