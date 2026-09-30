@@ -4,13 +4,9 @@ import {
   Unlink2,
   FileSpreadsheet,
   AlertCircle,
-  ArrowUp,
-  ArrowDown,
-  Trash2,
-  Sliders,
-  BookmarkPlus,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  Edit2
 } from 'lucide-react';
 import {
   ItemPresupuesto,
@@ -22,6 +18,8 @@ import { EditingCellState } from '../../../viewmodels/useTreeSheetViewModel';
 import { formatARS, safeNum } from '../../../core/calculations';
 import { evaluateMathExpression } from '../../../core/mathEvaluator';
 import { TreeSheetItemBreakdown } from './TreeSheetItemBreakdown';
+import { ItemUnidadSelector } from './ItemUnidadSelector';
+import { ItemRowActions } from './ItemRowActions';
 
 interface TreeSheetRowProps {
   item: ItemPresupuesto;
@@ -41,6 +39,8 @@ interface TreeSheetRowProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
+  onDuplicate?: () => void;
+  onUpdateItemUnidad?: (nuevaUnidad: string) => void;
   onSaveAsTareaTipo?: () => void;
   onOpenParametric?: () => void;
   onUpdateNotas?: (notas: string, exclusiones?: string) => void;
@@ -75,6 +75,8 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
   onMoveUp,
   onMoveDown,
   onRemove,
+  onDuplicate,
+  onUpdateItemUnidad,
   onSaveAsTareaTipo,
   onOpenParametric,
   onUpdateNotas,
@@ -181,10 +183,18 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
     }
   };
 
+  const handleOpenBreakdownTab = (tab: 'materiales' | 'mano_obra' | 'servicios') => {
+    setOverrideTab(tab);
+    if (!isExpanded) {
+      onToggleExpand();
+    }
+  };
+
   const insumosCount = item.insumosSnapshot?.length || 0;
   const moCount = item.manoObraSnapshot?.length || 0;
   const servCount = item.serviciosTercerizados?.length || 0;
   const totalComponentes = insumosCount + moCount + servCount;
+  const hasParams = Boolean(item.parametros && item.parametros.length > 0);
 
   return (
     <div className="flex flex-col border-b border-outline-variant/15">
@@ -199,7 +209,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
             : 'bg-surface hover:bg-surface-container-low'
         }`}
       >
-        {/* ─── Columna 1: Descripción con botón expandir ─── */}
+        {/* ─── Columna 1: Descripción con expandir, badges y botón lápiz ─── */}
         <div className="flex items-center gap-1.5 flex-1 min-w-0 pr-2 pl-2">
           {/* Botón para expandir/plegar rubros hijos */}
           <button
@@ -209,7 +219,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               onToggleExpand();
             }}
             className="p-1 -ml-1 text-on-surface-variant hover:text-primary rounded-lg transition-colors cursor-pointer"
-            title={isExpanded ? 'Plegar rubros hijos' : 'Desplegar rubros (Materiales, Mano de Obra, Servicios, Notas)'}
+            title={isExpanded ? 'Plegar despiece' : 'Desplegar despiece (Materiales, Mano de Obra, Servicios, Notas)'}
           >
             {isExpanded ? (
               <ChevronDown className="w-3.5 h-3.5 text-primary" />
@@ -262,43 +272,106 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               className="w-full px-2 py-0.5 text-sm bg-surface border border-primary rounded text-on-surface focus:outline-none"
             />
           ) : (
-            <div
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                onStartEditCell('descripcion');
-              }}
-              className="truncate text-on-surface flex items-center gap-1.5"
-              title="Doble clic para editar descripción"
-            >
-              <span className="truncate font-medium">{item.descripcion}</span>
-              {totalComponentes > 0 && !isExpanded && (
-                <span
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <div
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  onStartEditCell('descripcion');
+                }}
+                className="truncate text-on-surface font-medium hover:text-primary transition-colors cursor-text"
+                title="Doble clic o clic en el lápiz para editar descripción"
+              >
+                {item.descripcion}
+              </div>
+
+              {/* Botón de lápiz visible para editar nombre con un solo clic */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStartEditCell('descripcion');
+                }}
+                className="p-0.5 rounded text-on-surface-variant/40 hover:text-primary hover:bg-surface-container-high transition-colors cursor-pointer shrink-0"
+                title="Editar descripción del ítem"
+                aria-label="Editar descripción"
+              >
+                <Edit2 className="w-3 h-3" />
+              </button>
+
+              {/* Botón para asignar despiece si no tiene componentes */}
+              {totalComponentes === 0 && (
+                <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onToggleExpand();
+                    handleOpenBreakdownTab('materiales');
                   }}
-                  className="text-[10px] px-1.5 py-0.2 rounded-full bg-surface-container-high text-on-surface-variant font-mono shrink-0 hover:bg-primary-container hover:text-on-primary-container transition-colors"
-                  title="Clic para ver componentes"
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.2 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-on-primary transition-all shrink-0 cursor-pointer"
+                  title="Asignar materiales, mano de obra o servicios a este ítem"
                 >
-                  {totalComponentes} {totalComponentes === 1 ? 'componente' : 'componentes'}
-                </span>
+                  <span>+ Despiece</span>
+                </button>
               )}
-              {item.parametros && item.parametros.length > 0 && (
+
+              {/* Chips interactivos de componentes por rubro */}
+              {insumosCount > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenBreakdownTab('materiales');
+                  }}
+                  className="text-[10px] px-1.5 py-0.2 rounded bg-surface-container-high text-on-surface-variant font-mono shrink-0 hover:bg-primary-container hover:text-on-primary-container transition-colors cursor-pointer"
+                  title="Ver y editar materiales asignados"
+                >
+                  📦 {insumosCount} {insumosCount === 1 ? 'mat' : 'mat'}
+                </button>
+              )}
+
+              {moCount > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenBreakdownTab('mano_obra');
+                  }}
+                  className="text-[10px] px-1.5 py-0.2 rounded bg-surface-container-high text-on-surface-variant font-mono shrink-0 hover:bg-secondary-container hover:text-on-secondary-container transition-colors cursor-pointer"
+                  title="Ver y editar mano de obra asignada"
+                >
+                  ⚡ {moCount} {moCount === 1 ? 'mo' : 'mo'}
+                </button>
+              )}
+
+              {servCount > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenBreakdownTab('servicios');
+                  }}
+                  className="text-[10px] px-1.5 py-0.2 rounded bg-surface-container-high text-on-surface-variant font-mono shrink-0 hover:bg-tertiary-container hover:text-on-tertiary-container transition-colors cursor-pointer"
+                  title="Ver y editar servicios tercerizados"
+                >
+                  🚚 {servCount} {servCount === 1 ? 'serv' : 'serv'}
+                </button>
+              )}
+
+              {hasParams && (
                 <button
                   type="button"
                   onClick={handleOpenParams}
                   className="text-[10px] px-1.5 py-0.2 rounded bg-secondary-container/40 text-secondary hover:bg-secondary-container hover:text-on-secondary-container font-mono shrink-0 cursor-pointer transition-colors"
                   title="Clic para configurar parámetros del ítem"
                 >
-                  {item.parametros.length} p
+                  ⚙️ {item.parametros?.length} p
                 </button>
               )}
             </div>
           )}
         </div>
 
-        {/* ─── Columna 2: Cantidad y Fórmulas ─── */}
-        <div className="relative w-24 sm:w-28 md:w-32 shrink-0 px-2 text-right">
+        {/* ─── Columna 2: Cantidad, Fórmulas y Unidad ─── */}
+        <div className="relative w-28 sm:w-32 md:w-36 shrink-0 px-2 text-right flex items-center justify-end gap-1">
           {isEditingQty ? (
             <div className="absolute right-1 top-1/2 -translate-y-1/2 z-30 flex items-center gap-1.5 p-1 bg-surface border border-primary rounded-xl shadow-lg min-w-[200px] sm:min-w-[280px] md:min-w-[340px]">
               <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
@@ -335,27 +408,45 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
                   className="text-[11px] font-mono font-semibold px-1.5 py-0.5 rounded bg-primary-container text-on-primary-container shrink-0"
                   title="Resultado estimado en vivo"
                 >
-                  ≈ {liveEvaluatedQty} {item.unidad || 'u'}
+                  ≈ {liveEvaluatedQty}
                 </span>
+              )}
+              {onUpdateItemUnidad && (
+                <ItemUnidadSelector
+                  unidad={item.unidad || 'u'}
+                  onChangeUnidad={onUpdateItemUnidad}
+                />
               )}
             </div>
           ) : (
-            <div
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                onStartEditCell('cantidad');
-              }}
-              className="truncate font-mono text-xs text-on-surface hover:text-primary transition-colors cursor-text flex items-center justify-end gap-1"
-              title="Doble clic para editar cantidad o fórmula"
-            >
-              {item.formulaCantidad ? (
-                <span className="flex items-center gap-1 text-secondary font-semibold" title={`Fórmula: ${item.formulaCantidad}`}>
-                  <span className="text-[10px] px-1 py-0.2 rounded bg-secondary/15 text-secondary">fx</span>
-                  <span>{item.cantidad} {item.unidad || 'u'}</span>
-                </span>
+            <div className="flex items-center justify-end gap-1">
+              <span
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  onStartEditCell('cantidad');
+                }}
+                className="font-mono text-xs text-on-surface hover:text-primary transition-colors cursor-text"
+                title="Doble clic para editar cantidad o fórmula"
+              >
+                {item.formulaCantidad ? (
+                  <span className="flex items-center gap-1 text-secondary font-semibold" title={`Fórmula: ${item.formulaCantidad}`}>
+                    <span className="text-[10px] px-1 py-0.2 rounded bg-secondary/15 text-secondary">fx</span>
+                    <span>{item.cantidad}</span>
+                  </span>
+                ) : (
+                  <span>{item.cantidad}</span>
+                )}
+              </span>
+
+              {/* Selector interactivo de unidad de medida */}
+              {onUpdateItemUnidad ? (
+                <ItemUnidadSelector
+                  unidad={item.unidad || 'u'}
+                  onChangeUnidad={onUpdateItemUnidad}
+                />
               ) : (
-                <span>
-                  {item.cantidad} {item.unidad || 'u'}
+                <span className="text-xs font-mono text-on-surface-variant font-medium">
+                  {item.unidad || 'u'}
                 </span>
               )}
             </div>
@@ -390,71 +481,22 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
           </span>
         </div>
 
-        {/* ─── Acciones Rápidas (visibles en hover o al seleccionar) ─── */}
-        <div className="flex items-center gap-1 w-20 sm:w-24 justify-end shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onMoveUp();
-            }}
-            className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-            title="Mover arriba"
-          >
-            <ArrowUp className="w-3 h-3" />
-          </button>
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onMoveDown();
-            }}
-            className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-            title="Mover abajo"
-          >
-            <ArrowDown className="w-3 h-3" />
-          </button>
-
-          {/* Configurar parámetros y variables (disponible para todos los ítems) */}
-          <button
-            type="button"
-            onClick={handleOpenParams}
-            className={`p-1 rounded transition-colors cursor-pointer ${
-              (item.parametros && item.parametros.length > 0) || isParametric
-                ? 'text-primary hover:bg-primary-container/40'
-                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
-            }`}
-            title="Configurar parámetros y variables del ítem"
-          >
-            <Sliders className="w-3 h-3" />
-          </button>
-
-          {onSaveAsTareaTipo && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSaveAsTareaTipo();
-              }}
-              className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-secondary transition-colors cursor-pointer"
-              title="Guardar como Tarea Tipo en Catálogo"
-            >
-              <BookmarkPlus className="w-3 h-3" />
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove();
-            }}
-            className="p-1 rounded hover:bg-error-container text-on-surface-variant hover:text-error transition-colors cursor-pointer"
-            title="Eliminar ítem"
-          >
-            <Trash2 className="w-3 h-3" />
-          </button>
+        {/* ─── Acciones Rápidas Agrupadas ─── */}
+        <div className="w-24 sm:w-28 shrink-0 flex justify-end">
+          <ItemRowActions
+            isSelected={isSelected}
+            isExpanded={isExpanded}
+            isParametric={isParametric}
+            hasParams={hasParams}
+            onToggleExpand={onToggleExpand}
+            onStartEditName={() => onStartEditCell('descripcion')}
+            onOpenParams={handleOpenParams}
+            onDuplicate={onDuplicate}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onSaveAsTareaTipo={onSaveAsTareaTipo}
+            onRemove={onRemove}
+          />
         </div>
       </div>
 

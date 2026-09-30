@@ -48,7 +48,8 @@ describe('MobileTreeItemCard', () => {
     expect(screen.getByText('Canalización con caño corrugado 3/4"')).toBeDefined();
     expect(screen.getByText('12')).toBeDefined();
     expect(screen.getByText('m')).toBeDefined();
-    expect(screen.getByText(/1\s+componente/)).toBeDefined();
+    expect(screen.getByText(/1\s+mat/)).toBeDefined();
+    expect(screen.getByText(/1\s+comp/)).toBeDefined();
   });
 
   it('los steppers rápidos [-] y [+] disparan onQuickStepQty(-1) y (+1)', () => {

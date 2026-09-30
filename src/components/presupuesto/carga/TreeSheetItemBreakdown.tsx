@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Layers,
   Wrench,
@@ -65,6 +65,13 @@ export const TreeSheetItemBreakdown: React.FC<TreeSheetItemBreakdownProps> = ({
     type: 'material' | 'mo';
     index: number;
   } | null>(null);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+      setSelectedFormulaIndex(null);
+    }
+  }, [initialTab]);
 
   const insumos = item.insumosSnapshot || [];
   const manoObra = item.manoObraSnapshot || [];

@@ -180,8 +180,10 @@
               "Organización por Rubros (Nivel 1): El botón superior '+ Rubro' permite crear secciones para estructurar etapas de obra (ej. Acometida, Canalizaciones, Circuitos) con subtotales automáticos por rubro.",
               "Inserción de Ítems (Nivel 2): Dentro de cada rubro puedes crear ítems libres ('+ Ítem') con edición directa de nombre o incorporar tareas completas del catálogo oficial ('+ Catálogo') asignadas directamente al rubro.",
               "Invariante Estricta de Rubro: Todo ítem pertenece obligatoriamente a un rubro; si comienzas una cotización vacía o insertas desde el catálogo, el sistema garantiza automáticamente la creación y asignación del rubro correspondiente, sin partidas huérfanas.",
-              "Desglose Dinámico en Grilla: Cada renglón permite expandir en un clic el despiece de insumos, horas de mano de obra y servicios subcontratados directamente en la tabla.",
-              "Acciones Rápidas: Duplicación, eliminación, cambio de rubro y reordenamiento de renglones al instante."
+              "Edición Integral de Ítems con 1 Clic: Cada renglón cuenta con botón visible de lápiz (o doble clic / F2) para editar la descripción, selector desplegable de unidades de medida (u, m, m², boca, gl, hs, kg, etc.) y chips interactivos de componentes.",
+              "Asignación Directa de Materiales, Mano de Obra y Servicios: Si un ítem no tiene componentes, el botón '+ Despiece' abre directamente la pestaña de materiales; si ya tiene componentes, los chips de Materiales (📦), Mano de Obra (⚡) y Servicios (🚚) abren en un clic la sección exacta para agregar o ajustar recursos.",
+              "Botonera Ergonómica Agrupada: En el extremo derecho de cada renglón dispones de accesos agrupados para alternar Despiece APU, Configurar Parámetros/Variables, Duplicar ítem (copia idéntica con todos sus componentes), Mover arriba/abajo, Guardar en Catálogo y Eliminar.",
+              "Experiencia Móvil ('Un Ojo, Una Mano'): Tarjetas táctiles con chips de componentes, stepper rápido de cantidad y Action Sheet completo con renombrado instantáneo, cambio de unidad, duplicación y accesos directos por pestaña."
             ]
           },
           {

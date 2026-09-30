@@ -562,4 +562,55 @@ describe('useTreeSheetViewModel - Árbol-Planilla de Cotización', () => {
       expect(items[0].capituloId).toBe(mockCapitulos[0].id);
     });
   });
+
+  describe('Edición y Composición de Ítems (SRP & Ergonomía)', () => {
+    it('handleUpdateItem permite modificar la descripción y desacopla si cambian snapshots', () => {
+      const { hook, getItems } = createHook();
+
+      act(() => {
+        hook.result.current.handleUpdateItem('it-1', {
+          descripcion: 'Canalización embutida reforzada 1"'
+        });
+      });
+
+      const updated = getItems().find((i) => i.id === 'it-1');
+      expect(updated?.descripcion).toBe('Canalización embutida reforzada 1"');
+    });
+
+    it('handleUpdateItemUnidad cambia la unidad de medida y normaliza strings vacíos', () => {
+      const { hook, getItems } = createHook();
+
+      act(() => {
+        hook.result.current.handleUpdateItemUnidad('it-1', 'boca');
+      });
+
+      expect(getItems().find((i) => i.id === 'it-1')?.unidad).toBe('boca');
+
+      act(() => {
+        hook.result.current.handleUpdateItemUnidad('it-1', '   ');
+      });
+
+      expect(getItems().find((i) => i.id === 'it-1')?.unidad).toBe('u');
+    });
+
+    it('handleDuplicateItem clona un ítem con sus snapshots y lo inserta a continuación', () => {
+      const { hook, getItems } = createHook();
+      const initialCount = getItems().length;
+
+      let newId: string | null = null;
+      act(() => {
+        newId = hook.result.current.handleDuplicateItem('it-1');
+      });
+
+      const items = getItems();
+      expect(items.length).toBe(initialCount + 1);
+      expect(newId).toBeTruthy();
+
+      const duplicated = items.find((i) => i.id === newId);
+      expect(duplicated).toBeDefined();
+      expect(duplicated?.descripcion).toContain('(copia)');
+      expect(duplicated?.capituloId).toBe('cap-1');
+      expect(duplicated?.insumosSnapshot?.length).toBe(items[0].insumosSnapshot?.length);
+    });
+  });
 });

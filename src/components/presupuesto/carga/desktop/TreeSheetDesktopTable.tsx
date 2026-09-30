@@ -153,6 +153,8 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
                           onMoveUp={() => vm.handleMoveItem(item.id, 'up')}
                           onMoveDown={() => vm.handleMoveItem(item.id, 'down')}
                           onRemove={() => vm.handleRemoveItem(item.id)}
+                          onDuplicate={() => vm.handleDuplicateItem(item.id)}
+                          onUpdateItemUnidad={(nuevaUnidad) => vm.handleUpdateItemUnidad(item.id, nuevaUnidad)}
                           onSaveAsTareaTipo={onSaveAsTareaTipo ? () => onSaveAsTareaTipo(item) : undefined}
                           onOpenParametric={
                             onOpenParametricJobModal

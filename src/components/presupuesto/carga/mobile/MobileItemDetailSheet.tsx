@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Layers,
@@ -8,7 +8,8 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
-  Check
+  Check,
+  Edit2
 } from 'lucide-react';
 import {
   ItemPresupuesto,
@@ -36,8 +37,10 @@ export interface MobileItemDetailSheetProps {
   calculosVariables?: Record<string, number | string>;
   currentIndex?: number;
   totalItems?: number;
+  initialTab?: MobileDetailTab;
   onPrevItem?: () => void;
   onNextItem?: () => void;
+  onUpdateItem?: (updates: Partial<ItemPresupuesto>) => void;
   onAddMaterial: (material: Insumo, cantidad: number, formula?: string) => void;
   onRemoveMaterial: (index: number) => void;
   onUpdateMaterialFormula: (index: number, formula: string) => void;
@@ -60,8 +63,10 @@ export const MobileItemDetailSheet: React.FC<MobileItemDetailSheetProps> = ({
   calculosVariables,
   currentIndex,
   totalItems,
+  initialTab = 'materiales',
   onPrevItem,
   onNextItem,
+  onUpdateItem,
   onAddMaterial,
   onRemoveMaterial,
   onUpdateMaterialFormula,
@@ -75,7 +80,22 @@ export const MobileItemDetailSheet: React.FC<MobileItemDetailSheetProps> = ({
   onUpdateParametros
 }) => {
   const haptics = useHaptics();
-  const [activeTab, setActiveTab] = useState<MobileDetailTab>('materiales');
+  const [activeTab, setActiveTab] = useState<MobileDetailTab>(initialTab);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState('');
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (item) {
+      setEditedTitle(item.descripcion || '');
+      setIsEditingTitle(false);
+    }
+  }, [item?.id]);
 
   useEscapeKey(isOpen, onClose);
 
@@ -119,9 +139,62 @@ export const MobileItemDetailSheet: React.FC<MobileItemDetailSheetProps> = ({
                   {item.cantidad} {item.unidad || 'u'}
                 </span>
               </div>
-              <h3 className="text-base font-bold text-on-surface truncate mt-0.5 leading-snug">
-                {item.descripcion || 'Sin descripción'}
-              </h3>
+              {isEditingTitle ? (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <input
+                    type="text"
+                    value={editedTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        if (editedTitle.trim() && onUpdateItem) {
+                          onUpdateItem({ descripcion: editedTitle.trim() });
+                        }
+                        setIsEditingTitle(false);
+                      } else if (e.key === 'Escape') {
+                        setEditedTitle(item.descripcion || '');
+                        setIsEditingTitle(false);
+                      }
+                    }}
+                    className="flex-1 px-2 py-1 text-sm bg-surface border border-primary rounded-lg text-on-surface focus:outline-none"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (editedTitle.trim() && onUpdateItem) {
+                        onUpdateItem({ descripcion: editedTitle.trim() });
+                      }
+                      setIsEditingTitle(false);
+                    }}
+                    className="p-1.5 rounded-lg bg-primary text-on-primary cursor-pointer"
+                    aria-label="Confirmar cambio de nombre"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <h3 className="text-base font-bold text-on-surface truncate leading-snug">
+                    {item.descripcion || 'Sin descripción'}
+                  </h3>
+                  {onUpdateItem && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.selection();
+                        setEditedTitle(item.descripcion || '');
+                        setIsEditingTitle(true);
+                      }}
+                      className="p-1 text-on-surface-variant/50 hover:text-primary rounded-md transition-colors cursor-pointer shrink-0"
+                      title="Editar descripción del ítem"
+                      aria-label="Editar descripción"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             <button

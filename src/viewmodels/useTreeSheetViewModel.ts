@@ -625,7 +625,85 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
     ]
   );
 
-  // ─── Operaciones del Panel Lateral de Detalle ───
+  // ─── Operaciones de Edición y Composición de Ítems ───
+
+  // Actualizar cualquier propiedad del ítem de forma general y reevaluar
+  const handleUpdateItem = useCallback(
+    (itemId: string, updates: Partial<ItemPresupuesto>) => {
+      setItems((prev) =>
+        prev.map((it) => {
+          if (it.id !== itemId) return it;
+
+          let desacoplado = it.desacoplado;
+          if (it.tareaTipoId && !desacoplado) {
+            const linesChanged =
+              (updates.insumosSnapshot && JSON.stringify(updates.insumosSnapshot) !== JSON.stringify(it.insumosSnapshot)) ||
+              (updates.manoObraSnapshot && JSON.stringify(updates.manoObraSnapshot) !== JSON.stringify(it.manoObraSnapshot)) ||
+              (updates.serviciosTercerizados && JSON.stringify(updates.serviciosTercerizados) !== JSON.stringify(it.serviciosTercerizados));
+            if (linesChanged) {
+              desacoplado = true;
+            }
+          }
+
+          const updated: ItemPresupuesto = {
+            ...it,
+            ...updates,
+            desacoplado
+          };
+          return reevaluarItem(updated);
+        })
+      );
+    },
+    [setItems, reevaluarItem]
+  );
+
+  // Actualizar unidad de medida del ítem
+  const handleUpdateItemUnidad = useCallback(
+    (itemId: string, unidad: string) => {
+      const cleanUnidad = unidad?.trim() || 'u';
+      handleUpdateItem(itemId, { unidad: cleanUnidad });
+    },
+    [handleUpdateItem]
+  );
+
+  // Duplicar ítem con todos sus componentes (materiales, mano de obra, servicios, parámetros)
+  const handleDuplicateItem = useCallback(
+    (itemId: string): string | null => {
+      const target = items.find((it) => it.id === itemId);
+      if (!target) return null;
+
+      const newItemId = `it-${generateUUID().slice(0, 8)}`;
+      const duplicatedItem: ItemPresupuesto = reevaluarItem({
+        ...target,
+        id: newItemId,
+        descripcion: `${target.descripcion} (copia)`,
+        insumosSnapshot: (target.insumosSnapshot || []).map((ins) => ({ ...ins })),
+        manoObraSnapshot: (target.manoObraSnapshot || []).map((mo) => ({ ...mo })),
+        serviciosTercerizados: (target.serviciosTercerizados || []).map((serv) => ({
+          ...serv,
+          id: `serv-${generateUUID().slice(0, 8)}`
+        })),
+        parametros: (target.parametros || []).map((p) => ({ ...p })),
+        valoresParametros: target.valoresParametros ? { ...target.valoresParametros } : undefined,
+        valoresVariables: target.valoresVariables ? { ...target.valoresVariables } : undefined
+      });
+
+      setItems((prev) => {
+        const idx = prev.findIndex((it) => it.id === itemId);
+        if (idx !== -1) {
+          const next = [...prev];
+          next.splice(idx + 1, 0, duplicatedItem);
+          return next;
+        }
+        return [...prev, duplicatedItem];
+      });
+
+      setSelectedItemId(newItemId);
+      setSelectedChapterId(target.capituloId || null);
+      return newItemId;
+    },
+    [items, setItems, reevaluarItem]
+  );
 
   // Actualizar parámetros del ítem
   const handleUpdateItemParametros = useCallback(
@@ -1158,6 +1236,9 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
     handleUnindentItem,
 
     // Acciones del panel de detalle y rubros hijos
+    handleUpdateItem,
+    handleUpdateItemUnidad,
+    handleDuplicateItem,
     handleUpdateItemParametros,
     handleUpdateItemCantidad,
     handleUpdateItemLines,

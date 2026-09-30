@@ -9,7 +9,7 @@ import { useTreeSheetViewModel } from '../../../../viewmodels/useTreeSheetViewMo
 import { MobileTreeItemCard } from './MobileTreeItemCard';
 import { MobileChapterCard } from './MobileChapterCard';
 import { MobileQuantitySheet } from './MobileQuantitySheet';
-import { MobileItemDetailSheet } from './MobileItemDetailSheet';
+import { MobileItemDetailSheet, MobileDetailTab } from './MobileItemDetailSheet';
 import { MobileItemActionSheet } from './MobileItemActionSheet';
 import { MobileChapterActionSheet } from './MobileChapterActionSheet';
 
@@ -44,9 +44,15 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
 }) => {
   const [quantitySheetItemId, setQuantitySheetItemId] = useState<string | null>(null);
   const [activeDetailItemId, setActiveDetailItemId] = useState<string | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<MobileDetailTab>('materiales');
   const [actionSheetItemId, setActionSheetItemId] = useState<string | null>(null);
   const [actionSheetChapterId, setActionSheetChapterId] = useState<string | null>(null);
   const [renamingChapterId, setRenamingChapterId] = useState<string | null>(null);
+
+  const handleOpenDetailWithTab = (itemId: string, tab: MobileDetailTab) => {
+    setActiveDetailTab(tab);
+    setActiveDetailItemId(itemId);
+  };
 
   const quantitySheetItem = items.find((it) => it.id === quantitySheetItemId) || null;
 
@@ -214,7 +220,8 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
                             ? () => handleOpenParametricForItem(item)
                             : undefined
                         }
-                        onOpenDetail={() => setActiveDetailItemId(item.id)}
+                        onOpenDetail={() => handleOpenDetailWithTab(item.id, 'materiales')}
+                        onOpenDetailTab={(tab) => handleOpenDetailWithTab(item.id, tab)}
                         onOpenActions={() => setActionSheetItemId(item.id)}
                         onMoveUp={() => vm.handleMoveItem(item.id, 'up')}
                         onMoveDown={() => vm.handleMoveItem(item.id, 'down')}
@@ -253,8 +260,10 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
           calculosVariables={calculosVariables}
           currentIndex={currentDetailIndex}
           totalItems={items.length}
+          initialTab={activeDetailTab}
           onPrevItem={handlePrevDetailItem}
           onNextItem={handleNextDetailItem}
+          onUpdateItem={(updates) => vm.handleUpdateItem(activeDetailItem.id, updates)}
           onAddMaterial={(mat, qty, formula) => vm.handleAddMaterialToItem(activeDetailItem.id, mat, qty, formula)}
           onRemoveMaterial={(mIdx) => vm.handleRemoveMaterialFromItem(activeDetailItem.id, mIdx)}
           onUpdateMaterialFormula={(mIdx, formula) => vm.handleUpdateMaterialFormula(activeDetailItem.id, mIdx, formula)}
@@ -283,6 +292,10 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
           isLast={isItemLast}
           onMoveUp={() => vm.handleMoveItem(actionSheetItem.id, 'up')}
           onMoveDown={() => vm.handleMoveItem(actionSheetItem.id, 'down')}
+          onDuplicate={() => vm.handleDuplicateItem(actionSheetItem.id)}
+          onRename={(newDesc) => vm.handleUpdateItem(actionSheetItem.id, { descripcion: newDesc })}
+          onUpdateUnidad={(newUnidad) => vm.handleUpdateItemUnidad(actionSheetItem.id, newUnidad)}
+          onOpenDetailTab={(tab) => handleOpenDetailWithTab(actionSheetItem.id, tab)}
           onOpenQuickParams={vm.handleOpenQuickParamModal}
           onOpenParametric={
             (actionSheetItem.tareaTipoId || actionSheetItem.tareaTipoConfig) && onOpenParametricJobModal

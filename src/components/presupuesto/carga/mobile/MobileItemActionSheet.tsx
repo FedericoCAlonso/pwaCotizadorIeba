@@ -9,12 +9,19 @@ import {
   AlertTriangle,
   Link2,
   Unlink2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Edit2,
+  Copy,
+  Layers,
+  Wrench,
+  Truck,
+  Check
 } from 'lucide-react';
 import { ItemPresupuesto } from '../../../../core/types';
 import { formatARS } from '../../../../core/calculations';
 import { useHaptics } from '../../../../hooks/useHaptics';
 import { useEscapeKey } from '../../../../hooks/useEscapeKey';
+import { MobileDetailTab } from './MobileItemDetailSheet';
 
 export interface MobileItemActionSheetProps {
   isOpen: boolean;
@@ -24,11 +31,17 @@ export interface MobileItemActionSheetProps {
   isLast: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onDuplicate?: () => void;
+  onRename?: (newDesc: string) => void;
+  onUpdateUnidad?: (newUnidad: string) => void;
+  onOpenDetailTab?: (tab: MobileDetailTab) => void;
   onOpenQuickParams?: (itemId: string) => void;
   onOpenParametric?: () => void;
   onSaveAsTareaTipo?: (item: ItemPresupuesto) => void;
   onRemove: () => void;
 }
+
+const UNIDADES_RAPIDAS = ['u', 'm', 'ml', 'm²', 'boca', 'gl', 'hs', 'pto', 'tramo', 'kg'];
 
 export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
   isOpen,
@@ -38,6 +51,10 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
   isLast,
   onMoveUp,
   onMoveDown,
+  onDuplicate,
+  onRename,
+  onUpdateUnidad,
+  onOpenDetailTab,
   onOpenQuickParams,
   onOpenParametric,
   onSaveAsTareaTipo,
@@ -45,17 +62,24 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
 }) => {
   const haptics = useHaptics();
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState('');
 
   useEscapeKey(isOpen, onClose);
 
   useEffect(() => {
     if (!isOpen) {
       setIsConfirmingDelete(false);
+      setIsEditingTitle(false);
     }
   }, [isOpen]);
 
   useEffect(() => {
     setIsConfirmingDelete(false);
+    setIsEditingTitle(false);
+    if (item) {
+      setEditedTitle(item.descripcion || '');
+    }
   }, [item?.id]);
 
   if (!isOpen || !item) return null;
@@ -63,9 +87,19 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
   const costoDirectoTotal = item.costoDirectoTotal ?? item.costoTotal ?? 0;
   const precioFinalItem = item.precioFinalItem ?? item.precioVentaTotal ?? item.costoDirectoTotal ?? 0;
   const paramsCount = item.parametros?.length || 0;
+  const insumosCount = item.insumosSnapshot?.length || 0;
+  const moCount = item.manoObraSnapshot?.length || 0;
+  const servCount = item.serviciosTercerizados?.length || 0;
   const isLinked = Boolean(item.tareaTipoId && !item.desacoplado);
   const isDecoupled = Boolean(item.tareaTipoId && item.desacoplado);
   const isParametricJob = Boolean(item.tareaTipoId || item.tareaTipoConfig);
+
+  const handleConfirmRename = () => {
+    if (editedTitle.trim() && onRename) {
+      onRename(editedTitle.trim());
+    }
+    setIsEditingTitle(false);
+  };
 
   return (
     <div
@@ -104,9 +138,48 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-bold text-on-surface leading-snug break-words">
-                  {item.descripcion || 'Sin descripción'}
-                </h3>
+                {isEditingTitle ? (
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <input
+                      type="text"
+                      value={editedTitle}
+                      onChange={(e) => setEditedTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleConfirmRename();
+                        if (e.key === 'Escape') setIsEditingTitle(false);
+                      }}
+                      className="flex-1 px-2.5 py-1 text-sm bg-surface border border-primary rounded-xl text-on-surface focus:outline-none"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={handleConfirmRename}
+                      className="p-1.5 rounded-xl bg-primary text-on-primary cursor-pointer active:scale-95"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-sm font-bold text-on-surface leading-snug break-words">
+                      {item.descripcion || 'Sin descripción'}
+                    </h3>
+                    {onRename && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          haptics.selection();
+                          setEditedTitle(item.descripcion || '');
+                          setIsEditingTitle(true);
+                        }}
+                        className="p-1 text-on-surface-variant/50 hover:text-primary rounded-md shrink-0 cursor-pointer"
+                        title="Cambiar nombre del ítem"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center gap-2 mt-1 font-mono text-xs text-on-surface-variant flex-wrap">
                   <span className="font-semibold text-on-surface">
                     {item.cantidad} {item.unidad || 'u'}
@@ -130,13 +203,102 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
         </div>
 
         {/* Contenido de acciones */}
-        <div className="p-5 flex flex-col gap-3">
-          {/* 1. Reordenamiento de posición */}
+        <div className="p-5 flex flex-col gap-3.5">
+          {/* 1. Selector rápido de unidad de medida */}
+          {onUpdateUnidad && (
+            <div>
+              <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1.5">
+                Unidad de medida
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {UNIDADES_RAPIDAS.map((u) => {
+                  const isSelected = (item.unidad || 'u').toLowerCase() === u.toLowerCase();
+                  return (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => {
+                        haptics.tick();
+                        onUpdateUnidad(u);
+                      }}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-mono font-medium transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-primary text-on-primary font-bold shadow-xs'
+                          : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest'
+                      }`}
+                    >
+                      {u}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 2. Accesos Rápidos a Despiece APU */}
+          {onOpenDetailTab && (
+            <div>
+              <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1.5">
+                Despiece y Composición APU
+              </span>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.selection();
+                    onOpenDetailTab('materiales');
+                    onClose();
+                  }}
+                  className="flex flex-col items-center justify-center gap-1 p-2.5 rounded-2xl border border-outline-variant/30 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-medium cursor-pointer active:scale-95 transition-all"
+                >
+                  <Layers className="w-4 h-4 text-primary" />
+                  <span>Materiales</span>
+                  <span className="text-[10px] text-on-surface-variant font-mono">
+                    {insumosCount} {insumosCount === 1 ? 'item' : 'items'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.selection();
+                    onOpenDetailTab('mano_obra');
+                    onClose();
+                  }}
+                  className="flex flex-col items-center justify-center gap-1 p-2.5 rounded-2xl border border-outline-variant/30 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-medium cursor-pointer active:scale-95 transition-all"
+                >
+                  <Wrench className="w-4 h-4 text-secondary" />
+                  <span>Mano de Obra</span>
+                  <span className="text-[10px] text-on-surface-variant font-mono">
+                    {moCount} {moCount === 1 ? 'item' : 'items'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.selection();
+                    onOpenDetailTab('servicios');
+                    onClose();
+                  }}
+                  className="flex flex-col items-center justify-center gap-1 p-2.5 rounded-2xl border border-outline-variant/30 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-medium cursor-pointer active:scale-95 transition-all"
+                >
+                  <Truck className="w-4 h-4 text-tertiary" />
+                  <span>Servicios</span>
+                  <span className="text-[10px] text-on-surface-variant font-mono">
+                    {servCount} {servCount === 1 ? 'item' : 'items'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 3. Reordenamiento y Duplicación */}
           <div>
-            <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-2">
-              Posición en la lista
+            <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1.5">
+              Organización
             </span>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 disabled={isFirst}
@@ -144,14 +306,14 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
                   haptics.tick();
                   onMoveUp();
                 }}
-                className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-2xl border text-sm font-semibold transition-all min-h-[48px] ${
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-2xl border text-xs font-semibold transition-all min-h-[44px] ${
                   isFirst
                     ? 'opacity-40 border-outline-variant/30 text-on-surface-variant/40 bg-surface-container-low cursor-not-allowed'
                     : 'border-outline-variant/40 text-on-surface bg-surface-container-high hover:bg-surface-container-highest cursor-pointer active:scale-98'
                 }`}
                 aria-label="Subir ítem de posición"
               >
-                <ArrowUp className="w-4 h-4 text-primary" />
+                <ArrowUp className="w-3.5 h-3.5 text-primary" />
                 <span>Subir</span>
               </button>
 
@@ -162,22 +324,38 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
                   haptics.tick();
                   onMoveDown();
                 }}
-                className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-2xl border text-sm font-semibold transition-all min-h-[48px] ${
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-2xl border text-xs font-semibold transition-all min-h-[44px] ${
                   isLast
                     ? 'opacity-40 border-outline-variant/30 text-on-surface-variant/40 bg-surface-container-low cursor-not-allowed'
                     : 'border-outline-variant/40 text-on-surface bg-surface-container-high hover:bg-surface-container-highest cursor-pointer active:scale-98'
                 }`}
                 aria-label="Bajar ítem de posición"
               >
-                <ArrowDown className="w-4 h-4 text-primary" />
+                <ArrowDown className="w-3.5 h-3.5 text-primary" />
                 <span>Bajar</span>
               </button>
+
+              {onDuplicate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.selection();
+                    onDuplicate();
+                    onClose();
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-2xl border border-outline-variant/40 text-on-surface bg-surface-container-high hover:bg-surface-container-highest text-xs font-semibold cursor-pointer active:scale-98 min-h-[44px] transition-all"
+                  aria-label="Duplicar ítem"
+                >
+                  <Copy className="w-3.5 h-3.5 text-primary" />
+                  <span>Duplicar</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {/* 2. Acciones Técnicas */}
+          {/* 4. Acciones Técnicas */}
           <div>
-            <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-2">
+            <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1.5">
               Acciones Técnicas
             </span>
             <div className="flex flex-col gap-2">
@@ -193,9 +371,9 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
                     }
                     onClose();
                   }}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border border-outline-variant/30 bg-surface-container-high hover:bg-surface-container-highest text-secondary text-sm font-semibold cursor-pointer active:scale-98 min-h-[48px] transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl border border-outline-variant/30 bg-surface-container-high hover:bg-surface-container-highest text-secondary text-xs font-semibold cursor-pointer active:scale-98 min-h-[44px] transition-colors"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <Sliders className="w-4 h-4 text-secondary" />
                     <span>Configurar Parámetros</span>
                   </div>
@@ -215,9 +393,9 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
                     onSaveAsTareaTipo(item);
                     onClose();
                   }}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border border-outline-variant/30 bg-surface-container-high hover:bg-surface-container-highest text-tertiary text-sm font-semibold cursor-pointer active:scale-98 min-h-[48px] transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl border border-outline-variant/30 bg-surface-container-high hover:bg-surface-container-highest text-tertiary text-xs font-semibold cursor-pointer active:scale-98 min-h-[44px] transition-colors"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <BookmarkPlus className="w-4 h-4 text-tertiary" />
                     <span>Guardar en Catálogo (Tarea Tipo)</span>
                   </div>
@@ -226,7 +404,7 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
             </div>
           </div>
 
-          {/* 3. Acción Destructiva con Confirmación en 2 Pasos */}
+          {/* 5. Acción Destructiva con Confirmación en 2 Pasos */}
           <div className="pt-1">
             {!isConfirmingDelete ? (
               <button
@@ -235,7 +413,7 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
                   haptics.warning();
                   setIsConfirmingDelete(true);
                 }}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-error/30 bg-error/5 hover:bg-error/10 text-error text-sm font-semibold cursor-pointer active:scale-98 min-h-[48px] transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-error/30 bg-error/5 hover:bg-error/10 text-error text-xs font-semibold cursor-pointer active:scale-98 min-h-[44px] transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Eliminar ítem</span>
@@ -255,7 +433,7 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsConfirmingDelete(false)}
-                    className="flex-1 py-2.5 px-3 rounded-xl border border-outline-variant/40 bg-surface text-on-surface text-xs font-semibold hover:bg-surface-container-high transition-colors cursor-pointer min-h-[42px]"
+                    className="flex-1 py-2 px-3 rounded-xl border border-outline-variant/40 bg-surface text-on-surface text-xs font-semibold hover:bg-surface-container-high transition-colors cursor-pointer min-h-[40px]"
                   >
                     Cancelar
                   </button>
@@ -266,7 +444,7 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
                       onRemove();
                       onClose();
                     }}
-                    className="flex-1 py-2.5 px-3 rounded-xl bg-error text-on-error text-xs font-bold shadow-xs hover:bg-error/90 transition-colors cursor-pointer min-h-[42px] active:scale-98"
+                    className="flex-1 py-2 px-3 rounded-xl bg-error text-on-error text-xs font-bold shadow-xs hover:bg-error/90 transition-colors cursor-pointer min-h-[40px] active:scale-98"
                   >
                     Sí, Eliminar
                   </button>
@@ -275,12 +453,12 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
             )}
           </div>
 
-          {/* 4. Botón de Cierre de Pulgar */}
-          <div className="pt-2">
+          {/* 6. Botón de Cierre de Pulgar */}
+          <div className="pt-1">
             <button
               type="button"
               onClick={onClose}
-              className="w-full py-3 rounded-2xl bg-surface-container-highest hover:bg-surface-container-high text-on-surface font-semibold text-sm transition-colors cursor-pointer min-h-[48px]"
+              className="w-full py-2.5 rounded-2xl bg-surface-container-highest hover:bg-surface-container-high text-on-surface font-semibold text-xs transition-colors cursor-pointer min-h-[44px]"
             >
               Cerrar
             </button>

@@ -14,6 +14,7 @@ import {
 import { ItemPresupuesto, Insumo, CategoriaManoDeObra, ParametroItem } from '../../../../core/types';
 import { formatARS } from '../../../../core/calculations';
 import { useHaptics } from '../../../../hooks/useHaptics';
+import { MobileDetailTab } from './MobileItemDetailSheet';
 
 export interface MobileTreeItemCardProps {
   item: ItemPresupuesto;
@@ -24,6 +25,7 @@ export interface MobileTreeItemCardProps {
   onOpenQuickParamModal?: (itemId: string) => void;
   onOpenParametric?: () => void;
   onOpenDetail: () => void;
+  onOpenDetailTab?: (tab: MobileDetailTab) => void;
   onOpenActions: () => void;
   // Optional / backwards compatibility
   onMoveUp?: () => void;
@@ -57,6 +59,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
   onOpenQuickParamModal,
   onOpenParametric,
   onOpenDetail,
+  onOpenDetailTab,
   onOpenActions
 }) => {
   const haptics = useHaptics();
@@ -161,13 +164,71 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
               {item.descripcion || 'Sin descripción'}
             </h4>
 
-            {/* Badges de componentes y parámetros */}
+            {/* Badges y accesos directos a despiece y parámetros */}
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              {totalComponentes > 0 && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-surface-container-highest text-on-surface-variant font-mono">
-                  {totalComponentes} {totalComponentes === 1 ? 'componente' : 'componentes'}
-                </span>
+              {totalComponentes === 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    haptics.selection();
+                    if (onOpenDetailTab) onOpenDetailTab('materiales');
+                    else onOpenDetail();
+                  }}
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-on-primary transition-all cursor-pointer active:scale-95"
+                >
+                  <span>+ Despiece</span>
+                </button>
               )}
+
+              {insumosCount > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    haptics.selection();
+                    if (onOpenDetailTab) onOpenDetailTab('materiales');
+                    else onOpenDetail();
+                  }}
+                  className="text-[10px] px-1.5 py-0.5 rounded-md bg-surface-container-highest text-on-surface-variant font-mono hover:bg-primary-container hover:text-on-primary-container transition-colors cursor-pointer active:scale-95"
+                  title="Ver materiales"
+                >
+                  📦 {insumosCount} mat
+                </button>
+              )}
+
+              {moCount > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    haptics.selection();
+                    if (onOpenDetailTab) onOpenDetailTab('mano_obra');
+                    else onOpenDetail();
+                  }}
+                  className="text-[10px] px-1.5 py-0.5 rounded-md bg-surface-container-highest text-on-surface-variant font-mono hover:bg-secondary-container hover:text-on-secondary-container transition-colors cursor-pointer active:scale-95"
+                  title="Ver mano de obra"
+                >
+                  ⚡ {moCount} mo
+                </button>
+              )}
+
+              {servCount > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    haptics.selection();
+                    if (onOpenDetailTab) onOpenDetailTab('servicios');
+                    else onOpenDetail();
+                  }}
+                  className="text-[10px] px-1.5 py-0.5 rounded-md bg-surface-container-highest text-on-surface-variant font-mono hover:bg-tertiary-container hover:text-on-tertiary-container transition-colors cursor-pointer active:scale-95"
+                  title="Ver servicios"
+                >
+                  🚚 {servCount} serv
+                </button>
+              )}
+
               {paramsCount > 0 && (
                 <button
                   type="button"
@@ -186,6 +247,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
                   <span>{paramsCount} p</span>
                 </button>
               )}
+
               {item.formulaCantidad && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-secondary/15 text-secondary font-mono">
                   fx

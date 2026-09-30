@@ -193,4 +193,54 @@ describe('MobileItemActionSheet', () => {
     fireEvent.click(closeXBtn);
     expect(handleClose).toHaveBeenCalledTimes(2);
   });
+
+  it('permite renombrar, cambiar unidad, duplicar y acceder al despiece por pestañas', () => {
+    const handleRename = vi.fn();
+    const handleUpdateUnidad = vi.fn();
+    const handleDuplicate = vi.fn();
+    const handleOpenDetailTab = vi.fn();
+    const handleClose = vi.fn();
+
+    render(
+      <MobileItemActionSheet
+        isOpen={true}
+        onClose={handleClose}
+        item={mockItem}
+        isFirst={false}
+        isLast={false}
+        onMoveUp={vi.fn()}
+        onMoveDown={vi.fn()}
+        onRemove={vi.fn()}
+        onRename={handleRename}
+        onUpdateUnidad={handleUpdateUnidad}
+        onDuplicate={handleDuplicate}
+        onOpenDetailTab={handleOpenDetailTab}
+      />
+    );
+
+    // 1. Selector de unidad
+    const m2Btn = screen.getByText('m²');
+    fireEvent.click(m2Btn);
+    expect(handleUpdateUnidad).toHaveBeenCalledWith('m²');
+
+    // 2. Duplicar
+    const dupBtn = screen.getByLabelText('Duplicar ítem');
+    fireEvent.click(dupBtn);
+    expect(handleDuplicate).toHaveBeenCalled();
+    expect(handleClose).toHaveBeenCalled();
+
+    // 3. Despiece APU por pestaña
+    const moBtn = screen.getByText('Mano de Obra');
+    fireEvent.click(moBtn);
+    expect(handleOpenDetailTab).toHaveBeenCalledWith('mano_obra');
+
+    // 4. Renombrar
+    const renameBtn = screen.getByTitle('Cambiar nombre del ítem');
+    fireEvent.click(renameBtn);
+
+    const input = screen.getByDisplayValue(mockItem.descripcion);
+    fireEvent.change(input, { target: { value: 'Nuevo nombre partida' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(handleRename).toHaveBeenCalledWith('Nuevo nombre partida');
+  });
 });
