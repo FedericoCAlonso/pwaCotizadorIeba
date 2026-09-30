@@ -116,7 +116,7 @@ export const ItemDetailAdvancedSection: React.FC<ItemDetailAdvancedSectionProps>
           <div>
             <label className="flex items-center gap-1 text-xs font-medium text-on-surface mb-1">
               <FileText className="w-3 h-3 text-outline" />
-              <span>Notas Técnicas de la Partida</span>
+              <span>Notas Técnicas del Ítem</span>
             </label>
             <textarea
               rows={2}

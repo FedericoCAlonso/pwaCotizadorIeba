@@ -271,7 +271,10 @@ export const PresupuestoEditorModals: React.FC<PresupuestoEditorModalsProps> = (
           tarea={selectedTareaForParametricModal}
           initialParametros={
             editingItemIndexForParametricModal !== null
-              ? items[editingItemIndexForParametricModal]?.valoresParametros
+              ? (items[editingItemIndexForParametricModal]?.valoresParametros ||
+                 (items[editingItemIndexForParametricModal]?.parametros
+                   ? Object.fromEntries(items[editingItemIndexForParametricModal].parametros!.map(p => [p.id, p.valor]))
+                   : undefined))
               : undefined
           }
           initialVariables={

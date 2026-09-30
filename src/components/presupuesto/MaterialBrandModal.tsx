@@ -198,7 +198,7 @@ export const MaterialBrandModal: React.FC<MaterialBrandModalProps> = ({
                 Marca & Modelo de Material
               </h3>
               <p className="text-xs text-on-surface-variant">
-                {itemDescription ? `Para partida: "${itemDescription}"` : 'Especifica qué marca y modelo cotizar en este presupuesto'}
+                {itemDescription ? `Para ítem: "${itemDescription}"` : 'Especifica qué marca y modelo cotizar en este presupuesto'}
               </p>
             </div>
           </div>

@@ -202,7 +202,6 @@ export const TreeSheetView = React.forwardRef<TreeSheetViewRef, TreeSheetViewPro
         }
         onNewVariable={() => vm.setIsQuoteParametersOpen(true)}
         onConfigureGastos={() => vm.setIsQuoteParametersOpen(true)}
-        onOpenTextMode={props.onOpenTextMode}
         onSaveDraft={props.onSaveDraft}
       />
 

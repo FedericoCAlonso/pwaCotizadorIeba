@@ -12,12 +12,7 @@ import {
   calcularTotalesPresupuesto,
   roundMoney
 } from './calculations';
-import {
-  serializePresupuestoToDSL,
-  parseDSLToPresupuesto,
-  validateYamlStructure,
-  ParseDSLContext
-} from '../components/presupuesto/experto/dslParser';
+
 
 function mockItem(partial: Partial<ItemPresupuesto>): ItemPresupuesto {
   return {
@@ -70,12 +65,6 @@ function mockPresupuesto(partial: Partial<Presupuesto>): Presupuesto {
   };
 }
 
-const mockParseContext: ParseDSLContext = {
-  clientes: [],
-  tareasTipo: [],
-  insumosMap: new Map(),
-  manoObraMap: new Map()
-};
 
 describe('Fase 1: Modelo Unificado y Limpieza - Cotizador IEBA', () => {
   // ─── 1. Cascada de Resolución de Nombres y Parámetros de Ítem ───
@@ -281,165 +270,7 @@ describe('Fase 1: Modelo Unificado y Limpieza - Cotizador IEBA', () => {
     });
   });
 
-  // ─── 2. Una Sola Fuente de Verdad y Test de Ida y Vuelta ───
-  describe('2.1 Una Sola Fuente de Verdad (Roundtrip Model <-> DSL)', () => {
-    it('realiza ida y vuelta sin pérdida de información (Modelo -> DSL -> Modelo)', () => {
-      const originalCapitulos: CapituloPresupuesto[] = [
-        { id: 'cap-demolicion', nombre: 'Demoliciones', orden: 1 },
-        { id: 'cap-electricidad', nombre: 'Instalación Eléctrica', orden: 2 }
-      ];
 
-      const originalItems: ItemPresupuesto[] = [
-        mockItem({
-          id: 'it-1',
-          capituloId: 'cap-demolicion',
-          descripcion: 'Retiro de artefactos existentes',
-          cantidad: 12,
-          unidad: 'u',
-          costoUnitario: 3000,
-          precioManual: 5000,
-          parametros: [
-            { id: 'dificultad', nombre: 'dificultad', valor: 1.2 }
-          ]
-        }),
-        mockItem({
-          id: 'it-2',
-          capituloId: 'cap-electricidad',
-          descripcion: 'Boca de iluminación general',
-          cantidad: 24,
-          unidad: 'boca',
-          formulaCantidad: '=totalBocas',
-          costoUnitario: 12000,
-          precioManual: 18000,
-          parametros: [
-            { id: 'altura', nombre: 'altura', valor: 2.6 }
-          ]
-        })
-      ];
-
-      const originalGastos: GastoPresupuestoConfig[] = [
-        {
-          id: 'gasto-viaticos',
-          nombre: 'Viáticos y Movilidad',
-          destino: 'costo_indirecto',
-          modalidad: 'monto_fijo',
-          valor: 25000,
-          aplica: true
-        }
-      ];
-
-      const calculosVariables = {
-        totalBocas: 24,
-        superficie: 80
-      };
-
-      // 1. Modelo -> DSL
-      const dslText = serializePresupuestoToDSL({
-        clienteId: '',
-        tipoFactura: 'Factura C',
-        validezDias: 15,
-        margenPorcentaje: 30,
-        nivelMargenRiesgo: 'medio',
-        margenRiesgoPorcentaje: 10,
-        capitulos: originalCapitulos,
-        items: originalItems,
-        gastosConfig: originalGastos,
-        calculosVariables
-      });
-
-      expect(dslText).toContain('Demoliciones');
-      expect(dslText).toContain('Instalación Eléctrica');
-      expect(dslText).toContain('Retiro de artefactos existentes');
-      expect(dslText).toContain('Boca de iluminación general');
-      expect(dslText).toContain('totalBocas: 24');
-
-      // 2. DSL -> Modelo (Parseo sin errores)
-      const parsed = parseDSLToPresupuesto(dslText, {
-        ...mockParseContext,
-        existingItems: originalItems,
-        existingCapitulos: originalCapitulos,
-        existingGastos: originalGastos
-      });
-
-      expect(parsed.diagnostics.filter(d => d.type === 'error')).toHaveLength(0);
-      expect(parsed.capitulos.map(c => c.nombre)).toEqual(['Demoliciones', 'Instalación Eléctrica']);
-      expect(parsed.items).toHaveLength(2);
-      expect(parsed.items[0].descripcion).toBe('Retiro de artefactos existentes');
-      expect(parsed.items[0].cantidad).toBe(12);
-      expect(parsed.items[1].descripcion).toBe('Boca de iluminación general');
-      expect(parsed.items[1].cantidad).toBe(24);
-      expect(parsed.calculosVariables?.['totalBocas']).toBe(24);
-      expect(parsed.calculosVariables?.['superficie']).toBe(80);
-    });
-
-    it('la validación del DSL previa al botón Aplicar rechaza texto corrupto sin mutar el modelo', () => {
-      const invalidDsl = `
-# YAML deliberadamente corrupto
-cliente: Test
-Capítulo 1:
-  - no-es-un-item-valido
-    desalineado: :::
-`;
-      const diagnostics = validateYamlStructure(invalidDsl);
-      const hasErrors = diagnostics.some(d => d.type === 'error');
-      expect(hasErrors).toBe(true);
-
-      // Al haber errores, la política de 'Aplicar' aborta y no muta el modelo de datos
-      const modelItemsBefore = [mockItem({ id: 'i1', descripcion: 'Original Intacto', cantidad: 1, unidad: 'u' })];
-      const parsed = parseDSLToPresupuesto(invalidDsl, { ...mockParseContext, existingItems: modelItemsBefore });
-
-      // Detecta errores sintácticos
-      expect(parsed.diagnostics.some(d => d.type === 'error')).toBe(true);
-    });
-
-    it('elimina el bug de pisado de datos al alternar entre modo guiado y texto experto', () => {
-      // Escenario del bug histórico:
-      // 1. Usuario carga un ítem en modo guiado
-      const itemsGuiado: ItemPresupuesto[] = [
-        mockItem({
-          id: 'it-1',
-          descripcion: 'Circuito nuevo TUG 16A',
-          cantidad: 15,
-          unidad: 'boca',
-          costoUnitario: 8000,
-          precioManual: 12500
-        })
-      ];
-
-      // 2. Se serializa dinámicamente al abrir texto (sin leer campo dslText cacheado viejo)
-      const dslGenerado = serializePresupuestoToDSL({
-        items: itemsGuiado,
-        capitulos: [{ id: 'c1', nombre: 'Instalaciones', orden: 1 }],
-        gastosConfig: []
-      });
-
-      expect(dslGenerado).toContain('Circuito nuevo TUG 16A');
-      expect(dslGenerado).toContain('15');
-
-      // 3. Usuario vuelve a modo guiado y agrega un segundo ítem
-      const itemsGuiadoActualizado: ItemPresupuesto[] = [
-        ...itemsGuiado,
-        mockItem({
-          id: 'it-2',
-          descripcion: 'Puesta a tierra con jabalina',
-          cantidad: 1,
-          unidad: 'gl',
-          costoUnitario: 25000,
-          precioManual: 40000
-        })
-      ];
-
-      // 4. Se vuelve a abrir el texto experto: DEBE reflejar el nuevo ítem sin persistir ni pisar con texto viejo
-      const dslNuevo = serializePresupuestoToDSL({
-        items: itemsGuiadoActualizado,
-        capitulos: [{ id: 'c1', nombre: 'Instalaciones', orden: 1 }],
-        gastosConfig: []
-      });
-
-      expect(dslNuevo).toContain('Circuito nuevo TUG 16A');
-      expect(dslNuevo).toContain('Puesta a tierra con jabalina');
-    });
-  });
 
   // ─── 3. Tareas Tipo: Vinculación, Desacople y Versionado ───
   describe('2.3 Ítems Vinculados a Tarea Tipo y Desacople', () => {

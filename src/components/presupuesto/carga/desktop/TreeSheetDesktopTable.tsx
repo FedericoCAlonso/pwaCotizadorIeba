@@ -113,8 +113,20 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
                   onOpenParametricJobModal
                     ? () => {
                         const idx = items.findIndex((it) => it.id === item.id);
-                        const tarea = item.tareaTipoConfig || (item.tareaTipoId ? tareasTipo?.find((t) => t.id === item.tareaTipoId) : undefined);
-                        if (tarea && idx !== -1) {
+                        const tarea = item.tareaTipoConfig || (item.tareaTipoId ? tareasTipo?.find((t) => t.id === item.tareaTipoId) : undefined) || {
+                          id: item.tareaTipoId || `tt-${item.id}`,
+                          nombre: item.descripcion,
+                          categoria: 'Personalizado',
+                          unidad: item.unidad || 'u',
+                          parametros: (item.parametros || []).map(p => ({
+                            id: p.id,
+                            nombre: p.nombre || p.id,
+                            tipo: 'numero',
+                            valorDefault: p.valor,
+                            unidad: p.unidad
+                          }))
+                        };
+                        if (idx !== -1) {
                           onOpenParametricJobModal(tarea, idx);
                         }
                       }
@@ -224,8 +236,20 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
                             onOpenParametricJobModal
                               ? () => {
                                   const idx = items.findIndex((it) => it.id === item.id);
-                                  const tarea = item.tareaTipoConfig || (item.tareaTipoId ? tareasTipo?.find((t) => t.id === item.tareaTipoId) : undefined);
-                                  if (tarea && idx !== -1) {
+                                  const tarea = item.tareaTipoConfig || (item.tareaTipoId ? tareasTipo?.find((t) => t.id === item.tareaTipoId) : undefined) || {
+                                    id: item.tareaTipoId || `tt-${item.id}`,
+                                    nombre: item.descripcion,
+                                    categoria: 'Personalizado',
+                                    unidad: item.unidad || 'u',
+                                    parametros: (item.parametros || []).map(p => ({
+                                      id: p.id,
+                                      nombre: p.nombre || p.id,
+                                      tipo: 'numero',
+                                      valorDefault: p.valor,
+                                      unidad: p.unidad
+                                    }))
+                                  };
+                                  if (idx !== -1) {
                                     onOpenParametricJobModal(tarea, idx);
                                   }
                                 }

@@ -91,7 +91,7 @@ export const InlineLaborAdd: React.FC<InlineLaborAddProps> = ({
           type="button"
           onClick={handleConfirm}
           className="inline-flex items-center gap-1 px-3 py-1.5 font-semibold bg-secondary text-on-secondary hover:bg-secondary/90 rounded-xl transition-all cursor-pointer shadow-xs active:scale-95"
-          title="Agregar mano de obra a la partida"
+          title="Agregar mano de obra al ítem"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>+ Mano de Obra</span>

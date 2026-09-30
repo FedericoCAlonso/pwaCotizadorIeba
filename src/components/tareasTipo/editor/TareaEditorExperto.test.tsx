@@ -3,18 +3,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TareaEditorExperto } from './TareaEditorExperto';
 
-// Mock de ModoExpertoCodeMirror para testing de UI
-vi.mock('../../presupuesto/experto/ModoExpertoCodeMirror', () => ({
-  ModoExpertoCodeMirror: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-    <div data-testid="mock-codemirror">
-      <textarea
-        data-testid="codemirror-textarea"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </div>
-  ),
-}));
 
 import { ConsumosCalculadosResultado } from '../../../core/calculations';
 

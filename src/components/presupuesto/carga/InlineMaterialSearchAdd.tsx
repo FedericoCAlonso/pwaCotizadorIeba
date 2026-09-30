@@ -264,7 +264,7 @@ export const InlineMaterialSearchAdd: React.FC<InlineMaterialSearchAddProps> = (
                 ? 'bg-primary text-on-primary hover:bg-primary/90'
                 : 'bg-surface-container-high text-on-surface-variant/40 cursor-not-allowed'
             }`}
-            title="Agregar material a la partida"
+            title="Agregar material al ítem"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Agregar</span>

@@ -9,8 +9,7 @@ import {
   Sparkles,
   Info
 } from 'lucide-react';
-import { ModoExpertoCodeMirror } from '../../presupuesto/experto/ModoExpertoCodeMirror';
-import { DSLDiagnostic } from '../../presupuesto/experto/dslParser';
+import { DSLDiagnostic } from '../../../core/tareaTipoDsl';
 import { TareaFormData } from '../../../viewmodels/useTareaEditorModalViewModel';
 import { ConsumosCalculadosResultado } from '../../../core/calculations';
 
@@ -108,13 +107,15 @@ export const TareaEditorExperto: React.FC<TareaEditorExpertoProps> = ({
         </div>
       </div>
 
-      {/* Editor CodeMirror 6 */}
-      <div className="min-h-[360px] max-h-[460px] border border-outline-variant/40 rounded-xl overflow-hidden shadow-xs bg-surface">
-        <ModoExpertoCodeMirror
+      {/* Editor YAML nativo */}
+      <div className="min-h-[360px] max-h-[460px] border border-outline-variant/40 rounded-xl overflow-hidden shadow-xs bg-surface flex flex-col">
+        <textarea
+          data-testid="codemirror-editor"
           value={yamlText}
-          onChange={onYamlChange}
-          diagnostics={diagnostics}
+          onChange={(e) => onYamlChange(e.target.value)}
           placeholder="Escribe aquí la definición en YAML del trabajo tipo..."
+          className="w-full h-full min-h-[360px] p-3 font-mono text-xs text-on-surface bg-transparent resize-none focus:outline-none"
+          spellCheck={false}
         />
       </div>
 

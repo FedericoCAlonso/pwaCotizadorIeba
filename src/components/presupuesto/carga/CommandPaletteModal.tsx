@@ -7,7 +7,6 @@ import {
   BookmarkPlus,
   Variable,
   Briefcase,
-  FileCode,
   Check,
   X
 } from 'lucide-react';
@@ -30,7 +29,6 @@ interface CommandPaletteModalProps {
   onSaveAsTareaTipo?: () => void;
   onNewVariable: () => void;
   onConfigureGastos: () => void;
-  onOpenTextMode?: () => void;
   onSaveDraft?: () => void;
 }
 
@@ -43,7 +41,6 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   onSaveAsTareaTipo,
   onNewVariable,
   onConfigureGastos,
-  onOpenTextMode,
   onSaveDraft
 }) => {
   const [query, setQuery] = useState('');
@@ -98,17 +95,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       icon: <Briefcase className="w-4 h-4 text-orange-500" />,
       run: onConfigureGastos
     },
-    ...(onOpenTextMode
-      ? [
-          {
-            id: 'open-text',
-            title: 'Abrir Vista de Texto (YAML)',
-            description: 'Composición y edición experta en formato YAML estructurado',
-            icon: <FileCode className="w-4 h-4 text-indigo-500" />,
-            run: onOpenTextMode
-          }
-        ]
-      : []),
+
     ...(onSaveDraft
       ? [
           {

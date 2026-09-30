@@ -542,7 +542,7 @@ export const GastoEditorModal: React.FC<GastoEditorModalProps> = ({
               <option value="">Toda la Cotización (Alcance Global)</option>
               {capitulos.map((c) => (
                 <option key={c.id} value={c.id}>
-                  Solo en Capítulo: {c.nombre}
+                  Solo en Rubro: {c.nombre}
                 </option>
               ))}
             </select>

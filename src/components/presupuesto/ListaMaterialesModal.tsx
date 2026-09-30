@@ -162,7 +162,7 @@ export const ListaMaterialesModal: React.FC<ListaMaterialesModalProps> = ({
               <Layers className="w-10 h-10 text-on-surface-variant/50 mx-auto" />
               <p className="text-sm font-semibold text-on-surface">No hay materiales detallados en esta cotización</p>
               <p className="text-xs text-on-surface-variant max-w-sm mx-auto">
-                Las partidas agregadas son conceptos globales o directos de mano de obra sin desglose de insumos.
+                Los ítems agregados son conceptos globales o directos de mano de obra sin desglose de insumos.
               </p>
             </div>
           ) : (

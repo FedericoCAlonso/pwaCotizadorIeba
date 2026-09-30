@@ -231,7 +231,7 @@ export const ItemDetailRubrosSection: React.FC<ItemDetailRubrosSectionProps> = (
 
           {insumosSnapshot.length === 0 ? (
             <p className="text-xs text-on-surface-variant/70 italic py-2">
-              Sin materiales agregados a esta partida.
+              Sin materiales agregados a este ítem.
             </p>
           ) : (
             <div className="space-y-1.5">
@@ -321,7 +321,7 @@ export const ItemDetailRubrosSection: React.FC<ItemDetailRubrosSectionProps> = (
 
           {manoObraSnapshot.length === 0 ? (
             <p className="text-xs text-on-surface-variant/70 italic py-2">
-              Sin mano de obra calculada para esta partida.
+              Sin mano de obra calculada para este ítem.
             </p>
           ) : (
             <div className="space-y-1.5">
@@ -413,7 +413,7 @@ export const ItemDetailRubrosSection: React.FC<ItemDetailRubrosSectionProps> = (
 
           {serviciosTercerizados.length === 0 ? (
             <p className="text-xs text-on-surface-variant/70 italic py-2">
-              Sin servicios tercerizados ni subcontratos en esta partida.
+              Sin servicios tercerizados ni subcontratos en este ítem.
             </p>
           ) : (
             <div className="space-y-1.5">

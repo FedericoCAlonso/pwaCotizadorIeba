@@ -17,9 +17,9 @@ import { evaluateMathExpression } from '../core/mathEvaluator';
 import { useToast } from '../contexts/ToastContext';
 import {
   serializeTareaTipoToDSL,
-  parseTareaTipoFromDSL
+  parseTareaTipoFromDSL,
+  DSLDiagnostic
 } from '../core/tareaTipoDsl';
-import { DSLDiagnostic } from '../components/presupuesto/experto/dslParser';
 
 export type { TareaFormData };
 

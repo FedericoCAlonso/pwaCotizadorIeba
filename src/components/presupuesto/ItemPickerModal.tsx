@@ -168,10 +168,10 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-on-surface text-sm sm:text-base leading-snug truncate">
-                Agregar Partida a la Cotización
+                Agregar Ítem a la Cotización
               </h3>
               <p className="text-xs text-on-surface-variant hidden sm:block">
-                Escribí para crear una partida libre o seleccioná una tarea del catálogo
+                Escribí para crear un ítem libre o seleccioná una tarea del catálogo
               </p>
             </div>
           </div>
@@ -277,7 +277,7 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
                     </div>
                     <div className="min-w-0">
                       <span className="text-xs font-bold uppercase tracking-wider text-secondary block">
-                        Crear como Capítulo / Ambiente
+                        Crear como Rubro / Ambiente
                       </span>
                       <span className="text-xs sm:text-sm font-semibold text-on-surface truncate block">
                         "{searchTerm.trim()}"
@@ -285,7 +285,7 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
                     </div>
                   </div>
                   <span className="text-xs font-bold text-secondary bg-secondary/10 px-2.5 py-1 rounded-lg shrink-0">
-                    + Capítulo
+                    + Rubro
                   </span>
                 </div>
               )}
@@ -302,7 +302,7 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
                   </div>
                   <div className="min-w-0">
                     <span className="text-xs sm:text-sm font-bold block truncate">
-                      Partida en Blanco (Ítem Libre)
+                      Ítem Libre en Blanco
                     </span>
                     <span className="text-xs text-on-surface-variant block truncate">
                       Cargar descripción y costos directo
@@ -328,15 +328,15 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
                     </div>
                     <div className="min-w-0">
                       <span className="text-xs sm:text-sm font-bold block truncate">
-                        Nuevo Capítulo / Ambiente
+                        Nuevo Rubro / Ambiente
                       </span>
                       <span className="text-xs text-on-surface-variant block truncate">
-                        Sección para agrupar partidas
+                        Sección para agrupar ítems
                       </span>
                     </div>
                   </div>
                   <span className="text-xs font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded-lg shrink-0">
-                    + Agrupar
+                    + Rubro
                   </span>
                 </div>
               )}
@@ -434,7 +434,7 @@ export const ItemPickerModal: React.FC<ItemPickerModalProps> = ({
                           handleSelect(tarea);
                         }}
                         className="px-3 py-1.5 bg-primary/10 hover:bg-primary text-primary hover:text-on-primary rounded-xl text-xs font-bold transition-all flex items-center gap-1 active:scale-95 shadow-2xs cursor-pointer min-h-[34px]"
-                        title={isParametrico ? 'Configurar y agregar' : 'Agregar partida directamente'}
+                        title={isParametrico ? 'Configurar y agregar' : 'Agregar ítem directamente'}
                       >
                         {isParametrico ? <Sliders className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                         <span className="hidden sm:inline">{isParametrico ? 'Configurar' : 'Agregar'}</span>

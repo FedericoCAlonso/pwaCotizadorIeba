@@ -31,7 +31,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
       title: 'Editor de Cotizaciones (Árbol y Planilla)',
       icon: Keyboard,
       shortcuts: [
-        { keys: ['Alt', 'E'], desc: 'Alternar entre Modo Árbol y Modo Experto (YAML)' },
+        { keys: ['Alt', 'F'], desc: 'Alternar Modo Foco / Pantalla Completa' },
         { keys: ['Ctrl', 'K'], desc: 'Abrir Paleta de Comandos y acciones rápidas' },
         { keys: ['Enter'], desc: 'Confirmar celda o crear nuevo ítem en el rubro' },
         { keys: ['Tab'], desc: 'Navegar entre columnas editables (Descripción y Cantidad)' },

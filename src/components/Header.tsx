@@ -43,6 +43,7 @@ interface HeaderProps {
   onOpenShortcuts?: () => void;
   themeMode: ThemeMode;
   onThemeModeChange: (mode: ThemeMode) => void;
+  isEditorActive?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -53,7 +54,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenHelp,
   onOpenShortcuts,
   themeMode,
-  onThemeModeChange
+  onThemeModeChange,
+  isEditorActive = false
 }) => {
   const {
     user,
@@ -434,14 +436,49 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
       
-      {/* Desktop Tab Navigation Area (Visible md and up) */}
-      <div className="hidden md:block w-full max-w-[1920px] mx-auto px-3 sm:px-4 md:px-5 lg:px-6">
+      {/* Desktop Tab Navigation Area (Visible md and up, hidden when editing quote) */}
+      {!isEditorActive && (
+        <div className="hidden md:block w-full max-w-[1920px] mx-auto px-3 sm:px-4 md:px-5 lg:px-6">
+          <nav
+            className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 pt-1"
+            role="tablist"
+            aria-label="Navegación principal"
+          >
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-controls={`panel-${item.id}`}
+                  id={`tab-${item.id}`}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                    isActive
+                      ? 'bg-secondary-container text-on-secondary-container'
+                      : 'text-on-surface-variant hover:bg-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" aria-hidden="true" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      )}
+
+      {/* Mobile M3 Bottom Navigation Bar (Visible on mobile < md, hidden when editing quote) */}
+      {!isEditorActive && (
         <nav
-          className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 pt-1"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-container-high/95 backdrop-blur-md border-t border-outline-variant/30 px-1 py-1.5 flex items-center justify-around pb-safe shadow-lg"
+          aria-label="Navegación inferior móvil"
           role="tablist"
-          aria-label="Navegación principal"
         >
-          {navItems.map((item) => {
+          {/* Primary 4 Mobile Navigation Items */}
+          {navItems.slice(0, 4).map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
@@ -450,99 +487,68 @@ export const Header: React.FC<HeaderProps> = ({
                 role="tab"
                 aria-selected={isActive}
                 aria-controls={`panel-${item.id}`}
-                id={`tab-${item.id}`}
-                onClick={() => setActiveTab(item.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                  isActive
-                    ? 'bg-secondary-container text-on-secondary-container'
-                    : 'text-on-surface-variant hover:bg-surface-variant hover:text-on-surface'
-                }`}
+                id={`tab-mobile-${item.id}`}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  setShowMobileDrawer(false);
+                }}
+                className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl min-w-[64px] min-h-[48px] transition-all"
               >
-                <Icon className="w-4 h-4" aria-hidden="true" />
-                <span>{item.label}</span>
+                <div
+                  className={`px-4 py-1 rounded-full flex items-center justify-center transition-all ${
+                    isActive
+                      ? 'bg-secondary-container text-on-secondary-container font-semibold scale-105'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" aria-hidden="true" />
+                </div>
+                <span
+                  className={`text-xs tracking-tight mt-0.5 transition-colors ${
+                    isActive ? 'font-bold text-primary' : 'font-medium text-on-surface-variant'
+                  }`}
+                >
+                  {item.label.split(' ')[0]}
+                </span>
               </button>
             );
           })}
+
+          {/* 5th Mobile Navigation Item: "Más" (Drawer Trigger) */}
+          {(() => {
+            const isMoreActive = !navItems.slice(0, 4).some((item) => item.id === activeTab);
+            return (
+              <button
+                role="tab"
+                aria-selected={isMoreActive}
+                aria-haspopup="dialog"
+                onClick={() => setShowMobileDrawer(true)}
+                className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl min-w-[64px] min-h-[48px] transition-all"
+                aria-label="Abrir menú de herramientas y más opciones"
+              >
+                <div
+                  className={`px-4 py-1 rounded-full flex items-center justify-center transition-all ${
+                    isMoreActive || showMobileDrawer
+                      ? 'bg-secondary-container text-on-secondary-container font-semibold scale-105'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  <Menu className="w-5 h-5" aria-hidden="true" />
+                </div>
+                <span
+                  className={`text-xs tracking-tight mt-0.5 transition-colors ${
+                    isMoreActive
+                      ? 'font-bold text-primary'
+                      : 'font-medium text-on-surface-variant'
+                  }`}
+                >
+                  Más
+                </span>
+              </button>
+            );
+          })()}
         </nav>
-      </div>
-
-      {/* Mobile M3 Bottom Navigation Bar (Visible on mobile < md) */}
-      <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-container-high/95 backdrop-blur-md border-t border-outline-variant/30 px-1 py-1.5 flex items-center justify-around pb-safe shadow-lg"
-        aria-label="Navegación inferior móvil"
-        role="tablist"
-      >
-        {/* Primary 4 Mobile Navigation Items */}
-        {navItems.slice(0, 4).map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              role="tab"
-              aria-selected={isActive}
-              aria-controls={`panel-${item.id}`}
-              id={`tab-mobile-${item.id}`}
-              onClick={() => {
-                setActiveTab(item.id);
-                setShowMobileDrawer(false);
-              }}
-              className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl min-w-[64px] min-h-[48px] transition-all"
-            >
-              <div
-                className={`px-4 py-1 rounded-full flex items-center justify-center transition-all ${
-                  isActive
-                    ? 'bg-secondary-container text-on-secondary-container font-semibold scale-105'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                <Icon className="w-5 h-5" aria-hidden="true" />
-              </div>
-              <span
-                className={`text-xs tracking-tight mt-0.5 transition-colors ${
-                  isActive ? 'font-bold text-primary' : 'font-medium text-on-surface-variant'
-                }`}
-              >
-                {item.label.split(' ')[0]}
-              </span>
-            </button>
-          );
-        })}
-
-        {/* 5th Mobile Navigation Item: "Más" (Drawer Trigger) */}
-        {(() => {
-          const isMoreActive = !navItems.slice(0, 4).some((item) => item.id === activeTab);
-          return (
-            <button
-              role="tab"
-              aria-selected={isMoreActive}
-              aria-haspopup="dialog"
-              onClick={() => setShowMobileDrawer(true)}
-              className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl min-w-[64px] min-h-[48px] transition-all"
-              aria-label="Abrir menú de herramientas y más opciones"
-            >
-              <div
-                className={`px-4 py-1 rounded-full flex items-center justify-center transition-all ${
-                  isMoreActive || showMobileDrawer
-                    ? 'bg-secondary-container text-on-secondary-container font-semibold scale-105'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                <Menu className="w-5 h-5" aria-hidden="true" />
-              </div>
-              <span
-                className={`text-xs tracking-tight mt-0.5 transition-colors ${
-                  isMoreActive
-                    ? 'font-bold text-primary'
-                    : 'font-medium text-on-surface-variant'
-                }`}
-              >
-                Más
-              </span>
-            </button>
-          );
-        })()}
-      </nav>
+      )}
 
       {/* M3 Mobile Bottom Sheet Drawer for "Más" items */}
       <MobileNavDrawer

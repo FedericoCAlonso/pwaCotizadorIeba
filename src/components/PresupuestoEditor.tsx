@@ -5,7 +5,6 @@ import {
   AlertCircle,
   RefreshCw,
   Check,
-  Terminal,
   Plus,
   ChevronDown,
   Sliders,
@@ -13,9 +12,10 @@ import {
   FolderPlus,
   BookOpen,
   Pencil,
-  UserPlus
+  UserPlus,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
-import { ModoExpertoEditor } from './presupuesto/experto/ModoExpertoEditor';
 import {
   AppConfig,
   ItemPresupuesto,
@@ -44,6 +44,8 @@ interface PresupuestoEditorProps {
   onSaved: (id: string) => void;
   onViewMaterialsInCatalog?: (ctx: MaterialFilterContext) => void;
   onDraftAutoSaved?: (id: string) => void;
+  isZenMode?: boolean;
+  onToggleZenMode?: () => void;
 }
 
 export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
@@ -53,7 +55,9 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   onBack,
   onSaved,
   onViewMaterialsInCatalog,
-  onDraftAutoSaved
+  onDraftAutoSaved,
+  isZenMode = false,
+  onToggleZenMode
 }) => {
   const { tiposFactura, condicionesTrabajo, categoriasTarea } = useAppOptions();
   const { toast } = useToast();
@@ -170,14 +174,10 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     autoSaveStatus,
     lastAutoSaveTime,
     flushAutoSave,
-    dslText,
-    setDslText,
     calculatedCells,
     setCalculatedCells,
     calculosVariables,
-    setCalculosVariables,
-    isDslDirtyRef,
-    syncDslFromGuided
+    setCalculosVariables
   } = usePresupuestoEditorViewModel({
     presupuestoId,
     initialClienteId,
@@ -194,94 +194,18 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
     return false;
   });
 
-  type EditorMode = 'arbol' | 'experto';
-  const [editorMode, setEditorMode] = useState<EditorMode>('arbol');
   const [parametricGastoToAdjust, setParametricGastoToAdjust] = useState<GastoPresupuestoConfig | null>(null);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [showListaMaterialesModal, setShowListaMaterialesModal] = useState(false);
   const [showQuoteProjectModal, setShowQuoteProjectModal] = useState(false);
 
-  // Detección y degradación en mobile: el modo experto requiere teclado físico y desktop
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      if (mobile && editorMode === 'experto') {
-        setEditorMode('arbol');
-        toast.info('El modo experto requiere teclado físico y pantalla amplia. Se activó la vista adaptada.');
-      }
+      setIsMobile(window.innerWidth < 768);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [editorMode, toast]);
-
-  useEffect(() => {
-    if (isMobile && editorMode === 'experto') {
-      setEditorMode('arbol');
-      toast.info('El modo experto requiere teclado físico y pantalla amplia. Se activó la vista adaptada.');
-    }
   }, []);
-
-  const handleToggleEditorMode = useCallback((target?: EditorMode) => {
-    const nextMode = target || (editorMode === 'arbol' ? 'experto' : 'arbol');
-    if (nextMode === 'experto') {
-      if (isMobile) {
-        toast.info('El modo experto requiere teclado físico y pantalla amplia (> 768px).');
-        return;
-      }
-      if (isDslDirtyRef.current || !dslText || dslText.trim().length === 0) {
-        syncDslFromGuided();
-      }
-    }
-    setEditorMode(nextMode);
-  }, [editorMode, isMobile, isDslDirtyRef, dslText, syncDslFromGuided, toast]);
-
-  // Atajo global para alternar entre Árbol y Modo Experto Desktop (Alt + E)
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && (e.key === 'e' || e.key === 'E')) {
-        e.preventDefault();
-        handleToggleEditorMode();
-      }
-    };
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [handleToggleEditorMode]);
-
-  // Monitoreo de modificaciones en modo visual para marcar dslText como desfasado
-  const prevItemsRef = useRef(items);
-  const prevCapitulosRef = useRef(capitulos);
-  const prevClienteRef = useRef(clienteId);
-  const prevGastosRef = useRef(gastosConfig);
-  const prevDireccionRef = useRef(direccionObra);
-  const prevFacturaRef = useRef(tipoFactura);
-  const prevMargenRef = useRef(margenPorcentaje);
-  const prevRiesgoRef = useRef(nivelMargenRiesgo);
-
-  useEffect(() => {
-    if (editorMode !== 'experto') {
-      if (
-        prevItemsRef.current !== items ||
-        prevCapitulosRef.current !== capitulos ||
-        prevClienteRef.current !== clienteId ||
-        prevGastosRef.current !== gastosConfig ||
-        prevDireccionRef.current !== direccionObra ||
-        prevFacturaRef.current !== tipoFactura ||
-        prevMargenRef.current !== margenPorcentaje ||
-        prevRiesgoRef.current !== nivelMargenRiesgo
-      ) {
-        isDslDirtyRef.current = true;
-      }
-    }
-    prevItemsRef.current = items;
-    prevCapitulosRef.current = capitulos;
-    prevClienteRef.current = clienteId;
-    prevGastosRef.current = gastosConfig;
-    prevDireccionRef.current = direccionObra;
-    prevFacturaRef.current = tipoFactura;
-    prevMargenRef.current = margenPorcentaje;
-    prevRiesgoRef.current = nivelMargenRiesgo;
-  }, [items, capitulos, clienteId, gastosConfig, direccionObra, tipoFactura, margenPorcentaje, nivelMargenRiesgo, editorMode, isDslDirtyRef]);
 
   const handleOpenSaveAsTemplateFromItem = useCallback((item: ItemPresupuesto) => {
     setSaveAsTemplateData({
@@ -530,26 +454,6 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
 
   const treeSheetRef = useRef<TreeSheetViewRef>(null);
-  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
-  const addMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isAddMenuOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
-        setIsAddMenuOpen(false);
-      }
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsAddMenuOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isAddMenuOpen]);
 
   useEffect(() => {
     const handleSave = () => handleSavePresupuesto('borrador');
@@ -645,80 +549,18 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           </button>
         </div>
 
-        {/* Bloque Central: Botón Único de Inserción + Parámetros de Obra + Paleta de Comandos (en modo árbol) */}
-        {editorMode === 'arbol' && (
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Botón Único de Inserción: + Agregar ▾ */}
-            <div ref={addMenuRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setIsAddMenuOpen((prev) => !prev)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold text-on-primary bg-primary hover:bg-primary/90 rounded-xl shadow-xs transition-all cursor-pointer active:scale-95 min-h-[34px]"
-                title="Agregar Partida, Capítulo o Tarea Tipo del Catálogo"
-                aria-expanded={isAddMenuOpen}
-                aria-haspopup="true"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span>Agregar</span>
-                <ChevronDown
-                  className={`w-3 h-3 transition-transform duration-200 ${
-                    isAddMenuOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-
-              {/* Menú Desplegable Flotante Jerarquizado */}
-              {isAddMenuOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-60 sm:w-64 bg-surface-container-high border border-outline-variant/40 rounded-2xl shadow-md3-2 p-1.5 z-40 flex flex-col gap-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAddMenuOpen(false);
-                      treeSheetRef.current?.handleCreateChapter();
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left rounded-xl hover:bg-surface-container-highest transition-colors cursor-pointer group"
-                  >
-                    <FolderPlus className="w-4 h-4 text-primary shrink-0" />
-                    <div>
-                      <span className="block text-xs font-bold text-on-surface">Nuevo Rubro</span>
-                      <span className="block text-[10px] text-on-surface-variant">Etapa de obra o agrupación principal</span>
-                    </div>
-                  </button>
-
-                  <div className="my-1 border-t border-outline-variant/20" />
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAddMenuOpen(false);
-                      treeSheetRef.current?.handleCreateItem();
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left rounded-xl hover:bg-surface-container-highest transition-colors cursor-pointer group"
-                  >
-                    <Plus className="w-4 h-4 text-secondary shrink-0" />
-                    <div>
-                      <span className="block text-xs font-bold text-on-surface">Nuevo Ítem</span>
-                      <span className="block text-[10px] text-on-surface-variant">Renglón en blanco para cómputo libre</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAddMenuOpen(false);
-                      treeSheetRef.current?.openCatalogPicker();
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left rounded-xl hover:bg-surface-container-highest transition-colors cursor-pointer group"
-                  >
-                    <BookOpen className="w-4 h-4 text-tertiary shrink-0" />
-                    <div>
-                      <span className="block text-xs font-bold text-on-surface">Desde Catálogo</span>
-                      <span className="block text-[10px] text-on-surface-variant">Trabajo tipo con cómputo APU</span>
-                    </div>
-                  </button>
-                </div>
-              )}
-            </div>
+        {/* Bloque Central: Botón Único de Inserción + Parámetros de Obra + Paleta de Comandos */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Botón de Nivel 1: + Rubro */}
+            <button
+              type="button"
+              onClick={() => treeSheetRef.current?.handleCreateChapter()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold text-on-primary bg-primary hover:bg-primary/90 rounded-xl shadow-xs transition-all cursor-pointer active:scale-95 min-h-[34px]"
+              title="Crear un nuevo Rubro (etapa de obra) para agrupar ítems"
+            >
+              <FolderPlus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>+ Rubro</span>
+            </button>
 
             {/* Parámetros de Obra */}
             <button
@@ -742,46 +584,29 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
               <span className="text-[10px] font-mono">Ctrl+K</span>
             </button>
           </div>
-        )}
 
-        {/* Bloque Derecho: Switch Árbol/Experto + Botón Guardar */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto sm:ml-0">
-          {/* Selector de Modo: Árbol vs Experto */}
-          <div className="bg-surface-container-highest p-0.5 rounded-xl border border-outline-variant/30 flex items-center gap-0.5 shadow-2xs">
+        {/* Bloque Derecho: Botón Foco + Botón Guardar */}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 ml-auto sm:ml-0">
+          {onToggleZenMode && (
             <button
               type="button"
-              onClick={() => handleToggleEditorMode('arbol')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                editorMode === 'arbol'
-                  ? 'bg-surface text-primary shadow-xs'
-                  : 'text-on-surface-variant hover:text-on-surface'
+              onClick={onToggleZenMode}
+              className={`px-2.5 sm:px-3 py-1.5 font-semibold rounded-xl text-xs sm:text-sm transition-all border min-h-[36px] cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95 ${
+                isZenMode
+                  ? 'bg-primary text-on-primary border-primary shadow-xs'
+                  : 'bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface border-outline-variant/30'
               }`}
+              title={isZenMode ? 'Salir de Modo Foco (Alt+F)' : 'Activar Modo Foco / Pantalla Completa (Alt+F)'}
+              aria-label="Modo Foco"
             >
-              <span>Árbol-Planilla</span>
+              {isZenMode ? (
+                <Minimize2 className="w-4 h-4 shrink-0" />
+              ) : (
+                <Maximize2 className="w-4 h-4 shrink-0" />
+              )}
+              <span className="hidden sm:inline">{isZenMode ? 'Salir de Foco' : 'Foco'}</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => handleToggleEditorMode('experto')}
-              disabled={isMobile}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                isMobile
-                  ? 'opacity-40 cursor-not-allowed text-on-surface-variant'
-                  : editorMode === 'experto'
-                  ? 'bg-primary text-on-primary shadow-xs cursor-pointer'
-                  : 'text-on-surface-variant hover:text-on-surface cursor-pointer'
-              }`}
-              title={
-                isMobile
-                  ? 'El modo experto requiere teclado físico y pantalla amplia (> 768px)'
-                  : 'Modo Experto Desktop: Composición por teclado sin mouse (Alt + E)'
-              }
-            >
-              <Terminal className="w-3.5 h-3.5" />
-              <span>Experto</span>
-              <kbd className="hidden lg:inline text-[9px] opacity-70 font-mono">Alt+E</kbd>
-            </button>
-          </div>
+          )}
 
           <button
             type="button"
@@ -795,98 +620,47 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         </div>
       </div>
 
-      {editorMode === 'experto' ? (
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          <ModoExpertoEditor
-            initialDslText={dslText}
-            onDslTextChange={setDslText}
-            savedCalculatedCells={calculatedCells}
-            onCalculatedCellsChange={setCalculatedCells}
-            savedCalculosVariables={calculosVariables}
-            onCalculosVariablesChange={setCalculosVariables}
-            clientes={clientes}
-            clienteId={clienteId}
-            setClienteId={setClienteId}
-            direccionObra={direccionObra}
-            setDireccionObra={setDireccionObra}
-            tipoFactura={tipoFactura}
-            setTipoFactura={handleTipoFacturaChange}
-            validezDias={validezDias}
-            setValidezDias={setValidezDias}
-            margenPorcentaje={margenPorcentaje}
-            setMargenPorcentaje={setMargenPorcentaje}
-            nivelMargenRiesgo={nivelMargenRiesgo}
-            setNivelMargenRiesgo={setNivelMargenRiesgo}
-            margenRiesgoPorcentaje={margenRiesgoPorcentaje}
-            setMargenRiesgoPorcentaje={setMargenRiesgoPorcentaje}
-            mostrarDolar={mostrarDolar}
-            setMostrarDolar={setMostrarDolar}
-            nombreDolar={nombreDolar}
-            setNombreDolar={setNombreDolar}
-            cotizacionDolar={cotizacionDolar}
-            setCotizacionDolar={setCotizacionDolar}
-            capitulos={capitulos}
-            setCapitulos={setCapitulos}
-            items={items}
-            setItems={setItems}
-            gastosConfig={gastosConfig}
-            setGastosConfig={setGastosConfig}
-            totales={totales}
-            tareasTipo={tareasTipo}
-            insumosMap={insumosMap}
-            manoObraMap={manoObraMap}
-            config={config}
-            onEmitirClick={() => setShowEmitirModal(true)}
-            onSaveDraft={() => handleSavePresupuesto('borrador')}
-            onToggleGuidedMode={() => handleToggleEditorMode('arbol')}
-            onOpenListaMateriales={() => setShowListaMaterialesModal(true)}
-            onOpenMaterialsInCatalog={handleOpenMaterialsInCatalog}
-          />
-        </div>
-      ) : (
-        <div className="flex-1 min-h-0 flex flex-col rounded-2xl border border-outline-variant/30 overflow-hidden shadow-xs bg-surface">
-          <TreeSheetView
-            ref={treeSheetRef}
-            items={items}
-            setItems={setItems}
-            capitulos={capitulos}
-            setCapitulos={setCapitulos}
-            calculosVariables={calculosVariables}
-            setCalculosVariables={setCalculosVariables}
-            calculatedCells={calculatedCells}
-            setCalculatedCells={setCalculatedCells}
-            gastosConfig={gastosConfig}
-            setGastosConfig={setGastosConfig}
-            totales={totales}
-            tareasTipo={tareasTipo}
-            insumosMap={insumosMap}
-            manoObraMap={manoObraMap}
-            margenPorcentaje={margenPorcentaje}
-            onUpdateMargenPorcentaje={setMargenPorcentaje}
-            nivelMargenRiesgo={nivelMargenRiesgo}
-            margenRiesgoPorcentaje={margenRiesgoPorcentaje}
-            onUpdateMargenRiesgo={(nivel, pct) => {
-              setNivelMargenRiesgo(nivel);
-              setMargenRiesgoPorcentaje(pct);
-            }}
-            tipoFactura={tipoFactura}
-            onUpdateTipoFactura={handleTipoFacturaChange}
-            impuestosDetalle={impuestosDetalle}
-            onToggleTax={handleToggleTax}
-            onUpdateTaxPct={handleUpdateTaxPct}
-            onOpenParametricJobModal={(tarea, itemIndex) => {
-              if (itemIndex !== undefined && itemIndex !== null) {
-                handleOpenParametricModalForExistingItem(itemIndex);
-              } else {
-                handleOpenParametricModalForNewTask(tarea);
-              }
-            }}
-            onSaveAsTareaTipo={handleSaveAsTemplateAction}
-            onOpenTextMode={() => handleToggleEditorMode('experto')}
-            onSaveDraft={() => handleSavePresupuesto('borrador')}
-          />
-        </div>
-      )}
+      <div className="flex-1 min-h-0 flex flex-col rounded-2xl border border-outline-variant/30 overflow-hidden shadow-xs bg-surface">
+        <TreeSheetView
+          ref={treeSheetRef}
+          items={items}
+          setItems={setItems}
+          capitulos={capitulos}
+          setCapitulos={setCapitulos}
+          calculosVariables={calculosVariables}
+          setCalculosVariables={setCalculosVariables}
+          calculatedCells={calculatedCells}
+          setCalculatedCells={setCalculatedCells}
+          gastosConfig={gastosConfig}
+          setGastosConfig={setGastosConfig}
+          totales={totales}
+          tareasTipo={tareasTipo}
+          insumosMap={insumosMap}
+          manoObraMap={manoObraMap}
+          margenPorcentaje={margenPorcentaje}
+          onUpdateMargenPorcentaje={setMargenPorcentaje}
+          nivelMargenRiesgo={nivelMargenRiesgo}
+          margenRiesgoPorcentaje={margenRiesgoPorcentaje}
+          onUpdateMargenRiesgo={(nivel, pct) => {
+            setNivelMargenRiesgo(nivel);
+            setMargenRiesgoPorcentaje(pct);
+          }}
+          tipoFactura={tipoFactura}
+          onUpdateTipoFactura={handleTipoFacturaChange}
+          impuestosDetalle={impuestosDetalle}
+          onToggleTax={handleToggleTax}
+          onUpdateTaxPct={handleUpdateTaxPct}
+          onOpenParametricJobModal={(tarea, itemIndex) => {
+            if (itemIndex !== undefined && itemIndex !== null) {
+              handleOpenParametricModalForExistingItem(itemIndex);
+            } else {
+              handleOpenParametricModalForNewTask(tarea);
+            }
+          }}
+          onSaveAsTareaTipo={handleSaveAsTemplateAction}
+          onSaveDraft={() => handleSavePresupuesto('borrador')}
+        />
+      </div>
 
       {/* Consolidated Editor Modals */}
       <PresupuestoEditorModals

@@ -33,6 +33,7 @@ export function App() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const [isZenMode, setIsZenMode] = useState(false);
 
   const configs = useLiveQuery(() => db.config.toArray());
   const config: AppConfig | undefined = configs && configs.length > 0 ? configs[0] : undefined;
@@ -43,6 +44,27 @@ export function App() {
   useEffect(() => {
     initializeDatabaseSeed();
   }, []);
+
+  // Alt+F Toggle for Zen / Focus Mode when in editor
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        if (viewMode === 'editor') {
+          setIsZenMode((prev) => !prev);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewMode]);
+
+  // Reset Zen Mode if leaving editor
+  useEffect(() => {
+    if (viewMode !== 'editor' && isZenMode) {
+      setIsZenMode(false);
+    }
+  }, [viewMode, isZenMode]);
 
   // Centralized Mobile PWA Back Button & Gesture Navigation
   usePwaBackNavigation({
@@ -173,33 +195,40 @@ export function App() {
 
   return (
     <div className={`${viewMode === 'editor' ? 'h-screen max-h-screen overflow-hidden' : 'min-h-screen'} bg-background text-on-background flex flex-col font-sans transition-colors duration-300`}>
-      {/* Header */}
-      <Header
-        activeTab={activeTab}
-        setActiveTab={(tab) => {
-          setActiveTab(tab);
-          if (tab === 'presupuestos') {
-            if (activeEditingPresupuestoId) {
-              setSelectedPresupuestoId(activeEditingPresupuestoId);
-              setViewMode('editor');
+      {/* Header (Oculto en Modo Foco durante la edición) */}
+      {!(viewMode === 'editor' && isZenMode) && (
+        <Header
+          activeTab={activeTab}
+          setActiveTab={(tab) => {
+            setActiveTab(tab);
+            if (tab === 'presupuestos') {
+              if (activeEditingPresupuestoId) {
+                setSelectedPresupuestoId(activeEditingPresupuestoId);
+                setViewMode('editor');
+              } else {
+                setViewMode('list');
+              }
             } else {
               setViewMode('list');
             }
-          } else {
-            setViewMode('list');
-          }
-        }}
-        config={config}
-        onOpenConfig={() => setShowConfigModal(true)}
-        onOpenHelp={() => setShowHelpModal(true)}
-        onOpenShortcuts={() => setShowShortcutsModal(true)}
-        themeMode={themeMode}
-        onThemeModeChange={setThemeMode}
-      />
+          }}
+          config={config}
+          onOpenConfig={() => setShowConfigModal(true)}
+          onOpenHelp={() => setShowHelpModal(true)}
+          onOpenShortcuts={() => setShowShortcutsModal(true)}
+          themeMode={themeMode}
+          onThemeModeChange={setThemeMode}
+          isEditorActive={viewMode === 'editor'}
+        />
+      )}
 
       {/* Main Content Area */}
-      <main className={`flex-1 w-full max-w-[1920px] mx-auto px-2 sm:px-4 md:px-5 lg:px-6 ${
-        viewMode === 'editor' ? 'pt-1 sm:pt-2 pb-1 min-h-0 overflow-hidden flex flex-col' : 'pt-2 sm:pt-4 pb-28 md:py-5'
+      <main className={`flex-1 w-full mx-auto ${
+        viewMode === 'editor'
+          ? (isZenMode
+              ? 'p-1 max-w-none min-h-0 overflow-hidden flex flex-col'
+              : 'px-2 sm:px-4 md:px-5 lg:px-6 pt-1 sm:pt-1.5 pb-1 max-w-none min-h-0 overflow-hidden flex flex-col')
+          : 'max-w-[1920px] px-2 sm:px-4 md:px-5 lg:px-6 pt-2 sm:pt-4 pb-28 md:py-5'
       }`}>
         {/* Tab panel — role="tabpanel" vincula el contenido activo al tablist via aria-controls */}
         <div
@@ -223,6 +252,8 @@ export function App() {
                   presupuestoId={selectedPresupuestoId}
                   initialClienteId={initialClienteId}
                   config={config}
+                  isZenMode={isZenMode}
+                  onToggleZenMode={() => setIsZenMode((v) => !v)}
                   onBack={() => {
                     setActiveEditingPresupuestoId(undefined);
                     setSelectedPresupuestoId(undefined);

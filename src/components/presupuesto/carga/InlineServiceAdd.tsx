@@ -69,7 +69,7 @@ export const InlineServiceAdd: React.FC<InlineServiceAddProps> = ({
               ? 'bg-tertiary text-on-tertiary hover:bg-tertiary/90'
               : 'bg-surface-container-high text-on-surface-variant/40 cursor-not-allowed'
           }`}
-          title="Agregar servicio a la partida"
+          title="Agregar servicio al ítem"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>+ Servicio</span>

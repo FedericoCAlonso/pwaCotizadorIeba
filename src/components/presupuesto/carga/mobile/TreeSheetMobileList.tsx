@@ -119,8 +119,19 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
 
   const handleOpenParametricForItem = (item: ItemPresupuesto) => {
     if (!onOpenParametricJobModal) return;
-    const taskConfig = item.tareaTipoConfig || (tareasTipo ? tareasTipo.find((t: any) => t.id === item.tareaTipoId) : null);
-    if (!taskConfig) return;
+    const taskConfig = item.tareaTipoConfig || (tareasTipo ? tareasTipo.find((t: any) => t.id === item.tareaTipoId) : null) || {
+      id: item.tareaTipoId || `tt-${item.id}`,
+      nombre: item.descripcion,
+      categoria: 'Personalizado',
+      unidad: item.unidad || 'u',
+      parametros: (item.parametros || []).map((p: any) => ({
+        id: p.id,
+        nombre: p.nombre || p.id,
+        tipo: 'numero',
+        valorDefault: p.valor,
+        unidad: p.unidad
+      }))
+    };
     const itemIndex = items.findIndex((it) => it.id === item.id);
     onOpenParametricJobModal(taskConfig, itemIndex >= 0 ? itemIndex : undefined);
   };

@@ -37,9 +37,9 @@ import {
 } from '../core/calculations';
 import { useInsumosMap } from '../hooks/useInsumosMap';
 import { useToast } from '../contexts/ToastContext';
-import { TareaFormData } from '../components/tareasTipo/TareaEditorModal';
-import { serializePresupuestoToDSL, parseDSLToPresupuesto } from '../components/presupuesto/experto/dslParser';
 import { generateUUID } from '../core/uuid';
+import { TareaFormData } from '../components/tareasTipo/TareaEditorModal';
+
 function computeEditorStatePayload(state: {
   items: any[];
   clienteId: string;
@@ -160,12 +160,10 @@ export function usePresupuestoEditorViewModel({
     condicionesComerciales: ''
   });
 
-  const [dslText, setDslText] = useState<string | undefined>(undefined);
   const [calculatedCells, setCalculatedCells] = useState<CalculatedCell[] | undefined>(undefined);
   const [calculosVariables, setCalculosVariables] = useState<Record<string, number | string> | undefined>(undefined);
   const [notasInternas, setNotasInternas] = useState<string>('');
   const [notasCliente, setNotasCliente] = useState<string>('');
-  const isDslDirtyRef = useRef<boolean>(false);
 
   const [activeTab, setActiveTabState] = useState<PresupuestoEditorTab>(() => {
     return initialClienteId ? 'partidas' : 'cliente';
@@ -429,7 +427,6 @@ export function usePresupuestoEditorViewModel({
       items.length > 0 ||
       Boolean(clienteId) ||
       capitulos.length > 0 ||
-      Boolean(dslText && dslText.trim().length > 0) ||
       Boolean(existingPresupuesto);
     if (!hasContent) {
       return;
@@ -649,7 +646,7 @@ export function usePresupuestoEditorViewModel({
     items, clienteId, direccionObra, capitulos, validezDias, tipoFactura, margenPorcentaje,
     gastosConfig, costosIndirectosConfig, mostrarDolar, nombreDolar, cotizacionDolar,
     condicionesPagoTexto, impuestosDetalle, opcionesEmision,
-    margenRiesgoPorcentaje, nivelMargenRiesgo, dslText
+    margenRiesgoPorcentaje, nivelMargenRiesgo
   ]);
 
   useEffect(() => {
@@ -879,6 +876,19 @@ export function usePresupuestoEditorViewModel({
       id: `item-${generateUUID()}`,
       capituloId,
       tareaTipoId: tarea.id,
+      tareaTipoConfig: tarea,
+      parametros: (tarea.parametros || []).map((tp) => ({
+        id: tp.id,
+        nombre: tp.nombre || tp.id,
+        unidad: tp.unidad,
+        valor: safeNum(tp.valorDefault ?? 1),
+        opciones: tp.opciones ? tp.opciones.map(o => ({ label: o.label, valor: o.valor })) : undefined,
+        origen: 'tarea_tipo'
+      })),
+      valoresParametros: (tarea.parametros || []).reduce((acc, p) => {
+        acc[p.id] = safeNum(p.valorDefault ?? 1);
+        return acc;
+      }, {} as Record<string, number>),
       descripcion: tarea.nombre,
       cantidad,
       unidad: tarea.unidad || 'u',
@@ -949,6 +959,13 @@ export function usePresupuestoEditorViewModel({
           unidad: p.unidad
         }))
       };
+    }
+
+    if ((!item.valoresParametros || Object.keys(item.valoresParametros).length === 0) && item.parametros && item.parametros.length > 0) {
+      item.valoresParametros = item.parametros.reduce((acc, p) => {
+        acc[p.id] = safeNum(p.valor);
+        return acc;
+      }, {} as Record<string, number>);
     }
 
     setSelectedTareaForParametricModal(tarea);
@@ -1603,53 +1620,7 @@ export function usePresupuestoEditorViewModel({
     });
   };
 
-  const syncDslFromGuided = useCallback(() => {
-    const regenerated = serializePresupuestoToDSL({
-      clienteId,
-      direccionObra,
-      tipoFactura,
-      validezDias,
-      margenPorcentaje,
-      nivelMargenRiesgo,
-      margenRiesgoPorcentaje,
-      mostrarDolar,
-      nombreDolar,
-      cotizacionDolar,
-      capitulos,
-      items,
-      gastosConfig,
-      clientes,
-      calculosVariables,
-      calculatedCells,
-      forceRegenerate: true,
-      preserveCalculosFromDsl: dslText
-    });
-    setDslText(regenerated);
-    isDslDirtyRef.current = false;
-    return regenerated;
-  }, [
-    clienteId,
-    direccionObra,
-    tipoFactura,
-    validezDias,
-    margenPorcentaje,
-    nivelMargenRiesgo,
-    margenRiesgoPorcentaje,
-    mostrarDolar,
-    nombreDolar,
-    cotizacionDolar,
-    capitulos,
-    items,
-    gastosConfig,
-    clientes,
-    calculosVariables,
-    calculatedCells,
-    dslText
-  ]);
 
-  const markDslDirty = useCallback(() => {
-    isDslDirtyRef.current = true;
-  }, []);
 
   const handleSavePresupuesto = async (
     targetEstado: EstadoPresupuesto = 'borrador',
@@ -2010,16 +1981,11 @@ export function usePresupuestoEditorViewModel({
     lastAutoSaveTime,
     flushAutoSave,
 
-    // Modo Experto & DSL Calculation Persistence
-    dslText,
-    setDslText,
+    // Celdas de cálculo y variables auxiliares
     calculatedCells,
     setCalculatedCells,
     calculosVariables,
     setCalculosVariables,
-    isDslDirtyRef,
-    syncDslFromGuided,
-    markDslDirty,
 
     // Notas de documento
     notasInternas,

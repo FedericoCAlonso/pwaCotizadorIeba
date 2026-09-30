@@ -10,7 +10,11 @@ import {
   OpcionVariableTrabajo,
   NaturalezaTrabajo
 } from './types';
-import { DSLDiagnostic } from '../components/presupuesto/experto/dslParser';
+export interface DSLDiagnostic {
+  line: number;
+  message: string;
+  type: 'error' | 'warning' | 'info';
+}
 
 /**
  * Normaliza cadenas para matching difuso (sin tildes, minúsculas)

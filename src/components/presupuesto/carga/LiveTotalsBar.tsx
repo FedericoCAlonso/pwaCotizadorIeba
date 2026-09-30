@@ -27,77 +27,77 @@ export const LiveTotalsBar: React.FC<LiveTotalsBarProps> = ({
 
   return (
     <>
-      <div className="w-full bg-surface-container border-t border-outline-variant/30 px-3 sm:px-4 py-2 select-none shadow-md shrink-0 min-h-[48px] flex items-center pb-safe">
-        <div className="flex items-center justify-between gap-2 sm:gap-3 w-full min-w-0">
-          {/* Vista Desktop (≥ 768px): Pasos de la Cascada Determinística Horizontal */}
-          <div className="hidden md:flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto no-scrollbar py-0.5 min-w-0 text-xs text-on-surface whitespace-nowrap">
+      <div className="w-full bg-surface-container border-t border-outline-variant/30 px-2.5 sm:px-3 py-1 select-none shadow-md shrink-0 min-h-[34px] sm:h-9 flex items-center pb-safe">
+        <div className="flex items-center justify-between gap-1.5 sm:gap-2.5 w-full min-w-0">
+          {/* Vista Desktop (≥ 768px): Pasos de la Cascada Determinística Horizontal Ultra-Compacta */}
+          <div className="hidden md:flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar py-0.5 min-w-0 text-[11px] text-on-surface whitespace-nowrap">
             {/* 1. Costo Directo Neto */}
             <div
               onClick={onOpenQuoteParameters}
-              className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-lg bg-surface-container-high/60 hover:bg-surface-container-highest border border-outline-variant/20 cursor-pointer transition-colors"
+              className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded-md bg-surface-container-high/60 hover:bg-surface-container-highest border border-outline-variant/20 cursor-pointer transition-colors"
               title="Costo directo neto de insumos, mano de obra y servicios"
             >
-              <DollarSign className="w-3.5 h-3.5 text-on-surface-variant opacity-70" />
+              <DollarSign className="w-3 h-3 text-on-surface-variant opacity-70" />
               <span className="text-on-surface-variant">Directo:</span>
               <span className="font-mono font-semibold text-on-surface">
                 {formatARS(directNetCost)}
               </span>
             </div>
 
-            <span className="text-outline-variant/60 shrink-0 font-bold select-none">+</span>
+            <span className="text-outline-variant/60 shrink-0 font-bold select-none text-[10px]">+</span>
 
             {/* 2. Margen de Riesgo */}
             <div
               onClick={onOpenQuoteParameters}
-              className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-lg bg-surface-container-high/60 hover:bg-surface-container-highest border border-outline-variant/20 cursor-pointer transition-colors"
+              className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded-md bg-surface-container-high/60 hover:bg-surface-container-highest border border-outline-variant/20 cursor-pointer transition-colors"
               title="Margen de riesgo e imprevistos"
             >
-              <ShieldAlert className="w-3.5 h-3.5 text-amber-500 opacity-80" />
+              <ShieldAlert className="w-3 h-3 text-amber-500 opacity-80" />
               <span className="text-on-surface-variant">Riesgo:</span>
               <span className="font-mono font-semibold text-on-surface">
                 {formatARS(totales.montoMargenRiesgo || 0)}
               </span>
             </div>
 
-            <span className="text-outline-variant/60 shrink-0 font-bold select-none">+</span>
+            <span className="text-outline-variant/60 shrink-0 font-bold select-none text-[10px]">+</span>
 
             {/* 3. Gastos Generales (GG) */}
             <div
               onClick={onOpenQuoteParameters}
-              className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-lg bg-surface-container-high/60 hover:bg-surface-container-highest border border-outline-variant/20 cursor-pointer transition-colors"
+              className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded-md bg-surface-container-high/60 hover:bg-surface-container-highest border border-outline-variant/20 cursor-pointer transition-colors"
               title="Gastos Generales fijos y porcentuales"
             >
-              <Briefcase className="w-3.5 h-3.5 text-blue-500 opacity-80" />
+              <Briefcase className="w-3 h-3 text-blue-500 opacity-80" />
               <span className="text-on-surface-variant">GG:</span>
               <span className="font-mono font-semibold text-on-surface">
                 {formatARS(totales.gastosGeneralesTotal || 0)}
               </span>
             </div>
 
-            <span className="text-outline-variant/60 shrink-0 font-bold select-none">+</span>
+            <span className="text-outline-variant/60 shrink-0 font-bold select-none text-[10px]">+</span>
 
             {/* 4. Beneficio / Utilidad */}
             <div
               onClick={onOpenQuoteParameters}
-              className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-lg bg-surface-container-high/60 hover:bg-surface-container-highest border border-outline-variant/20 cursor-pointer transition-colors"
+              className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded-md bg-surface-container-high/60 hover:bg-surface-container-highest border border-outline-variant/20 cursor-pointer transition-colors"
               title="Beneficio pretendido"
             >
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-500 opacity-80" />
+              <TrendingUp className="w-3 h-3 text-emerald-500 opacity-80" />
               <span className="text-on-surface-variant">Beneficio:</span>
               <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
                 {formatARS(totales.beneficioMonto || 0)}
               </span>
             </div>
 
-            <span className="text-outline-variant/60 shrink-0 font-bold select-none">+</span>
+            <span className="text-outline-variant/60 shrink-0 font-bold select-none text-[10px]">+</span>
 
             {/* 5. Impuestos */}
             <div
               onClick={onOpenQuoteParameters}
-              className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-lg bg-surface-container-high/60 hover:bg-surface-container-highest border border-outline-variant/20 cursor-pointer transition-colors"
+              className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded-md bg-surface-container-high/60 hover:bg-surface-container-highest border border-outline-variant/20 cursor-pointer transition-colors"
               title="Carga impositiva (IVA / Ingresos Brutos)"
             >
-              <Receipt className="w-3.5 h-3.5 text-purple-500 opacity-80" />
+              <Receipt className="w-3 h-3 text-purple-500 opacity-80" />
               <span className="text-on-surface-variant">Impuestos:</span>
               <span className="font-mono font-semibold text-on-surface">
                 {formatARS(totales.montoImpuestosTotal || 0)}
@@ -106,28 +106,28 @@ export const LiveTotalsBar: React.FC<LiveTotalsBarProps> = ({
           </div>
 
           {/* Vista Móvil (< 768px): Botón Desglose Cascada Económica */}
-          <div className="flex md:hidden items-center gap-2 min-w-0">
+          <div className="flex md:hidden items-center gap-1.5 min-w-0">
             <button
               type="button"
               onClick={() => setShowCascadeSheet(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant/30 text-xs font-semibold text-on-surface cursor-pointer active:scale-95 min-h-[38px]"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant/30 text-xs font-semibold text-on-surface cursor-pointer active:scale-95 min-h-[32px]"
             >
               <DollarSign className="w-3.5 h-3.5 text-primary" />
               <span>Cascada</span>
-              <ChevronUp className="w-3.5 h-3.5 opacity-70" />
+              <ChevronUp className="w-3 h-3 opacity-70" />
             </button>
             {totales.coeficienteK !== undefined && totales.coeficienteK > 0 && (
-              <span className="text-[11px] font-mono px-2 py-1 rounded-lg bg-surface-container-highest text-on-surface-variant">
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-surface-container-highest text-on-surface-variant">
                 K={totales.coeficienteK.toFixed(2)}
               </span>
             )}
           </div>
 
           {/* Total Final y Ajuste de Parámetros (Fijo a la derecha) */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto pl-1">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto pl-1">
             {totales.coeficienteK !== undefined && totales.coeficienteK > 0 && (
               <span
-                className="hidden md:inline-flex text-[11px] font-mono px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant shrink-0"
+                className="hidden lg:inline-flex text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant shrink-0"
                 title="Coeficiente K = Precio Final / Costo Global"
               >
                 K = {totales.coeficienteK.toFixed(3)}
@@ -136,13 +136,13 @@ export const LiveTotalsBar: React.FC<LiveTotalsBarProps> = ({
 
             <div
               onClick={onOpenQuoteParameters}
-              className="flex items-center gap-1.5 cursor-pointer hover:opacity-90 transition-opacity shrink-0 px-2.5 sm:px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 min-h-[38px]"
+              className="flex items-center gap-1.5 cursor-pointer hover:opacity-90 transition-opacity shrink-0 px-2 sm:px-2.5 py-1 rounded-xl bg-primary/10 border border-primary/20 min-h-[30px] sm:min-h-[32px]"
             >
-              <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-              <span className="text-xs uppercase tracking-wider font-bold text-on-surface">
+              <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-on-surface">
                 Total:
               </span>
-              <span className="font-mono font-extrabold text-sm sm:text-base text-primary">
+              <span className="font-mono font-extrabold text-xs sm:text-sm text-primary">
                 {formatARS(finalPrice)}
               </span>
             </div>
@@ -151,11 +151,11 @@ export const LiveTotalsBar: React.FC<LiveTotalsBarProps> = ({
               <button
                 type="button"
                 onClick={onOpenQuoteParameters}
-                className="p-2 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors cursor-pointer shrink-0 min-h-[38px] min-w-[38px] flex items-center justify-center"
+                className="p-1.5 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors cursor-pointer shrink-0 min-h-[30px] min-w-[30px] sm:min-h-[32px] sm:min-w-[32px] flex items-center justify-center"
                 title="Abrir panel de configuración de parámetros económicos"
                 aria-label="Configuración de parámetros"
               >
-                <SlidersHorizontal className="w-4 h-4" />
+                <SlidersHorizontal className="w-3.5 h-3.5" />
               </button>
             )}
           </div>

@@ -66,7 +66,7 @@ export const EmisionPresupuestoModal: React.FC<EmisionPresupuestoModalProps> = (
                   Mostrar Itemizado (Precios por Renglón)
                 </span>
                 <span className="text-xs text-on-surface-variant">
-                  Si está activo, el cliente ve cada partida con su Precio de Venta unitario y total (Costo × K).
+                  Si está activo, el cliente ve cada ítem con su Precio de Venta unitario y total (Costo × K).
                 </span>
               </div>
             </label>
