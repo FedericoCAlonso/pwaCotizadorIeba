@@ -4,8 +4,6 @@ import {
   ChevronRight,
   Folder,
   Plus,
-  Trash2,
-  Edit2,
   Check,
   MoreVertical
 } from 'lucide-react';
@@ -24,11 +22,14 @@ export interface MobileChapterCardProps {
     costoDirectoTotal?: number;
     precioVentaTotal?: number;
   };
+  isEditingExternal?: boolean;
   onToggleCollapse: () => void;
   onSelect: () => void;
   onAddItem: () => void;
   onRenameChapter: (nombre: string) => void;
   onRemoveChapter: () => void;
+  onOpenActions?: () => void;
+  onFinishRename?: () => void;
 }
 
 export const MobileChapterCard: React.FC<MobileChapterCardProps> = ({
@@ -37,21 +38,31 @@ export const MobileChapterCard: React.FC<MobileChapterCardProps> = ({
   isCollapsed,
   isSelected,
   capituloTotales,
+  isEditingExternal,
   onToggleCollapse,
   onSelect,
   onAddItem,
   onRenameChapter,
-  onRemoveChapter
+  onRemoveChapter,
+  onOpenActions,
+  onFinishRename
 }) => {
   const haptics = useHaptics();
   const [isEditing, setIsEditing] = useState(false);
   const [nameValue, setNameValue] = useState(capitulo.nombre);
-  const [showMenu, setShowMenu] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLongPressRef = useRef(false);
 
   useEffect(() => {
     setNameValue(capitulo.nombre);
   }, [capitulo.nombre]);
+
+  useEffect(() => {
+    if (isEditingExternal) {
+      setIsEditing(true);
+    }
+  }, [isEditingExternal]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -60,6 +71,40 @@ export const MobileChapterCard: React.FC<MobileChapterCardProps> = ({
     }
   }, [isEditing]);
 
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleTouchStart = () => {
+    if (isEditing) return;
+    isLongPressRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      haptics.tickStrong();
+      if (onOpenActions) {
+        onOpenActions();
+      }
+    }, 450);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleTouchMove = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
   const handleCommitRename = () => {
     if (nameValue.trim() && nameValue.trim() !== capitulo.nombre) {
       onRenameChapter(nameValue.trim());
@@ -67,6 +112,17 @@ export const MobileChapterCard: React.FC<MobileChapterCardProps> = ({
       setNameValue(capitulo.nombre);
     }
     setIsEditing(false);
+    if (onFinishRename) {
+      onFinishRename();
+    }
+  };
+
+  const handleClick = () => {
+    if (isLongPressRef.current) {
+      isLongPressRef.current = false;
+      return;
+    }
+    onSelect();
   };
 
   const finalPrice =
@@ -76,7 +132,11 @@ export const MobileChapterCard: React.FC<MobileChapterCardProps> = ({
 
   return (
     <div
-      onClick={onSelect}
+      onClick={handleClick}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchMove}
+      onTouchCancel={handleTouchEnd}
       className={`rounded-2xl border transition-all mb-2 overflow-hidden select-none ${
         isSelected
           ? 'bg-surface-container-highest border-primary/60 shadow-xs'
@@ -92,7 +152,7 @@ export const MobileChapterCard: React.FC<MobileChapterCardProps> = ({
             haptics.tickStrong();
             onToggleCollapse();
           }}
-          className="w-9 h-9 -ml-1 rounded-xl flex items-center justify-center text-primary hover:bg-primary-container/30 transition-colors cursor-pointer shrink-0"
+          className="w-10 h-10 -ml-1 rounded-xl flex items-center justify-center text-primary hover:bg-primary-container/30 transition-colors cursor-pointer shrink-0"
           aria-label={isCollapsed ? 'Expandir capítulo' : 'Plegar capítulo'}
         >
           {isCollapsed ? (
@@ -117,14 +177,16 @@ export const MobileChapterCard: React.FC<MobileChapterCardProps> = ({
                   if (e.key === 'Escape') {
                     setNameValue(capitulo.nombre);
                     setIsEditing(false);
+                    if (onFinishRename) onFinishRename();
                   }
                 }}
-                className="w-full px-2 py-1 text-sm font-bold bg-surface border border-primary rounded-lg text-on-surface focus:outline-none"
+                className="w-full px-2 py-1.5 text-sm font-bold bg-surface border border-primary rounded-lg text-on-surface focus:outline-none"
               />
               <button
                 type="button"
                 onClick={handleCommitRename}
-                className="p-1 rounded-lg bg-primary text-on-primary cursor-pointer shrink-0"
+                className="p-1.5 rounded-lg bg-primary text-on-primary cursor-pointer shrink-0"
+                aria-label="Confirmar renombrado"
               >
                 <Check className="w-4 h-4" />
               </button>
@@ -166,56 +228,30 @@ export const MobileChapterCard: React.FC<MobileChapterCardProps> = ({
             haptics.selection();
             onAddItem();
           }}
-          className="w-8 h-8 rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
+          className="w-9 h-9 rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
           title="Agregar partida a este capítulo"
         >
           <Plus className="w-4 h-4" />
         </button>
 
-        {/* Menú de Capítulo (Renombrar / Eliminar) */}
-        <div className="relative shrink-0">
+        {/* Botón de Acciones del Capítulo (Touch Target 44x44px) */}
+        <div className="shrink-0">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setShowMenu(!showMenu);
+              haptics.selection();
+              if (onOpenActions) {
+                onOpenActions();
+              } else {
+                setIsEditing(true);
+              }
             }}
-            className="w-8 h-8 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest flex items-center justify-center transition-colors cursor-pointer"
-            aria-label="Opciones del capítulo"
+            className="w-10 h-10 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest flex items-center justify-center transition-colors cursor-pointer"
+            aria-label="Acciones del capítulo"
           >
-            <MoreVertical className="w-4 h-4" />
+            <MoreVertical className="w-5 h-5" />
           </button>
-
-          {showMenu && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="absolute right-0 top-full mt-1 w-44 bg-surface-container-highest border border-outline-variant/40 rounded-2xl shadow-xl p-1 z-40 flex flex-col gap-0.5 animate-in fade-in duration-100"
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setShowMenu(false);
-                  setIsEditing(true);
-                }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-on-surface hover:bg-surface-container rounded-xl cursor-pointer"
-              >
-                <Edit2 className="w-3.5 h-3.5 text-primary" />
-                <span>Renombrar</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowMenu(false);
-                  haptics.warning();
-                  onRemoveChapter();
-                }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-error hover:bg-error-container/30 rounded-xl cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Eliminar capítulo</span>
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MobileTreeItemCard } from './MobileTreeItemCard';
 import { ItemPresupuesto } from '../../../../core/types';
 
@@ -24,6 +24,14 @@ describe('MobileTreeItemCard', () => {
     ]
   } as unknown as ItemPresupuesto;
 
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('renderiza la descripción, unidad y precios calculados', () => {
     render(
       <MobileTreeItemCard
@@ -33,9 +41,7 @@ describe('MobileTreeItemCard', () => {
         onOpenQuantitySheet={vi.fn()}
         onQuickStepQty={vi.fn()}
         onOpenDetail={vi.fn()}
-        onMoveUp={vi.fn()}
-        onMoveDown={vi.fn()}
-        onRemove={vi.fn()}
+        onOpenActions={vi.fn()}
       />
     );
 
@@ -56,9 +62,7 @@ describe('MobileTreeItemCard', () => {
         onOpenQuantitySheet={vi.fn()}
         onQuickStepQty={handleQuickStep}
         onOpenDetail={vi.fn()}
-        onMoveUp={vi.fn()}
-        onMoveDown={vi.fn()}
-        onRemove={vi.fn()}
+        onOpenActions={vi.fn()}
       />
     );
 
@@ -82,9 +86,7 @@ describe('MobileTreeItemCard', () => {
         onOpenQuantitySheet={handleOpenSheet}
         onQuickStepQty={vi.fn()}
         onOpenDetail={vi.fn()}
-        onMoveUp={vi.fn()}
-        onMoveDown={vi.fn()}
-        onRemove={vi.fn()}
+        onOpenActions={vi.fn()}
       />
     );
 
@@ -104,9 +106,7 @@ describe('MobileTreeItemCard', () => {
         onOpenQuantitySheet={vi.fn()}
         onQuickStepQty={vi.fn()}
         onOpenDetail={handleOpenDetail}
-        onMoveUp={vi.fn()}
-        onMoveDown={vi.fn()}
-        onRemove={vi.fn()}
+        onOpenActions={vi.fn()}
       />
     );
 
@@ -115,9 +115,8 @@ describe('MobileTreeItemCard', () => {
     expect(handleOpenDetail).toHaveBeenCalled();
   });
 
-  it('el menú contextual táctil abre las opciones de mover y eliminar', () => {
-    const handleMoveUp = vi.fn();
-    const handleRemove = vi.fn();
+  it('el botón táctil de acciones dispara onOpenActions', () => {
+    const handleOpenActions = vi.fn();
 
     render(
       <MobileTreeItemCard
@@ -127,23 +126,44 @@ describe('MobileTreeItemCard', () => {
         onOpenQuantitySheet={vi.fn()}
         onQuickStepQty={vi.fn()}
         onOpenDetail={vi.fn()}
-        onMoveUp={handleMoveUp}
-        onMoveDown={vi.fn()}
-        onRemove={handleRemove}
+        onOpenActions={handleOpenActions}
       />
     );
 
     const menuBtn = screen.getByLabelText('Acciones de la partida');
     fireEvent.click(menuBtn);
+    expect(handleOpenActions).toHaveBeenCalled();
+  });
 
-    const moveUpItem = screen.getByText('Mover arriba');
-    fireEvent.click(moveUpItem);
-    expect(handleMoveUp).toHaveBeenCalled();
+  it('una pulsación prolongada (Long-Press) en la tarjeta dispara onOpenActions', () => {
+    const handleOpenActions = vi.fn();
+    const handleSelect = vi.fn();
 
-    // Reabrir menú para probar eliminar
-    fireEvent.click(menuBtn);
-    const removeItem = screen.getByText('Eliminar partida');
-    fireEvent.click(removeItem);
-    expect(handleRemove).toHaveBeenCalled();
+    const { container } = render(
+      <MobileTreeItemCard
+        item={mockItem}
+        isSelected={false}
+        onSelect={handleSelect}
+        onOpenQuantitySheet={vi.fn()}
+        onQuickStepQty={vi.fn()}
+        onOpenDetail={vi.fn()}
+        onOpenActions={handleOpenActions}
+      />
+    );
+
+    const card = container.firstChild as HTMLElement;
+
+    // Iniciar toque
+    fireEvent.touchStart(card);
+    act(() => {
+      vi.advanceTimersByTime(460);
+    });
+
+    expect(handleOpenActions).toHaveBeenCalled();
+
+    // Al soltar y disparar click, no debe llamar a onSelect por haber sido long-press
+    fireEvent.touchEnd(card);
+    fireEvent.click(card);
+    expect(handleSelect).not.toHaveBeenCalled();
   });
 });

@@ -1,22 +1,18 @@
-import React, { useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   Link2,
   Unlink2,
   FileSpreadsheet,
   AlertCircle,
   MoreVertical,
-  ArrowUp,
-  ArrowDown,
-  Trash2,
   Sliders,
-  BookmarkPlus,
   ChevronRight,
   Plus,
   Minus,
   Layers
 } from 'lucide-react';
 import { ItemPresupuesto, Insumo, CategoriaManoDeObra, ParametroItem } from '../../../../core/types';
-import { formatARS, safeNum } from '../../../../core/calculations';
+import { formatARS } from '../../../../core/calculations';
 import { useHaptics } from '../../../../hooks/useHaptics';
 
 export interface MobileTreeItemCardProps {
@@ -27,11 +23,12 @@ export interface MobileTreeItemCardProps {
   onQuickStepQty: (delta: number) => void;
   onOpenQuickParamModal?: (itemId: string) => void;
   onOpenDetail: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  onRemove: () => void;
+  onOpenActions: () => void;
+  // Optional / backwards compatibility
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  onRemove?: () => void;
   onSaveAsTareaTipo?: () => void;
-  // Optional legacy props
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   insumosMap?: Map<string, Insumo>;
@@ -58,13 +55,50 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
   onQuickStepQty,
   onOpenQuickParamModal,
   onOpenDetail,
-  onMoveUp,
-  onMoveDown,
-  onRemove,
-  onSaveAsTareaTipo
+  onOpenActions
 }) => {
   const haptics = useHaptics();
-  const [showActionMenu, setShowActionMenu] = useState(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLongPressRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleTouchStart = () => {
+    isLongPressRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      haptics.tickStrong();
+      onOpenActions();
+    }, 450);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleTouchMove = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleClick = () => {
+    if (isLongPressRef.current) {
+      isLongPressRef.current = false;
+      return;
+    }
+    onSelect();
+  };
 
   // Cálculos deterministas
   const costoDirectoTotal = item.costoDirectoTotal ?? item.costoTotal ?? 0;
@@ -83,14 +117,18 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
 
   return (
     <div
-      onClick={onSelect}
+      onClick={handleClick}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchMove}
+      onTouchCancel={handleTouchEnd}
       className={`rounded-2xl border transition-all mb-2.5 overflow-hidden select-none ${
         isSelected
           ? 'bg-surface-container-high/90 border-primary shadow-xs ring-1 ring-primary/40'
           : 'bg-surface border-outline-variant/30 hover:border-outline-variant/60 shadow-2xs'
       }`}
     >
-      {/* ─── Fila 1: Cabecera con Chip, Título y Menú Contextual ─── */}
+      {/* ─── Fila 1: Cabecera con Chip, Título y Botón de Acciones ─── */}
       <div className="p-3 pb-2 flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 min-w-0 flex-1">
           {/* Indicador de procedencia */}
@@ -152,90 +190,20 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
           </div>
         </div>
 
-        {/* Botón de Menú Contextual (44x44px touch target) */}
-        <div className="relative shrink-0">
+        {/* Botón de Acciones (Touch Target 44x44px garantizado para pulgar) */}
+        <div className="shrink-0">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               haptics.selection();
-              setShowActionMenu(!showActionMenu);
+              onOpenActions();
             }}
-            className="w-10 h-10 -mr-1 -mt-1 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors cursor-pointer"
+            className="w-11 h-11 -mr-1 -mt-1 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors cursor-pointer"
             aria-label="Acciones de la partida"
           >
-            <MoreVertical className="w-4 h-4" />
+            <MoreVertical className="w-5 h-5" />
           </button>
-
-          {/* Menú Desplegable Flotante */}
-          {showActionMenu && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="absolute right-0 top-full mt-1 w-48 bg-surface-container-highest border border-outline-variant/40 rounded-2xl shadow-xl p-1.5 z-40 flex flex-col gap-0.5 animate-in fade-in duration-100"
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setShowActionMenu(false);
-                  onMoveUp();
-                }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-on-surface hover:bg-surface-container rounded-xl cursor-pointer min-h-[38px]"
-              >
-                <ArrowUp className="w-3.5 h-3.5 text-primary" />
-                <span>Mover arriba</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowActionMenu(false);
-                  onMoveDown();
-                }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-on-surface hover:bg-surface-container rounded-xl cursor-pointer min-h-[38px]"
-              >
-                <ArrowDown className="w-3.5 h-3.5 text-primary" />
-                <span>Mover abajo</span>
-              </button>
-              {onOpenQuickParamModal && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowActionMenu(false);
-                    onOpenQuickParamModal(item.id);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-secondary hover:bg-surface-container rounded-xl cursor-pointer min-h-[38px]"
-                >
-                  <Sliders className="w-3.5 h-3.5" />
-                  <span>Configurar parámetros</span>
-                </button>
-              )}
-              {onSaveAsTareaTipo && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowActionMenu(false);
-                    onSaveAsTareaTipo();
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-tertiary hover:bg-surface-container rounded-xl cursor-pointer min-h-[38px]"
-                >
-                  <BookmarkPlus className="w-3.5 h-3.5" />
-                  <span>Guardar en catálogo</span>
-                </button>
-              )}
-              <div className="border-t border-outline-variant/30 my-0.5" />
-              <button
-                type="button"
-                onClick={() => {
-                  setShowActionMenu(false);
-                  haptics.warning();
-                  onRemove();
-                }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-error hover:bg-error-container/30 rounded-xl cursor-pointer min-h-[38px]"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Eliminar partida</span>
-              </button>
-            </div>
-          )}
         </div>
       </div>
 

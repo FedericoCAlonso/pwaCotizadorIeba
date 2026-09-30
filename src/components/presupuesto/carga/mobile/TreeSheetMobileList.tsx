@@ -10,6 +10,8 @@ import { MobileTreeItemCard } from './MobileTreeItemCard';
 import { MobileChapterCard } from './MobileChapterCard';
 import { MobileQuantitySheet } from './MobileQuantitySheet';
 import { MobileItemDetailSheet } from './MobileItemDetailSheet';
+import { MobileItemActionSheet } from './MobileItemActionSheet';
+import { MobileChapterActionSheet } from './MobileChapterActionSheet';
 
 export interface TreeSheetMobileListProps {
   items: ItemPresupuesto[];
@@ -40,6 +42,9 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
 }) => {
   const [quantitySheetItemId, setQuantitySheetItemId] = useState<string | null>(null);
   const [activeDetailItemId, setActiveDetailItemId] = useState<string | null>(null);
+  const [actionSheetItemId, setActionSheetItemId] = useState<string | null>(null);
+  const [actionSheetChapterId, setActionSheetChapterId] = useState<string | null>(null);
+  const [renamingChapterId, setRenamingChapterId] = useState<string | null>(null);
 
   const quantitySheetItem = items.find((it) => it.id === quantitySheetItemId) || null;
 
@@ -47,6 +52,42 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
   const activeDetailItem = activeDetailItemId
     ? (calculatedItemsMap.get(activeDetailItemId) || items.find((it) => it.id === activeDetailItemId) || null)
     : null;
+
+  // Resolución del item para el Bottom Sheet de Acciones
+  const actionSheetItem = actionSheetItemId
+    ? (calculatedItemsMap.get(actionSheetItemId) || items.find((it) => it.id === actionSheetItemId) || null)
+    : null;
+
+  let isItemFirst = false;
+  let isItemLast = false;
+  if (actionSheetItem) {
+    if (actionSheetItem.capituloId) {
+      const chapterItems = items.filter((it) => it.capituloId === actionSheetItem.capituloId);
+      const idx = chapterItems.findIndex((it) => it.id === actionSheetItem.id);
+      isItemFirst = idx === 0;
+      isItemLast = idx === chapterItems.length - 1;
+    } else {
+      const orphanItemsList = items.filter((it) => !it.capituloId);
+      const idx = orphanItemsList.findIndex((it) => it.id === actionSheetItem.id);
+      isItemFirst = idx === 0;
+      isItemLast = idx === orphanItemsList.length - 1;
+    }
+  }
+
+  // Resolución del capítulo para el Bottom Sheet de Acciones
+  const actionSheetChapter = actionSheetChapterId
+    ? capitulos.find((c) => c.id === actionSheetChapterId) || null
+    : null;
+  const actionSheetChapterItems = actionSheetChapter
+    ? items.filter((it) => it.capituloId === actionSheetChapter.id)
+    : [];
+  const actionSheetChapterTotals = actionSheetChapter
+    ? totales?.capitulosTotales?.[actionSheetChapter.id]
+    : undefined;
+  const actionSheetChapterFinalPrice =
+    actionSheetChapterTotals?.precioVentaTotal ??
+    (actionSheetChapterTotals && 'precioFinal' in actionSheetChapterTotals ? (actionSheetChapterTotals as any).precioFinal : undefined) ??
+    actionSheetChapterItems.reduce((acc, it) => acc + (it.precioFinalItem ?? it.precioVentaTotal ?? it.costoDirectoTotal ?? 0), 0);
 
   const handleNextDetailItem = () => {
     if (currentDetailIndex >= 0 && currentDetailIndex < items.length - 1) {
@@ -128,6 +169,7 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
                 onQuickStepQty={(delta) => handleQuickStepQty(item.id, delta)}
                 onOpenQuickParamModal={vm.handleOpenQuickParamModal}
                 onOpenDetail={() => setActiveDetailItemId(item.id)}
+                onOpenActions={() => setActionSheetItemId(item.id)}
                 onMoveUp={() => vm.handleMoveItem(item.id, 'up')}
                 onMoveDown={() => vm.handleMoveItem(item.id, 'down')}
                 onRemove={() => vm.handleRemoveItem(item.id)}
@@ -153,11 +195,14 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
               capituloTotales={capTotals}
               isCollapsed={isCollapsed}
               isSelected={vm.selectedChapterId === cap.id}
+              isEditingExternal={renamingChapterId === cap.id}
               onToggleCollapse={() => vm.toggleChapterCollapse(cap.id)}
               onSelect={() => vm.handleSelectRow(null, cap.id)}
               onAddItem={() => vm.handleCreateItem(cap.id)}
               onRenameChapter={(nombre) => vm.handleRenameChapter(cap.id, nombre)}
+              onFinishRename={() => setRenamingChapterId(null)}
               onRemoveChapter={() => vm.handleRemoveChapter(cap.id)}
+              onOpenActions={() => setActionSheetChapterId(cap.id)}
             />
 
             {!isCollapsed && (
@@ -186,6 +231,7 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
                         onQuickStepQty={(delta) => handleQuickStepQty(item.id, delta)}
                         onOpenQuickParamModal={vm.handleOpenQuickParamModal}
                         onOpenDetail={() => setActiveDetailItemId(item.id)}
+                        onOpenActions={() => setActionSheetItemId(item.id)}
                         onMoveUp={() => vm.handleMoveItem(item.id, 'up')}
                         onMoveDown={() => vm.handleMoveItem(item.id, 'down')}
                         onRemove={() => vm.handleRemoveItem(item.id)}
@@ -240,6 +286,43 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
             );
           }}
           onUpdateParametros={(params) => vm.handleUpdateItemParametros(activeDetailItem.id, params)}
+        />
+      )}
+
+      {/* Bottom Sheet de Acciones de Partida (Un Ojo, Una Mano) */}
+      {actionSheetItem && (
+        <MobileItemActionSheet
+          isOpen={Boolean(actionSheetItemId)}
+          onClose={() => setActionSheetItemId(null)}
+          item={actionSheetItem}
+          isFirst={isItemFirst}
+          isLast={isItemLast}
+          onMoveUp={() => vm.handleMoveItem(actionSheetItem.id, 'up')}
+          onMoveDown={() => vm.handleMoveItem(actionSheetItem.id, 'down')}
+          onOpenQuickParams={vm.handleOpenQuickParamModal}
+          onSaveAsTareaTipo={onSaveAsTareaTipo ? () => onSaveAsTareaTipo(actionSheetItem) : undefined}
+          onRemove={() => vm.handleRemoveItem(actionSheetItem.id)}
+        />
+      )}
+
+      {/* Bottom Sheet de Acciones de Capítulo (Un Ojo, Una Mano) */}
+      {actionSheetChapter && (
+        <MobileChapterActionSheet
+          isOpen={Boolean(actionSheetChapterId)}
+          onClose={() => setActionSheetChapterId(null)}
+          capitulo={actionSheetChapter}
+          itemCount={actionSheetChapterItems.length}
+          totalPrecio={actionSheetChapterFinalPrice}
+          onStartRename={() => {
+            if (actionSheetChapter) {
+              setRenamingChapterId(actionSheetChapter.id);
+            }
+          }}
+          onRemove={() => {
+            if (actionSheetChapter) {
+              vm.handleRemoveChapter(actionSheetChapter.id);
+            }
+          }}
         />
       )}
     </div>
