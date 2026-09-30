@@ -231,7 +231,7 @@ export const TreeSheetChapterRow: React.FC<TreeSheetChapterRowProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              if (window.confirm(`¿Eliminar rubro "${capitulo.nombre}"? Los ítems no se borrarán (pasarán a generales).`)) {
+              if (window.confirm(`¿Eliminar rubro "${capitulo.nombre}"? Se eliminarán los ítems contenidos en él.`)) {
                 onRemoveChapter();
               }
             }}

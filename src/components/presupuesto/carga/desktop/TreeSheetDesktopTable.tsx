@@ -39,8 +39,6 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
   onOpenParametricJobModal,
   tareasTipo
 }) => {
-  const orphanItems = items.filter((it) => !it.capituloId);
-
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-surface pb-2">
       {/* Cabecera de Columnas: Costo Directo y Precio Final Simultáneos */}
@@ -79,82 +77,6 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
               <span>Catálogo de Tareas</span>
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Ítems huérfanos sin rubro */}
-      {orphanItems.length > 0 && (
-        <div>
-          <div className="px-4 py-1.5 bg-surface-container-lowest border-b border-outline-variant/20 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
-            Ítems Generales (Sin Rubro)
-          </div>
-          {orphanItems.map((rawItem) => {
-            const item = calculatedItemsMap.get(rawItem.id) || rawItem;
-            return (
-              <TreeSheetRow
-                key={item.id}
-                item={item}
-                isSelected={vm.selectedItemId === item.id}
-                isExpanded={vm.expandedItems.has(item.id)}
-                onToggleExpand={() => vm.toggleItemExpand(item.id)}
-                editingCell={vm.editingCell}
-                insumosMap={insumosMap}
-                manoObraMap={manoObraMap}
-                onSelect={() => vm.handleSelectRow(item.id, item.capituloId || null)}
-                onStartEditCell={(field) => vm.handleStartEditCell(item.id, field)}
-                onUpdateEditingCellValue={vm.handleUpdateEditingCellValue}
-                onCommitEditCell={(field, finalValue) => vm.handleCommitEditCell(item.id, field, finalValue)}
-                onCancelEditCell={vm.handleCancelEditCell}
-                onMoveUp={() => vm.handleMoveItem(item.id, 'up')}
-                onMoveDown={() => vm.handleMoveItem(item.id, 'down')}
-                onRemove={() => vm.handleRemoveItem(item.id)}
-                onSaveAsTareaTipo={onSaveAsTareaTipo ? () => onSaveAsTareaTipo(item) : undefined}
-                onOpenParametric={
-                  onOpenParametricJobModal
-                    ? () => {
-                        const idx = items.findIndex((it) => it.id === item.id);
-                        const tarea = item.tareaTipoConfig || (item.tareaTipoId ? tareasTipo?.find((t) => t.id === item.tareaTipoId) : undefined) || {
-                          id: item.tareaTipoId || `tt-${item.id}`,
-                          nombre: item.descripcion,
-                          categoria: 'Personalizado',
-                          unidad: item.unidad || 'u',
-                          parametros: (item.parametros || []).map(p => ({
-                            id: p.id,
-                            nombre: p.nombre || p.id,
-                            tipo: 'numero',
-                            valorDefault: p.valor,
-                            unidad: p.unidad
-                          }))
-                        };
-                        if (idx !== -1) {
-                          onOpenParametricJobModal(tarea, idx);
-                        }
-                      }
-                    : undefined
-                }
-                onUpdateNotas={(notas, exclusiones) => {
-                  setItems((prev) =>
-                    prev.map((it) =>
-                      it.id === item.id ? { ...it, notasTecnicas: notas, clausulaExclusiones: exclusiones } : it
-                    )
-                  );
-                }}
-                onAddMaterial={(mat, qty, formula) => vm.handleAddMaterialToItem(item.id, mat, qty, formula)}
-                onRemoveMaterial={(mIdx) => vm.handleRemoveMaterialFromItem(item.id, mIdx)}
-                onUpdateMaterialFormula={(mIdx, formula) => vm.handleUpdateMaterialFormula(item.id, mIdx, formula)}
-                onOpenMaterialCatalog={() => vm.handleOpenMaterialPicker(item.id)}
-                onAddLabor={(catId, hs, formula) => vm.handleAddLaborToItem(item.id, catId, hs, formula)}
-                onRemoveLabor={(lIdx) => vm.handleRemoveLaborFromItem(item.id, lIdx)}
-                onUpdateLaborFormula={(lIdx, formula) => vm.handleUpdateLaborFormula(item.id, lIdx, formula)}
-                onAddService={(desc, cost) => vm.handleAddServiceToItem(item.id, desc, cost)}
-                onRemoveService={(sIdx) => vm.handleRemoveServiceFromItem(item.id, sIdx)}
-                onUpdateParametros={(params) => vm.handleUpdateItemParametros(item.id, params)}
-                onNavigateCell={vm.handleNavigateCell}
-                onOpenQuickParamModal={vm.handleOpenQuickParamModal}
-                calculosVariables={calculosVariables}
-              />
-            );
-          })}
         </div>
       )}
 

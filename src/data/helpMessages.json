@@ -179,6 +179,7 @@
             "bullets": [
               "Organización por Rubros (Nivel 1): El botón superior '+ Rubro' permite crear secciones para estructurar etapas de obra (ej. Acometida, Canalizaciones, Circuitos) con subtotales automáticos por rubro.",
               "Inserción de Ítems (Nivel 2): Dentro de cada rubro puedes crear ítems libres ('+ Ítem') con edición directa de nombre o incorporar tareas completas del catálogo oficial ('+ Catálogo') asignadas directamente al rubro.",
+              "Invariante Estricta de Rubro: Todo ítem pertenece obligatoriamente a un rubro; si comienzas una cotización vacía o insertas desde el catálogo, el sistema garantiza automáticamente la creación y asignación del rubro correspondiente, sin partidas huérfanas.",
               "Desglose Dinámico en Grilla: Cada renglón permite expandir en un clic el despiece de insumos, horas de mano de obra y servicios subcontratados directamente en la tabla.",
               "Acciones Rápidas: Duplicación, eliminación, cambio de rubro y reordenamiento de renglones al instante."
             ]

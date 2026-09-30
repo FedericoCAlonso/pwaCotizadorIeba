@@ -260,9 +260,20 @@ export function usePresupuestoEditorViewModel({
       setDireccionObra(existingPresupuesto.direccionObra || '');
       setValidezDias(existingPresupuesto.validezDias);
       setMargenPorcentaje(existingPresupuesto.beneficioPorcentaje ?? existingPresupuesto.margenPorcentaje ?? 30);
-      setTipoFactura(existingPresupuesto.tipoFactura);
-      setCapitulos(existingPresupuesto.capitulos || []);
-      setItems(existingPresupuesto.items || []);
+      let loadedCaps = existingPresupuesto.capitulos ? [...existingPresupuesto.capitulos] : [];
+      let loadedItems = existingPresupuesto.items ? [...existingPresupuesto.items] : [];
+      if (loadedItems.some(it => !it.capituloId)) {
+        if (loadedCaps.length === 0) {
+          const defaultCapId = `cap-${Date.now()}`;
+          loadedCaps = [{ id: defaultCapId, nombre: 'Instalaciones Generales', orden: 1 }];
+          loadedItems = loadedItems.map(it => (!it.capituloId ? { ...it, capituloId: defaultCapId } : it));
+        } else {
+          const firstCapId = loadedCaps[0].id;
+          loadedItems = loadedItems.map(it => (!it.capituloId ? { ...it, capituloId: firstCapId } : it));
+        }
+      }
+      setCapitulos(loadedCaps);
+      setItems(loadedItems);
       
       if (existingPresupuesto.margenRiesgoPorcentaje !== undefined) {
         setMargenRiesgoPorcentaje(existingPresupuesto.margenRiesgoPorcentaje);
@@ -681,10 +692,35 @@ export function usePresupuestoEditorViewModel({
     setCapitulos(prev => prev.map(c => c.id === id ? { ...c, nombre } : c));
   };
 
+  const ensureDefaultCapitulo = useCallback((targetCapituloId?: string, defaultName = 'Instalaciones Generales'): string => {
+    if (targetCapituloId && capitulos.some(c => c.id === targetCapituloId)) {
+      return targetCapituloId;
+    }
+    if (capitulos.length > 0) {
+      return capitulos[0].id;
+    }
+    const newCapId = `cap-${Date.now()}`;
+    const newCap: CapituloPresupuesto = {
+      id: newCapId,
+      nombre: defaultName,
+      orden: 1
+    };
+    setCapitulos([newCap]);
+    return newCapId;
+  }, [capitulos]);
+
   const handleRemoveCapitulo = (id: string) => {
-    setCapitulos(prev => prev.filter(c => c.id !== id));
-    setItems(prev => prev.map(it => it.capituloId === id ? { ...it, capituloId: undefined } : it));
-    toast.info('Capítulo eliminado');
+    const remainingCapitulos = capitulos.filter(c => c.id !== id);
+    setCapitulos(remainingCapitulos);
+    if (remainingCapitulos.length > 0) {
+      // Reasignar los ítems al primer rubro restante para que nunca queden huérfanos
+      const fallbackCapId = remainingCapitulos[0].id;
+      setItems(prev => prev.map(it => it.capituloId === id ? { ...it, capituloId: fallbackCapId } : it));
+    } else {
+      // Si no quedan otros rubros, eliminar los ítems de ese rubro
+      setItems(prev => prev.filter(it => it.capituloId !== id));
+    }
+    toast.info('Rubro eliminado');
   };
 
   const handleSaveGasto = (gasto: GastoPresupuestoConfig) => {
@@ -786,9 +822,10 @@ export function usePresupuestoEditorViewModel({
   };
 
   const handleAddServicioDirecto = (capituloId?: string) => {
+    const targetCap = ensureDefaultCapitulo(capituloId);
     const newItem: ItemPresupuesto = {
       id: `item-${generateUUID()}`,
-      capituloId,
+      capituloId: targetCap,
       tipoItem: 'servicio_tercerizado',
       descripcion: 'Alquiler de Equipo / Servicio Tercerizado',
       cantidad: 1,
@@ -852,13 +889,15 @@ export function usePresupuestoEditorViewModel({
 
   // ─── Actions / Commands ───────────────────────────────────────────────────────
   const handleAddTareaTipoItem = (tarea: TareaTipo, cantidad = 1, capituloId?: string) => {
+    const targetCap = ensureDefaultCapitulo(capituloId, tarea.categoria ? tarea.categoria.charAt(0).toUpperCase() + tarea.categoria.slice(1) : undefined);
+
     // Si la tarea tiene parámetros, variables o fórmula de honorarios, abrir inmediatamente el asistente paramétrico
     if (
       (tarea.parametros && tarea.parametros.length > 0) ||
       (tarea.variables && tarea.variables.length > 0) ||
       Boolean(tarea.formulaHonorarios)
     ) {
-      handleOpenParametricModalForNewTask(tarea, capituloId);
+      handleOpenParametricModalForNewTask(tarea, targetCap);
       return;
     }
 
@@ -874,7 +913,7 @@ export function usePresupuestoEditorViewModel({
 
     const newItem: ItemPresupuesto = {
       id: `item-${generateUUID()}`,
-      capituloId,
+      capituloId: targetCap,
       tareaTipoId: tarea.id,
       tareaTipoConfig: tarea,
       parametros: (tarea.parametros || []).map((tp) => ({
@@ -920,7 +959,8 @@ export function usePresupuestoEditorViewModel({
   };
 
   const handleOpenParametricModalForNewTask = (tarea: TareaTipo, capituloId?: string) => {
-    setTargetCapituloForNewParametric(capituloId);
+    const targetCap = ensureDefaultCapitulo(capituloId, tarea.categoria ? tarea.categoria.charAt(0).toUpperCase() + tarea.categoria.slice(1) : undefined);
+    setTargetCapituloForNewParametric(targetCap);
     setSelectedTareaForParametricModal(tarea);
     setEditingItemIndexForParametricModal(null);
     setShowParametricModal(true);
@@ -1051,9 +1091,13 @@ export function usePresupuestoEditorViewModel({
     } else {
       // Agregando nuevo ítem: 1 unidad base de ensamble
       const cant = 1;
+      const targetCap = ensureDefaultCapitulo(
+        targetCapituloForNewParametric,
+        tarea.categoria ? tarea.categoria.charAt(0).toUpperCase() + tarea.categoria.slice(1) : undefined
+      );
       const newItem: ItemPresupuesto = {
         id: `item-${generateUUID()}`,
-        capituloId: targetCapituloForNewParametric,
+        capituloId: targetCap,
         tareaTipoId: tarea.id,
         tareaTipoConfig: tarea,
         parametros: mappedParametros,
@@ -1158,7 +1202,8 @@ export function usePresupuestoEditorViewModel({
     setEditingItemIndexForMaterialModal(null);
   };
 
-  const handleAddInsumoItem = (insumo: Insumo, cantidad = 1) => {
+  const handleAddInsumoItem = (insumo: Insumo, cantidad = 1, capituloId?: string) => {
+    const targetCap = ensureDefaultCapitulo(capituloId);
     const ali = insumo.alicuotaIVA ?? config.alicuotaIVAPorDefecto ?? 21;
     const precioNeto = roundMoney(safeNum(insumo.precioActual));
     const precioFinal = roundMoney(precioNeto * (1 + ali / 100));
@@ -1167,6 +1212,7 @@ export function usePresupuestoEditorViewModel({
 
     const newItem: ItemPresupuesto = {
       id: `item-${generateUUID()}`,
+      capituloId: targetCap,
       descripcion: insumo.nombre,
       cantidad,
       unidad: insumo.unidad || 'u',
@@ -1199,9 +1245,10 @@ export function usePresupuestoEditorViewModel({
   };
 
   const handleAddDirectItem = (capituloId?: string, descripcion = '') => {
+    const targetCap = ensureDefaultCapitulo(capituloId);
     const newItem: ItemPresupuesto = {
       id: `item-${generateUUID()}`,
-      capituloId,
+      capituloId: targetCap,
       tipoItem: 'item_libre',
       descripcion: descripcion || '',
       notasTecnicas: '',

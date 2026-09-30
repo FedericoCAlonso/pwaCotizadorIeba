@@ -479,4 +479,87 @@ describe('useTreeSheetViewModel - Árbol-Planilla de Cotización', () => {
     });
     expect(hook.result.current.quickParamModalItemId).toBeNull();
   });
+
+  describe('Invariante estricta: Rubro obligatorio (cero ítems huérfanos)', () => {
+    it('al crear un ítem sin rubros existentes, crea automáticamente un rubro por defecto y le asigna capituloId', () => {
+      const { hook, getItems, getCapitulos } = createHook([], []);
+
+      act(() => {
+        hook.result.current.handleCreateItem();
+      });
+
+      const capitulos = getCapitulos();
+      const items = getItems();
+
+      expect(capitulos.length).toBe(1);
+      expect(capitulos[0].nombre).toBe('Instalaciones Generales');
+      expect(items.length).toBe(1);
+      expect(items[0].capituloId).toBe(capitulos[0].id);
+      expect(items[0].capituloId).toBeDefined();
+    });
+
+    it('al insertar una tarea tipo sin rubros existentes, crea automáticamente un rubro y le asigna capituloId', () => {
+      const { hook, getItems, getCapitulos } = createHook([], []);
+      const mockTarea: TareaTipo = {
+        id: 'tt-canalizacion',
+        nombre: 'Canalización en losa',
+        categoria: 'Canalizaciones',
+        unidad: 'm',
+        version: 1,
+        insumos: [],
+        manoObra: []
+      };
+
+      act(() => {
+        hook.result.current.handleInsertTareaTipo(mockTarea);
+      });
+
+      const capitulos = getCapitulos();
+      const items = getItems();
+
+      expect(capitulos.length).toBe(1);
+      expect(capitulos[0].nombre).toBe('Canalizaciones');
+      expect(items.length).toBe(1);
+      expect(items[0].capituloId).toBe(capitulos[0].id);
+    });
+
+    it('al eliminar un rubro cuando hay otros rubros, reasigna los ítems para no dejarlos huérfanos', () => {
+      const { hook, getItems, getCapitulos } = createHook(mockItems, mockCapitulos);
+
+      act(() => {
+        hook.result.current.handleRemoveChapter('cap-1', false);
+      });
+
+      const capitulos = getCapitulos();
+      const items = getItems();
+
+      expect(capitulos.map((c) => c.id)).not.toContain('cap-1');
+      // Ningún ítem debe quedar con capituloId undefined
+      items.forEach((it) => {
+        expect(it.capituloId).toBeDefined();
+        expect(it.capituloId).toBe('cap-2');
+      });
+    });
+
+    it('auto-normaliza reactivamente ítems huérfanos preexistentes asignándoles rubro', () => {
+      const itemHuerfano: ItemPresupuesto = {
+        id: 'it-huerfano',
+        descripcion: 'Ítem sin rubro preexistente',
+        cantidad: 1,
+        unidad: 'u',
+        costoInsumos: 0,
+        costoManoObra: 0,
+        costoDirectoTotal: 0,
+        precioVentaUnitario: 0,
+        precioVentaTotal: 0,
+        insumosSnapshot: [],
+        manoObraSnapshot: []
+      };
+
+      const { getItems, getCapitulos } = createHook([itemHuerfano], mockCapitulos);
+
+      const items = getItems();
+      expect(items[0].capituloId).toBe(mockCapitulos[0].id);
+    });
+  });
 });

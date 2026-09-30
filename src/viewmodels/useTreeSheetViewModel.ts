@@ -106,13 +106,7 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
   const visibleRows = useMemo<TreeSheetRowItem[]>(() => {
     const rows: TreeSheetRowItem[] = [];
 
-    // Partidas sin capítulo (huérfanas)
-    const orphanItems = items.filter((it) => !it.capituloId);
-    orphanItems.forEach((item) => {
-      rows.push({ type: 'item', id: item.id, item });
-    });
-
-    // Capítulos con sus ítems
+    // Rubros con sus ítems asignados (no se permiten ítems huérfanos sin rubro)
     capitulos.forEach((cap) => {
       rows.push({ type: 'chapter', id: cap.id, capitulo: cap });
       if (!collapsedChapters.has(cap.id)) {
@@ -279,10 +273,22 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
     [items, editingCell, setItems, reevaluarItem]
   );
 
-  // Crear nuevo ítem en un capítulo o hermano
+  // Crear nuevo ítem en un capítulo o hermano (siempre dentro de un rubro)
   const handleCreateItem = useCallback(
     (chapterId?: string, position: 'after' | 'end' = 'after', referenceItemId?: string): string => {
-      const targetChapter = chapterId || selectedChapterId || capitulos[0]?.id || undefined;
+      let targetChapter = chapterId || selectedChapterId || capitulos[0]?.id;
+      if (!targetChapter) {
+        // Si la cotización no tiene ningún rubro, creamos uno inicial por defecto
+        const newCapId = `cap-${generateUUID().slice(0, 8)}`;
+        const newCap: CapituloPresupuesto = {
+          id: newCapId,
+          nombre: 'Instalaciones Generales',
+          orden: 1
+        };
+        setCapitulos([newCap]);
+        targetChapter = newCapId;
+      }
+
       const newItemId = `it-${generateUUID().slice(0, 8)}`;
 
       const newItem: ItemPresupuesto = reevaluarItem({
@@ -313,7 +319,7 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
       });
 
       setSelectedItemId(newItemId);
-      setSelectedChapterId(targetChapter || null);
+      setSelectedChapterId(targetChapter);
       const nextCell: EditingCellState = { itemId: newItemId, field: 'descripcion', value: 'Nuevo Ítem' };
       editingCellRef.current = nextCell;
       setEditingCell(nextCell);
@@ -321,7 +327,7 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
 
       return newItemId;
     },
-    [selectedChapterId, capitulos, reevaluarItem, setItems]
+    [selectedChapterId, capitulos, setCapitulos, reevaluarItem, setItems]
   );
 
   // Crear nuevo capítulo
@@ -354,23 +360,27 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
     [setCapitulos]
   );
 
-  // Eliminar capítulo (y desanidar o eliminar sus ítems)
+  // Eliminar capítulo (y eliminar o reasignar sus ítems al rubro restante, nunca dejarlos huérfanos)
   const handleRemoveChapter = useCallback(
-    (chapterId: string, deleteItems = false) => {
-      setCapitulos((prev) => prev.filter((c) => c.id !== chapterId));
-      if (deleteItems) {
+    (chapterId: string, deleteItems = true) => {
+      const remainingCapitulos = capitulos.filter((c) => c.id !== chapterId);
+      setCapitulos(remainingCapitulos);
+
+      if (deleteItems || remainingCapitulos.length === 0) {
+        // Eliminar los ítems contenidos en el rubro
         setItems((prev) => prev.filter((it) => it.capituloId !== chapterId));
       } else {
-        // Mover a huérfanos sin capítulo
+        // Reasignar al primer rubro restante
+        const fallbackChapterId = remainingCapitulos[0].id;
         setItems((prev) =>
-          prev.map((it) => (it.capituloId === chapterId ? { ...it, capituloId: undefined } : it))
+          prev.map((it) => (it.capituloId === chapterId ? { ...it, capituloId: fallbackChapterId } : it))
         );
       }
       if (selectedChapterId === chapterId) {
-        setSelectedChapterId(null);
+        setSelectedChapterId(remainingCapitulos[0]?.id || null);
       }
     },
-    [selectedChapterId, setCapitulos, setItems]
+    [selectedChapterId, capitulos, setCapitulos, setItems]
   );
 
   // Eliminar ítem
@@ -405,6 +415,7 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
   // Mover ítem a otro capítulo
   const handleMoveItemToChapter = useCallback(
     (itemId: string, targetChapterId: string | undefined) => {
+      if (!targetChapterId) return; // Nunca mover a huérfano sin rubro
       setItems((prev) =>
         prev.map((it) => (it.id === itemId ? reevaluarItem({ ...it, capituloId: targetChapterId }) : it))
       );
@@ -412,28 +423,29 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
     [setItems, reevaluarItem]
   );
 
-  // Indentar / Desanidar ítem con Tab / Shift+Tab
+  // Indentar / Desanidar ítem entre rubros con Alt+Flecha
   const handleIndentItem = useCallback(
     (itemId: string) => {
-      const idx = visibleRows.findIndex((r) => r.type === 'item' && r.id === itemId);
-      if (idx <= 0) return;
-      // Buscar el capítulo anterior en la jerarquía visible
-      for (let i = idx - 1; i >= 0; i--) {
-        if (visibleRows[i].type === 'chapter') {
-          handleMoveItemToChapter(itemId, visibleRows[i].id);
-          return;
-        }
+      const currentItem = items.find((it) => it.id === itemId);
+      if (!currentItem || !currentItem.capituloId) return;
+      const currentCapIdx = capitulos.findIndex((c) => c.id === currentItem.capituloId);
+      if (currentCapIdx !== -1 && currentCapIdx < capitulos.length - 1) {
+        handleMoveItemToChapter(itemId, capitulos[currentCapIdx + 1].id);
       }
     },
-    [visibleRows, handleMoveItemToChapter]
+    [items, capitulos, handleMoveItemToChapter]
   );
 
   const handleUnindentItem = useCallback(
     (itemId: string) => {
-      // Desanidar hacia la raíz (huérfano sin capítulo)
-      handleMoveItemToChapter(itemId, undefined);
+      const currentItem = items.find((it) => it.id === itemId);
+      if (!currentItem || !currentItem.capituloId) return;
+      const currentCapIdx = capitulos.findIndex((c) => c.id === currentItem.capituloId);
+      if (currentCapIdx > 0) {
+        handleMoveItemToChapter(itemId, capitulos[currentCapIdx - 1].id);
+      }
     },
-    [handleMoveItemToChapter]
+    [items, capitulos, handleMoveItemToChapter]
   );
 
   // Navegación fluida de celda en celda (Tab, Shift+Tab, Enter)
@@ -1023,7 +1035,17 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
       }));
 
       const newItemId = `it-${generateUUID().slice(0, 8)}`;
-      const targetChapter = overrideChapterId || catalogPickerTargetChapterId || selectedChapterId || capitulos[0]?.id || undefined;
+      let targetChapter = overrideChapterId || catalogPickerTargetChapterId || selectedChapterId || capitulos[0]?.id;
+      if (!targetChapter) {
+        const newCapId = `cap-${generateUUID().slice(0, 8)}`;
+        const newCap: CapituloPresupuesto = {
+          id: newCapId,
+          nombre: tarea.categoria ? tarea.categoria.charAt(0).toUpperCase() + tarea.categoria.slice(1) : 'Instalaciones Generales',
+          orden: 1
+        };
+        setCapitulos([newCap]);
+        targetChapter = newCapId;
+      }
 
       const rawItem: ItemPresupuesto = {
         id: newItemId,
@@ -1049,13 +1071,37 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
 
       setItems((prev) => [...prev, reevaluado]);
       setSelectedItemId(newItemId);
-      setSelectedChapterId(targetChapter || null);
+      setSelectedChapterId(targetChapter);
       setIsDetailPanelOpen(true);
       setIsCatalogPickerOpen(false);
       setCatalogPickerTargetChapterId(undefined);
     },
-    [catalogPickerTargetChapterId, selectedChapterId, capitulos, reevaluarItem, setItems]
+    [catalogPickerTargetChapterId, selectedChapterId, capitulos, setCapitulos, reevaluarItem, setItems]
   );
+
+  // Auto-normalización defensiva: garantizar que ningún ítem quede huérfano sin rubro asignado
+  useEffect(() => {
+    const orphanItems = items.filter((it) => !it.capituloId);
+    if (orphanItems.length === 0) return;
+
+    if (capitulos.length === 0) {
+      const newCapId = `cap-${generateUUID().slice(0, 8)}`;
+      const newCap: CapituloPresupuesto = {
+        id: newCapId,
+        nombre: 'Instalaciones Generales',
+        orden: 1
+      };
+      setCapitulos([newCap]);
+      setItems((prev) =>
+        prev.map((it) => (!it.capituloId ? { ...it, capituloId: newCapId } : it))
+      );
+    } else {
+      const fallbackCapId = capitulos[0].id;
+      setItems((prev) =>
+        prev.map((it) => (!it.capituloId ? { ...it, capituloId: fallbackCapId } : it))
+      );
+    }
+  }, [items, capitulos, setCapitulos, setItems]);
 
   return {
     // Estados principales
