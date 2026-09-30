@@ -156,7 +156,7 @@ export const ProjectParametersTuningSection: React.FC<ProjectParametersTuningSec
             }`}
           >
             <Pin className="w-3.5 h-3.5" />
-            <span>📌 Por Partida ({itemsWithParams.length})</span>
+            <span>📌 Por Ítem ({itemsWithParams.length})</span>
           </button>
         </div>
 
@@ -176,7 +176,7 @@ export const ProjectParametersTuningSection: React.FC<ProjectParametersTuningSec
           <p className="font-semibold text-primary">Reglas de alcance y uso de parámetros:</p>
           <ul className="list-disc list-inside space-y-0.5 text-on-surface-variant text-[11px]">
             <li><strong>🌐 Ámbito Global</strong>: Accesible desde cualquier fórmula (`=superficie * 1.15`).</li>
-            <li><strong>📌 Ámbito Local</strong>: Específico de cada partida (`=bocas * 2`). Tiene prioridad sobre una global si se llaman igual.</li>
+            <li><strong>📌 Ámbito Local</strong>: Específico de cada ítem (`=bocas * 2`). Tiene prioridad sobre una global si se llaman igual.</li>
             <li><strong>Condicionales</strong>: <code>=si(altura &gt; 3, 1.25, 1.0)</code> o <code>=trifasica ? 4 : 2</code>.</li>
           </ul>
         </div>
@@ -330,10 +330,10 @@ export const ProjectParametersTuningSection: React.FC<ProjectParametersTuningSec
             <div className="py-8 px-4 text-center bg-surface-container-low rounded-xl border border-outline-variant/20">
               <Sparkles className="w-8 h-8 text-secondary/50 mx-auto mb-2" />
               <p className="text-xs font-semibold text-on-surface mb-1">
-                No hay partidas con parámetros configurados
+                No hay ítems con parámetros configurados
               </p>
               <p className="text-[11px] text-on-surface-variant max-w-sm mx-auto">
-                Podés definir parámetros en cualquier partida desde la planilla tocando el botón de parámetros (Sliders) en su fila.
+                Podés definir parámetros en cualquier ítem desde la planilla tocando el botón de parámetros (Sliders) en su fila.
               </p>
             </div>
           ) : (

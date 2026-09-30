@@ -24,7 +24,7 @@ export const MobileEditorActionBar: React.FC<MobileEditorActionBarProps> = ({
 
   return (
     <div className="w-full bg-surface-container-high/90 backdrop-blur-md border-t border-outline-variant/30 px-3 py-2 flex items-center justify-between gap-2 shadow-lg shrink-0 select-none z-20">
-      {/* Botón Principal: + Partida */}
+      {/* Botón Principal: + Ítem */}
       <button
         type="button"
         onClick={() => {
@@ -34,7 +34,7 @@ export const MobileEditorActionBar: React.FC<MobileEditorActionBarProps> = ({
         className="flex-1 py-2 px-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs hover:bg-primary/90 transition-all cursor-pointer active:scale-95 min-h-[44px]"
       >
         <Plus className="w-4 h-4 stroke-[2.5]" />
-        <span>+ Partida</span>
+        <span>+ Ítem</span>
       </button>
 
       {/* Botón Catálogo */}
@@ -51,7 +51,7 @@ export const MobileEditorActionBar: React.FC<MobileEditorActionBarProps> = ({
         <span>Catálogo</span>
       </button>
 
-      {/* Botón + Capítulo */}
+      {/* Botón + Rubro */}
       <button
         type="button"
         onClick={() => {
@@ -59,10 +59,10 @@ export const MobileEditorActionBar: React.FC<MobileEditorActionBarProps> = ({
           onAddChapter();
         }}
         className="py-2 px-3 rounded-xl bg-surface-container-highest hover:bg-surface-container text-on-surface font-semibold text-xs flex items-center justify-center gap-1.5 border border-outline-variant/30 transition-all cursor-pointer active:scale-95 min-h-[44px]"
-        title="Nuevo Capítulo"
+        title="Nuevo Rubro"
       >
         <FolderPlus className="w-4 h-4 text-secondary" />
-        <span className="hidden xs:inline">Capítulo</span>
+        <span className="hidden xs:inline">Rubro</span>
       </button>
 
       {/* Botón Parámetros */}

@@ -22,6 +22,7 @@ export interface MobileTreeItemCardProps {
   onOpenQuantitySheet: () => void;
   onQuickStepQty: (delta: number) => void;
   onOpenQuickParamModal?: (itemId: string) => void;
+  onOpenParametric?: () => void;
   onOpenDetail: () => void;
   onOpenActions: () => void;
   // Optional / backwards compatibility
@@ -54,6 +55,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
   onOpenQuantitySheet,
   onQuickStepQty,
   onOpenQuickParamModal,
+  onOpenParametric,
   onOpenDetail,
   onOpenActions
 }) => {
@@ -108,6 +110,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
   const isLinked = Boolean(item.tareaTipoId && !item.desacoplado);
   const isDecoupled = Boolean(item.tareaTipoId && item.desacoplado);
   const hasFormulaErrors = Boolean(item.erroresFormulas && Object.keys(item.erroresFormulas).length > 0);
+  const isParametricJob = Boolean(item.tareaTipoId || item.tareaTipoConfig);
 
   const insumosCount = item.insumosSnapshot?.length || 0;
   const moCount = item.manoObraSnapshot?.length || 0;
@@ -146,13 +149,13 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
                 <Unlink2 className="w-3.5 h-3.5" />
               </span>
             ) : (
-              <span className="p-1 rounded-md bg-surface-container-highest text-on-surface-variant/70 inline-block" title="Partida propia">
+              <span className="p-1 rounded-md bg-surface-container-highest text-on-surface-variant/70 inline-block" title="Ítem propio">
                 <FileSpreadsheet className="w-3.5 h-3.5" />
               </span>
             )}
           </div>
 
-          {/* Título de la partida */}
+          {/* Título de la partida / ítem */}
           <div className="min-w-0 flex-1">
             <h4 className="text-sm font-semibold text-on-surface leading-tight break-words">
               {item.descripcion || 'Sin descripción'}
@@ -162,7 +165,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               {totalComponentes > 0 && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-surface-container-highest text-on-surface-variant font-mono">
-                  {totalComponentes} {totalComponentes === 1 ? 'rubro' : 'rubros'}
+                  {totalComponentes} {totalComponentes === 1 ? 'componente' : 'componentes'}
                 </span>
               )}
               {paramsCount > 0 && (
@@ -171,7 +174,9 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     haptics.selection();
-                    if (onOpenQuickParamModal) {
+                    if (isParametricJob && onOpenParametric) {
+                      onOpenParametric();
+                    } else if (onOpenQuickParamModal) {
                       onOpenQuickParamModal(item.id);
                     }
                   }}
@@ -200,7 +205,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
               onOpenActions();
             }}
             className="w-11 h-11 -mr-1 -mt-1 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors cursor-pointer"
-            aria-label="Acciones de la partida"
+            aria-label="Acciones del ítem"
           >
             <MoreVertical className="w-5 h-5" />
           </button>
@@ -265,7 +270,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
         </div>
       </div>
 
-      {/* ─── Fila 3: Botón Ergonómico de Detalle y Despiece de Rubros ─── */}
+      {/* ─── Fila 3: Botón Ergonómico de Detalle y Despiece ─── */}
       <button
         type="button"
         onClick={(e) => {
@@ -278,7 +283,7 @@ export const MobileTreeItemCard: React.FC<MobileTreeItemCardProps> = ({
       >
         <div className="flex items-center gap-2 font-medium text-primary">
           <Layers className="w-4 h-4 text-primary" />
-          <span>Detalle y Despiece {totalComponentes > 0 ? `(${totalComponentes} rubros)` : ''}</span>
+          <span>Detalle y Despiece {totalComponentes > 0 ? `(${totalComponentes} comp.)` : ''}</span>
         </div>
         <ChevronRight className="w-4 h-4 text-primary shrink-0" />
       </button>

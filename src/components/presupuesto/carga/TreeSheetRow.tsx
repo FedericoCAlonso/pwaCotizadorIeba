@@ -151,11 +151,35 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
   const isLinked = Boolean(item.tareaTipoId && !item.desacoplado);
   const isDecoupled = Boolean(item.tareaTipoId && item.desacoplado);
   const hasFormulaErrors = Boolean(item.erroresFormulas && Object.keys(item.erroresFormulas).length > 0);
+  const isParametricJob = Boolean(
+    (item.tareaTipoId || item.tareaTipoConfig) &&
+    !item.desacoplado &&
+    (
+      (item.tareaTipoConfig?.parametros && item.tareaTipoConfig.parametros.length > 0) ||
+      (item.valoresParametros && Object.keys(item.valoresParametros).length > 0) ||
+      Boolean(item.formulaHonorarios) ||
+      Boolean(item.tareaTipoId)
+    )
+  );
   const isParametric = Boolean(
+    isParametricJob ||
     (item.parametros && item.parametros.length > 0) ||
-    item.tareaTipoConfig?.parametros?.length ||
     item.formulaHonorarios
   );
+
+  const handleOpenParams = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isParametricJob && onOpenParametric) {
+      onOpenParametric();
+    } else if (onOpenQuickParamModal) {
+      onOpenQuickParamModal(item.id);
+    } else {
+      if (!isExpanded) {
+        onToggleExpand();
+      }
+      setOverrideTab('parametros');
+    }
+  };
 
   const insumosCount = item.insumosSnapshot?.length || 0;
   const moCount = item.manoObraSnapshot?.length || 0;
@@ -208,7 +232,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               <Unlink2 className="w-3.5 h-3.5 text-tertiary shrink-0 opacity-70" />
             </span>
           ) : (
-            <span title="Partida propia">
+            <span title="Ítem propio">
               <FileSpreadsheet className="w-3.5 h-3.5 text-outline shrink-0 opacity-40" />
             </span>
           )}
@@ -261,23 +285,15 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
                   className="text-[10px] px-1.5 py-0.2 rounded-full bg-surface-container-high text-on-surface-variant font-mono shrink-0 hover:bg-primary-container hover:text-on-primary-container transition-colors"
                   title="Clic para ver componentes"
                 >
-                  {totalComponentes} {totalComponentes === 1 ? 'rubro' : 'rubros'}
+                  {totalComponentes} {totalComponentes === 1 ? 'componente' : 'componentes'}
                 </span>
               )}
               {item.parametros && item.parametros.length > 0 && (
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onOpenQuickParamModal) {
-                      onOpenQuickParamModal(item.id);
-                    } else {
-                      setOverrideTab('parametros');
-                      if (!isExpanded) onToggleExpand();
-                    }
-                  }}
+                  onClick={handleOpenParams}
                   className="text-[10px] px-1.5 py-0.2 rounded bg-secondary-container/40 text-secondary hover:bg-secondary-container hover:text-on-secondary-container font-mono shrink-0 cursor-pointer transition-colors"
-                  title="Clic para configurar parámetros de la partida"
+                  title="Clic para configurar parámetros del ítem"
                 >
                   {item.parametros.length} p
                 </button>
@@ -379,7 +395,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
 
         {/* ─── Columna 6: Precio Final Total ─── */}
         <div className="w-28 sm:w-36 shrink-0 px-2 text-right font-mono text-xs sm:text-sm font-bold text-primary">
-          <span title="Precio final de venta total de la partida">
+          <span title="Precio final de venta total del ítem">
             {formatARS(precioFinalItem)}
           </span>
         </div>
@@ -410,28 +426,16 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
             <ArrowDown className="w-3 h-3" />
           </button>
 
-          {/* Configurar parámetros y variables (disponible para todas las partidas) */}
+          {/* Configurar parámetros y variables (disponible para todos los ítems) */}
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onOpenQuickParamModal) {
-                onOpenQuickParamModal(item.id);
-              } else if (isParametric && onOpenParametric) {
-                onOpenParametric();
-              } else {
-                if (!isExpanded) {
-                  onToggleExpand();
-                }
-                setOverrideTab('parametros');
-              }
-            }}
+            onClick={handleOpenParams}
             className={`p-1 rounded transition-colors cursor-pointer ${
               (item.parametros && item.parametros.length > 0) || isParametric
                 ? 'text-primary hover:bg-primary-container/40'
                 : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
             }`}
-            title="Configurar parámetros y variables de la partida"
+            title="Configurar parámetros y variables del ítem"
           >
             <Sliders className="w-3 h-3" />
           </button>
@@ -457,7 +461,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               onRemove();
             }}
             className="p-1 rounded hover:bg-error-container text-on-surface-variant hover:text-error transition-colors cursor-pointer"
-            title="Eliminar partida"
+            title="Eliminar ítem"
           >
             <Trash2 className="w-3 h-3" />
           </button>

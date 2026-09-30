@@ -100,7 +100,7 @@ export const MobileItemDetailSheet: React.FC<MobileItemDetailSheetProps> = ({
         className="w-full max-w-xl bg-surface rounded-t-3xl border-t border-outline-variant/30 shadow-2xl flex flex-col h-[94dvh] overflow-hidden animate-in slide-in-from-bottom duration-200"
         role="dialog"
         aria-modal="true"
-        aria-label="Detalle y despiece de partida"
+        aria-label="Detalle y despiece de ítem"
       >
         {/* ─── Cabecera fija del Sheet con Drag Handle y Precios ─── */}
         <div className="bg-surface-container-high border-b border-outline-variant/20 px-4 pt-2 pb-3 shrink-0">
@@ -113,7 +113,7 @@ export const MobileItemDetailSheet: React.FC<MobileItemDetailSheetProps> = ({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase font-mono tracking-wider">
-                  Partida
+                  Ítem
                 </span>
                 <span className="text-[11px] font-mono text-on-surface-variant font-bold">
                   {item.cantidad} {item.unidad || 'u'}
@@ -294,7 +294,7 @@ export const MobileItemDetailSheet: React.FC<MobileItemDetailSheetProps> = ({
                 }}
                 disabled={!canPrev}
                 className="w-10 h-10 flex items-center justify-center rounded-lg text-on-surface hover:bg-surface-container-high disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
-                aria-label="Partida anterior"
+                aria-label="Ítem anterior"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -309,7 +309,7 @@ export const MobileItemDetailSheet: React.FC<MobileItemDetailSheetProps> = ({
                 }}
                 disabled={!canNext}
                 className="w-10 h-10 flex items-center justify-center rounded-lg text-on-surface hover:bg-surface-container-high disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
-                aria-label="Siguiente partida"
+                aria-label="Siguiente ítem"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>

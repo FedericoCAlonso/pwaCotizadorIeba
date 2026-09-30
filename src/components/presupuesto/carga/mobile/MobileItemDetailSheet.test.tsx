@@ -130,11 +130,11 @@ describe('MobileItemDetailSheet', () => {
 
     expect(screen.getByText('2/3')).toBeDefined();
 
-    const prevBtn = screen.getByLabelText('Partida anterior');
+    const prevBtn = screen.getByLabelText('Ítem anterior');
     fireEvent.click(prevBtn);
     expect(handlePrev).toHaveBeenCalled();
 
-    const nextBtn = screen.getByLabelText('Siguiente partida');
+    const nextBtn = screen.getByLabelText('Siguiente ítem');
     fireEvent.click(nextBtn);
     expect(handleNext).toHaveBeenCalled();
   });

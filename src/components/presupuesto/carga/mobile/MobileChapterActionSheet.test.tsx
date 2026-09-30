@@ -25,7 +25,7 @@ describe('MobileChapterActionSheet', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('renderiza el nombre del capítulo, cantidad de partidas y total', () => {
+  it('renderiza el nombre del rubro, cantidad de ítems y total', () => {
     render(
       <MobileChapterActionSheet
         isOpen={true}
@@ -39,7 +39,7 @@ describe('MobileChapterActionSheet', () => {
     );
 
     expect(screen.getByText('Cañerías y Cajas')).toBeDefined();
-    expect(screen.getByText('3 partidas')).toBeDefined();
+    expect(screen.getByText('3 ítems')).toBeDefined();
     expect(screen.getByText(/Total:/)).toBeDefined();
   });
 
@@ -59,14 +59,14 @@ describe('MobileChapterActionSheet', () => {
       />
     );
 
-    const renameBtn = screen.getByText('Renombrar capítulo');
+    const renameBtn = screen.getByText('Renombrar rubro');
     fireEvent.click(renameBtn);
 
     expect(handleStartRename).toHaveBeenCalled();
     expect(handleClose).toHaveBeenCalled();
   });
 
-  it('la eliminación de capítulo solicita confirmación en 2 pasos', () => {
+  it('la eliminación de rubro solicita confirmación en 2 pasos', () => {
     const handleRemove = vi.fn();
     const handleClose = vi.fn();
 
@@ -83,20 +83,20 @@ describe('MobileChapterActionSheet', () => {
     );
 
     // Paso 1
-    const deleteBtn = screen.getByText('Eliminar capítulo');
+    const deleteBtn = screen.getByText('Eliminar rubro');
     fireEvent.click(deleteBtn);
 
-    expect(screen.getByText('¿Eliminar este capítulo completo?')).toBeDefined();
-    expect(screen.getByText(/Se eliminarán también las 3 partidas/)).toBeDefined();
+    expect(screen.getByText('¿Eliminar este rubro completo?')).toBeDefined();
+    expect(screen.getByText(/Se eliminarán también los 3 ítems/)).toBeDefined();
     expect(handleRemove).not.toHaveBeenCalled();
 
     // Cancelar
     const cancelBtn = screen.getByText('Cancelar');
     fireEvent.click(cancelBtn);
-    expect(screen.queryByText('¿Eliminar este capítulo completo?')).toBeNull();
+    expect(screen.queryByText('¿Eliminar este rubro completo?')).toBeNull();
 
     // Paso 2: Volver a presionar y confirmar
-    fireEvent.click(screen.getByText('Eliminar capítulo'));
+    fireEvent.click(screen.getByText('Eliminar rubro'));
     const confirmBtn = screen.getByText('Sí, Eliminar');
     fireEvent.click(confirmBtn);
 
@@ -123,7 +123,7 @@ describe('MobileChapterActionSheet', () => {
     fireEvent.click(closeBtn);
     expect(handleClose).toHaveBeenCalledTimes(1);
 
-    const closeXBtn = screen.getByLabelText('Cerrar opciones del capítulo');
+    const closeXBtn = screen.getByLabelText('Cerrar opciones del rubro');
     fireEvent.click(closeXBtn);
     expect(handleClose).toHaveBeenCalledTimes(2);
   });

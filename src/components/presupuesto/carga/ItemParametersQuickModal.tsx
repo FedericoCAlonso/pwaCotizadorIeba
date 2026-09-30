@@ -118,7 +118,7 @@ export const ItemParametersQuickModal: React.FC<ItemParametersQuickModalProps> =
                   Ajustar Parámetros
                 </h3>
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-secondary-container/50 text-secondary font-mono">
-                  📌 Partida
+                  📌 Ítem
                 </span>
               </div>
               <p className="text-xs text-on-surface-variant truncate font-medium">
@@ -142,7 +142,7 @@ export const ItemParametersQuickModal: React.FC<ItemParametersQuickModalProps> =
             <div className="py-6 px-4 text-center bg-surface-container-low rounded-xl border border-outline-variant/20">
               <Sparkles className="w-8 h-8 text-secondary/60 mx-auto mb-2" />
               <p className="text-xs font-semibold text-on-surface mb-1">
-                Esta partida no tiene parámetros propios
+                Este ítem no tiene parámetros propios
               </p>
               <p className="text-[11px] text-on-surface-variant max-w-xs mx-auto mb-3">
                 Los parámetros te permiten calibrar cantidades y consumos rápidamente (ej. bocas, metros, circuitos).
@@ -315,7 +315,7 @@ export const ItemParametersQuickModal: React.FC<ItemParametersQuickModalProps> =
               className="inline-flex items-center gap-1.5 text-xs text-secondary hover:underline cursor-pointer"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>Ver desglose completo de rubros</span>
+              <span>Ver desglose completo de componentes</span>
             </button>
           ) : (
             <div />

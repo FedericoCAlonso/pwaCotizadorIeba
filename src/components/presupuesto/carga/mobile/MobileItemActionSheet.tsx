@@ -25,6 +25,7 @@ export interface MobileItemActionSheetProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onOpenQuickParams?: (itemId: string) => void;
+  onOpenParametric?: () => void;
   onSaveAsTareaTipo?: (item: ItemPresupuesto) => void;
   onRemove: () => void;
 }
@@ -38,6 +39,7 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
   onMoveUp,
   onMoveDown,
   onOpenQuickParams,
+  onOpenParametric,
   onSaveAsTareaTipo,
   onRemove
 }) => {
@@ -63,6 +65,7 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
   const paramsCount = item.parametros?.length || 0;
   const isLinked = Boolean(item.tareaTipoId && !item.desacoplado);
   const isDecoupled = Boolean(item.tareaTipoId && item.desacoplado);
+  const isParametricJob = Boolean(item.tareaTipoId || item.tareaTipoConfig);
 
   return (
     <div
@@ -73,7 +76,7 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
         className="w-full max-w-lg bg-surface-container rounded-t-3xl border-t border-outline-variant/30 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto pb-safe animate-in slide-in-from-bottom duration-200"
         role="dialog"
         aria-modal="true"
-        aria-label="Acciones de la partida"
+        aria-label="Acciones del ítem"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Barra de arrastre superior */}
@@ -81,7 +84,7 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
           <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto" />
         </div>
 
-        {/* Cabecera con datos de la partida */}
+        {/* Cabecera con datos del ítem */}
         <div className="px-5 pt-2 pb-3 border-b border-outline-variant/20 shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-2.5 min-w-0 flex-1">
@@ -95,7 +98,7 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
                     <Unlink2 className="w-4 h-4" />
                   </span>
                 ) : (
-                  <span className="p-1 rounded-md bg-surface-container-highest text-on-surface-variant inline-block" title="Partida propia">
+                  <span className="p-1 rounded-md bg-surface-container-highest text-on-surface-variant inline-block" title="Ítem propio">
                     <FileSpreadsheet className="w-4 h-4" />
                   </span>
                 )}
@@ -146,7 +149,7 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
                     ? 'opacity-40 border-outline-variant/30 text-on-surface-variant/40 bg-surface-container-low cursor-not-allowed'
                     : 'border-outline-variant/40 text-on-surface bg-surface-container-high hover:bg-surface-container-highest cursor-pointer active:scale-98'
                 }`}
-                aria-label="Subir partida de posición"
+                aria-label="Subir ítem de posición"
               >
                 <ArrowUp className="w-4 h-4 text-primary" />
                 <span>Subir</span>
@@ -164,7 +167,7 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
                     ? 'opacity-40 border-outline-variant/30 text-on-surface-variant/40 bg-surface-container-low cursor-not-allowed'
                     : 'border-outline-variant/40 text-on-surface bg-surface-container-high hover:bg-surface-container-highest cursor-pointer active:scale-98'
                 }`}
-                aria-label="Bajar partida de posición"
+                aria-label="Bajar ítem de posición"
               >
                 <ArrowDown className="w-4 h-4 text-primary" />
                 <span>Bajar</span>
@@ -178,12 +181,16 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
               Acciones Técnicas
             </span>
             <div className="flex flex-col gap-2">
-              {onOpenQuickParams && (
+              {(onOpenParametric || onOpenQuickParams) && (
                 <button
                   type="button"
                   onClick={() => {
                     haptics.selection();
-                    onOpenQuickParams(item.id);
+                    if (isParametricJob && onOpenParametric) {
+                      onOpenParametric();
+                    } else if (onOpenQuickParams) {
+                      onOpenQuickParams(item.id);
+                    }
                     onClose();
                   }}
                   className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border border-outline-variant/30 bg-surface-container-high hover:bg-surface-container-highest text-secondary text-sm font-semibold cursor-pointer active:scale-98 min-h-[48px] transition-colors"
@@ -231,14 +238,14 @@ export const MobileItemActionSheet: React.FC<MobileItemActionSheetProps> = ({
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-error/30 bg-error/5 hover:bg-error/10 text-error text-sm font-semibold cursor-pointer active:scale-98 min-h-[48px] transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Eliminar partida</span>
+                <span>Eliminar ítem</span>
               </button>
             ) : (
               <div className="p-3.5 rounded-2xl border border-error/40 bg-error-container/20 flex flex-col gap-3 animate-in fade-in duration-150">
                 <div className="flex items-start gap-2.5">
                   <AlertTriangle className="w-5 h-5 text-error shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-on-surface">¿Eliminar esta partida de la cotización?</p>
+                    <p className="text-xs font-bold text-on-surface">¿Eliminar este ítem de la cotización?</p>
                     <p className="text-[11px] text-on-surface-variant mt-0.5 leading-tight">
                       Se quitarán también sus materiales, mano de obra y servicios asociados.
                     </p>

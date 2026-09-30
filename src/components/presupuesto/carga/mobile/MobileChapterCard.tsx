@@ -153,7 +153,7 @@ export const MobileChapterCard: React.FC<MobileChapterCardProps> = ({
             onToggleCollapse();
           }}
           className="w-10 h-10 -ml-1 rounded-xl flex items-center justify-center text-primary hover:bg-primary-container/30 transition-colors cursor-pointer shrink-0"
-          aria-label={isCollapsed ? 'Expandir capítulo' : 'Plegar capítulo'}
+          aria-label={isCollapsed ? 'Expandir rubro' : 'Plegar rubro'}
         >
           {isCollapsed ? (
             <ChevronRight className="w-5 h-5" />
@@ -162,7 +162,7 @@ export const MobileChapterCard: React.FC<MobileChapterCardProps> = ({
           )}
         </button>
 
-        {/* Nombre del Capítulo y Contador */}
+        {/* Nombre del Rubro y Contador */}
         <div className="min-w-0 flex-1 pr-1">
           {isEditing ? (
             <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
@@ -207,20 +207,20 @@ export const MobileChapterCard: React.FC<MobileChapterCardProps> = ({
                 </h3>
               </div>
               <div className="text-[11px] text-on-surface-variant/80 font-medium mt-0.5">
-                {items.length} {items.length === 1 ? 'partida' : 'partidas'}
+                {items.length} {items.length === 1 ? 'ítem' : 'ítems'}
               </div>
             </div>
           )}
         </div>
 
-        {/* Total del Capítulo */}
+        {/* Total del Rubro */}
         <div className="text-right shrink-0">
           <div className="font-mono font-extrabold text-sm text-primary">
             {formatARS(finalPrice)}
           </div>
         </div>
 
-        {/* Botón rápido + Partida */}
+        {/* Botón rápido + Ítem */}
         <button
           type="button"
           onClick={(e) => {
@@ -229,12 +229,12 @@ export const MobileChapterCard: React.FC<MobileChapterCardProps> = ({
             onAddItem();
           }}
           className="w-9 h-9 rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
-          title="Agregar partida a este capítulo"
+          title="Agregar ítem a este rubro"
         >
           <Plus className="w-4 h-4" />
         </button>
 
-        {/* Botón de Acciones del Capítulo (Touch Target 44x44px) */}
+        {/* Botón de Acciones del Rubro (Touch Target 44x44px) */}
         <div className="shrink-0">
           <button
             type="button"
@@ -248,7 +248,7 @@ export const MobileChapterCard: React.FC<MobileChapterCardProps> = ({
               }
             }}
             className="w-10 h-10 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest flex items-center justify-center transition-colors cursor-pointer"
-            aria-label="Acciones del capítulo"
+            aria-label="Acciones del rubro"
           >
             <MoreVertical className="w-5 h-5" />
           </button>

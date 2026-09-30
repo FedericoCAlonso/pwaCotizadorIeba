@@ -312,5 +312,139 @@ describe('usePresupuestoEditorViewModel', () => {
     expect(result.current.totales.precioFinalGlobal).toBeGreaterThan(35000);
     expect(result.current.totales.itemsCalculados[0].precioVentaTotal).toBe(result.current.totales.precioFinalGlobal);
   });
+
+  it('permite configurar un trabajo tipo paramétrico, guardando tareaTipoConfig y parametros, y re-editar sus parámetros sin perderlos', () => {
+    const { result } = renderHook(() =>
+      usePresupuestoEditorViewModel({
+        config: DEFAULT_APP_CONFIG,
+        onSaved: mockOnSaved
+      })
+    );
+
+    const parametricTarea: TareaTipo = {
+      id: 'tt-parametric-1',
+      nombre: 'Instalación de Tablero Paramétrico',
+      categoria: 'tableros',
+      unidad: 'gl',
+      parametros: [
+        { id: 'bocas', nombre: 'Cantidad de Bocas', tipo: 'numero', valorDefault: 4 },
+        { id: 'distancia', nombre: 'Distancia (m)', tipo: 'numero', valorDefault: 10 }
+      ],
+      insumos: [
+        { materialId: 'mat-cable-2.5-marron', cantidad: 10, formula: 'bocas * 2.5' }
+      ],
+      manoObra: [
+        { categoriaId: 'mo-oficial', horas: 2, formula: 'bocas * 0.5' }
+      ]
+    };
+
+    // 1. Agregar el trabajo tipo paramétrico por primera vez
+    act(() => {
+      result.current.handleConfirmParametricJob(parametricTarea, {
+        parametros: { bocas: 8, distancia: 20 },
+        variables: {},
+        calculos: {
+          cantidadPrincipal: 1,
+          valoresParametros: { bocas: 8, distancia: 20 },
+          valoresVariables: {},
+          scope: { bocas: 8, distancia: 20 },
+          costoFijoOperativo: 0,
+          costoInsumosTotal: 2000,
+          costoManoObraTotal: 10000,
+          costoServiciosTotal: 0,
+          costoDirectoTotal: 12000,
+          insumosSnapshot: [
+            {
+              materialId: 'mat-cable-2.5-marron',
+              nombre: 'Cable 2.5',
+              unidad: 'm',
+              cantidadTotal: 20,
+              precioUnitarioCongelado: 100,
+              alicuotaIVA: 21,
+              subtotalInsumo: 2000
+            }
+          ],
+          manoObraSnapshot: [
+            {
+              categoriaId: 'mo-oficial',
+              nombreCategoria: 'Oficial',
+              horasTotales: 4,
+              costoHoraCongelado: 2500,
+              subtotalManoObra: 10000
+            }
+          ]
+        },
+        incluirClausula: false
+      });
+    });
+
+    expect(result.current.items.length).toBe(1);
+    const addedItem = result.current.items[0];
+    expect(addedItem.tareaTipoConfig).toBeDefined();
+    expect(addedItem.tareaTipoConfig?.id).toBe('tt-parametric-1');
+    expect(addedItem.valoresParametros).toEqual({ bocas: 8, distancia: 20 });
+    expect(addedItem.parametros?.length).toBe(2);
+    expect(addedItem.parametros?.find(p => p.id === 'bocas')?.valor).toBe(8);
+    expect(addedItem.parametros?.find(p => p.id === 'distancia')?.valor).toBe(20);
+
+    // 2. Reabrir modal para el ítem existente: no debe quedar en blanco
+    act(() => {
+      result.current.handleOpenParametricModalForExistingItem(0);
+    });
+
+    expect(result.current.showParametricModal).toBe(true);
+    expect(result.current.editingItemIndexForParametricModal).toBe(0);
+    expect(result.current.selectedTareaForParametricModal).toBeDefined();
+    expect(result.current.selectedTareaForParametricModal?.parametros?.length).toBe(2);
+
+    // 3. Confirmar nueva parametrización sobre el ítem existente
+    act(() => {
+      result.current.handleConfirmParametricJob(parametricTarea, {
+        parametros: { bocas: 12, distancia: 25 },
+        variables: {},
+        calculos: {
+          cantidadPrincipal: 1,
+          valoresParametros: { bocas: 12, distancia: 25 },
+          valoresVariables: {},
+          scope: { bocas: 12, distancia: 25 },
+          costoFijoOperativo: 0,
+          costoInsumosTotal: 3000,
+          costoManoObraTotal: 15000,
+          costoServiciosTotal: 0,
+          costoDirectoTotal: 18000,
+          insumosSnapshot: [
+            {
+              materialId: 'mat-cable-2.5-marron',
+              nombre: 'Cable 2.5',
+              unidad: 'm',
+              cantidadTotal: 30,
+              precioUnitarioCongelado: 100,
+              alicuotaIVA: 21,
+              subtotalInsumo: 3000
+            }
+          ],
+          manoObraSnapshot: [
+            {
+              categoriaId: 'mo-oficial',
+              nombreCategoria: 'Oficial',
+              horasTotales: 6,
+              costoHoraCongelado: 2500,
+              subtotalManoObra: 15000
+            }
+          ]
+        },
+        incluirClausula: false
+      });
+    });
+
+    expect(result.current.items.length).toBe(1);
+    const updatedItem = result.current.items[0];
+    expect(updatedItem.valoresParametros).toEqual({ bocas: 12, distancia: 25 });
+    expect(updatedItem.parametros?.find(p => p.id === 'bocas')?.valor).toBe(12);
+    expect(updatedItem.parametros?.find(p => p.id === 'distancia')?.valor).toBe(25);
+    expect(updatedItem.costoDirectoTotal).toBe(18000);
+    expect(result.current.showParametricModal).toBe(false);
+  });
 });
+
 

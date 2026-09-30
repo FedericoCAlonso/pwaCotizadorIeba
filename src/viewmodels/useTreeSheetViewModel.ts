@@ -21,7 +21,6 @@ import {
 } from '../core/calculations';
 import { generateUUID } from '../core/uuid';
 
-export type TotalViewMode = 'costo' | 'precio';
 
 export interface UseTreeSheetViewModelProps {
   items: ItemPresupuesto[];
@@ -78,7 +77,6 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
   const [materialPickerItemId, setMaterialPickerItemId] = useState<string | null>(null);
-  const [totalViewMode, setTotalViewMode] = useState<TotalViewMode>('costo');
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
   const editingCellRef = useRef<EditingCellState | null>(null);
 
@@ -127,11 +125,6 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
 
     return rows;
   }, [items, capitulos, collapsedChapters]);
-
-  // Alternar vista de total (Costo directo vs Precio con indirectos)
-  const toggleTotalViewMode = useCallback(() => {
-    setTotalViewMode((prev) => (prev === 'costo' ? 'precio' : 'costo'));
-  }, []);
 
   // Alternar colapso de capítulo
   const toggleChapterCollapse = useCallback((chapterId: string) => {
@@ -1063,7 +1056,6 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
     expandedItems,
     isInspectorCollapsed,
     materialPickerItemId,
-    totalViewMode,
     editingCell,
     visibleRows,
 
@@ -1084,7 +1076,6 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
 
     // Acciones de UI y teclado
     handleSelectRow,
-    toggleTotalViewMode,
     toggleChapterCollapse,
     toggleItemExpand,
     toggleInspectorCollapsed,

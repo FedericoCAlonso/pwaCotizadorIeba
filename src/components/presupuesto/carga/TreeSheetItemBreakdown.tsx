@@ -454,7 +454,7 @@ export const TreeSheetItemBreakdown: React.FC<TreeSheetItemBreakdownProps> = ({
               rows={2}
               value={item.clausulaExclusiones || ''}
               onChange={(e) => onUpdateNotasTecnicas?.(item.notasTecnicas || '', e.target.value)}
-              placeholder="Exclusiones específicas para esta partida (ej: no incluye apertura de zanjas en hormigón)..."
+              placeholder="Exclusiones específicas para este ítem (ej: no incluye apertura de zanjas en hormigón)..."
               className="w-full p-2.5 text-xs bg-surface border border-outline-variant/30 rounded-xl text-on-surface focus:outline-none focus:border-primary transition-colors resize-y"
             />
           </div>

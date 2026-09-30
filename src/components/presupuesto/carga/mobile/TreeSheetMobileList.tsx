@@ -38,7 +38,9 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
   insumosMap,
   manoObraMap,
   calculosVariables,
-  onSaveAsTareaTipo
+  onSaveAsTareaTipo,
+  onOpenParametricJobModal,
+  tareasTipo
 }) => {
   const [quantitySheetItemId, setQuantitySheetItemId] = useState<string | null>(null);
   const [activeDetailItemId, setActiveDetailItemId] = useState<string | null>(null);
@@ -115,16 +117,24 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
     }
   };
 
+  const handleOpenParametricForItem = (item: ItemPresupuesto) => {
+    if (!onOpenParametricJobModal) return;
+    const taskConfig = item.tareaTipoConfig || (tareasTipo ? tareasTipo.find((t: any) => t.id === item.tareaTipoId) : null);
+    if (!taskConfig) return;
+    const itemIndex = items.findIndex((it) => it.id === item.id);
+    onOpenParametricJobModal(taskConfig, itemIndex >= 0 ? itemIndex : undefined);
+  };
+
   const orphanItems = items.filter((it) => !it.capituloId);
 
   return (
     <div className="flex-1 overflow-y-auto px-3 py-2 bg-surface select-none pb-28">
-      {/* Estado vacío si no hay capítulos ni partidas */}
+      {/* Estado vacío si no hay rubros ni ítems */}
       {capitulos.length === 0 && items.length === 0 && (
         <div className="flex flex-col items-center justify-center p-8 text-center text-on-surface-variant/70 min-h-[300px]">
           <p className="text-base font-semibold mb-1 text-on-surface">Cotización Vacía</p>
           <p className="text-xs mb-5 max-w-xs leading-relaxed">
-            Comenzá agregando una etapa de obra o incorporando tareas tipo desde el catálogo oficial.
+            Comenzá agregando un rubro o incorporando tareas tipo desde el catálogo oficial.
           </p>
           <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full max-w-xs">
             <button
@@ -133,7 +143,7 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
               className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-xs font-bold bg-primary text-on-primary rounded-xl cursor-pointer shadow-xs active:scale-95 min-h-[44px]"
             >
               <FolderPlus className="w-4 h-4" />
-              <span>+ Primer Capítulo</span>
+              <span>+ Primer Rubro</span>
             </button>
             <button
               type="button"
@@ -147,13 +157,13 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
         </div>
       )}
 
-      {/* Partidas Generales sin Capítulo */}
+      {/* Ítems Generales sin Rubro */}
       {orphanItems.length > 0 && (
         <div className="mb-4">
           <div className="px-2 py-1.5 mb-1.5 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider flex items-center justify-between">
-            <span>Partidas Generales</span>
+            <span>Ítems Generales</span>
             <span className="font-mono text-[10px] text-on-surface-variant/70">
-              {orphanItems.length} {orphanItems.length === 1 ? 'partida' : 'partidas'}
+              {orphanItems.length} {orphanItems.length === 1 ? 'ítem' : 'ítems'}
             </span>
           </div>
 
@@ -168,6 +178,11 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
                 onOpenQuantitySheet={() => setQuantitySheetItemId(item.id)}
                 onQuickStepQty={(delta) => handleQuickStepQty(item.id, delta)}
                 onOpenQuickParamModal={vm.handleOpenQuickParamModal}
+                onOpenParametric={
+                  (item.tareaTipoId || item.tareaTipoConfig) && onOpenParametricJobModal
+                    ? () => handleOpenParametricForItem(item)
+                    : undefined
+                }
                 onOpenDetail={() => setActiveDetailItemId(item.id)}
                 onOpenActions={() => setActionSheetItemId(item.id)}
                 onMoveUp={() => vm.handleMoveItem(item.id, 'up')}
@@ -209,7 +224,7 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
               <div className="pl-1 pr-0.5">
                 {capRawItems.length === 0 ? (
                   <div className="p-4 mb-2 rounded-2xl bg-surface-container-lowest border border-dashed border-outline-variant/30 text-xs text-on-surface-variant flex items-center justify-between">
-                    <span>Capítulo sin partidas agregadas.</span>
+                    <span>Rubro sin ítems agregados.</span>
                     <button
                       type="button"
                       onClick={() => vm.handleCreateItem(cap.id)}
@@ -230,6 +245,11 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
                         onOpenQuantitySheet={() => setQuantitySheetItemId(item.id)}
                         onQuickStepQty={(delta) => handleQuickStepQty(item.id, delta)}
                         onOpenQuickParamModal={vm.handleOpenQuickParamModal}
+                        onOpenParametric={
+                          (item.tareaTipoId || item.tareaTipoConfig) && onOpenParametricJobModal
+                            ? () => handleOpenParametricForItem(item)
+                            : undefined
+                        }
                         onOpenDetail={() => setActiveDetailItemId(item.id)}
                         onOpenActions={() => setActionSheetItemId(item.id)}
                         onMoveUp={() => vm.handleMoveItem(item.id, 'up')}
@@ -258,7 +278,7 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
         />
       )}
 
-      {/* Bottom Sheet de Detalle y Despiece de Partida (Un Ojo, Una Mano) */}
+      {/* Bottom Sheet de Detalle y Despiece de Ítem (Un Ojo, Una Mano) */}
       {activeDetailItem && (
         <MobileItemDetailSheet
           isOpen={Boolean(activeDetailItemId)}
@@ -289,7 +309,7 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
         />
       )}
 
-      {/* Bottom Sheet de Acciones de Partida (Un Ojo, Una Mano) */}
+      {/* Bottom Sheet de Acciones de Ítem (Un Ojo, Una Mano) */}
       {actionSheetItem && (
         <MobileItemActionSheet
           isOpen={Boolean(actionSheetItemId)}
@@ -300,12 +320,17 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
           onMoveUp={() => vm.handleMoveItem(actionSheetItem.id, 'up')}
           onMoveDown={() => vm.handleMoveItem(actionSheetItem.id, 'down')}
           onOpenQuickParams={vm.handleOpenQuickParamModal}
+          onOpenParametric={
+            (actionSheetItem.tareaTipoId || actionSheetItem.tareaTipoConfig) && onOpenParametricJobModal
+              ? () => handleOpenParametricForItem(actionSheetItem)
+              : undefined
+          }
           onSaveAsTareaTipo={onSaveAsTareaTipo ? () => onSaveAsTareaTipo(actionSheetItem) : undefined}
           onRemove={() => vm.handleRemoveItem(actionSheetItem.id)}
         />
       )}
 
-      {/* Bottom Sheet de Acciones de Capítulo (Un Ojo, Una Mano) */}
+      {/* Bottom Sheet de Acciones de Rubro (Un Ojo, Una Mano) */}
       {actionSheetChapter && (
         <MobileChapterActionSheet
           isOpen={Boolean(actionSheetChapterId)}

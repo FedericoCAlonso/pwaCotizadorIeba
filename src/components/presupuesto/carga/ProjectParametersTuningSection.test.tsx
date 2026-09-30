@@ -35,8 +35,8 @@ describe('ProjectParametersTuningSection', () => {
     // Nivel global activo por defecto
     expect(screen.getByText('superficie')).toBeDefined();
 
-    // Cambiar a nivel por partida
-    const itemsTab = screen.getByText(/📌 Por Partida/i);
+    // Cambiar a nivel por ítem
+    const itemsTab = screen.getByText(/📌 Por Ítem/i);
     fireEvent.click(itemsTab);
 
     // Debe mostrar la partida con sus parámetros

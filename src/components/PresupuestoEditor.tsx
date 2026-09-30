@@ -667,24 +667,9 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                 />
               </button>
 
-              {/* Menú Desplegable Flotante */}
+              {/* Menú Desplegable Flotante Jerarquizado */}
               {isAddMenuOpen && (
                 <div className="absolute left-0 top-full mt-1.5 w-60 sm:w-64 bg-surface-container-high border border-outline-variant/40 rounded-2xl shadow-md3-2 p-1.5 z-40 flex flex-col gap-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAddMenuOpen(false);
-                      treeSheetRef.current?.handleCreateItem();
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left rounded-xl hover:bg-surface-container-highest transition-colors cursor-pointer group"
-                  >
-                    <Plus className="w-4 h-4 text-secondary shrink-0" />
-                    <div>
-                      <span className="block text-xs font-bold text-on-surface">Nueva Partida</span>
-                      <span className="block text-[10px] text-on-surface-variant">Renglón en blanco para cómputo</span>
-                    </div>
-                  </button>
-
                   <button
                     type="button"
                     onClick={() => {
@@ -695,8 +680,25 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                   >
                     <FolderPlus className="w-4 h-4 text-primary shrink-0" />
                     <div>
-                      <span className="block text-xs font-bold text-on-surface">Nuevo Capítulo</span>
-                      <span className="block text-[10px] text-on-surface-variant">Rubro o etapa de obra</span>
+                      <span className="block text-xs font-bold text-on-surface">Nuevo Rubro</span>
+                      <span className="block text-[10px] text-on-surface-variant">Etapa de obra o agrupación principal</span>
+                    </div>
+                  </button>
+
+                  <div className="my-1 border-t border-outline-variant/20" />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddMenuOpen(false);
+                      treeSheetRef.current?.handleCreateItem();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left rounded-xl hover:bg-surface-container-highest transition-colors cursor-pointer group"
+                  >
+                    <Plus className="w-4 h-4 text-secondary shrink-0" />
+                    <div>
+                      <span className="block text-xs font-bold text-on-surface">Nuevo Ítem</span>
+                      <span className="block text-[10px] text-on-surface-variant">Renglón en blanco para cómputo libre</span>
                     </div>
                   </button>
 
@@ -711,7 +713,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
                     <BookOpen className="w-4 h-4 text-tertiary shrink-0" />
                     <div>
                       <span className="block text-xs font-bold text-on-surface">Desde Catálogo</span>
-                      <span className="block text-[10px] text-on-surface-variant">Tarea tipo con cómputo APU</span>
+                      <span className="block text-[10px] text-on-surface-variant">Trabajo tipo con cómputo APU</span>
                     </div>
                   </button>
                 </div>

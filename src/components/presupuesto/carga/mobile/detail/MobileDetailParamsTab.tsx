@@ -84,7 +84,7 @@ export const MobileDetailParamsTab: React.FC<MobileDetailParamsTabProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 font-bold text-on-surface">
             <Sliders className="w-4 h-4 text-primary" />
-            <span>Parámetros de Partida</span>
+            <span>Parámetros del Ítem</span>
           </div>
           <button
             type="button"
@@ -97,7 +97,7 @@ export const MobileDetailParamsTab: React.FC<MobileDetailParamsTabProps> = ({
         </div>
 
         <p className="text-[11px] text-on-surface-variant leading-relaxed">
-          Variables locales que aplican a las fórmulas de cómputo de esta partida.
+          Variables locales que aplican a las fórmulas de cómputo de este ítem.
         </p>
 
         {showHelp && (
@@ -156,7 +156,7 @@ export const MobileDetailParamsTab: React.FC<MobileDetailParamsTabProps> = ({
 
         {parametros.length === 0 ? (
           <div className="p-4 text-center rounded-2xl bg-surface-container-lowest border border-dashed border-outline-variant/30 text-xs text-on-surface-variant">
-            No hay parámetros configurados para esta partida.
+            No hay parámetros configurados para este ítem.
           </div>
         ) : (
           <div className="divide-y divide-outline-variant/20 border border-outline-variant/30 rounded-2xl overflow-hidden bg-surface">

@@ -151,7 +151,7 @@ export const MobileQuantitySheet: React.FC<MobileQuantitySheetProps> = ({
               Editar Cantidad
             </span>
             <h3 className="text-sm font-semibold text-on-surface truncate">
-              {item.descripcion || 'Partida sin nombre'}
+              {item.descripcion || 'Ítem sin nombre'}
             </h3>
           </div>
           <button

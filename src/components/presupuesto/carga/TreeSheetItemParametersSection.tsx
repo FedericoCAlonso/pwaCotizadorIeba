@@ -79,7 +79,7 @@ export const TreeSheetItemParametersSection: React.FC<TreeSheetItemParametersSec
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 font-bold text-on-surface">
             <Sliders className="w-3.5 h-3.5 text-primary" />
-            <span>📌 Parámetros Locales de esta Partida</span>
+            <span>📌 Parámetros Locales de este Ítem</span>
           </div>
           <button
             type="button"
@@ -92,7 +92,7 @@ export const TreeSheetItemParametersSection: React.FC<TreeSheetItemParametersSec
         </div>
 
         <p className="text-[11px] text-on-surface-variant">
-          Los parámetros definidos aquí pertenecen exclusivamente a esta partida y tienen máxima prioridad sobre los parámetros de capítulo o globales.
+          Los parámetros definidos aquí pertenecen exclusivamente a este ítem y tienen máxima prioridad sobre los parámetros de rubro o globales.
         </p>
 
         {showHelp && (
@@ -142,7 +142,7 @@ export const TreeSheetItemParametersSection: React.FC<TreeSheetItemParametersSec
       <div className="space-y-1">
         {parametros.length === 0 ? (
           <p className="text-xs text-on-surface-variant/60 italic py-1 text-center">
-            Esta partida no tiene parámetros locales configurados.
+            Este ítem no tiene parámetros locales configurados.
           </p>
         ) : (
           <div className="divide-y divide-outline-variant/15 border border-outline-variant/20 rounded-xl overflow-hidden bg-surface">
@@ -197,7 +197,7 @@ export const TreeSheetItemParametersSection: React.FC<TreeSheetItemParametersSec
                 type="button"
                 onClick={() => handleCopyVariable(k)}
                 className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs bg-surface-container border border-outline-variant/30 hover:border-primary text-on-surface transition-all cursor-pointer group"
-                title={`Clic para copiar '${k}' y pegar en fórmulas de esta partida`}
+                title={`Clic para copiar '${k}' y pegar en fórmulas de este ítem`}
               >
                 <span className="font-mono font-semibold text-primary">{k}</span>
                 <span className="font-mono text-[11px] text-on-surface-variant">={String(v)}</span>

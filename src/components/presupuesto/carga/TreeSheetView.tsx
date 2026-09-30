@@ -202,7 +202,6 @@ export const TreeSheetView = React.forwardRef<TreeSheetViewRef, TreeSheetViewPro
         }
         onNewVariable={() => vm.setIsQuoteParametersOpen(true)}
         onConfigureGastos={() => vm.setIsQuoteParametersOpen(true)}
-        onTogglePriceView={vm.toggleTotalViewMode}
         onOpenTextMode={props.onOpenTextMode}
         onSaveDraft={props.onSaveDraft}
       />
@@ -238,7 +237,7 @@ export const TreeSheetView = React.forwardRef<TreeSheetViewRef, TreeSheetViewPro
           onClose={vm.handleCloseMaterialPicker}
           insumosMap={insumosMap}
           titleOverride="Catálogo de Materiales"
-          subtitleOverride="Selecciona insumos para incorporar a la partida"
+          subtitleOverride="Selecciona insumos para incorporar al ítem"
           onAddMaterial={(mat, qty, formula) => {
             if (vm.materialPickerItemId) {
               vm.handleAddMaterialToItem(vm.materialPickerItemId, mat, qty, formula);

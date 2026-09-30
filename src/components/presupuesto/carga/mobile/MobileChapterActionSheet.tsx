@@ -56,7 +56,7 @@ export const MobileChapterActionSheet: React.FC<MobileChapterActionSheetProps> =
         className="w-full max-w-lg bg-surface-container rounded-t-3xl border-t border-outline-variant/30 shadow-2xl flex flex-col max-h-[85vh] overflow-y-auto pb-safe animate-in slide-in-from-bottom duration-200"
         role="dialog"
         aria-modal="true"
-        aria-label="Acciones del capítulo"
+        aria-label="Acciones del rubro"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Barra de arrastre superior */}
@@ -64,7 +64,7 @@ export const MobileChapterActionSheet: React.FC<MobileChapterActionSheetProps> =
           <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto" />
         </div>
 
-        {/* Cabecera con datos del capítulo */}
+        {/* Cabecera con datos del rubro */}
         <div className="px-5 pt-2 pb-3 border-b border-outline-variant/20 shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-2.5 min-w-0 flex-1">
@@ -75,11 +75,11 @@ export const MobileChapterActionSheet: React.FC<MobileChapterActionSheetProps> =
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-bold text-on-surface leading-snug break-words">
-                  {capitulo.nombre || 'Capítulo sin nombre'}
+                  {capitulo.nombre || 'Rubro sin nombre'}
                 </h3>
                 <div className="flex items-center gap-2 mt-1 font-mono text-xs text-on-surface-variant">
                   <span className="font-semibold text-on-surface">
-                    {itemCount} {itemCount === 1 ? 'partida' : 'partidas'}
+                    {itemCount} {itemCount === 1 ? 'ítem' : 'ítems'}
                   </span>
                   <span>•</span>
                   <span className="font-bold text-primary">Total: {formatARS(totalPrecio)}</span>
@@ -90,7 +90,7 @@ export const MobileChapterActionSheet: React.FC<MobileChapterActionSheetProps> =
               type="button"
               onClick={onClose}
               className="p-1.5 rounded-full hover:bg-surface-container-highest text-on-surface-variant transition-colors cursor-pointer shrink-0"
-              aria-label="Cerrar opciones del capítulo"
+              aria-label="Cerrar opciones del rubro"
             >
               <X className="w-5 h-5" />
             </button>
@@ -110,7 +110,7 @@ export const MobileChapterActionSheet: React.FC<MobileChapterActionSheetProps> =
             className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border border-outline-variant/30 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-sm font-semibold cursor-pointer active:scale-98 min-h-[48px] transition-colors"
           >
             <Edit2 className="w-4 h-4 text-primary" />
-            <span>Renombrar capítulo</span>
+            <span>Renombrar rubro</span>
           </button>
 
           {/* 2. Acción Destructiva con Confirmación en 2 Pasos */}
@@ -125,18 +125,18 @@ export const MobileChapterActionSheet: React.FC<MobileChapterActionSheetProps> =
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-error/30 bg-error/5 hover:bg-error/10 text-error text-sm font-semibold cursor-pointer active:scale-98 min-h-[48px] transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Eliminar capítulo</span>
+                <span>Eliminar rubro</span>
               </button>
             ) : (
               <div className="p-3.5 rounded-2xl border border-error/40 bg-error-container/20 flex flex-col gap-3 animate-in fade-in duration-150">
                 <div className="flex items-start gap-2.5">
                   <AlertTriangle className="w-5 h-5 text-error shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-on-surface">¿Eliminar este capítulo completo?</p>
+                    <p className="text-xs font-bold text-on-surface">¿Eliminar este rubro completo?</p>
                     <p className="text-[11px] text-on-surface-variant mt-0.5 leading-tight">
                       {itemCount > 0
-                        ? `Se eliminarán también las ${itemCount} partidas contenidas en él.`
-                        : 'El capítulo no contiene partidas.'}
+                        ? `Se eliminarán también los ${itemCount} ítems contenidos en él.`
+                        : 'El rubro no contiene ítems.'}
                     </p>
                   </div>
                 </div>

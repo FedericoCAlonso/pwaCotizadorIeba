@@ -69,8 +69,8 @@ describe('MobileItemActionSheet', () => {
       />
     );
 
-    const subirBtn = screen.getByLabelText('Subir partida de posición');
-    const bajarBtn = screen.getByLabelText('Bajar partida de posición');
+    const subirBtn = screen.getByLabelText('Subir ítem de posición');
+    const bajarBtn = screen.getByLabelText('Bajar ítem de posición');
 
     expect((subirBtn as HTMLButtonElement).disabled).toBe(true);
     expect((bajarBtn as HTMLButtonElement).disabled).toBe(false);
@@ -147,21 +147,21 @@ describe('MobileItemActionSheet', () => {
     );
 
     // Paso 1: Tocar botón inicial
-    const deleteBtn = screen.getByText('Eliminar partida');
+    const deleteBtn = screen.getByText('Eliminar ítem');
     fireEvent.click(deleteBtn);
 
     // Debe mostrar la confirmación inline
-    expect(screen.getByText('¿Eliminar esta partida de la cotización?')).toBeDefined();
+    expect(screen.getByText('¿Eliminar este ítem de la cotización?')).toBeDefined();
     expect(handleRemove).not.toHaveBeenCalled();
 
     // Cancelar en paso 1
     const cancelConfirmBtn = screen.getByText('Cancelar');
     fireEvent.click(cancelConfirmBtn);
-    expect(screen.queryByText('¿Eliminar esta partida de la cotización?')).toBeNull();
+    expect(screen.queryByText('¿Eliminar este ítem de la cotización?')).toBeNull();
     expect(handleRemove).not.toHaveBeenCalled();
 
     // Paso 2: Volver a tocar y confirmar
-    fireEvent.click(screen.getByText('Eliminar partida'));
+    fireEvent.click(screen.getByText('Eliminar ítem'));
     const confirmBtn = screen.getByText('Sí, Eliminar');
     fireEvent.click(confirmBtn);
 

@@ -92,7 +92,6 @@ describe('useTreeSheetViewModel - Árbol-Planilla de Cotización', () => {
   it('inicializa correctamente las filas visibles jerárquicas y modos por defecto', () => {
     const { hook } = createHook();
 
-    expect(hook.result.current.totalViewMode).toBe('costo');
     expect(hook.result.current.collapsedChapters.size).toBe(0);
 
     // Filas visibles esperadas: Capítulo 1, Ítem 1, Capítulo 2, Ítem 2
@@ -102,20 +101,6 @@ describe('useTreeSheetViewModel - Árbol-Planilla de Cotización', () => {
     expect(rows[1]).toMatchObject({ type: 'item', id: 'it-1' });
     expect(rows[2]).toMatchObject({ type: 'chapter', id: 'cap-2' });
     expect(rows[3]).toMatchObject({ type: 'item', id: 'it-2' });
-  });
-
-  it('permite alternar el modo de visualización de totales (costo vs precio)', () => {
-    const { hook } = createHook();
-
-    expect(hook.result.current.totalViewMode).toBe('costo');
-    act(() => {
-      hook.result.current.toggleTotalViewMode();
-    });
-    expect(hook.result.current.totalViewMode).toBe('precio');
-    act(() => {
-      hook.result.current.toggleTotalViewMode();
-    });
-    expect(hook.result.current.totalViewMode).toBe('costo');
   });
 
   it('pliega capítulos y oculta sus ítems de las filas visibles', () => {

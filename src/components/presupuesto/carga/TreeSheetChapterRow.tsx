@@ -6,7 +6,8 @@ import {
   Plus,
   Trash2,
   Edit2,
-  Check
+  Check,
+  BookOpen
 } from 'lucide-react';
 import { CapituloPresupuesto, ItemPresupuesto } from '../../../core/types';
 import { formatARS, CapituloTotalResultado } from '../../../core/calculations';
@@ -25,6 +26,7 @@ interface TreeSheetChapterRowProps {
   onToggleCollapse: () => void;
   onSelect: () => void;
   onAddItem: () => void;
+  onOpenCatalog?: () => void;
   onRenameChapter: (nombre: string) => void;
   onRemoveChapter: () => void;
 }
@@ -38,6 +40,7 @@ export const TreeSheetChapterRow: React.FC<TreeSheetChapterRowProps> = ({
   onToggleCollapse,
   onSelect,
   onAddItem,
+  onOpenCatalog,
   onRenameChapter,
   onRemoveChapter
 }) => {
@@ -110,7 +113,7 @@ export const TreeSheetChapterRow: React.FC<TreeSheetChapterRowProps> = ({
             onToggleCollapse();
           }}
           className="p-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-transform cursor-pointer"
-          title={isCollapsed ? 'Expandir capítulo' : 'Plegar capítulo'}
+          title={isCollapsed ? 'Expandir rubro' : 'Plegar rubro'}
           aria-expanded={!isCollapsed}
         >
           {isCollapsed ? (
@@ -182,19 +185,35 @@ export const TreeSheetChapterRow: React.FC<TreeSheetChapterRowProps> = ({
           </div>
         </div>
 
-        {/* Acciones de capítulo visibles en hover o selección */}
-        <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+        {/* Acciones de rubro visibles en hover o selección */}
+        <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               onAddItem();
             }}
-            className="p-1.5 rounded-md hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
-            title="Agregar ítem en este capítulo"
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-surface-container-high hover:bg-surface-container-highest text-xs font-semibold text-primary transition-colors cursor-pointer"
+            title="Agregar ítem libre en este rubro"
           >
             <Plus className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Ítem</span>
           </button>
+
+          {onOpenCatalog && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenCatalog();
+              }}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-surface-container-high hover:bg-surface-container-highest text-xs font-semibold text-tertiary transition-colors cursor-pointer"
+              title="Agregar trabajo tipo desde catálogo a este rubro"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Catálogo</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -203,7 +222,7 @@ export const TreeSheetChapterRow: React.FC<TreeSheetChapterRowProps> = ({
               setIsEditingName(true);
             }}
             className="p-1.5 rounded-md hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-            title="Renombrar capítulo"
+            title="Renombrar rubro"
           >
             <Edit2 className="w-3.5 h-3.5" />
           </button>
@@ -212,12 +231,12 @@ export const TreeSheetChapterRow: React.FC<TreeSheetChapterRowProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              if (window.confirm(`¿Eliminar capítulo "${capitulo.nombre}"? Los ítems no se borrarán (pasarán a generales).`)) {
+              if (window.confirm(`¿Eliminar rubro "${capitulo.nombre}"? Los ítems no se borrarán (pasarán a generales).`)) {
                 onRemoveChapter();
               }
             }}
             className="p-1.5 rounded-md hover:bg-error-container text-on-surface-variant hover:text-error transition-colors cursor-pointer"
-            title="Eliminar capítulo"
+            title="Eliminar rubro"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>

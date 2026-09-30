@@ -938,6 +938,19 @@ export function usePresupuestoEditorViewModel({
       };
     }
 
+    if ((!tarea.parametros || tarea.parametros.length === 0) && item.parametros && item.parametros.length > 0) {
+      tarea = {
+        ...tarea,
+        parametros: item.parametros.map(p => ({
+          id: p.id,
+          nombre: p.nombre || p.id,
+          tipo: 'numero',
+          valorDefault: p.valor,
+          unidad: p.unidad
+        }))
+      };
+    }
+
     setSelectedTareaForParametricModal(tarea);
     setEditingItemIndexForParametricModal(index);
     setShowParametricModal(true);
@@ -957,6 +970,15 @@ export function usePresupuestoEditorViewModel({
     const unit = tarea.unidad || 'u';
     const costoUnitarioDirecto = calculos.costoDirectoTotal;
 
+    const mappedParametros: ParametroItem[] = (tarea.parametros || []).map((tp) => ({
+      id: tp.id,
+      nombre: tp.nombre || tp.id,
+      unidad: tp.unidad,
+      valor: parametros[tp.id] !== undefined ? safeNum(parametros[tp.id]) : safeNum(tp.valorDefault ?? 1),
+      opciones: tp.opciones ? tp.opciones.map(o => ({ label: o.label, valor: o.valor })) : undefined,
+      origen: 'tarea_tipo'
+    }));
+
     if (editingItemIndexForParametricModal !== null) {
       // Modificando ítem existente: preservar la cantidad de unidades definidas en el presupuesto
       const index = editingItemIndexForParametricModal;
@@ -972,6 +994,7 @@ export function usePresupuestoEditorViewModel({
           cantidad: cant,
           unidad: unit,
           tareaTipoConfig: item.tareaTipoConfig || tarea,
+          parametros: mappedParametros,
           naturaleza: tarea.naturaleza || item.naturaleza || 'instalacion',
           costoUnitario: costoUnitarioDirecto,
           costoInsumos: roundMoney(calculos.costoInsumosTotal * cant),
@@ -1015,6 +1038,8 @@ export function usePresupuestoEditorViewModel({
         id: `item-${generateUUID()}`,
         capituloId: targetCapituloForNewParametric,
         tareaTipoId: tarea.id,
+        tareaTipoConfig: tarea,
+        parametros: mappedParametros,
         descripcion: tarea.nombre,
         cantidad: cant,
         unidad: unit,

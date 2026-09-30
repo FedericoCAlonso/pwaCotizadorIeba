@@ -61,7 +61,7 @@ export const MobileDetailMaterialsTab: React.FC<MobileDetailMaterialsTabProps> =
         <div className="p-6 text-center rounded-2xl bg-surface-container-low border border-dashed border-outline-variant/30 text-on-surface-variant">
           <p className="text-sm font-semibold mb-1 text-on-surface">Sin Materiales Incorporados</p>
           <p className="text-xs max-w-xs mx-auto mb-4 opacity-80">
-            Esta partida no tiene cómputo de insumos. Agregá cables, caños o artefactos desde el catálogo.
+            Este ítem no tiene cómputo de insumos. Agregá cables, caños o artefactos desde el catálogo.
           </p>
           <button
             type="button"

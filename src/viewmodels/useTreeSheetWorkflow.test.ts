@@ -187,14 +187,7 @@ describe('Workflow Real de Cotización: Recableado Departamento (3 ambientes, 60
     });
     expect(result.current.items[2].desacoplado).toBe(true);
 
-    // 8. Alternar modo de visualización Costo Directo <-> Precio de Venta
-    expect(result.current.vm.totalViewMode).toBe('costo');
-    act(() => {
-      result.current.vm.toggleTotalViewMode();
-    });
-    expect(result.current.vm.totalViewMode).toBe('precio');
-
-    // 9. Verificar colapsado de capítulos
+    // 8. Verificar colapsado de capítulos
     expect(result.current.vm.collapsedChapters.has(capId)).toBe(false);
     act(() => {
       result.current.vm.toggleChapterCollapse(capId);

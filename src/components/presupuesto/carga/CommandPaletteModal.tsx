@@ -7,7 +7,6 @@ import {
   BookmarkPlus,
   Variable,
   Briefcase,
-  TrendingUp,
   FileCode,
   Check,
   X
@@ -31,7 +30,6 @@ interface CommandPaletteModalProps {
   onSaveAsTareaTipo?: () => void;
   onNewVariable: () => void;
   onConfigureGastos: () => void;
-  onTogglePriceView: () => void;
   onOpenTextMode?: () => void;
   onSaveDraft?: () => void;
 }
@@ -45,7 +43,6 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   onSaveAsTareaTipo,
   onNewVariable,
   onConfigureGastos,
-  onTogglePriceView,
   onOpenTextMode,
   onSaveDraft
 }) => {
@@ -57,15 +54,15 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     {
       id: 'add-item',
       title: 'Agregar nuevo Ítem',
-      description: 'Crear una nueva partida computable en la cotización',
+      description: 'Crear un nuevo ítem computable en la cotización',
       icon: <Plus className="w-4 h-4 text-primary" />,
       shortcut: 'Enter',
       run: onAddItem
     },
     {
       id: 'add-chapter',
-      title: 'Agregar Capítulo',
-      description: 'Crear un nuevo paquete o grupo de trabajo (Nivel 1)',
+      title: 'Agregar Rubro',
+      description: 'Crear un nuevo rubro o etapa de trabajo (Nivel 1)',
       icon: <FolderPlus className="w-4 h-4 text-secondary" />,
       run: onAddChapter
     },
@@ -81,7 +78,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
           {
             id: 'save-task',
             title: 'Guardar Ítem como Tarea Tipo',
-            description: 'Guardar la partida seleccionada en el catálogo para reutilizar',
+            description: 'Guardar el ítem seleccionado en el catálogo para reutilizar',
             icon: <BookmarkPlus className="w-4 h-4 text-amber-500" />,
             run: onSaveAsTareaTipo
           }
@@ -100,13 +97,6 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       description: 'Ajustar recargos sobre materiales, mano de obra o Gastos Generales',
       icon: <Briefcase className="w-4 h-4 text-orange-500" />,
       run: onConfigureGastos
-    },
-    {
-      id: 'toggle-view',
-      title: 'Alternar Vista: Costo Directo / Precio Final',
-      description: 'Cambiar la columna Total entre costo directo y precio con indirectos',
-      icon: <TrendingUp className="w-4 h-4 text-emerald-500" />,
-      run: onTogglePriceView
     },
     ...(onOpenTextMode
       ? [
@@ -190,7 +180,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
           <input
             ref={inputRef}
             type="text"
-            placeholder="Escribí un comando o acción... (ej: capítulo, tarea, gasto)"
+            placeholder="Escribí un comando o acción... (ej: rubro, ítem, tarea, gasto)"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
