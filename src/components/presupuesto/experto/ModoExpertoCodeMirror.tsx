@@ -146,6 +146,18 @@ const editorTheme = EditorView.theme({
   }
 });
 
+// Configuración básica estática para no provocar reconfiguraciones de CodeMirror en cada render
+const EXPERT_BASIC_SETUP = {
+  lineNumbers: true,
+  highlightActiveLineGutter: true,
+  foldGutter: true,
+  history: true,
+  bracketMatching: true,
+  closeBrackets: true,
+  autocompletion: false, // Usamos nuestro SlashCommandMenu enriquecido
+  highlightActiveLine: true
+};
+
 // ============================================================================
 // 2. Interfaz y Componente ModoExpertoCodeMirror
 // ============================================================================
@@ -194,13 +206,34 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
   const cmRef = useRef<ReactCodeMirrorRef>(null);
   const editorViewRef = useRef<EditorView | null>(null);
 
-  // Linter reactivo conectado al motor de diagnóstico DSL
+  // Mantener referencias mutables estables a los callbacks para evitar recrear extensiones o listeners en cada render
+  const onEditorReadyRef = useRef(onEditorReady);
+  onEditorReadyRef.current = onEditorReady;
+
+  const onCursorChangeRef = useRef(onCursorChange);
+  onCursorChangeRef.current = onCursorChange;
+
+  const onNavigateFieldRef = useRef(onNavigateField);
+  onNavigateFieldRef.current = onNavigateField;
+
+  const onSlashTriggerRef = useRef(onSlashTrigger);
+  onSlashTriggerRef.current = onSlashTrigger;
+
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
+
+  const diagnosticsRef = useRef(diagnostics);
+  diagnosticsRef.current = diagnostics;
+
+  const lastCursorPosRef = useRef<number>(-1);
+
+  // Linter reactivo conectado al motor de diagnóstico DSL (usa diagnosticsRef para no recrear la extensión en cada render)
   const dslLinterExtension = useMemo(() => {
     return linter((view) => {
       const doc = view.state.doc;
       const cmDiagnostics: Diagnostic[] = [];
 
-      for (const diag of diagnostics) {
+      for (const diag of diagnosticsRef.current || []) {
         if (!diag.line || diag.line < 1 || diag.line > doc.lines) continue;
         const line = doc.line(diag.line);
         cmDiagnostics.push({
@@ -213,7 +246,7 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
 
       return cmDiagnostics;
     });
-  }, [diagnostics]);
+  }, []);
 
   // Keymaps personalizados (Alt+Enter para campos, Enter inteligente YAML, Backspace y Tab semánticos)
   const customKeymap = useMemo(() => {
@@ -221,8 +254,8 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
       {
         key: 'Alt-Enter',
         run: (view) => {
-          if (onNavigateField) {
-            onNavigateField();
+          if (onNavigateFieldRef.current) {
+            onNavigateFieldRef.current();
             return true;
           }
 
@@ -333,17 +366,17 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
       {
         key: 'Mod-s',
         run: () => {
-          if (onSave) {
-            onSave();
+          if (onSaveRef.current) {
+            onSaveRef.current();
             return true;
           }
           return false;
         }
       }
     ]);
-  }, [onNavigateField, onSave]);
+  }, []);
 
-  // Extensiones integradas de CodeMirror 6
+  // Extensiones integradas de CodeMirror 6 (100% estables, no reconfiguran la vista en cada render)
   const extensions = useMemo(() => {
     return [
       Prec.highest(customKeymap),
@@ -362,17 +395,21 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
       const state = viewUpdate.state;
       const pos = state.selection.main.head;
 
-      // Actualizar información de línea y columna
-      const line = state.doc.lineAt(pos);
-      const lineNum = line.number;
-      const colNum = pos - line.from + 1;
+      // Solo notificar si la posición o la selección cambiaron realmente
+      if (viewUpdate.selectionSet || viewUpdate.docChanged || lastCursorPosRef.current !== pos) {
+        lastCursorPosRef.current = pos;
+        const line = state.doc.lineAt(pos);
+        const lineNum = line.number;
+        const colNum = pos - line.from + 1;
 
-      if (onCursorChange) {
-        onCursorChange(lineNum, colNum, pos);
+        if (onCursorChangeRef.current) {
+          onCursorChangeRef.current(lineNum, colNum, pos);
+        }
       }
 
       // Detectar trigger para menú contextual / autocompletado si el documento o la selección cambiaron
-      if (onSlashTrigger && (viewUpdate.docChanged || viewUpdate.selectionSet)) {
+      if (onSlashTriggerRef.current && (viewUpdate.docChanged || viewUpdate.selectionSet)) {
+        const line = state.doc.lineAt(pos);
         const lineTextBefore = line.text.slice(0, pos - line.from);
         const { currentIndent, contextType } = detectCursorContext(state.doc.sliceString(0, pos));
         const trigger = detectSuggestTrigger(lineTextBefore, contextType);
@@ -389,7 +426,7 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
           }
 
           const slashIndex = line.from + trigger.queryIndexInLine;
-          onSlashTrigger({
+          onSlashTriggerRef.current({
             isOpen: true,
             query: trigger.query,
             pos: { top, left },
@@ -401,7 +438,7 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
             isExplicit: trigger.isExplicit
           });
         } else {
-          onSlashTrigger({
+          onSlashTriggerRef.current({
             isOpen: false,
             query: '',
             cursorPosition: pos,
@@ -413,17 +450,17 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
         }
       }
     },
-    [onCursorChange, onSlashTrigger]
+    []
   );
 
   const handleCreateEditor = useCallback(
     (view: EditorView) => {
       editorViewRef.current = view;
-      if (onEditorReady) {
-        onEditorReady(view);
+      if (onEditorReadyRef.current) {
+        onEditorReadyRef.current(view);
       }
     },
-    [onEditorReady]
+    []
   );
 
   return (
@@ -436,16 +473,7 @@ export const ModoExpertoCodeMirror: React.FC<ModoExpertoCodeMirrorProps> = ({
         readOnly={readOnly}
         editable={!readOnly}
         placeholder={placeholder}
-        basicSetup={{
-          lineNumbers: true,
-          highlightActiveLineGutter: true,
-          foldGutter: true,
-          history: true,
-          bracketMatching: true,
-          closeBrackets: true,
-          autocompletion: false, // Usamos nuestro SlashCommandMenu enriquecido
-          highlightActiveLine: true
-        }}
+        basicSetup={EXPERT_BASIC_SETUP}
         extensions={extensions}
         onChange={onChange}
         onUpdate={handleUpdate}

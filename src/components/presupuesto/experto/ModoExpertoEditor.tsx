@@ -141,26 +141,9 @@ export const ModoExpertoEditor: React.FC<ModoExpertoEditorProps> = (props) => {
                 readOnly={vm.isMobileScreen}
                 placeholder={`cliente: Nombre del Cliente\nobra: Dirección de la Obra\nfactura: Factura C\n\nInstalación Eléctrica:\n  - 10 u Boca de Iluminación: $ 12.500\n  - 5 u Tomacorriente Doble: $ 9.800`}
                 onEditorReady={vm.setEditorView}
-                onCursorChange={(line, col, pos) => {
-                  vm.setCursorLineCol({ line, col });
-                  vm.cursorPosRef.current = { start: pos, end: pos };
-                }}
-                onNavigateField={() => vm.handleNavigateField('forward')}
-                onSlashTrigger={(info) => {
-                  vm.setSlashMenuState({
-                    isOpen: info.isOpen,
-                    query: info.query,
-                    cursorPosition: info.cursorPosition,
-                    slashIndex: info.slashIndex,
-                    contextType: info.contextType,
-                    currentIndent: info.currentIndent,
-                    directiveType: info.directiveType,
-                    isExplicit: info.isExplicit
-                  });
-                  if (info.pos) {
-                    vm.setMenuPosition(info.pos);
-                  }
-                }}
+                onCursorChange={vm.handleCursorChange}
+                onNavigateField={vm.handleNavigateFieldForward}
+                onSlashTrigger={vm.handleSlashTrigger}
                 onFocus={vm.handleFocus}
                 onBlur={vm.handleBlur}
                 onSave={props.onSaveDraft}

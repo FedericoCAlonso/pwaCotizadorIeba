@@ -34,6 +34,7 @@ import {
 import { db } from '../../../db/database';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useToast } from '../../../contexts/ToastContext';
+import type { SlashTriggerInfo } from './ModoExpertoCodeMirror';
 
 export interface ModoExpertoEditorProps {
   initialDslText?: string;
@@ -161,7 +162,46 @@ export function useModoExpertoViewModel(
     const lines = textBefore.split('\n');
     const line = lines.length;
     const col = lines[lines.length - 1].length + 1;
-    setCursorLineCol({ line, col });
+    setCursorLineCol((prev) => (prev.line === line && prev.col === col ? prev : { line, col }));
+  }, []);
+
+  const handleCursorChange = useCallback((line: number, col: number, pos: number) => {
+    setCursorLineCol((prev) => (prev.line === line && prev.col === col ? prev : { line, col }));
+    cursorPosRef.current = { start: pos, end: pos };
+  }, []);
+
+  const handleSlashTrigger = useCallback((info: SlashTriggerInfo) => {
+    setSlashMenuState((prev) => {
+      if (!info.isOpen && !prev.isOpen) return prev;
+      if (
+        prev.isOpen === info.isOpen &&
+        prev.query === info.query &&
+        prev.cursorPosition === info.cursorPosition &&
+        prev.slashIndex === info.slashIndex &&
+        prev.contextType === info.contextType &&
+        prev.currentIndent === info.currentIndent &&
+        prev.directiveType === info.directiveType &&
+        prev.isExplicit === info.isExplicit
+      ) {
+        return prev;
+      }
+      return {
+        isOpen: info.isOpen,
+        query: info.query,
+        cursorPosition: info.cursorPosition,
+        slashIndex: info.slashIndex,
+        contextType: info.contextType,
+        currentIndent: info.currentIndent,
+        directiveType: info.directiveType,
+        isExplicit: info.isExplicit
+      };
+    });
+    if (info.pos) {
+      setMenuPosition((prev) => {
+        if (prev.top === info.pos!.top && prev.left === info.pos!.left) return prev;
+        return info.pos!;
+      });
+    }
   }, []);
 
   // Inicializar el texto desde el estado actual del presupuesto
@@ -711,6 +751,10 @@ export function useModoExpertoViewModel(
     },
     [dslText, textareaRef]
   );
+
+  const handleNavigateFieldForward = useCallback(() => {
+    handleNavigateField('forward');
+  }, [handleNavigateField]);
 
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
@@ -1559,6 +1603,9 @@ export function useModoExpertoViewModel(
     handleInsertGastos,
     handleCopyDSL,
     handleNavigateField,
+    handleNavigateFieldForward,
+    handleCursorChange,
+    handleSlashTrigger,
     createToolbarAction,
     insertSnippet,
     updateCursorPos,
