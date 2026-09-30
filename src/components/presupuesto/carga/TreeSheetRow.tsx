@@ -6,7 +6,9 @@ import {
   AlertCircle,
   ChevronRight,
   ChevronDown,
-  Edit2
+  Edit2,
+  Check,
+  X
 } from 'lucide-react';
 import {
   ItemPresupuesto,
@@ -16,9 +18,8 @@ import {
 } from '../../../core/types';
 import { EditingCellState } from '../../../viewmodels/useTreeSheetViewModel';
 import { formatARS, safeNum } from '../../../core/calculations';
-import { evaluateMathExpression } from '../../../core/mathEvaluator';
 import { TreeSheetItemBreakdown } from './TreeSheetItemBreakdown';
-import { ItemUnidadSelector } from './ItemUnidadSelector';
+import { ItemQuantityCell } from './ItemQuantityCell';
 import { ItemRowActions } from './ItemRowActions';
 
 interface TreeSheetRowProps {
@@ -97,32 +98,6 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
   const isEditingQty = editingCell?.itemId === item.id && editingCell.field === 'cantidad';
 
   const descInputRef = useRef<HTMLInputElement>(null);
-  const qtyInputRef = useRef<HTMLInputElement>(null);
-
-  // Previsualización evaluada en vivo cuando se edita una fórmula que inicia con '='
-  const liveEvaluatedQty = useMemo(() => {
-    if (!isEditingQty || !editingCell?.value?.trim().startsWith('=')) return null;
-    try {
-      const scope: Record<string, number> = {};
-      if (calculosVariables) {
-        for (const [k, v] of Object.entries(calculosVariables)) {
-          scope[k] = typeof v === 'number' ? v : Number(v) || 0;
-        }
-      }
-      if (item.parametros) {
-        for (const p of item.parametros) {
-          scope[p.id] = p.valor;
-        }
-      }
-      const evalRes = evaluateMathExpression(editingCell.value, scope);
-      if (evalRes && evalRes.isValid && typeof evalRes.value === 'number' && !isNaN(evalRes.value)) {
-        return Math.round(evalRes.value * 100) / 100;
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  }, [isEditingQty, editingCell?.value, calculosVariables, item.parametros]);
 
   useEffect(() => {
     if (isEditingDesc && descInputRef.current) {
@@ -130,13 +105,6 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
       descInputRef.current.select();
     }
   }, [isEditingDesc]);
-
-  useEffect(() => {
-    if (isEditingQty && qtyInputRef.current) {
-      qtyInputRef.current.focus();
-      qtyInputRef.current.select();
-    }
-  }, [isEditingQty]);
 
   // Cálculos deterministas por partida
   const cant = safeNum(item.cantidad) > 0 ? safeNum(item.cantidad) : 1;
@@ -248,29 +216,59 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
           )}
 
           {isEditingDesc ? (
-            <input
-              ref={descInputRef}
-              type="text"
-              value={editingCell?.value ?? ''}
-              onChange={(e) => onUpdateEditingCellValue(e.target.value)}
-              onBlur={(e) => onCommitEditCell('descripcion', e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Tab') {
-                  e.preventDefault();
-                  onCommitEditCell('descripcion', e.currentTarget.value);
-                  if (onNavigateCell) {
-                    onNavigateCell(e.shiftKey ? 'prev' : 'next', 'descripcion');
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 min-w-0 flex-1 py-0.5"
+            >
+              <input
+                ref={descInputRef}
+                type="text"
+                value={editingCell?.value ?? ''}
+                onChange={(e) => onUpdateEditingCellValue(e.target.value)}
+                onBlur={(e) => onCommitEditCell('descripcion', e.target.value)}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Tab') {
+                    e.preventDefault();
+                    onCommitEditCell('descripcion', e.currentTarget.value);
+                    if (onNavigateCell) {
+                      onNavigateCell(e.shiftKey ? 'prev' : 'next', 'descripcion');
+                    }
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    onCommitEditCell('descripcion', e.currentTarget.value);
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    onCancelEditCell();
                   }
-                } else if (e.key === 'Enter') {
-                  e.preventDefault();
-                  onCommitEditCell('descripcion', e.currentTarget.value);
-                } else if (e.key === 'Escape') {
-                  e.preventDefault();
+                }}
+                className="flex-1 px-2 py-1 text-sm bg-surface border border-primary rounded-lg text-on-surface focus:outline-none shadow-2xs"
+              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCommitEditCell('descripcion', editingCell?.value);
+                }}
+                className="p-1 rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors cursor-pointer shrink-0"
+                title="Guardar nombre del ítem"
+                aria-label="Guardar nombre"
+              >
+                <Check className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
                   onCancelEditCell();
-                }
-              }}
-              className="w-full px-2 py-0.5 text-sm bg-surface border border-primary rounded text-on-surface focus:outline-none"
-            />
+                }}
+                className="p-1 rounded-lg bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors cursor-pointer shrink-0"
+                title="Cancelar edición"
+                aria-label="Cancelar edición"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           ) : (
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               <div
@@ -371,87 +369,18 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
         </div>
 
         {/* ─── Columna 2: Cantidad, Fórmulas y Unidad ─── */}
-        <div className="relative w-28 sm:w-32 md:w-36 shrink-0 px-2 text-right flex items-center justify-end gap-1">
-          {isEditingQty ? (
-            <div className="absolute right-1 top-1/2 -translate-y-1/2 z-30 flex items-center gap-1.5 p-1 bg-surface border border-primary rounded-xl shadow-lg min-w-[200px] sm:min-w-[280px] md:min-w-[340px]">
-              <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
-                editingCell?.value?.startsWith('=') ? 'bg-secondary/20 text-secondary' : 'text-on-surface-variant'
-              }`}>
-                fx
-              </span>
-              <input
-                ref={qtyInputRef}
-                type="text"
-                value={editingCell?.value ?? ''}
-                onChange={(e) => onUpdateEditingCellValue(e.target.value)}
-                onBlur={(e) => onCommitEditCell('cantidad', e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Tab') {
-                    e.preventDefault();
-                    onCommitEditCell('cantidad', e.currentTarget.value);
-                    if (onNavigateCell) {
-                      onNavigateCell(e.shiftKey ? 'prev' : 'next', 'cantidad');
-                    }
-                  } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    onCommitEditCell('cantidad', e.currentTarget.value);
-                  } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    onCancelEditCell();
-                  }
-                }}
-                placeholder="10 o =superficie * 2"
-                className="flex-1 px-2 py-1 text-xs font-mono bg-surface border border-outline-variant/40 rounded-lg text-on-surface focus:outline-none focus:border-primary"
-              />
-              {liveEvaluatedQty !== null && (
-                <span
-                  className="text-[11px] font-mono font-semibold px-1.5 py-0.5 rounded bg-primary-container text-on-primary-container shrink-0"
-                  title="Resultado estimado en vivo"
-                >
-                  ≈ {liveEvaluatedQty}
-                </span>
-              )}
-              {onUpdateItemUnidad && (
-                <ItemUnidadSelector
-                  unidad={item.unidad || 'u'}
-                  onChangeUnidad={onUpdateItemUnidad}
-                />
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center justify-end gap-1">
-              <span
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  onStartEditCell('cantidad');
-                }}
-                className="font-mono text-xs text-on-surface hover:text-primary transition-colors cursor-text"
-                title="Doble clic para editar cantidad o fórmula"
-              >
-                {item.formulaCantidad ? (
-                  <span className="flex items-center gap-1 text-secondary font-semibold" title={`Fórmula: ${item.formulaCantidad}`}>
-                    <span className="text-[10px] px-1 py-0.2 rounded bg-secondary/15 text-secondary">fx</span>
-                    <span>{item.cantidad}</span>
-                  </span>
-                ) : (
-                  <span>{item.cantidad}</span>
-                )}
-              </span>
-
-              {/* Selector interactivo de unidad de medida */}
-              {onUpdateItemUnidad ? (
-                <ItemUnidadSelector
-                  unidad={item.unidad || 'u'}
-                  onChangeUnidad={onUpdateItemUnidad}
-                />
-              ) : (
-                <span className="text-xs font-mono text-on-surface-variant font-medium">
-                  {item.unidad || 'u'}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+        <ItemQuantityCell
+          item={item}
+          isEditingQty={isEditingQty}
+          editingValue={editingCell?.value}
+          onStartEditQty={() => onStartEditCell('cantidad')}
+          onUpdateEditingCellValue={onUpdateEditingCellValue}
+          onCommitEditCell={onCommitEditCell}
+          onCancelEditCell={onCancelEditCell}
+          onNavigateCell={onNavigateCell}
+          onUpdateItemUnidad={onUpdateItemUnidad}
+          calculosVariables={calculosVariables}
+        />
 
         {/* ─── Columna 3: Costo Directo Unitario ─── */}
         <div className="hidden sm:block w-24 sm:w-28 shrink-0 px-2 text-right font-mono text-xs text-on-surface-variant">

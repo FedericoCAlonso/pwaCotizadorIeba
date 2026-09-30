@@ -6,6 +6,7 @@ import { LiveTotalsBar } from './LiveTotalsBar';
 import { QuoteParametersModal } from './QuoteParametersModal';
 import { CommandPaletteModal } from './CommandPaletteModal';
 import { ItemParametersQuickModal } from './ItemParametersQuickModal';
+import { ItemCreateModal } from './ItemCreateModal';
 import { ItemPickerModal } from '../ItemPickerModal';
 import { MaterialPickerModal } from '../../tareasTipo/MaterialPickerModal';
 import { TareaTipo, ItemPresupuesto } from '../../../core/types';
@@ -46,7 +47,7 @@ export const TreeSheetView = React.forwardRef<TreeSheetViewRef, TreeSheetViewPro
 
   // Exponer métodos imperativos para la barra superior unificada
   useImperativeHandle(ref, () => ({
-    handleCreateItem: (chapterId?: string) => vm.handleCreateItem(chapterId),
+    handleCreateItem: (chapterId?: string) => vm.handleOpenCreateItemModal(chapterId),
     handleCreateChapter: (nombre?: string) => vm.handleCreateChapter(nombre),
     openCatalogPicker: (chapterId?: string) => {
       vm.handleOpenCatalogPicker(chapterId);
@@ -134,7 +135,7 @@ export const TreeSheetView = React.forwardRef<TreeSheetViewRef, TreeSheetViewPro
         />
         {/* Barra de Pulgar Táctil Móvil */}
         <MobileEditorActionBar
-          onAddItem={() => vm.handleCreateItem(vm.selectedChapterId || undefined)}
+          onAddItem={() => vm.handleOpenCreateItemModal(vm.selectedChapterId || undefined)}
           onOpenCatalog={() => vm.setIsCatalogPickerOpen(true)}
           onAddChapter={() => vm.handleCreateChapter()}
           onOpenParameters={() => vm.setIsQuoteParametersOpen(true)}
@@ -148,6 +149,16 @@ export const TreeSheetView = React.forwardRef<TreeSheetViewRef, TreeSheetViewPro
       />
 
       {/* ─── Modales Globales ─── */}
+      {/* Modal de Creación de Ítem con Nombre y Unidad */}
+      <ItemCreateModal
+        isOpen={vm.isCreateItemModalOpen}
+        onClose={vm.handleCloseCreateItemModal}
+        capituloNombre={
+          props.capitulos.find((c) => c.id === vm.createItemModalTargetChapterId)?.nombre
+        }
+        onConfirm={vm.handleConfirmCreateItem}
+      />
+
       {/* Modal de Parámetros de Cotización */}
       <QuoteParametersModal
         isOpen={vm.isQuoteParametersOpen}
@@ -194,7 +205,7 @@ export const TreeSheetView = React.forwardRef<TreeSheetViewRef, TreeSheetViewPro
         isOpen={vm.isCommandPaletteOpen}
         onClose={() => vm.setIsCommandPaletteOpen(false)}
         onAddChapter={() => vm.handleCreateChapter()}
-        onAddItem={() => vm.handleCreateItem()}
+        onAddItem={() => vm.handleOpenCreateItemModal(vm.selectedChapterId || undefined)}
         onInsertTareaTipo={() => vm.setIsCatalogPickerOpen(true)}
         onSaveAsTareaTipo={
           vm.selectedItem ? () => props.onSaveAsTareaTipo?.(vm.selectedItem!) : undefined

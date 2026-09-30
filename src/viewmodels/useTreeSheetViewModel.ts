@@ -87,6 +87,8 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
   const [isCatalogPickerOpen, setIsCatalogPickerOpen] = useState(false);
   const [catalogPickerTargetChapterId, setCatalogPickerTargetChapterId] = useState<string | undefined>(undefined);
   const [quickParamModalItemId, setQuickParamModalItemId] = useState<string | null>(null);
+  const [isCreateItemModalOpen, setIsCreateItemModalOpen] = useState(false);
+  const [createItemModalTargetChapterId, setCreateItemModalTargetChapterId] = useState<string | undefined>(undefined);
 
   const handleOpenQuickParamModal = useCallback((itemId: string) => {
     setQuickParamModalItemId(itemId);
@@ -94,6 +96,16 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
 
   const handleCloseQuickParamModal = useCallback(() => {
     setQuickParamModalItemId(null);
+  }, []);
+
+  const handleOpenCreateItemModal = useCallback((chapterId?: string) => {
+    setCreateItemModalTargetChapterId(chapterId || selectedChapterId || capitulos[0]?.id);
+    setIsCreateItemModalOpen(true);
+  }, [selectedChapterId, capitulos]);
+
+  const handleCloseCreateItemModal = useCallback(() => {
+    setIsCreateItemModalOpen(false);
+    setCreateItemModalTargetChapterId(undefined);
   }, []);
 
   // Seleccionar ítem activo
@@ -275,7 +287,12 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
 
   // Crear nuevo ítem en un capítulo o hermano (siempre dentro de un rubro)
   const handleCreateItem = useCallback(
-    (chapterId?: string, position: 'after' | 'end' = 'after', referenceItemId?: string): string => {
+    (
+      chapterId?: string,
+      position: 'after' | 'end' = 'after',
+      referenceItemId?: string,
+      initialData?: { descripcion?: string; unidad?: string; cantidad?: number }
+    ): string => {
       let targetChapter = chapterId || selectedChapterId || capitulos[0]?.id;
       if (!targetChapter) {
         // Si la cotización no tiene ningún rubro, creamos uno inicial por defecto
@@ -290,13 +307,16 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
       }
 
       const newItemId = `it-${generateUUID().slice(0, 8)}`;
+      const desc = initialData?.descripcion?.trim() || 'Nuevo Ítem';
+      const unidad = initialData?.unidad?.trim() || 'u';
+      const cant = initialData?.cantidad && initialData.cantidad > 0 ? initialData.cantidad : 1;
 
       const newItem: ItemPresupuesto = reevaluarItem({
         id: newItemId,
         capituloId: targetChapter,
-        descripcion: 'Nuevo Ítem',
-        cantidad: 1,
-        unidad: 'u',
+        descripcion: desc,
+        cantidad: cant,
+        unidad: unidad,
         costoInsumos: 0,
         costoManoObra: 0,
         costoDirectoTotal: 0,
@@ -320,9 +340,15 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
 
       setSelectedItemId(newItemId);
       setSelectedChapterId(targetChapter);
-      const nextCell: EditingCellState = { itemId: newItemId, field: 'descripcion', value: 'Nuevo Ítem' };
-      editingCellRef.current = nextCell;
-      setEditingCell(nextCell);
+
+      if (!initialData?.descripcion) {
+        const nextCell: EditingCellState = { itemId: newItemId, field: 'descripcion', value: desc };
+        editingCellRef.current = nextCell;
+        setEditingCell(nextCell);
+      } else {
+        editingCellRef.current = null;
+        setEditingCell(null);
+      }
       setIsDetailPanelOpen(true);
 
       return newItemId;
@@ -330,14 +356,23 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
     [selectedChapterId, capitulos, setCapitulos, reevaluarItem, setItems]
   );
 
-  // Crear nuevo capítulo
+  const handleConfirmCreateItem = useCallback(
+    (data: { descripcion: string; unidad: string; cantidad: number }) => {
+      handleCreateItem(createItemModalTargetChapterId, 'end', undefined, data);
+      setIsCreateItemModalOpen(false);
+      setCreateItemModalTargetChapterId(undefined);
+    },
+    [handleCreateItem, createItemModalTargetChapterId]
+  );
+
+  // Crear nuevo capítulo / rubro
   const handleCreateChapter = useCallback(
     (nombreDefault?: string) => {
       const nextNum = capitulos.length + 1;
       const capId = `cap-${generateUUID().slice(0, 8)}`;
       const newCap: CapituloPresupuesto = {
         id: capId,
-        nombre: nombreDefault?.trim() || `Capítulo ${nextNum}`,
+        nombre: nombreDefault?.trim() || `Rubro ${nextNum}`,
         orden: nextNum
       };
 
@@ -515,7 +550,7 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
           handleCancelEditCell();
         } else if (e.key === 'Enter') {
           e.preventDefault();
-          handleNavigateCell('next', editingCell.field);
+          handleCommitEditCell(editingCell.itemId, editingCell.field);
         } else if (e.key === 'Tab') {
           e.preventDefault();
           handleNavigateCell(e.shiftKey ? 'prev' : 'next', editingCell.field);
@@ -1206,6 +1241,11 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
     setCatalogPickerTargetChapterId,
     handleOpenCatalogPicker,
     handleInsertTareaTipo,
+    isCreateItemModalOpen,
+    createItemModalTargetChapterId,
+    handleOpenCreateItemModal,
+    handleCloseCreateItemModal,
+    handleConfirmCreateItem,
     quickParamModalItemId,
     handleOpenQuickParamModal,
     handleCloseQuickParamModal,

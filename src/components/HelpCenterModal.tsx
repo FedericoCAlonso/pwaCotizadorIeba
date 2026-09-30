@@ -179,7 +179,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
 
         {/* Modal Footer */}
         <div className="pt-3 border-t border-outline-variant/20 flex justify-between items-center shrink-0 mt-2">
-          <span className="text-xs text-on-surface-variant font-mono">Cotizador Eléctrico — IEBA v1.5.2</span>
+          <span className="text-xs text-on-surface-variant font-mono">Cotizador Eléctrico — IEBA v1.5.3</span>
           <button
             type="button"
             onClick={onClose}

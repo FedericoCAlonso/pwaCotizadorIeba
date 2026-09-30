@@ -96,7 +96,7 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
               isSelected={vm.selectedChapterId === cap.id}
               onToggleCollapse={() => vm.toggleChapterCollapse(cap.id)}
               onSelect={() => vm.handleSelectRow(null, cap.id)}
-              onAddItem={() => vm.handleCreateItem(cap.id)}
+              onAddItem={() => vm.handleOpenCreateItemModal(cap.id)}
               onOpenCatalog={() => {
                 vm.handleSelectRow(null, cap.id);
                 vm.handleOpenCatalogPicker(cap.id);
@@ -113,7 +113,7 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
                     <div className="flex items-center gap-3 not-italic">
                       <button
                         type="button"
-                        onClick={() => vm.handleCreateItem(cap.id)}
+                        onClick={() => vm.handleOpenCreateItemModal(cap.id)}
                         className="text-primary hover:underline font-semibold cursor-pointer"
                       >
                         + Agregar ítem
@@ -207,7 +207,7 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
                     <div className="flex items-center gap-3 px-8 py-2 bg-surface-container-lowest/60 border-t border-dashed border-outline-variant/20 text-xs">
                       <button
                         type="button"
-                        onClick={() => vm.handleCreateItem(cap.id)}
+                        onClick={() => vm.handleOpenCreateItemModal(cap.id)}
                         className="inline-flex items-center gap-1 font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer"
                         title="Agregar ítem libre en este rubro"
                       >

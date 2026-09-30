@@ -183,7 +183,7 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
               isEditingExternal={renamingChapterId === cap.id}
               onToggleCollapse={() => vm.toggleChapterCollapse(cap.id)}
               onSelect={() => vm.handleSelectRow(null, cap.id)}
-              onAddItem={() => vm.handleCreateItem(cap.id)}
+              onAddItem={() => vm.handleOpenCreateItemModal(cap.id)}
               onRenameChapter={(nombre) => vm.handleRenameChapter(cap.id, nombre)}
               onFinishRename={() => setRenamingChapterId(null)}
               onRemoveChapter={() => vm.handleRemoveChapter(cap.id)}
@@ -197,7 +197,7 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
                     <span>Rubro sin ítems agregados.</span>
                     <button
                       type="button"
-                      onClick={() => vm.handleCreateItem(cap.id)}
+                      onClick={() => vm.handleOpenCreateItemModal(cap.id)}
                       className="font-bold text-primary hover:underline cursor-pointer"
                     >
                       + Agregar
