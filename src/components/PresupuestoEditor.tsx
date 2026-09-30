@@ -650,11 +650,11 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
           impuestosDetalle={impuestosDetalle}
           onToggleTax={handleToggleTax}
           onUpdateTaxPct={handleUpdateTaxPct}
-          onOpenParametricJobModal={(tarea, itemIndex) => {
+          onOpenParametricJobModal={(tarea, itemIndex, targetChapterId) => {
             if (itemIndex !== undefined && itemIndex !== null) {
               handleOpenParametricModalForExistingItem(itemIndex);
             } else {
-              handleOpenParametricModalForNewTask(tarea);
+              handleOpenParametricModalForNewTask(tarea, targetChapterId);
             }
           }}
           onSaveAsTareaTipo={handleSaveAsTemplateAction}

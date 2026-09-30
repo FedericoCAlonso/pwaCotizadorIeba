@@ -34,7 +34,7 @@ export interface TreeSheetViewProps extends UseTreeSheetViewModelProps {
   impuestosDetalle?: any[];
   onToggleTax?: (index: number) => void;
   onUpdateTaxPct?: (index: number, pct: number) => void;
-  onOpenParametricJobModal?: (tareaTipo: TareaTipo, itemIndex?: number) => void;
+  onOpenParametricJobModal?: (tareaTipo: TareaTipo, itemIndex?: number, targetChapterId?: string) => void;
 }
 
 export const TreeSheetView = React.forwardRef<TreeSheetViewRef, TreeSheetViewProps>((props, ref) => {
@@ -49,8 +49,7 @@ export const TreeSheetView = React.forwardRef<TreeSheetViewRef, TreeSheetViewPro
     handleCreateItem: (chapterId?: string) => vm.handleCreateItem(chapterId),
     handleCreateChapter: (nombre?: string) => vm.handleCreateChapter(nombre),
     openCatalogPicker: (chapterId?: string) => {
-      vm.setCatalogPickerTargetChapterId(chapterId);
-      vm.setIsCatalogPickerOpen(true);
+      vm.handleOpenCatalogPicker(chapterId);
     },
     openQuoteParameters: () => vm.setIsQuoteParametersOpen(true),
     openCommandPalette: () => vm.setIsCommandPaletteOpen(true)
@@ -211,6 +210,7 @@ export const TreeSheetView = React.forwardRef<TreeSheetViewRef, TreeSheetViewPro
           isOpen={vm.isCatalogPickerOpen}
           onClose={() => vm.setIsCatalogPickerOpen(false)}
           onSelectTarea={(tt: any) => {
+            const targetCapId = vm.catalogPickerTargetChapterId || vm.selectedChapterId || undefined;
             vm.setIsCatalogPickerOpen(false);
             if (
               props.onOpenParametricJobModal &&
@@ -218,9 +218,9 @@ export const TreeSheetView = React.forwardRef<TreeSheetViewRef, TreeSheetViewPro
                (tt.variables && tt.variables.length > 0) ||
                Boolean(tt.formulaHonorarios))
             ) {
-              props.onOpenParametricJobModal(tt);
+              props.onOpenParametricJobModal(tt, undefined, targetCapId);
             } else {
-              vm.handleInsertTareaTipo(tt);
+              vm.handleInsertTareaTipo(tt, targetCapId);
             }
           }}
           insumosMap={insumosMap}

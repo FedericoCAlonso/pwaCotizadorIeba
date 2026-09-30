@@ -354,6 +354,12 @@ export const TreeSheetMobileList: React.FC<TreeSheetMobileListProps> = ({
               setRenamingChapterId(actionSheetChapter.id);
             }
           }}
+          onOpenCatalog={() => {
+            if (actionSheetChapter) {
+              vm.handleSelectRow(null, actionSheetChapter.id);
+              vm.handleOpenCatalogPicker(actionSheetChapter.id);
+            }
+          }}
           onRemove={() => {
             if (actionSheetChapter) {
               vm.handleRemoveChapter(actionSheetChapter.id);

@@ -27,7 +27,7 @@
       {
         "id": "presupuestos",
         "title": "Planilla de Árbol & Emisión",
-        "description": "Estructura la obra en capítulos y partidas, ajusta rendimientos con el panel lateral y exporta en PDF o Excel.",
+        "description": "Estructura la obra en rubros e ítems, ajusta rendimientos con el panel lateral y exporta en PDF o Excel.",
         "targetTab": "presupuestos",
         "actionText": "Crear Cotización"
       }
@@ -175,26 +175,36 @@
         "sections": [
           {
             "heading": "Planilla de Árbol Jerárquica (TreeSheet)",
-            "content": "La grilla principal organiza el presupuesto de forma visual y ordenada por Capítulos y Partidas/Renglones de obra:",
+            "content": "La grilla principal organiza el presupuesto de forma visual y ordenada por Rubros e Ítems de obra:",
             "bullets": [
-              "Organización por Capítulos: Agrupa tus ítems según etapas de obra (Acometida, Canalizaciones, Circuitos, etc.) con subtotales automáticos por capítulo.",
+              "Organización por Rubros (Nivel 1): El botón superior '+ Rubro' permite crear secciones para estructurar etapas de obra (ej. Acometida, Canalizaciones, Circuitos) con subtotales automáticos por rubro.",
+              "Inserción de Ítems (Nivel 2): Dentro de cada rubro puedes crear ítems libres ('+ Ítem') con edición directa de nombre o incorporar tareas completas del catálogo oficial ('+ Catálogo') asignadas directamente al rubro.",
               "Desglose Dinámico en Grilla: Cada renglón permite expandir en un clic el despiece de insumos, horas de mano de obra y servicios subcontratados directamente en la tabla.",
-              "Acciones Rápidas: Duplicación, eliminación, cambio de capítulo y reordenamiento de renglones al instante."
+              "Acciones Rápidas: Duplicación, eliminación, cambio de rubro y reordenamiento de renglones al instante."
+            ]
+          },
+          {
+            "heading": "Modo Foco y Canvas de Alta Densidad",
+            "content": "Maximiza el área de trabajo en pantalla para presupuestar sin distracciones:",
+            "bullets": [
+              "Modo Foco (Alt + F): Oculta completamente el encabezado global para dedicar más del 92% del alto de la pantalla a la planilla de cotización.",
+              "Ocultamiento Automático de Barras: Al ingresar al editor se pliegan las pestañas de navegación superiores y la barra inferior móvil para una experiencia limpia y despejada.",
+              "LiveTotalsBar Compacta: Cascada comercial ultra-compacta en una sola fila con acceso rápido a parámetros económicos."
             ]
           },
           {
             "heading": "Panel Lateral y Drawer Móvil de Edición",
-            "content": "Al hacer clic sobre cualquier partida se despliega el panel de edición (columna derecha en escritorio, Bottom Sheet en pantallas móviles):",
+            "content": "Al hacer clic sobre cualquier ítem se despliega el panel de edición (columna derecha en escritorio, Bottom Sheet en pantallas móviles):",
             "bullets": [
-              "Parámetros de Tarea: Modifica variables dinámicas (bocas, metros, dificultad) recalculando los rendimientos en tiempo real.",
+              "Parámetros de Tarea In-Situ: Modifica variables dinámicas (bocas, metros, dificultad) recalculando los rendimientos en tiempo real incluso una vez insertado el ítem.",
               "Búsqueda Predictiva de Materiales: Incorpora insumos buscando por nombre o código en vivo sin diálogos bloqueantes.",
               "Mano de Obra y Servicios: Añade categorías UOCRA u horas adicionales y servicios de terceros de manera directa.",
-              "Notas Técnicas: Agrega descripciones y observaciones específicas por partida."
+              "Notas Técnicas: Agrega descripciones y observaciones específicas por ítem."
             ]
           },
           {
             "heading": "Paleta de Comandos Rápida (Ctrl + K)",
-            "content": "Presiona el botón de comando en la barra superior o el atajo Ctrl+K para abrir el buscador universal de Tareas Tipo del catálogo e insertar partidas completas precalculadas en segundos."
+            "content": "Presiona el botón de comando en la barra superior o el atajo Ctrl+K para abrir el buscador universal de Tareas Tipo del catálogo e insertar ítems precalculados en segundos."
           },
           {
             "heading": "Composición de Precios y Totales en Vivo",

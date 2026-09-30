@@ -233,12 +233,21 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
         return;
       }
 
-      const val = finalValue !== undefined ? finalValue : (editingCellRef.current?.value ?? editingCell?.value ?? '');
+      // Priorizar finalValue si fue provisto; si no, solo leer de la ref si coincide el campo
+      let val = '';
+      if (finalValue !== undefined) {
+        val = finalValue;
+      } else if (editingCellRef.current && editingCellRef.current.field === targetField) {
+        val = editingCellRef.current.value ?? '';
+      } else if (editingCell && editingCell.field === targetField) {
+        val = editingCell.value ?? '';
+      }
+
       editingCellRef.current = null;
       setEditingCell(null);
 
       if (targetField === 'descripcion') {
-        const trimmed = val.trim() || 'Nueva Partida';
+        const trimmed = val.trim() || 'Nuevo Ítem';
         setItems((prev) =>
           prev.map((it) => (it.id === targetItemId ? { ...it, descripcion: trimmed } : it))
         );
@@ -279,7 +288,7 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
       const newItem: ItemPresupuesto = reevaluarItem({
         id: newItemId,
         capituloId: targetChapter,
-        descripcion: 'Nueva Partida',
+        descripcion: 'Nuevo Ítem',
         cantidad: 1,
         unidad: 'u',
         costoInsumos: 0,
@@ -305,7 +314,7 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
 
       setSelectedItemId(newItemId);
       setSelectedChapterId(targetChapter || null);
-      const nextCell: EditingCellState = { itemId: newItemId, field: 'descripcion', value: 'Nueva Partida' };
+      const nextCell: EditingCellState = { itemId: newItemId, field: 'descripcion', value: 'Nuevo Ítem' };
       editingCellRef.current = nextCell;
       setEditingCell(nextCell);
       setIsDetailPanelOpen(true);
@@ -980,7 +989,7 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
 
   // Insertar tarea tipo desde catálogo
   const handleInsertTareaTipo = useCallback(
-    (tarea: TareaTipo) => {
+    (tarea: TareaTipo, overrideChapterId?: string) => {
       const currentQty = 1;
       const costData = calcularCostoTareaTipo(tarea, insumosMap, manoObraMap);
       const insumosSnapshot: InsumoSnapshot[] = costData.insumosSnapshotUnitario.map((ins, idx) => {
@@ -1014,7 +1023,7 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
       }));
 
       const newItemId = `it-${generateUUID().slice(0, 8)}`;
-      const targetChapter = catalogPickerTargetChapterId || selectedChapterId || capitulos[0]?.id || undefined;
+      const targetChapter = overrideChapterId || catalogPickerTargetChapterId || selectedChapterId || capitulos[0]?.id || undefined;
 
       const rawItem: ItemPresupuesto = {
         id: newItemId,
@@ -1043,6 +1052,7 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
       setSelectedChapterId(targetChapter || null);
       setIsDetailPanelOpen(true);
       setIsCatalogPickerOpen(false);
+      setCatalogPickerTargetChapterId(undefined);
     },
     [catalogPickerTargetChapterId, selectedChapterId, capitulos, reevaluarItem, setItems]
   );
@@ -1070,6 +1080,8 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
     setIsCatalogPickerOpen,
     catalogPickerTargetChapterId,
     setCatalogPickerTargetChapterId,
+    handleOpenCatalogPicker,
+    handleInsertTareaTipo,
     quickParamModalItemId,
     handleOpenQuickParamModal,
     handleCloseQuickParamModal,
@@ -1113,8 +1125,6 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
     handleRemoveServiceFromItem,
     handleDesacoplarItem,
     handleActualizarVersionTareaTipo,
-    handleOpenCatalogPicker,
-    handleInsertTareaTipo,
     onSaveAsTareaTipo,
     onOpenTextMode
   };

@@ -34,7 +34,7 @@ interface TreeSheetRowProps {
   onSelect: () => void;
   onStartEditCell: (field: 'descripcion' | 'cantidad') => void;
   onUpdateEditingCellValue: (value: string) => void;
-  onCommitEditCell: (field: 'descripcion' | 'cantidad') => void;
+  onCommitEditCell: (field: 'descripcion' | 'cantidad', finalValue?: string) => void;
   onCancelEditCell: () => void;
   onNavigateCell?: (direction: 'next' | 'prev', fromField: 'descripcion' | 'cantidad') => void;
   onOpenQuickParamModal?: (itemId: string) => void;
@@ -243,22 +243,17 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               type="text"
               value={editingCell?.value ?? ''}
               onChange={(e) => onUpdateEditingCellValue(e.target.value)}
-              onBlur={() => onCommitEditCell('descripcion')}
+              onBlur={(e) => onCommitEditCell('descripcion', e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Tab') {
                   e.preventDefault();
+                  onCommitEditCell('descripcion', e.currentTarget.value);
                   if (onNavigateCell) {
                     onNavigateCell(e.shiftKey ? 'prev' : 'next', 'descripcion');
-                  } else {
-                    onCommitEditCell('descripcion');
                   }
                 } else if (e.key === 'Enter') {
                   e.preventDefault();
-                  if (onNavigateCell) {
-                    onNavigateCell('next', 'descripcion');
-                  } else {
-                    onCommitEditCell('descripcion');
-                  }
+                  onCommitEditCell('descripcion', e.currentTarget.value);
                 } else if (e.key === 'Escape') {
                   e.preventDefault();
                   onCancelEditCell();
@@ -316,22 +311,17 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
                 type="text"
                 value={editingCell?.value ?? ''}
                 onChange={(e) => onUpdateEditingCellValue(e.target.value)}
-                onBlur={() => onCommitEditCell('cantidad')}
+                onBlur={(e) => onCommitEditCell('cantidad', e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Tab') {
                     e.preventDefault();
+                    onCommitEditCell('cantidad', e.currentTarget.value);
                     if (onNavigateCell) {
                       onNavigateCell(e.shiftKey ? 'prev' : 'next', 'cantidad');
-                    } else {
-                      onCommitEditCell('cantidad');
                     }
                   } else if (e.key === 'Enter') {
                     e.preventDefault();
-                    if (onNavigateCell) {
-                      onNavigateCell('next', 'cantidad');
-                    } else {
-                      onCommitEditCell('cantidad');
-                    }
+                    onCommitEditCell('cantidad', e.currentTarget.value);
                   } else if (e.key === 'Escape') {
                     e.preventDefault();
                     onCancelEditCell();

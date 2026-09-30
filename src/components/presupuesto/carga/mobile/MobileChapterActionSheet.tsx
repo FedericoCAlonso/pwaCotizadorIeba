@@ -4,7 +4,8 @@ import {
   Trash2,
   Edit2,
   Folder,
-  AlertTriangle
+  AlertTriangle,
+  BookOpen
 } from 'lucide-react';
 import { CapituloPresupuesto } from '../../../../core/types';
 import { formatARS } from '../../../../core/calculations';
@@ -18,6 +19,7 @@ export interface MobileChapterActionSheetProps {
   itemCount: number;
   totalPrecio: number;
   onStartRename: () => void;
+  onOpenCatalog?: () => void;
   onRemove: () => void;
 }
 
@@ -28,6 +30,7 @@ export const MobileChapterActionSheet: React.FC<MobileChapterActionSheetProps> =
   itemCount,
   totalPrecio,
   onStartRename,
+  onOpenCatalog,
   onRemove
 }) => {
   const haptics = useHaptics();
@@ -113,7 +116,23 @@ export const MobileChapterActionSheet: React.FC<MobileChapterActionSheetProps> =
             <span>Renombrar rubro</span>
           </button>
 
-          {/* 2. Acción Destructiva con Confirmación en 2 Pasos */}
+          {/* 2. Agregar Tarea Tipo desde Catálogo */}
+          {onOpenCatalog && (
+            <button
+              type="button"
+              onClick={() => {
+                haptics.selection();
+                onClose();
+                onOpenCatalog();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border border-tertiary/30 bg-tertiary-container/20 hover:bg-tertiary-container/40 text-on-surface text-sm font-semibold cursor-pointer active:scale-98 min-h-[48px] transition-colors"
+            >
+              <BookOpen className="w-4 h-4 text-tertiary" />
+              <span>+ Tarea Tipo desde Catálogo</span>
+            </button>
+          )}
+
+          {/* 3. Acción Destructiva con Confirmación en 2 Pasos */}
           <div className="pt-1">
             {!isConfirmingDelete ? (
               <button

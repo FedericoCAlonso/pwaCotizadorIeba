@@ -72,7 +72,7 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => vm.setIsCatalogPickerOpen(true)}
+              onClick={() => vm.handleOpenCatalogPicker()}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-surface-container-high text-on-surface rounded-xl border border-outline-variant/30 cursor-pointer active:scale-95"
             >
               <BookOpen className="w-3.5 h-3.5" />
@@ -103,7 +103,7 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
                 onSelect={() => vm.handleSelectRow(item.id, item.capituloId || null)}
                 onStartEditCell={(field) => vm.handleStartEditCell(item.id, field)}
                 onUpdateEditingCellValue={vm.handleUpdateEditingCellValue}
-                onCommitEditCell={(field) => vm.handleCommitEditCell(item.id, field)}
+                onCommitEditCell={(field, finalValue) => vm.handleCommitEditCell(item.id, field, finalValue)}
                 onCancelEditCell={vm.handleCancelEditCell}
                 onMoveUp={() => vm.handleMoveItem(item.id, 'up')}
                 onMoveDown={() => vm.handleMoveItem(item.id, 'down')}
@@ -177,7 +177,7 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
               onAddItem={() => vm.handleCreateItem(cap.id)}
               onOpenCatalog={() => {
                 vm.handleSelectRow(null, cap.id);
-                vm.setIsCatalogPickerOpen(true);
+                vm.handleOpenCatalogPicker(cap.id);
               }}
               onRenameChapter={(nombre) => vm.handleRenameChapter(cap.id, nombre)}
               onRemoveChapter={() => vm.handleRemoveChapter(cap.id)}
@@ -201,7 +201,7 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
                         type="button"
                         onClick={() => {
                           vm.handleSelectRow(null, cap.id);
-                          vm.setIsCatalogPickerOpen(true);
+                          vm.handleOpenCatalogPicker(cap.id);
                         }}
                         className="text-tertiary hover:underline font-semibold cursor-pointer"
                       >
@@ -226,7 +226,7 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
                           onSelect={() => vm.handleSelectRow(item.id, item.capituloId || null)}
                           onStartEditCell={(field) => vm.handleStartEditCell(item.id, field)}
                           onUpdateEditingCellValue={vm.handleUpdateEditingCellValue}
-                          onCommitEditCell={(field) => vm.handleCommitEditCell(item.id, field)}
+                          onCommitEditCell={(field, finalValue) => vm.handleCommitEditCell(item.id, field, finalValue)}
                           onCancelEditCell={vm.handleCancelEditCell}
                           onMoveUp={() => vm.handleMoveItem(item.id, 'up')}
                           onMoveDown={() => vm.handleMoveItem(item.id, 'down')}
