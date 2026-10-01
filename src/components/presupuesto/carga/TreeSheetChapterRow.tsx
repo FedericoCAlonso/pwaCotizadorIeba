@@ -15,6 +15,7 @@ import { formatARS, CapituloTotalResultado } from '../../../core/calculations';
 interface TreeSheetChapterRowProps {
   capitulo: CapituloPresupuesto;
   items: ItemPresupuesto[];
+  indexNumber?: string;
   isCollapsed: boolean;
   isSelected: boolean;
   capituloTotales?: CapituloTotalResultado | {
@@ -34,6 +35,7 @@ interface TreeSheetChapterRowProps {
 export const TreeSheetChapterRow: React.FC<TreeSheetChapterRowProps> = ({
   capitulo,
   items,
+  indexNumber,
   isCollapsed,
   isSelected,
   capituloTotales,
@@ -108,6 +110,7 @@ export const TreeSheetChapterRow: React.FC<TreeSheetChapterRowProps> = ({
       <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
         <button
           type="button"
+          tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation();
             onToggleCollapse();
@@ -147,6 +150,11 @@ export const TreeSheetChapterRow: React.FC<TreeSheetChapterRowProps> = ({
           </div>
         ) : (
           <div className="flex items-center gap-2 truncate">
+            {indexNumber && (
+              <span className="font-mono text-xs font-bold text-primary shrink-0 select-none px-1.5 py-0.5 rounded bg-primary/10">
+                {indexNumber}
+              </span>
+            )}
             <span
               onDoubleClick={(e) => {
                 e.stopPropagation();
@@ -164,79 +172,82 @@ export const TreeSheetChapterRow: React.FC<TreeSheetChapterRowProps> = ({
         )}
       </div>
 
-      {/* Columna Derecha: Subtotales de Costo Directo y Precio Final y Acciones */}
-      <div className="flex items-center gap-3 sm:gap-5 shrink-0">
-        <div className="flex items-center gap-3 sm:gap-6 text-right">
-          <div className="hidden sm:block">
-            <span className="text-xs font-mono font-medium text-on-surface-variant">
-              {formatARS(chapterCostoDirecto)}
-            </span>
-            <span className="block text-[9px] text-on-surface-variant/70 uppercase tracking-wider font-semibold">
-              Costo Directo
-            </span>
-          </div>
-          <div>
-            <span className="text-xs sm:text-sm font-mono font-bold text-primary">
-              {formatARS(chapterPrecioFinal)}
-            </span>
-            <span className="block text-[9px] text-primary/80 uppercase tracking-wider font-bold">
-              Precio Final
-            </span>
-          </div>
+      {/* Columna Derecha: Subtotal de Precio Final y Acciones alineados con la grilla */}
+      <div className="flex items-center shrink-0">
+        {/* Spacer para Cantidad / Unidad */}
+        <div className="w-28 sm:w-32 md:w-36 shrink-0" aria-hidden="true" />
+
+        {/* Spacer para P. Unitario Final */}
+        <div className="hidden sm:block w-28 sm:w-32 shrink-0" aria-hidden="true" />
+
+        {/* Subtotal de Precio Final Consolidado del Rubro */}
+        <div className="w-32 sm:w-40 shrink-0 px-2 text-right">
+          <span className="text-xs sm:text-sm font-mono font-bold text-primary">
+            {formatARS(chapterPrecioFinal)}
+          </span>
+          <span className="block text-[9px] text-primary/80 uppercase tracking-wider font-bold">
+            Total Rubro
+          </span>
         </div>
 
         {/* Acciones de rubro visibles en hover o selección */}
-        <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+        <div className="w-32 sm:w-36 shrink-0 flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity pr-1">
           <button
             type="button"
+            tabIndex={-1}
             onClick={(e) => {
               e.stopPropagation();
               onAddItem();
             }}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-surface-container-high hover:bg-surface-container-highest text-xs font-semibold text-primary transition-colors cursor-pointer"
+            className="p-1 rounded-md bg-surface-container-high hover:bg-surface-container-highest text-primary transition-colors cursor-pointer"
             title="Agregar ítem libre en este rubro"
+            aria-label="Agregar ítem"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Ítem</span>
           </button>
 
           {onOpenCatalog && (
             <button
               type="button"
+              tabIndex={-1}
               onClick={(e) => {
                 e.stopPropagation();
                 onOpenCatalog();
               }}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-surface-container-high hover:bg-surface-container-highest text-xs font-semibold text-tertiary transition-colors cursor-pointer"
+              className="p-1 rounded-md bg-surface-container-high hover:bg-surface-container-highest text-tertiary transition-colors cursor-pointer"
               title="Agregar trabajo tipo desde catálogo a este rubro"
+              aria-label="Agregar desde catálogo"
             >
               <BookOpen className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">Catálogo</span>
             </button>
           )}
 
           <button
             type="button"
+            tabIndex={-1}
             onClick={(e) => {
               e.stopPropagation();
               setIsEditingName(true);
             }}
-            className="p-1.5 rounded-md hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+            className="p-1 rounded-md hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
             title="Renombrar rubro"
+            aria-label="Renombrar rubro"
           >
             <Edit2 className="w-3.5 h-3.5" />
           </button>
 
           <button
             type="button"
+            tabIndex={-1}
             onClick={(e) => {
               e.stopPropagation();
               if (window.confirm(`¿Eliminar rubro "${capitulo.nombre}"? Se eliminarán los ítems contenidos en él.`)) {
                 onRemoveChapter();
               }
             }}
-            className="p-1.5 rounded-md hover:bg-error-container text-on-surface-variant hover:text-error transition-colors cursor-pointer"
+            className="p-1 rounded-md hover:bg-error-container text-on-surface-variant hover:text-error transition-colors cursor-pointer"
             title="Eliminar rubro"
+            aria-label="Eliminar rubro"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>

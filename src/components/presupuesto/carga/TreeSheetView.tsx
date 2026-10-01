@@ -47,7 +47,7 @@ export const TreeSheetView = React.forwardRef<TreeSheetViewRef, TreeSheetViewPro
 
   // Exponer métodos imperativos para la barra superior unificada
   useImperativeHandle(ref, () => ({
-    handleCreateItem: (chapterId?: string) => vm.handleOpenCreateItemModal(chapterId),
+    handleCreateItem: (chapterId?: string) => vm.handleCreateItem(chapterId, 'end'),
     handleCreateChapter: (nombre?: string) => vm.handleCreateChapter(nombre),
     openCatalogPicker: (chapterId?: string) => {
       vm.handleOpenCatalogPicker(chapterId);
@@ -205,7 +205,7 @@ export const TreeSheetView = React.forwardRef<TreeSheetViewRef, TreeSheetViewPro
         isOpen={vm.isCommandPaletteOpen}
         onClose={() => vm.setIsCommandPaletteOpen(false)}
         onAddChapter={() => vm.handleCreateChapter()}
-        onAddItem={() => vm.handleOpenCreateItemModal(vm.selectedChapterId || undefined)}
+        onAddItem={() => vm.handleCreateItem(vm.selectedChapterId || undefined, 'end')}
         onInsertTareaTipo={() => vm.setIsCatalogPickerOpen(true)}
         onSaveAsTareaTipo={
           vm.selectedItem ? () => props.onSaveAsTareaTipo?.(vm.selectedItem!) : undefined

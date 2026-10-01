@@ -631,10 +631,29 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
         } else if (selectedItemId && expandedItems.has(selectedItemId)) {
           toggleItemExpand(selectedItemId);
         }
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedItemId && !editingCell) {
+      } else if (e.key === 'Delete') {
+        const target = e.target as HTMLElement | null;
+        const isInput =
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.tagName === 'SELECT' ||
+            target.isContentEditable);
+        if (selectedItemId && !editingCell && !isInput) {
           e.preventDefault();
           handleRemoveItem(selectedItemId);
+        }
+      } else if (e.key === 'Backspace') {
+        // Blindaje contra borrado accidental de partidas y navegación hacia atrás
+        const target = e.target as HTMLElement | null;
+        const isInput =
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.tagName === 'SELECT' ||
+            target.isContentEditable);
+        if (!isInput) {
+          e.preventDefault();
         }
       }
     },

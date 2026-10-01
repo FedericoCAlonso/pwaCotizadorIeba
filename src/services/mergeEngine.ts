@@ -17,7 +17,8 @@ const TABLE_NAMES = [
   'proyectos',
   'presupuestos',
   'registrosTrabajo',
-  'config'
+  'config',
+  'convenios'
 ] as const;
 
 type TableName = typeof TABLE_NAMES[number];
@@ -118,7 +119,8 @@ export async function getLocalMasterPayload(): Promise<MasterDatabasePayload> {
     proyectos: await db.proyectos.toArray(),
     presupuestos: await db.presupuestos.toArray(),
     registrosTrabajo: await db.registrosTrabajo.toArray(),
-    config: await db.config.toArray()
+    config: await db.config.toArray(),
+    convenios: await db.convenios.toArray()
   };
 }
 

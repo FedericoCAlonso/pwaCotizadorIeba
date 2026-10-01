@@ -12,12 +12,12 @@ import {
 
 interface ItemRowActionsProps {
   isSelected: boolean;
-  isExpanded: boolean;
-  isParametric: boolean;
-  hasParams: boolean;
-  onToggleExpand: () => void;
-  onStartEditName: () => void;
-  onOpenParams: (e: React.MouseEvent) => void;
+  isExpanded?: boolean;
+  isParametric?: boolean;
+  hasParams?: boolean;
+  onToggleExpand?: () => void;
+  onStartEditName?: () => void;
+  onOpenParams?: (e: React.MouseEvent) => void;
   onDuplicate?: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
@@ -27,12 +27,6 @@ interface ItemRowActionsProps {
 
 export const ItemRowActions: React.FC<ItemRowActionsProps> = ({
   isSelected,
-  isExpanded,
-  isParametric,
-  hasParams,
-  onToggleExpand,
-  onStartEditName,
-  onOpenParams,
   onDuplicate,
   onMoveUp,
   onMoveDown,
@@ -45,57 +39,40 @@ export const ItemRowActions: React.FC<ItemRowActionsProps> = ({
         isSelected ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'
       }`}
     >
-      {/* 1. Editar descripción */}
+      {/* 1. Mover arriba / abajo */}
       <button
         type="button"
+        tabIndex={-1}
         onClick={(e) => {
           e.stopPropagation();
-          onStartEditName();
+          onMoveUp();
         }}
-        className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
-        title="Editar nombre / descripción del ítem (F2 o doble clic)"
-        aria-label="Editar descripción"
+        className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+        title="Mover arriba"
+        aria-label="Mover arriba"
       >
-        <Edit2 className="w-3.5 h-3.5" />
+        <ArrowUp className="w-3.5 h-3.5" />
       </button>
 
-      {/* 2. Alternar desglose / despiece APU */}
       <button
         type="button"
+        tabIndex={-1}
         onClick={(e) => {
           e.stopPropagation();
-          onToggleExpand();
+          onMoveDown();
         }}
-        className={`p-1 rounded transition-colors cursor-pointer ${
-          isExpanded
-            ? 'text-primary bg-primary-container/40'
-            : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-high'
-        }`}
-        title={isExpanded ? 'Plegar despiece APU' : 'Abrir despiece APU (Materiales, Mano de Obra, Servicios)'}
-        aria-label="Despiece APU"
+        className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+        title="Mover abajo"
+        aria-label="Mover abajo"
       >
-        <Layers className="w-3.5 h-3.5" />
+        <ArrowDown className="w-3.5 h-3.5" />
       </button>
 
-      {/* 3. Configurar parámetros */}
-      <button
-        type="button"
-        onClick={onOpenParams}
-        className={`p-1 rounded transition-colors cursor-pointer ${
-          hasParams || isParametric
-            ? 'text-secondary hover:bg-secondary-container/40'
-            : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
-        }`}
-        title="Configurar parámetros y variables del ítem"
-        aria-label="Parámetros del ítem"
-      >
-        <Sliders className="w-3.5 h-3.5" />
-      </button>
-
-      {/* 4. Duplicar ítem */}
+      {/* 2. Duplicar ítem */}
       {onDuplicate && (
         <button
           type="button"
+          tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation();
             onDuplicate();
@@ -108,37 +85,11 @@ export const ItemRowActions: React.FC<ItemRowActionsProps> = ({
         </button>
       )}
 
-      {/* 5. Mover posición */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onMoveUp();
-        }}
-        className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-        title="Mover arriba"
-        aria-label="Mover arriba"
-      >
-        <ArrowUp className="w-3 h-3" />
-      </button>
-
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onMoveDown();
-        }}
-        className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-        title="Mover abajo"
-        aria-label="Mover abajo"
-      >
-        <ArrowDown className="w-3 h-3" />
-      </button>
-
-      {/* 6. Guardar como Tarea Tipo */}
+      {/* 3. Guardar como Tarea Tipo */}
       {onSaveAsTareaTipo && (
         <button
           type="button"
+          tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation();
             onSaveAsTareaTipo();
@@ -151,9 +102,10 @@ export const ItemRowActions: React.FC<ItemRowActionsProps> = ({
         </button>
       )}
 
-      {/* 7. Eliminar */}
+      {/* 4. Eliminar */}
       <button
         type="button"
+        tabIndex={-1}
         onClick={(e) => {
           e.stopPropagation();
           onRemove();

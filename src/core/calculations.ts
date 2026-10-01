@@ -33,7 +33,8 @@ import {
   DestinoGasto,
   ModalidadGasto,
   ParametroItem,
-  CalculatedCell
+  CalculatedCell,
+  ConvenioLaboral
 } from './types';
 import { evaluateMathExpression, evaluateCondition, RESERVED_KEYWORDS } from './mathEvaluator';
 
@@ -1250,6 +1251,9 @@ export interface CapituloTotalResultado {
   costoDirectoTotal: number;
   precioVentaTotal: number;
   itemsCount: number;
+  incidencia?: number;
+  costosIndirectos?: number;
+  impuestos?: number;
 }
 
 export interface TotalesPresupuestoResultado {
@@ -1805,21 +1809,36 @@ export function calcularTotalesPresupuesto(params: {
   ];
 
   for (const cap of allCapitulos) {
+    const capItems = itemsCalculados.filter(it => (it.capituloId || 'sin_capitulo') === cap.id);
     const base = chapterBases[cap.id] || { insumos: 0, mo: 0, moTeorica: 0, servicios: 0, itemsCount: 0 };
     const gDirectos = chapterGastosDirectos[cap.id] || 0;
-    const cDirecto = roundMoney(base.insumos + base.mo + base.servicios + gDirectos);
-    const pVenta = roundMoney(cDirecto * (coeficienteK || 1));
+
+    const cInsumos = roundMoney(capItems.reduce((acc, it) => acc + safeNum(it.costoInsumos), 0));
+    const cMo = roundMoney(capItems.reduce((acc, it) => acc + safeNum(it.costoManoObra), 0));
+    const cServ = roundMoney(capItems.reduce((acc, it) => acc + safeNum(it.costoServiciosTercerizados || it.costoServicios), 0));
+    const cDirecto = capItems.length > 0
+      ? roundMoney(capItems.reduce((acc, it) => acc + safeNum(it.costoDirectoTotal), 0))
+      : roundMoney(base.insumos + base.mo + base.servicios + gDirectos);
+    const pVenta = capItems.length > 0
+      ? roundMoney(capItems.reduce((acc, it) => acc + safeNum(it.precioFinalItem ?? it.precioVentaTotal), 0))
+      : roundMoney(cDirecto * (coeficienteK || 1));
+    const inc = roundMoney4(capItems.reduce((acc, it) => acc + safeNum(it.incidencia), 0));
+    const indirectos = roundMoney(capItems.reduce((acc, it) => acc + safeNum(it.ggAbsolutoProrrateado) + safeNum(it.ggPorcentualItem), 0));
+    const impuestos = roundMoney(capItems.reduce((acc, it) => acc + safeNum(it.impuestosItem), 0));
 
     capitulosTotales[cap.id] = {
       id: cap.id,
       nombre: cap.nombre,
-      costoInsumos: base.insumos,
-      costoManoObra: base.mo,
-      costoServicios: base.servicios,
+      costoInsumos: cInsumos,
+      costoManoObra: cMo,
+      costoServicios: cServ,
       gastosDirectos: gDirectos,
       costoDirectoTotal: cDirecto,
       precioVentaTotal: pVenta,
-      itemsCount: base.itemsCount
+      incidencia: inc,
+      costosIndirectos: indirectos,
+      impuestos: impuestos,
+      itemsCount: capItems.length
     };
   }
 
@@ -2631,6 +2650,97 @@ export function calcularCostoJornadaDesdeHora(costoHora: number, horasJornada: n
   const ch = safeNum(costoHora);
   if (ch <= 0) return 0;
   return roundMoney(ch * hs);
+}
+
+/**
+ * Convenios laborales predefinidos con alícuotas estándar de cargas sociales (FCS) y adicionales.
+ */
+export const CONVENIOS_PREDEFINIDOS: ConvenioLaboral[] = [
+  {
+    id: 'uocra',
+    nombre: 'UOCRA (CCT 76/75 - Obras)',
+    cargasSocialesPct: 65,
+    desgloseCargas: {
+      leyesSocialesPct: 42,
+      inasistenciasPagasPct: 23
+    },
+    gastosDirectosOperarioDefecto: 5000,
+    adicionales: {
+      adicionalTrabajoAltura: 0.20,
+      adicionalZanja: 0.15,
+      adicionalRiesgoElectrico: 0.25,
+      adicionalNocturno: 0.50
+    },
+    esIndependiente: false
+  },
+  {
+    id: 'uom',
+    nombre: 'UOM (CCT 260/75 - Taller / Tableristas)',
+    cargasSocialesPct: 52,
+    desgloseCargas: {
+      leyesSocialesPct: 36,
+      inasistenciasPagasPct: 16
+    },
+    gastosDirectosOperarioDefecto: 4000,
+    adicionales: {
+      adicionalArmadoTableros: 0.15,
+      adicionalNocturno: 0.50
+    },
+    esIndependiente: false
+  },
+  {
+    id: 'independiente',
+    nombre: 'Profesional Independiente / Monotributista',
+    cargasSocialesPct: 0,
+    desgloseCargas: {
+      leyesSocialesPct: 0,
+      inasistenciasPagasPct: 0
+    },
+    gastosDirectosOperarioDefecto: 0,
+    adicionales: {},
+    esIndependiente: true
+  }
+];
+
+export interface DesgloseCostoManoObraReal {
+  costoBasicoJornada: number;
+  costoBasicoHora: number;
+  porcentajeCargasSociales: number;
+  montoCargasSocialesJornada: number;
+  gastosDirectosJornada: number;
+  costoJornadaReal: number;
+  costoHoraReal: number;
+}
+
+/**
+ * Calcula el costo real de mano de obra empresa (MOD) a partir del básico de convenio,
+ * factor de cargas sociales (FCS %) y gastos directos por jornada (EPP/Ropa/Viático).
+ */
+export function calcularDesgloseCostoManoObraReal(
+  costoBasicoJornada: number,
+  porcentajeCargasSociales: number = 65,
+  gastosDirectosJornada: number = 0,
+  horasJornada: number = 9
+): DesgloseCostoManoObraReal {
+  const hs = safeNum(horasJornada) > 0 ? safeNum(horasJornada) : 9;
+  const basicoJornada = safeNum(costoBasicoJornada);
+  const fcsPct = Math.max(0, safeNum(porcentajeCargasSociales));
+  const gastosDirectos = Math.max(0, safeNum(gastosDirectosJornada));
+
+  const montoCargas = roundMoney(basicoJornada * (fcsPct / 100));
+  const costoJornadaReal = roundMoney(basicoJornada + montoCargas + gastosDirectos);
+  const costoHoraReal = roundMoney(costoJornadaReal / hs);
+  const costoBasicoHora = roundMoney(basicoJornada / hs);
+
+  return {
+    costoBasicoJornada: basicoJornada,
+    costoBasicoHora,
+    porcentajeCargasSociales: fcsPct,
+    montoCargasSocialesJornada: montoCargas,
+    gastosDirectosJornada: gastosDirectos,
+    costoJornadaReal,
+    costoHoraReal
+  };
 }
 
 // ─── 15. Evaluación en Cascada de Parámetros y Fórmulas de Ítems ──────────────

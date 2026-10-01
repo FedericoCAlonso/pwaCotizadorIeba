@@ -15,7 +15,8 @@ import {
   Presupuesto,
   RegistroTrabajo,
   AppConfig,
-  SyncProviderType
+  SyncProviderType,
+  ConvenioLaboral
 } from '../core/types';
 
 export interface MasterDatabasePayload {
@@ -39,6 +40,7 @@ export interface MasterDatabasePayload {
   presupuestos: Presupuesto[];
   registrosTrabajo: RegistroTrabajo[];
   config: AppConfig[];
+  convenios?: ConvenioLaboral[];
   trazaProyectos?: any[];
   [key: string]: any;
 }

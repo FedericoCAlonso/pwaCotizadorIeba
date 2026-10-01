@@ -56,6 +56,7 @@ describe('mergeEngine - Sincronización y Consolidación de Contactos', () => {
     vi.spyOn(db.presupuestos, 'toArray').mockResolvedValue([]);
     vi.spyOn(db.registrosTrabajo, 'toArray').mockResolvedValue([]);
     vi.spyOn(db.config, 'toArray').mockResolvedValue([]);
+    vi.spyOn(db.convenios, 'toArray').mockResolvedValue([]);
 
     const payload = await getLocalMasterPayload();
 
@@ -86,6 +87,7 @@ describe('mergeEngine - Sincronización y Consolidación de Contactos', () => {
     vi.spyOn(db.presupuestos, 'toArray').mockResolvedValue([]);
     vi.spyOn(db.registrosTrabajo, 'toArray').mockResolvedValue([]);
     vi.spyOn(db.config, 'toArray').mockResolvedValue([]);
+    vi.spyOn(db.convenios, 'toArray').mockResolvedValue([]);
 
     const mockBulkPutContactos = vi.spyOn(db.contactos, 'bulkPut').mockResolvedValue(undefined as any);
     const mockBulkPutClientes = vi.spyOn(db.clientes, 'bulkPut').mockResolvedValue(undefined as any);

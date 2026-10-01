@@ -8,7 +8,8 @@ import {
   ExternalLink,
   Globe,
   Pin,
-  Sparkles
+  Sparkles,
+  Calculator
 } from 'lucide-react';
 import { ItemPresupuesto, ParametroItem } from '../../../core/types';
 import { safeNum } from '../../../core/calculations';
@@ -38,6 +39,8 @@ export const ItemParametersQuickModal: React.FC<ItemParametersQuickModalProps> =
   if (!isOpen) return null;
 
   const parametros: ParametroItem[] = item.parametros || [];
+  const inputParametros = parametros.filter((p) => p.tipo !== 'variable' && !p.formula);
+  const calcVariables = parametros.filter((p) => p.tipo === 'variable' || Boolean(p.formula));
 
   const handleUpdateValue = (paramId: string, deltaOrValue: number, isAbsolute = false) => {
     if (!onUpdateParametros) return;
@@ -138,14 +141,18 @@ export const ItemParametersQuickModal: React.FC<ItemParametersQuickModalProps> =
 
         {/* Cuerpo / Lista de Parámetros */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
-          {parametros.length === 0 ? (
+          {inputParametros.length === 0 ? (
             <div className="py-6 px-4 text-center bg-surface-container-low rounded-xl border border-outline-variant/20">
               <Sparkles className="w-8 h-8 text-secondary/60 mx-auto mb-2" />
               <p className="text-xs font-semibold text-on-surface mb-1">
-                Este ítem no tiene parámetros propios
+                {calcVariables.length > 0
+                  ? 'Este ítem no tiene parámetros de entrada configurables por el usuario'
+                  : 'Este ítem no tiene parámetros propios'}
               </p>
               <p className="text-[11px] text-on-surface-variant max-w-xs mx-auto mb-3">
-                Los parámetros te permiten calibrar cantidades y consumos rápidamente (ej. bocas, metros, circuitos).
+                {calcVariables.length > 0
+                  ? 'Sus variables se calculan automáticamente mediante fórmulas matemáticas en base a la obra.'
+                  : 'Los parámetros te permiten calibrar cantidades y consumos rápidamente (ej. bocas, metros, circuitos).'}
               </p>
               <button
                 type="button"
@@ -153,12 +160,15 @@ export const ItemParametersQuickModal: React.FC<ItemParametersQuickModalProps> =
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-secondary text-on-secondary rounded-lg shadow-xs hover:opacity-90 transition-opacity cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Agregar Primer Parámetro</span>
+                <span>+ Agregar Parámetro</span>
               </button>
             </div>
           ) : (
             <div className="space-y-2">
-              {parametros.map((p) => {
+              <div className="text-[11px] font-bold text-secondary uppercase tracking-wider px-1">
+                Parámetros de Entrada ({inputParametros.length})
+              </div>
+              {inputParametros.map((p) => {
                 const isBool = isBooleanParam(p);
                 return (
                   <div
@@ -171,12 +181,12 @@ export const ItemParametersQuickModal: React.FC<ItemParametersQuickModalProps> =
                           {p.nombre || p.id}
                         </span>
                         <code className="text-[10px] font-mono px-1 py-0.2 rounded bg-surface-container text-on-surface-variant/80">
-                          {p.id}
+                          ${p.id}
                         </code>
                       </div>
-                      {p.formula && (
-                        <p className="text-[10px] text-secondary font-mono truncate" title={p.formula}>
-                          f(x) = {p.formula}
+                      {p.descripcion && (
+                        <p className="text-[11px] text-on-surface-variant truncate">
+                          {p.descripcion}
                         </p>
                       )}
                     </div>
@@ -230,6 +240,41 @@ export const ItemParametersQuickModal: React.FC<ItemParametersQuickModalProps> =
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Sección de Variables de Cálculo Interno (informativa / sólo lectura) */}
+          {calcVariables.length > 0 && (
+            <div className="space-y-1.5 pt-2 border-t border-outline-variant/20">
+              <div className="flex items-center justify-between px-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                <span className="flex items-center gap-1">
+                  <Calculator className="w-3.5 h-3.5" />
+                  <span>Variables de Cálculo Interno ({calcVariables.length})</span>
+                </span>
+                <span className="text-[10px] text-on-surface-variant font-normal normal-case">
+                  Evaluadas automáticamente
+                </span>
+              </div>
+              <div className="divide-y divide-outline-variant/15 border border-emerald-500/25 rounded-xl overflow-hidden bg-surface-container-lowest shadow-2xs">
+                {calcVariables.map((v) => (
+                  <div key={v.id} className="p-2.5 flex items-center justify-between gap-2 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">${v.id}</span>
+                        <span className="text-on-surface truncate">{v.descripcion || v.nombre || v.id}</span>
+                      </div>
+                      {v.formula && (
+                        <p className="text-[10px] text-on-surface-variant font-mono truncate" title={v.formula}>
+                          {v.formula}
+                        </p>
+                      )}
+                    </div>
+                    <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded bg-emerald-500/10 shrink-0">
+                      = {v.valor} {v.unidad || ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

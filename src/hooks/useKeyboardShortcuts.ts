@@ -43,6 +43,14 @@ export function useKeyboardShortcuts({
           target.tagName === 'SELECT' ||
           target.isContentEditable);
 
+      // --- Protección Backspace: Evitar navegación hacia atrás en el historial del navegador ---
+      if (e.key === 'Backspace') {
+        if (!isEditable) {
+          e.preventDefault();
+        }
+        return;
+      }
+
       // --- Atajo Escape (Cerrar modal o Volver a lista) ---
       if (e.key === 'Escape') {
         const hasModalInDOM = !!document.querySelector('.fixed.inset-0, [role="dialog"]');
@@ -112,8 +120,8 @@ export function useKeyboardShortcuts({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [
     activeTab,
     viewMode,

@@ -8,7 +8,8 @@ import {
   ChevronDown,
   Edit2,
   Check,
-  X
+  X,
+  Info
 } from 'lucide-react';
 import {
   ItemPresupuesto,
@@ -21,9 +22,11 @@ import { formatARS, safeNum } from '../../../core/calculations';
 import { TreeSheetItemBreakdown } from './TreeSheetItemBreakdown';
 import { ItemQuantityCell } from './ItemQuantityCell';
 import { ItemRowActions } from './ItemRowActions';
+import { ItemAPUPopover } from './ItemAPUPopover';
 
 interface TreeSheetRowProps {
   item: ItemPresupuesto;
+  indexNumber?: string;
   isSelected: boolean;
   isExpanded: boolean;
   onToggleExpand: () => void;
@@ -60,6 +63,7 @@ interface TreeSheetRowProps {
 
 export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
   item,
+  indexNumber,
   isSelected,
   isExpanded,
   onToggleExpand,
@@ -94,6 +98,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
   calculosVariables
 }) => {
   const [overrideTab, setOverrideTab] = useState<'materiales' | 'mano_obra' | 'servicios' | 'parametros' | 'notas' | undefined>(undefined);
+  const [showAPUPopover, setShowAPUPopover] = useState(false);
   const isEditingDesc = editingCell?.itemId === item.id && editingCell.field === 'descripcion';
   const isEditingQty = editingCell?.itemId === item.id && editingCell.field === 'cantidad';
 
@@ -137,11 +142,14 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
     item.formulaHonorarios
   );
 
+  const inputParamsCount = (item.parametros || []).filter((p) => p.tipo !== 'variable' && !p.formula).length;
+  const calcVarsCount = (item.parametros || []).filter((p) => p.tipo === 'variable' || Boolean(p.formula)).length;
+
   const handleOpenParams = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isParametricJob && onOpenParametric) {
       onOpenParametric();
-    } else if (onOpenQuickParamModal) {
+    } else if (inputParamsCount > 0 && onOpenQuickParamModal) {
       onOpenQuickParamModal(item.id);
     } else {
       if (!isExpanded) {
@@ -182,6 +190,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
           {/* Botón para expandir/plegar rubros hijos */}
           <button
             type="button"
+            tabIndex={-1}
             onClick={(e) => {
               e.stopPropagation();
               onToggleExpand();
@@ -246,6 +255,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               />
               <button
                 type="button"
+                tabIndex={-1}
                 onClick={(e) => {
                   e.stopPropagation();
                   onCommitEditCell('descripcion', editingCell?.value);
@@ -258,6 +268,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               </button>
               <button
                 type="button"
+                tabIndex={-1}
                 onClick={(e) => {
                   e.stopPropagation();
                   onCancelEditCell();
@@ -271,13 +282,45 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
             </div>
           ) : (
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              {indexNumber && (
+                <span className="font-mono text-xs font-semibold text-on-surface-variant/70 shrink-0 select-none">
+                  {indexNumber}
+                </span>
+              )}
               <div
-                onDoubleClick={(e) => {
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
                   e.stopPropagation();
                   onStartEditCell('descripcion');
                 }}
-                className="truncate text-on-surface font-medium hover:text-primary transition-colors cursor-text"
-                title="Doble clic o clic en el lápiz para editar descripción"
+                onFocus={() => {
+                  onStartEditCell('descripcion');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Tab') {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                      if (onNavigateCell) {
+                        onNavigateCell('prev', 'descripcion');
+                      }
+                    } else {
+                      if (onNavigateCell) {
+                        onNavigateCell('next', 'descripcion');
+                      }
+                    }
+                  } else if (e.key === 'Enter' || e.key === ' ' || e.key === 'F2') {
+                    e.preventDefault();
+                    onStartEditCell('descripcion');
+                  } else if (e.key === 'Backspace') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onStartEditCell('descripcion');
+                    onUpdateEditingCellValue('');
+                  }
+                }}
+                className="truncate text-on-surface font-medium hover:text-primary transition-colors cursor-text px-1.5 py-0.5 rounded hover:bg-surface-container-high focus:outline-none focus:ring-1 focus:ring-primary"
+                title="Clic o Tab para editar descripción"
               >
                 {item.descripcion}
               </div>
@@ -285,6 +328,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               {/* Botón de lápiz visible para editar nombre con un solo clic */}
               <button
                 type="button"
+                tabIndex={-1}
                 onClick={(e) => {
                   e.stopPropagation();
                   onStartEditCell('descripcion');
@@ -300,6 +344,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               {totalComponentes === 0 && (
                 <button
                   type="button"
+                  tabIndex={-1}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleOpenBreakdownTab('materiales');
@@ -315,6 +360,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               {insumosCount > 0 && (
                 <button
                   type="button"
+                  tabIndex={-1}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleOpenBreakdownTab('materiales');
@@ -329,6 +375,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               {moCount > 0 && (
                 <button
                   type="button"
+                  tabIndex={-1}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleOpenBreakdownTab('mano_obra');
@@ -343,6 +390,7 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               {servCount > 0 && (
                 <button
                   type="button"
+                  tabIndex={-1}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleOpenBreakdownTab('servicios');
@@ -357,11 +405,16 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
               {hasParams && (
                 <button
                   type="button"
+                  tabIndex={-1}
                   onClick={handleOpenParams}
                   className="text-[10px] px-1.5 py-0.2 rounded bg-secondary-container/40 text-secondary hover:bg-secondary-container hover:text-on-secondary-container font-mono shrink-0 cursor-pointer transition-colors"
-                  title="Clic para configurar parámetros del ítem"
+                  title={
+                    inputParamsCount > 0
+                      ? 'Clic para calibrar parámetros de entrada'
+                      : 'Clic para ver variables y cálculos internos'
+                  }
                 >
-                  ⚙️ {item.parametros?.length} p
+                  {inputParamsCount > 0 ? `⚙️ ${inputParamsCount} p` : `🧮 ${calcVarsCount} var`}
                 </button>
               )}
             </div>
@@ -382,44 +435,42 @@ export const TreeSheetRow: React.FC<TreeSheetRowProps> = ({
           calculosVariables={calculosVariables}
         />
 
-        {/* ─── Columna 3: Costo Directo Unitario ─── */}
-        <div className="hidden sm:block w-24 sm:w-28 shrink-0 px-2 text-right font-mono text-xs text-on-surface-variant">
-          <span title="Costo directo por unidad">
-            {formatARS(costoUnitario)}
-          </span>
-        </div>
-
-        {/* ─── Columna 4: Costo Directo Total ─── */}
-        <div className="w-28 sm:w-32 shrink-0 px-2 text-right font-mono text-xs font-medium text-on-surface">
-          <span title="Costo directo total de materiales, mano de obra y servicios">
-            {formatARS(costoDirectoTotal)}
-          </span>
-        </div>
-
-        {/* ─── Columna 5: Precio Unitario Final ─── */}
-        <div className="hidden md:block w-24 sm:w-28 shrink-0 px-2 text-right font-mono text-xs text-primary/80 font-medium">
+        {/* ─── Columna 3: Precio Unitario Final al Cliente ─── */}
+        <div className="hidden sm:block w-28 sm:w-32 shrink-0 px-2 text-right font-mono text-xs text-on-surface-variant font-medium">
           <span title="Precio de venta unitario final (con gastos indirectos, margen e impuestos)">
             {formatARS(precioVentaUnitario)}
           </span>
         </div>
 
-        {/* ─── Columna 6: Precio Final Total ─── */}
-        <div className="w-28 sm:w-36 shrink-0 px-2 text-right font-mono text-xs sm:text-sm font-bold text-primary">
-          <span title="Precio final de venta total del ítem">
-            {formatARS(precioFinalItem)}
-          </span>
+        {/* ─── Columna 4: Precio Final Total con Popover APU ─── */}
+        <div className="relative w-32 sm:w-40 shrink-0 px-2 flex items-center justify-end font-mono text-xs sm:text-sm font-bold text-primary">
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowAPUPopover(!showAPUPopover);
+            }}
+            className="group/apu inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg hover:bg-primary/10 transition-colors cursor-pointer text-right"
+            title="Clic para ver desglose económico APU detallado"
+            aria-label="Ver desglose económico"
+          >
+            <span>{formatARS(precioFinalItem)}</span>
+            <Info className="w-3.5 h-3.5 opacity-40 group-hover/apu:opacity-100 text-primary transition-opacity shrink-0" />
+          </button>
+
+          <ItemAPUPopover
+            item={item}
+            indexNumber={indexNumber}
+            isOpen={showAPUPopover}
+            onClose={() => setShowAPUPopover(false)}
+          />
         </div>
 
         {/* ─── Acciones Rápidas Agrupadas ─── */}
-        <div className="w-24 sm:w-28 shrink-0 flex justify-end">
+        <div className="w-32 sm:w-36 shrink-0 flex justify-end pr-1">
           <ItemRowActions
             isSelected={isSelected}
-            isExpanded={isExpanded}
-            isParametric={isParametric}
-            hasParams={hasParams}
-            onToggleExpand={onToggleExpand}
-            onStartEditName={() => onStartEditCell('descripcion')}
-            onOpenParams={handleOpenParams}
             onDuplicate={onDuplicate}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}

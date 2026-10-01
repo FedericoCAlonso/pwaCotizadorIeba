@@ -612,5 +612,39 @@ describe('useTreeSheetViewModel - Árbol-Planilla de Cotización', () => {
       expect(duplicated?.capituloId).toBe('cap-1');
       expect(duplicated?.insumosSnapshot?.length).toBe(items[0].insumosSnapshot?.length);
     });
+
+    it('la tecla Backspace NO elimina la partida seleccionada pero Delete sí la elimina', () => {
+      const { hook, getItems } = createHook();
+      const initialCount = getItems().length;
+
+      // Seleccionar it-1
+      act(() => {
+        hook.result.current.handleSelectRow('it-1', 'cap-1');
+      });
+
+      // Presionar Backspace
+      act(() => {
+        hook.result.current.handleKeyDown({
+          key: 'Backspace',
+          preventDefault: vi.fn()
+        } as any);
+      });
+
+      // La partida debe permanecer intacta
+      expect(getItems()).toHaveLength(initialCount);
+      expect(getItems().find((i) => i.id === 'it-1')).toBeDefined();
+
+      // Presionar Delete (Supr)
+      act(() => {
+        hook.result.current.handleKeyDown({
+          key: 'Delete',
+          preventDefault: vi.fn()
+        } as any);
+      });
+
+      // Con Delete sí se elimina
+      expect(getItems()).toHaveLength(initialCount - 1);
+      expect(getItems().find((i) => i.id === 'it-1')).toBeUndefined();
+    });
   });
 });

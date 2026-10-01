@@ -86,4 +86,36 @@ describe('ItemParametersQuickModal', () => {
     expect(screen.getByText(/superficie:/i)).toBeDefined();
     expect(screen.getByText('150')).toBeDefined();
   });
+
+  it('discrimina parámetros de entrada interactivos de variables de cálculo interno (sólo lectura)', () => {
+    const itemWithVar: ItemPresupuesto = {
+      ...mockItem,
+      parametros: [
+        { id: 'bocas', nombre: 'Cantidad de bocas', valor: 10, tipo: 'parametro', unidad: 'u' },
+        { id: 'cable_calc', nombre: 'Cable calculado', valor: 35, formula: '=bocas * 3.5', tipo: 'variable', unidad: 'm' }
+      ]
+    };
+
+    render(
+      <ItemParametersQuickModal
+        isOpen={true}
+        onClose={vi.fn()}
+        item={itemWithVar}
+        onUpdateParametros={vi.fn()}
+      />
+    );
+
+    // Parámetro de entrada: tiene control numérico y botones +/-
+    expect(screen.getByDisplayValue('10')).toBeDefined();
+    expect(screen.getByTitle('Aumentar')).toBeDefined();
+
+    // Variable interna: se muestra en el bloque de cálculo interno de solo lectura
+    expect(screen.getByText(/Variables de Cálculo Interno \(1\)/i)).toBeDefined();
+    expect(screen.getByText('$cable_calc')).toBeDefined();
+    expect(screen.getByText('= 35 m')).toBeDefined();
+    expect(screen.getByText('=bocas * 3.5')).toBeDefined();
+
+    // No debe haber un segundo campo de input numérico para la variable interna
+    expect(screen.queryByDisplayValue('35')).toBeNull();
+  });
 });

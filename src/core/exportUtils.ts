@@ -37,6 +37,39 @@ export const exportPresupuestoToXLSX = async (
     right: { style: 'thin' as const, color: { argb: 'FF0F172A' } }
   };
 
+  // ─── Estructuración Jerárquica WBS (Work Breakdown Structure) ───
+  const capitulosList = (presupuesto.capitulos && presupuesto.capitulos.length > 0)
+    ? presupuesto.capitulos
+    : [{ id: 'sin_capitulo', nombre: 'Partidas Generales' }];
+
+  const allCapitulos = [...capitulosList];
+  const orphanItems = (presupuesto.items || []).filter(
+    (it) => !it.capituloId || !allCapitulos.some((c) => c.id === it.capituloId)
+  );
+  if (orphanItems.length > 0 && !allCapitulos.some((c) => c.id === 'sin_capitulo')) {
+    allCapitulos.push({ id: 'sin_capitulo', nombre: 'Partidas Generales' } as any);
+  }
+
+  // Pre-computar mapa de numeración WBS: itemId -> { wbs: string, capIndex: number, itemIndex: number, capNombre: string }
+  const itemWBSMap = new Map<string, { wbs: string; capIndex: number; itemIndex: number; capNombre: string }>();
+  const capituloItemsMap = new Map<string, typeof presupuesto.items>();
+  let capCounter = 1;
+  allCapitulos.forEach((cap) => {
+    const capItems = (presupuesto.items || []).filter((it) => (it.capituloId || 'sin_capitulo') === cap.id);
+    if (capItems.length > 0) {
+      capituloItemsMap.set(cap.id, capItems);
+      const cIdx = capCounter++;
+      capItems.forEach((it, iIdx) => {
+        itemWBSMap.set(it.id, {
+          wbs: `${cIdx}.${iIdx + 1}`,
+          capIndex: cIdx,
+          itemIndex: iIdx + 1,
+          capNombre: cap.nombre
+        });
+      });
+    }
+  });
+
   // ══════════════════════════════════════════════════════════════════════════
   // HOJA 1: PRESUPUESTO COMERCIAL (PRESENTACIÓN AL CLIENTE)
   // ══════════════════════════════════════════════════════════════════════════
@@ -44,7 +77,7 @@ export const exportPresupuestoToXLSX = async (
   wsComercial.views = [{ showGridLines: true }];
 
   wsComercial.columns = [
-    { width: 6 },  // A: #
+    { width: 8 },  // A: # WBS
     { width: 48 }, // B: Descripción / Partida
     { width: 12 }, // C: Unidad
     { width: 14 }, // D: Cantidad
@@ -110,35 +143,65 @@ export const exportPresupuestoToXLSX = async (
   tableHeaderRow.alignment = { vertical: 'middle', horizontal: 'center' };
   tableHeaderRow.height = 24;
 
-  // Filas de Partidas
+  // Filas de Partidas agrupadas por Rubro con WBS
   if (mostrarItemizado) {
-    presupuesto.items.forEach((item, idx) => {
-      const pUnit = item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0;
-      const pTotal = item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit);
+    allCapitulos.forEach((cap) => {
+      const capItems = capituloItemsMap.get(cap.id);
+      if (!capItems || capItems.length === 0) return;
 
-      const desc = item.notasTecnicas ? `${item.descripcion}\nNotas: ${item.notasTecnicas}` : item.descripcion;
+      const firstItemWBS = itemWBSMap.get(capItems[0].id);
+      const capIdx = firstItemWBS ? firstItemWBS.capIndex : 1;
+      const chapterSubtotal = capItems.reduce((acc, it) => {
+        const pTotal = it.precioVentaClienteTotal ?? it.precioVentaTotal ?? ((it.cantidad || 1) * (it.precioVentaClienteUnitario ?? it.precioVentaUnitario ?? 0));
+        return acc + pTotal;
+      }, 0);
 
-      const itemRow = wsComercial.addRow([
-        idx + 1,
-        desc,
-        item.unidad || 'u',
-        item.cantidad,
-        pUnit,
-        pTotal
+      // Fila de Encabezado de Rubro
+      const chapterRow = wsComercial.addRow([
+        capIdx,
+        cap.nombre.toUpperCase(),
+        '',
+        '',
+        '',
+        chapterSubtotal
       ]);
-      itemRow.font = { name: 'Arial', size: 10 };
-      itemRow.getCell(1).alignment = { horizontal: 'center' };
-      itemRow.getCell(3).alignment = { horizontal: 'center' };
-      itemRow.getCell(4).alignment = { horizontal: 'right' };
-      itemRow.getCell(4).numFmt = '#,##0.00';
-      itemRow.getCell(5).alignment = { horizontal: 'right' };
-      itemRow.getCell(5).numFmt = '"$"#,##0.00';
-      itemRow.getCell(6).alignment = { horizontal: 'right' };
-      itemRow.getCell(6).numFmt = '"$"#,##0.00';
+      chapterRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+      chapterRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_SECTION_BG } };
+      chapterRow.getCell(1).alignment = { horizontal: 'center' };
+      chapterRow.getCell(6).alignment = { horizontal: 'right' };
+      chapterRow.getCell(6).numFmt = '"$"#,##0.00';
+      for (let c = 1; c <= 6; c++) chapterRow.getCell(c).border = BORDER_THIN;
 
-      for (let c = 1; c <= 6; c++) {
-        itemRow.getCell(c).border = BORDER_THIN;
-      }
+      // Filas de Ítems del Rubro
+      capItems.forEach((item) => {
+        const wbsInfo = itemWBSMap.get(item.id);
+        const wbsCode = wbsInfo ? wbsInfo.wbs : '';
+        const pUnit = item.precioVentaClienteUnitario ?? item.precioVentaUnitario ?? 0;
+        const pTotal = item.precioVentaClienteTotal ?? item.precioVentaTotal ?? ((item.cantidad || 1) * pUnit);
+        const desc = item.notasTecnicas ? `${item.descripcion}\nNotas: ${item.notasTecnicas}` : item.descripcion;
+
+        const itemRow = wsComercial.addRow([
+          wbsCode,
+          desc,
+          item.unidad || 'u',
+          item.cantidad,
+          pUnit,
+          pTotal
+        ]);
+        itemRow.font = { name: 'Arial', size: 10 };
+        itemRow.getCell(1).alignment = { horizontal: 'center' };
+        itemRow.getCell(3).alignment = { horizontal: 'center' };
+        itemRow.getCell(4).alignment = { horizontal: 'right' };
+        itemRow.getCell(4).numFmt = '#,##0.00';
+        itemRow.getCell(5).alignment = { horizontal: 'right' };
+        itemRow.getCell(5).numFmt = '"$"#,##0.00';
+        itemRow.getCell(6).alignment = { horizontal: 'right' };
+        itemRow.getCell(6).numFmt = '"$"#,##0.00';
+
+        for (let c = 1; c <= 6; c++) {
+          itemRow.getCell(c).border = BORDER_THIN;
+        }
+      });
     });
   } else {
     const globalRow = wsComercial.addRow([
@@ -269,22 +332,26 @@ export const exportPresupuestoToXLSX = async (
 
 
   // ══════════════════════════════════════════════════════════════════════════
-  // HOJA 2: APU Y DESGLOSE TÉCNICO DETALLADO (ANÁLISIS DE PRECIOS UNITARIOS)
+  // HOJA 2: ESTRUCTURA DE PRECIOS Y CASCADA FINANCIERA (APU COMPLETO)
   // ══════════════════════════════════════════════════════════════════════════
-  const wsAPU = wb.addWorksheet('APU Detallado');
+  const wsAPU = wb.addWorksheet('Estructura de Precios (APU)');
   wsAPU.views = [{ showGridLines: true }];
 
   wsAPU.columns = [
-    { width: 6 },  // A: #
-    { width: 44 }, // B: Insumo / Mano de Obra / Concepto
-    { width: 14 }, // C: Cantidad Unit.
-    { width: 14 }, // D: Cantidad Total
-    { width: 12 }, // E: Unidad
-    { width: 20 }, // F: Costo Unitario ARS
-    { width: 22 }  // G: Subtotal Costo ARS
+    { width: 8 },  // A: # WBS
+    { width: 44 }, // B: Partida / Rubro
+    { width: 10 }, // C: Cantidad
+    { width: 10 }, // D: Unidad
+    { width: 20 }, // E: Costo Directo Unit. ARS
+    { width: 22 }, // F: Costo Directo Total ARS
+    { width: 12 }, // G: Incidencia %
+    { width: 20 }, // H: C. Indirectos ARS
+    { width: 20 }, // I: Beneficio ARS
+    { width: 20 }, // J: Impuestos ARS
+    { width: 24 }  // K: Precio Venta Final ARS
   ];
 
-  const apuMainTitle = wsAPU.addRow(['ANÁLISIS DE PRECIOS UNITARIOS (APU) Y CÓMPUTO TÉCNICO']);
+  const apuMainTitle = wsAPU.addRow(['ESTRUCTURA DE PRECIOS Y CASCADA FINANCIERA (APU)']);
   apuMainTitle.font = { name: 'Arial', size: 13, bold: true, color: { argb: COLOR_HEADER_TEXT } };
   apuMainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_HEADER_BG } };
   apuMainTitle.height = 24;
@@ -293,112 +360,375 @@ export const exportPresupuestoToXLSX = async (
   apuSubTitle.font = { name: 'Arial', size: 10, italic: true };
   wsAPU.addRow([]);
 
-  presupuesto.items.forEach((item, itemIdx) => {
-    // Partida Header
-    const itemHeader = wsAPU.addRow([
-      `PARTIDA #${itemIdx + 1}: ${item.descripcion}`, '', '', '',
-      `Cantidad: ${item.cantidad} ${item.unidad}`, '',
-      `Precio Venta Final: ${formatARS(item.precioVentaClienteTotal ?? item.precioVentaTotal)}`
-    ]);
-    itemHeader.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
-    itemHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_SECTION_BG } };
-    itemHeader.height = 22;
+  const apuHeaderRow = wsAPU.addRow([
+    '#',
+    'Descripción / Partida',
+    'Cantidad',
+    'Unidad',
+    'Costo Directo Unit. ARS',
+    'Costo Directo Total ARS',
+    'Incidencia %',
+    'C. Indirectos ARS',
+    'Beneficio ARS',
+    'Impuestos ARS',
+    'Precio Venta Final ARS'
+  ]);
+  apuHeaderRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: COLOR_HEADER_TEXT } };
+  apuHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_HEADER_BG } };
+  apuHeaderRow.alignment = { vertical: 'middle', horizontal: 'center' };
+  apuHeaderRow.height = 24;
 
-    if (item.parametrosTrabajoTipo) {
-      const kComp = item.parametrosTrabajoTipo.coeficienteComplejidadTotal;
-      const kRow = wsAPU.addRow([
-        `Parámetros Complejidad: K_comp = ${kComp.toFixed(2)}x (${item.parametrosTrabajoTipo.estadoAntiguedad} | ${item.parametrosTrabajoTipo.accesibilidad} | ${item.parametrosTrabajoTipo.altura})`
-      ]);
-      kRow.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF475569' } };
-    }
+  allCapitulos.forEach((cap) => {
+    const capItems = capituloItemsMap.get(cap.id);
+    if (!capItems || capItems.length === 0) return;
 
-    // Insumos Subtable
-    if (item.insumosSnapshot && item.insumosSnapshot.length > 0) {
-      const insHeader = wsAPU.addRow(['', '1. Insumos / Materiales Requeridos', 'Cant. Unit.', 'Cant. Total', 'Unidad', 'Costo Unit. ARS', 'Subtotal Insumo ARS']);
-      insHeader.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E293B' } };
-      insHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_SUBSECTION_BG } };
+    const firstItemWBS = itemWBSMap.get(capItems[0].id);
+    const capIdx = firstItemWBS ? firstItemWBS.capIndex : 1;
 
-      item.insumosSnapshot.forEach((ins, insIdx) => {
-        const insRow = wsAPU.addRow([
-          `${itemIdx + 1}.${insIdx + 1}`,
-          ins.nombre,
-          ins.cantidadUnitaria,
-          ins.cantidadTotal,
-          ins.unidad || 'u',
-          ins.precioUnitarioCongelado,
-          ins.subtotalInsumo
-        ]);
-        insRow.font = { name: 'Arial', size: 9 };
-        insRow.getCell(3).numFmt = '#,##0.00';
-        insRow.getCell(4).numFmt = '#,##0.00';
-        insRow.getCell(6).numFmt = '"$"#,##0.00';
-        insRow.getCell(7).numFmt = '"$"#,##0.00';
-        for (let c = 1; c <= 7; c++) insRow.getCell(c).border = BORDER_THIN;
-      });
+    const capCDirecto = capItems.reduce((acc, it) => acc + (it.costoDirectoTotal ?? it.costoTotal ?? 0), 0);
+    const capInc = capItems.reduce((acc, it) => acc + (it.incidencia ?? 0), 0);
+    const capIndirectos = capItems.reduce((acc, it) => acc + (it.ggAbsolutoProrrateado ?? 0) + (it.ggPorcentualItem ?? 0), 0);
+    const capBeneficio = capItems.reduce((acc, it) => acc + (it.beneficioItem ?? 0), 0);
+    const capImpuestos = capItems.reduce((acc, it) => acc + (it.impuestosItem ?? 0), 0);
+    const capPrecioFinal = capItems.reduce((acc, it) => acc + (it.precioFinalItem ?? it.precioVentaTotal ?? 0), 0);
 
-      const totalInsRow = wsAPU.addRow(['', 'Subtotal Materiales Partida:', '', '', '', '', item.costoInsumos]);
-      totalInsRow.font = { name: 'Arial', size: 9, bold: true };
-      totalInsRow.getCell(7).numFmt = '"$"#,##0.00';
-      totalInsRow.getCell(7).border = BORDER_THIN;
-    }
-
-    // Mano de Obra Subtable
-    if (item.manoObraSnapshot && item.manoObraSnapshot.length > 0) {
-      const moHeader = wsAPU.addRow(['', '2. Mano de Obra / Categorías Laborales', 'Hs. Unit.', 'Hs. Totales', 'Unidad', 'Tarifa / Hora ARS', 'Subtotal MO ARS']);
-      moHeader.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E293B' } };
-      moHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_SUBSECTION_BG } };
-
-      item.manoObraSnapshot.forEach((mo, moIdx) => {
-        const moRow = wsAPU.addRow([
-          `${itemIdx + 1}.${moIdx + 1}`,
-          mo.nombreCategoria,
-          mo.horasUnitarias ?? (item.cantidad > 0 ? mo.horasTotales / item.cantidad : mo.horasTotales),
-          mo.horasTotales,
-          'hs',
-          mo.costoHoraCongelado,
-          mo.subtotalManoObra
-        ]);
-        moRow.font = { name: 'Arial', size: 9 };
-        moRow.getCell(3).numFmt = '#,##0.00';
-        moRow.getCell(4).numFmt = '#,##0.00';
-        moRow.getCell(6).numFmt = '"$"#,##0.00';
-        moRow.getCell(7).numFmt = '"$"#,##0.00';
-        for (let c = 1; c <= 7; c++) moRow.getCell(c).border = BORDER_THIN;
-      });
-
-      const totalMoRow = wsAPU.addRow(['', 'Subtotal Mano de Obra Partida:', '', '', '', '', item.costoManoObra]);
-      totalMoRow.font = { name: 'Arial', size: 9, bold: true };
-      totalMoRow.getCell(7).numFmt = '"$"#,##0.00';
-      totalMoRow.getCell(7).border = BORDER_THIN;
-    }
-
-    // Servicios Tercerizados
-    if (item.serviciosTercerizados && item.serviciosTercerizados.length > 0) {
-      item.serviciosTercerizados.forEach((srv) => {
-        const srvRow = wsAPU.addRow(['', `Servicio: ${srv.descripcion} (${srv.nombreProveedor || 'Tercerizado'})`, '', '', 'gl', srv.costo, srv.costo]);
-        srvRow.font = { name: 'Arial', size: 9 };
-        srvRow.getCell(7).numFmt = '"$"#,##0.00';
-      });
-    }
-
-    // Resumen APU del Renglón
-    const summaryAPU = wsAPU.addRow([
+    // Rubro Header Row
+    const capRow = wsAPU.addRow([
+      capIdx,
+      cap.nombre.toUpperCase(),
       '',
-      `Costo Directo: ${formatARS(item.costoDirectoTotal)} | GG Prorr.: ${formatARS(item.ggAbsolutoProrrateado || 0)} | Margen: ${formatARS(item.beneficioItem || 0)}`,
-      '', '', '',
-      'Precio de Venta Partida:',
-      item.precioVentaClienteTotal ?? item.precioVentaTotal
+      '',
+      '',
+      capCDirecto,
+      capInc,
+      capIndirectos,
+      capBeneficio,
+      capImpuestos,
+      capPrecioFinal
     ]);
-    summaryAPU.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E3A8A' } };
-    summaryAPU.getCell(7).numFmt = '"$"#,##0.00';
-    summaryAPU.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_TOTAL_BG } };
+    capRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+    capRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_SECTION_BG } };
+    capRow.getCell(1).alignment = { horizontal: 'center' };
+    capRow.getCell(6).numFmt = '"$"#,##0.00';
+    capRow.getCell(7).numFmt = '0.0%';
+    capRow.getCell(8).numFmt = '"$"#,##0.00';
+    capRow.getCell(9).numFmt = '"$"#,##0.00';
+    capRow.getCell(10).numFmt = '"$"#,##0.00';
+    capRow.getCell(11).numFmt = '"$"#,##0.00';
+    for (let c = 1; c <= 11; c++) capRow.getCell(c).border = BORDER_THIN;
 
-    wsAPU.addRow([]); // Blank between partidas
+    // Items
+    capItems.forEach((it) => {
+      const wbs = itemWBSMap.get(it.id)?.wbs || '';
+      const cant = it.cantidad || 1;
+      const cDirecto = it.costoDirectoTotal ?? it.costoTotal ?? 0;
+      const cUnit = it.costoUnitario !== undefined && it.costoUnitario > 0 ? it.costoUnitario : (cDirecto / cant);
+      const inc = it.incidencia ?? 0;
+      const ind = (it.ggAbsolutoProrrateado ?? 0) + (it.ggPorcentualItem ?? 0);
+      const ben = it.beneficioItem ?? 0;
+      const imp = it.impuestosItem ?? 0;
+      const pFinal = it.precioFinalItem ?? it.precioVentaTotal ?? 0;
+
+      const iRow = wsAPU.addRow([
+        wbs,
+        it.descripcion,
+        cant,
+        it.unidad || 'u',
+        cUnit,
+        cDirecto,
+        inc,
+        ind,
+        ben,
+        imp,
+        pFinal
+      ]);
+      iRow.font = { name: 'Arial', size: 9 };
+      iRow.getCell(1).alignment = { horizontal: 'center' };
+      iRow.getCell(3).alignment = { horizontal: 'right' };
+      iRow.getCell(3).numFmt = '#,##0.00';
+      iRow.getCell(4).alignment = { horizontal: 'center' };
+      iRow.getCell(5).numFmt = '"$"#,##0.00';
+      iRow.getCell(6).numFmt = '"$"#,##0.00';
+      iRow.getCell(7).numFmt = '0.0%';
+      iRow.getCell(8).numFmt = '"$"#,##0.00';
+      iRow.getCell(9).numFmt = '"$"#,##0.00';
+      iRow.getCell(10).numFmt = '"$"#,##0.00';
+      iRow.getCell(11).numFmt = '"$"#,##0.00';
+      for (let c = 1; c <= 11; c++) iRow.getCell(c).border = BORDER_THIN;
+    });
   });
+
+  // Total General Row
+  const totalAPURow = wsAPU.addRow([
+    '',
+    'TOTAL GENERAL DE LA COTIZACIÓN:',
+    '',
+    '',
+    '',
+    presupuesto.subtotalCostosDirectos ?? presupuesto.costoGlobal ?? 0,
+    1,
+    presupuesto.gastosGeneralesTotal ?? presupuesto.subtotalCostosIndirectos ?? 0,
+    presupuesto.beneficioMonto ?? presupuesto.montoGanancia ?? 0,
+    presupuesto.montoImpuestosTotal ?? presupuesto.montoImpuestos ?? 0,
+    presupuesto.totalARS ?? 0
+  ]);
+  totalAPURow.font = { name: 'Arial', size: 10, bold: true };
+  totalAPURow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_TOTAL_BG } };
+  totalAPURow.getCell(6).numFmt = '"$"#,##0.00';
+  totalAPURow.getCell(7).numFmt = '0.0%';
+  totalAPURow.getCell(8).numFmt = '"$"#,##0.00';
+  totalAPURow.getCell(9).numFmt = '"$"#,##0.00';
+  totalAPURow.getCell(10).numFmt = '"$"#,##0.00';
+  totalAPURow.getCell(11).numFmt = '"$"#,##0.00';
+  for (let c = 1; c <= 11; c++) totalAPURow.getCell(c).border = BORDER_HEADER;
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // HOJA 3: MANO DE OBRA (POR RUBRO E ÍTEM)
+  // ══════════════════════════════════════════════════════════════════════════
+  const wsMO = wb.addWorksheet('Mano de Obra');
+  wsMO.views = [{ showGridLines: true }];
+
+  wsMO.columns = [
+    { width: 8 },  // A: # WBS
+    { width: 36 }, // B: Partida / Rubro
+    { width: 30 }, // C: Categoría Laboral
+    { width: 14 }, // D: Hs. Unitarias
+    { width: 14 }, // E: Hs. Totales
+    { width: 20 }, // F: Tarifa / Hora ARS
+    { width: 22 }  // G: Subtotal MO ARS
+  ];
+
+  const moTitle = wsMO.addRow(['DETALLE DE MANO DE OBRA Y TIEMPOS DE EJECUCIÓN']);
+  moTitle.font = { name: 'Arial', size: 13, bold: true, color: { argb: COLOR_HEADER_TEXT } };
+  moTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_HEADER_BG } };
+  moTitle.height = 24;
+
+  const moSubTitle = wsMO.addRow([`Cotización Nº ${presupuesto.numero} - Cliente: ${cliente?.nombre || 'General'}`]);
+  moSubTitle.font = { name: 'Arial', size: 10, italic: true };
+  wsMO.addRow([]);
+
+  const moHeaderRow = wsMO.addRow([
+    '# Ítem',
+    'Partida Presupuestaria',
+    'Categoría Laboral',
+    'Hs. Unitarias',
+    'Hs. Totales',
+    'Tarifa / Hora ARS',
+    'Subtotal MO ARS'
+  ]);
+  moHeaderRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: COLOR_HEADER_TEXT } };
+  moHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_HEADER_BG } };
+  moHeaderRow.alignment = { vertical: 'middle', horizontal: 'center' };
+  moHeaderRow.height = 24;
+
+  let totalHsGlobal = 0;
+  let totalMOCostGlobal = 0;
+
+  allCapitulos.forEach((cap) => {
+    const capItems = capituloItemsMap.get(cap.id);
+    if (!capItems || capItems.length === 0) return;
+
+    let capHs = 0;
+    let capMOCost = 0;
+
+    const capHeader = wsMO.addRow([
+      itemWBSMap.get(capItems[0].id)?.capIndex || '',
+      cap.nombre.toUpperCase(),
+      '',
+      '',
+      '',
+      '',
+      ''
+    ]);
+    capHeader.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+    capHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_SECTION_BG } };
+    for (let c = 1; c <= 7; c++) capHeader.getCell(c).border = BORDER_THIN;
+
+    capItems.forEach((it) => {
+      const wbs = itemWBSMap.get(it.id)?.wbs || '';
+      const moLines = it.manoObraSnapshot || [];
+
+      if (moLines.length === 0) {
+        if ((it.costoManoObra || 0) > 0) {
+          const r = wsMO.addRow([
+            wbs,
+            it.descripcion,
+            'Mano de Obra Global de Partida',
+            '-',
+            '-',
+            '-',
+            it.costoManoObra
+          ]);
+          r.font = { name: 'Arial', size: 9 };
+          r.getCell(1).alignment = { horizontal: 'center' };
+          r.getCell(7).numFmt = '"$"#,##0.00';
+          for (let c = 1; c <= 7; c++) r.getCell(c).border = BORDER_THIN;
+          capMOCost += it.costoManoObra || 0;
+        }
+      } else {
+        moLines.forEach((mo) => {
+          const hsU = mo.horasUnitarias ?? (it.cantidad > 0 ? mo.horasTotales / it.cantidad : mo.horasTotales);
+          const hsTot = mo.horasTotales;
+          const sub = mo.subtotalManoObra;
+          capHs += hsTot;
+          capMOCost += sub;
+
+          const r = wsMO.addRow([
+            wbs,
+            it.descripcion,
+            mo.nombreCategoria,
+            hsU,
+            hsTot,
+            mo.costoHoraCongelado,
+            sub
+          ]);
+          r.font = { name: 'Arial', size: 9 };
+          r.getCell(1).alignment = { horizontal: 'center' };
+          r.getCell(4).numFmt = '#,##0.00';
+          r.getCell(5).numFmt = '#,##0.00';
+          r.getCell(6).numFmt = '"$"#,##0.00';
+          r.getCell(7).numFmt = '"$"#,##0.00';
+          for (let c = 1; c <= 7; c++) r.getCell(c).border = BORDER_THIN;
+        });
+      }
+    });
+
+    totalHsGlobal += capHs;
+    totalMOCostGlobal += capMOCost;
+  });
+
+  const moTotalRow = wsMO.addRow(['', 'TOTAL GENERAL MANO DE OBRA:', '', '', totalHsGlobal, '', totalMOCostGlobal]);
+  moTotalRow.font = { name: 'Arial', size: 10, bold: true };
+  moTotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_TOTAL_BG } };
+  moTotalRow.getCell(5).numFmt = '#,##0.00';
+  moTotalRow.getCell(7).numFmt = '"$"#,##0.00';
+  for (let c = 1; c <= 7; c++) moTotalRow.getCell(c).border = BORDER_HEADER;
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // HOJA 4: MATERIALES (POR RUBRO E ÍTEM)
+  // ══════════════════════════════════════════════════════════════════════════
+  const wsMateriales = wb.addWorksheet('Materiales por Partida');
+  wsMateriales.views = [{ showGridLines: true }];
+
+  wsMateriales.columns = [
+    { width: 8 },  // A: # WBS
+    { width: 34 }, // B: Partida
+    { width: 34 }, // C: Material / Insumo
+    { width: 14 }, // D: Cant. Unitaria
+    { width: 14 }, // E: Cant. Total
+    { width: 10 }, // F: Unidad
+    { width: 20 }, // G: Costo Unit. ARS
+    { width: 22 }  // H: Subtotal Insumo ARS
+  ];
+
+  const matTitle = wsMateriales.addRow(['DETALLE DE MATERIALES ASIGNADOS POR PARTIDA']);
+  matTitle.font = { name: 'Arial', size: 13, bold: true, color: { argb: COLOR_HEADER_TEXT } };
+  matTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_HEADER_BG } };
+  matTitle.height = 24;
+
+  const matSubTitle = wsMateriales.addRow([`Cotización Nº ${presupuesto.numero} - Cliente: ${cliente?.nombre || 'General'}`]);
+  matSubTitle.font = { name: 'Arial', size: 10, italic: true };
+  wsMateriales.addRow([]);
+
+  const matHeaderRow = wsMateriales.addRow([
+    '# Ítem',
+    'Partida Presupuestaria',
+    'Material / Insumo Requerido',
+    'Cant. Unitaria',
+    'Cant. Total',
+    'Unidad',
+    'Costo Unit. ARS',
+    'Subtotal Insumo ARS'
+  ]);
+  matHeaderRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: COLOR_HEADER_TEXT } };
+  matHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_HEADER_BG } };
+  matHeaderRow.alignment = { vertical: 'middle', horizontal: 'center' };
+  matHeaderRow.height = 24;
+
+  let totalMatCostGlobal = 0;
+
+  allCapitulos.forEach((cap) => {
+    const capItems = capituloItemsMap.get(cap.id);
+    if (!capItems || capItems.length === 0) return;
+
+    let capMatCost = 0;
+
+    const capHeader = wsMateriales.addRow([
+      itemWBSMap.get(capItems[0].id)?.capIndex || '',
+      cap.nombre.toUpperCase(),
+      '',
+      '',
+      '',
+      '',
+      '',
+      ''
+    ]);
+    capHeader.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+    capHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_SECTION_BG } };
+    for (let c = 1; c <= 8; c++) capHeader.getCell(c).border = BORDER_THIN;
+
+    capItems.forEach((it) => {
+      const wbs = itemWBSMap.get(it.id)?.wbs || '';
+      const insLines = it.insumosSnapshot || [];
+
+      if (insLines.length === 0) {
+        if ((it.costoInsumos || 0) > 0) {
+          const r = wsMateriales.addRow([
+            wbs,
+            it.descripcion,
+            'Materiales Consolidados de Partida',
+            '-',
+            '-',
+            'gl',
+            it.costoInsumos,
+            it.costoInsumos
+          ]);
+          r.font = { name: 'Arial', size: 9 };
+          r.getCell(1).alignment = { horizontal: 'center' };
+          r.getCell(8).numFmt = '"$"#,##0.00';
+          for (let c = 1; c <= 8; c++) r.getCell(c).border = BORDER_THIN;
+          capMatCost += it.costoInsumos || 0;
+        }
+      } else {
+        insLines.forEach((ins) => {
+          const uCant = ins.cantidadUnitaria !== undefined ? ins.cantidadUnitaria : (it.cantidad > 0 ? ins.cantidadTotal / it.cantidad : ins.cantidadTotal);
+          const sub = ins.subtotalInsumo;
+          capMatCost += sub;
+
+          const r = wsMateriales.addRow([
+            wbs,
+            it.descripcion,
+            ins.nombre,
+            uCant,
+            ins.cantidadTotal,
+            ins.unidad || 'u',
+            ins.precioUnitarioCongelado,
+            sub
+          ]);
+          r.font = { name: 'Arial', size: 9 };
+          r.getCell(1).alignment = { horizontal: 'center' };
+          r.getCell(4).numFmt = '#,##0.00';
+          r.getCell(5).numFmt = '#,##0.00';
+          r.getCell(6).alignment = { horizontal: 'center' };
+          r.getCell(7).numFmt = '"$"#,##0.00';
+          r.getCell(8).numFmt = '"$"#,##0.00';
+          for (let c = 1; c <= 8; c++) r.getCell(c).border = BORDER_THIN;
+        });
+      }
+    });
+
+    totalMatCostGlobal += capMatCost;
+  });
+
+  const matTotalRow = wsMateriales.addRow(['', 'TOTAL GENERAL MATERIALES POR PARTIDA:', '', '', '', '', '', totalMatCostGlobal]);
+  matTotalRow.font = { name: 'Arial', size: 10, bold: true };
+  matTotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_TOTAL_BG } };
+  matTotalRow.getCell(8).numFmt = '"$"#,##0.00';
+  for (let c = 1; c <= 8; c++) matTotalRow.getCell(c).border = BORDER_HEADER;
 
 
   // ══════════════════════════════════════════════════════════════════════════
-  // HOJA 3: LISTA CONSOLIDADA DE MATERIALES (BOM / COMPRA PARA DISTRIBUIDOR)
+  // HOJA 5: LISTA CONSOLIDADA DE MATERIALES (BOM / COMPRA PARA DISTRIBUIDOR)
   // ══════════════════════════════════════════════════════════════════════════
   const wsBOM = wb.addWorksheet('Lista de Materiales BOM');
   wsBOM.views = [{ showGridLines: true }];
@@ -502,80 +832,138 @@ export const exportPresupuestoToXLSX = async (
     totalBOMRow.getCell(6).border = BORDER_HEADER;
   }
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // HOJA 6: COSTOS INDIRECTOS, MARGEN Y RESUMEN ECONÓMICO
+  // ══════════════════════════════════════════════════════════════════════════
+  const wsGG = wb.addWorksheet('Costos Indirectos y Gastos');
+  wsGG.views = [{ showGridLines: true }];
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // HOJA 4: GASTOS GENERALES E IMPUESTOS APLICADOS (SOLO LOS ACTIVOS)
-  // ══════════════════════════════════════════════════════════════════════════
+  wsGG.columns = [
+    { width: 6 },  // A: #
+    { width: 44 }, // B: Concepto / Parámetro
+    { width: 24 }, // C: Tipo / Modalidad
+    { width: 20 }, // D: % Base / Factor
+    { width: 24 }  // E: Monto ARS
+  ];
+
+  const ggTitle = wsGG.addRow(['RESUMEN ECONÓMICO-FINANCIERO Y COSTOS INDIRECTOS']);
+  ggTitle.font = { name: 'Arial', size: 13, bold: true, color: { argb: COLOR_HEADER_TEXT } };
+  ggTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_HEADER_BG } };
+  ggTitle.height = 24;
+
+  const ggSub = wsGG.addRow([`Cotización Nº ${presupuesto.numero} - Cliente: ${cliente?.nombre || 'General'}`]);
+  ggSub.font = { name: 'Arial', size: 10, italic: true };
+  wsGG.addRow([]);
+
+  // Bloque 1: Resumen de Cascada Financiera Global
+  const sumHeader = wsGG.addRow(['', 'CASCADA FINANCIERA (C → GG → B → S → IMPUESTOS → FINAL)', '', '', '']);
+  sumHeader.font = { name: 'Arial', size: 11, bold: true, color: { argb: COLOR_HEADER_TEXT } };
+  sumHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_ACCENT_BG } };
+
+  const addSummaryRow = (label: string, tipo: string, pctStr: string, monto: number, bold: boolean = false, bgArg?: string) => {
+    const row = wsGG.addRow(['•', label, tipo, pctStr, monto]);
+    row.font = { name: 'Arial', size: 10, bold };
+    if (bgArg) row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArg } };
+    row.getCell(1).alignment = { horizontal: 'center' };
+    row.getCell(3).alignment = { horizontal: 'left' };
+    row.getCell(4).alignment = { horizontal: 'center' };
+    row.getCell(5).alignment = { horizontal: 'right' };
+    row.getCell(5).numFmt = '"$"#,##0.00';
+    for (let c = 1; c <= 5; c++) row.getCell(c).border = BORDER_THIN;
+    return row;
+  };
+
+  const matDirecto = presupuesto.subtotalInsumos || 0;
+  const moDirecto = presupuesto.subtotalManoObra || 0;
+  const servDirecto = presupuesto.subtotalServiciosTercerizados || 0;
+  const riesgoMonto = presupuesto.montoMargenRiesgo || 0;
+  const riesgoPct = presupuesto.margenRiesgoPorcentaje ? `${presupuesto.margenRiesgoPorcentaje}%` : '-';
+  const costoGlobal = presupuesto.costoGlobal ?? (matDirecto + moDirecto + servDirecto + riesgoMonto);
+
+  const ggTotal = presupuesto.gastosGeneralesTotal ?? (presupuesto.subtotalCostosIndirectos || 0);
+  const benMonto = presupuesto.beneficioMonto ?? (presupuesto.montoGanancia || 0);
+  const benPct = presupuesto.beneficioPorcentaje !== undefined ? `${presupuesto.beneficioPorcentaje}%` : (presupuesto.margenPorcentaje ? `${presupuesto.margenPorcentaje}%` : '-');
+  const subSinImp = presupuesto.subtotalSinImpuestos ?? (costoGlobal + ggTotal + benMonto);
+  const impTotal = presupuesto.montoImpuestosTotal ?? (presupuesto.montoImpuestos || 0);
+  const pFinalTot = presupuesto.precioFinalGlobal ?? (presupuesto.totalARS || (subSinImp + impTotal));
+  const coefK = presupuesto.coeficienteK ?? (costoGlobal > 0 ? pFinalTot / costoGlobal : 1);
+
+  addSummaryRow('Costo Directo: Materiales e Insumos', 'Directo', '-', matDirecto);
+  addSummaryRow('Costo Directo: Mano de Obra Propia', 'Directo', '-', moDirecto);
+  if (servDirecto > 0) {
+    addSummaryRow('Costo Directo: Servicios Tercerizados / Equipos', 'Directo', '-', servDirecto);
+  }
+  if (riesgoMonto > 0) {
+    addSummaryRow('Margen de Riesgo / Contingencias', 'Sobre Costo Directo', riesgoPct, riesgoMonto);
+  }
+  addSummaryRow('COSTO GLOBAL DIRECTO DE LA OBRA (C)', 'Base Costo Directo', '100.0%', costoGlobal, true, COLOR_SECTION_BG);
+
+  addSummaryRow('Gastos Generales y Costos Indirectos (GG)', 'Prorrateo / Fijos', '-', ggTotal);
+  addSummaryRow('Beneficio / Utilidad Neta Estimada (B)', 'Sobre (C + GG)', benPct, benMonto);
+  addSummaryRow('SUBTOTAL NETO SIN IMPUESTOS (S = C + GG + B)', 'Base Imponible Neta', '-', subSinImp, true, COLOR_SECTION_BG);
+
+  addSummaryRow('Impuestos y Cargas Fiscales Totales', 'Sobre Subtotal S', '-', impTotal);
+  addSummaryRow('PRECIO DE VENTA FINAL TOTAL CON IMPUESTOS', 'Precio Comercial Definitivo', `K = ${coefK.toFixed(4)}`, pFinalTot, true, COLOR_TOTAL_BG);
+
+  wsGG.addRow([]);
+
+  // Bloque 2: Detalle de Costos Indirectos Aplicados
   const activeIndirects = (presupuesto.costosIndirectosAplicados || []).filter(
     (c) => c.montoCalculado > 0
   );
-  const activeTaxes = (presupuesto.impuestosDetalle || []).filter((t) => t.aplica && t.montoCalculado > 0);
+  if (activeIndirects.length > 0) {
+    const gHeader = wsGG.addRow(['#', 'Concepto de Costo Indirecto / Gasto General', 'Modalidad', 'Tasa / Valor Base', 'Monto en Cotización ARS']);
+    gHeader.font = { name: 'Arial', size: 10, bold: true, color: { argb: COLOR_HEADER_TEXT } };
+    gHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
 
-  if (activeIndirects.length > 0 || activeTaxes.length > 0) {
-    const wsGG = wb.addWorksheet('Gastos e Impuestos');
-    wsGG.views = [{ showGridLines: true }];
+    activeIndirects.forEach((ci, idx) => {
+      const row = wsGG.addRow([
+        idx + 1,
+        ci.nombre,
+        ci.tipo === 'porcentual_sobre_costo' ? 'Porcentual sobre Costo (C)' : 'Monto Fijo Asignado',
+        ci.tipo === 'porcentual_sobre_costo' ? `${ci.valorAplicado}%` : formatARS(ci.valorAplicado),
+        ci.montoCalculado
+      ]);
+      row.font = { name: 'Arial', size: 9 };
+      row.getCell(1).alignment = { horizontal: 'center' };
+      row.getCell(4).alignment = { horizontal: 'center' };
+      row.getCell(5).numFmt = '"$"#,##0.00';
+      for (let c = 1; c <= 5; c++) row.getCell(c).border = BORDER_THIN;
+    });
 
-    wsGG.columns = [
-      { width: 6 },  // #
-      { width: 42 }, // Concepto
-      { width: 20 }, // Tipo / Modalidad
-      { width: 18 }, // Valor Aplicado
-      { width: 24 }  // Monto Calculado ARS
-    ];
-
-    const ggTitle = wsGG.addRow(['GASTOS GENERALES E IMPUESTOS EFECTIVAMENTE APLICADOS']);
-    ggTitle.font = { name: 'Arial', size: 13, bold: true, color: { argb: COLOR_HEADER_TEXT } };
-    ggTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_HEADER_BG } };
-    ggTitle.height = 24;
-
+    const totalGGRow = wsGG.addRow(['', 'Total Costos Indirectos (GG):', '', '', ggTotal]);
+    totalGGRow.font = { name: 'Arial', size: 10, bold: true };
+    totalGGRow.getCell(5).numFmt = '"$"#,##0.00';
+    for (let c = 1; c <= 5; c++) totalGGRow.getCell(c).border = BORDER_HEADER;
     wsGG.addRow([]);
+  }
 
-    if (activeIndirects.length > 0) {
-      const gHeader = wsGG.addRow(['#', 'Concepto de Gasto General / Indirecto', 'Tipo', 'Valor Base', 'Monto en Cotización ARS']);
-      gHeader.font = { name: 'Arial', size: 10, bold: true, color: { argb: COLOR_HEADER_TEXT } };
-      gHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+  // Bloque 3: Detalle de Impuestos Aplicados
+  const activeTaxes = (presupuesto.impuestosDetalle || []).filter((t) => t.aplica && t.montoCalculado > 0);
+  if (activeTaxes.length > 0) {
+    const tHeader = wsGG.addRow(['#', 'Gravamen / Impuesto Aplicado', 'Alicuota', 'Base Imponible', 'Monto Impuesto ARS']);
+    tHeader.font = { name: 'Arial', size: 10, bold: true, color: { argb: COLOR_HEADER_TEXT } };
+    tHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
 
-      activeIndirects.forEach((ci, idx) => {
-        const row = wsGG.addRow([
-          idx + 1,
-          ci.nombre,
-          ci.tipo === 'porcentual_sobre_costo' ? 'Porcentual sobre Costo (C)' : 'Monto Fijo Asignado',
-          ci.tipo === 'porcentual_sobre_costo' ? `${ci.valorAplicado}%` : formatARS(ci.valorAplicado),
-          ci.montoCalculado
-        ]);
-        row.font = { name: 'Arial', size: 10 };
-        row.getCell(5).numFmt = '"$"#,##0.00';
-        for (let c = 1; c <= 5; c++) row.getCell(c).border = BORDER_THIN;
-      });
+    activeTaxes.forEach((tx, idx) => {
+      const row = wsGG.addRow([
+        idx + 1,
+        tx.nombre,
+        `${tx.porcentaje}%`,
+        'Subtotal sin Impuestos (S)',
+        tx.montoCalculado
+      ]);
+      row.font = { name: 'Arial', size: 9 };
+      row.getCell(1).alignment = { horizontal: 'center' };
+      row.getCell(3).alignment = { horizontal: 'center' };
+      row.getCell(5).numFmt = '"$"#,##0.00';
+      for (let c = 1; c <= 5; c++) row.getCell(c).border = BORDER_THIN;
+    });
 
-      const totalGGRow = wsGG.addRow(['', 'Total Gastos Generales (GG):', '', '', presupuesto.gastosGeneralesTotal || 0]);
-      totalGGRow.font = { name: 'Arial', size: 10, bold: true };
-      totalGGRow.getCell(5).numFmt = '"$"#,##0.00';
-    }
-
-    if (activeTaxes.length > 0) {
-      wsGG.addRow([]);
-      const tHeader = wsGG.addRow(['#', 'Gravamen / Impuesto Aplicado', 'Alicuota', 'Base Imponible', 'Monto Impuesto ARS']);
-      tHeader.font = { name: 'Arial', size: 10, bold: true, color: { argb: COLOR_HEADER_TEXT } };
-      tHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
-
-      activeTaxes.forEach((tx, idx) => {
-        const row = wsGG.addRow([
-          idx + 1,
-          tx.nombre,
-          `${tx.porcentaje}%`,
-          'Subtotal sin Impuestos (S)',
-          tx.montoCalculado
-        ]);
-        row.font = { name: 'Arial', size: 10 };
-        row.getCell(5).numFmt = '"$"#,##0.00';
-        for (let c = 1; c <= 5; c++) row.getCell(c).border = BORDER_THIN;
-      });
-
-      const totalTaxRow = wsGG.addRow(['', 'Total Impuestos Aplicados:', '', '', presupuesto.montoImpuestosTotal || presupuesto.montoImpuestos || 0]);
-      totalTaxRow.font = { name: 'Arial', size: 10, bold: true };
-      totalTaxRow.getCell(5).numFmt = '"$"#,##0.00';
-    }
+    const totalTaxRow = wsGG.addRow(['', 'Total Impuestos Aplicados:', '', '', impTotal]);
+    totalTaxRow.font = { name: 'Arial', size: 10, bold: true };
+    totalTaxRow.getCell(5).numFmt = '"$"#,##0.00';
+    for (let c = 1; c <= 5; c++) totalTaxRow.getCell(c).border = BORDER_HEADER;
   }
 
   // Generar buffer y disparar descarga

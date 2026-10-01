@@ -788,7 +788,8 @@ export function evaluateMathExpression(
       } else if (typeof rawVal === 'number' && !isNaN(rawVal)) {
         numVal = rawVal;
       }
-      const regex = new RegExp(`\\b${key}\\b`, 'gi');
+      const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(?<![a-zA-Z0-9_])${escapedKey}(?![a-zA-Z0-9_])`, 'gi');
       cleanFormula = cleanFormula.replace(regex, String(numVal));
     }
   }

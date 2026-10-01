@@ -105,9 +105,13 @@ export const ItemCreateModal: React.FC<ItemCreateModalProps> = ({
               <label className="text-xs font-semibold text-on-surface">
                 Unidad de medida
               </label>
-              <span className="text-[11px] font-mono text-primary font-bold">
-                {unidad}
-              </span>
+              <input
+                type="text"
+                value={unidad}
+                onChange={(e) => setUnidad(e.target.value)}
+                placeholder="u, m, m², boca..."
+                className="w-28 px-2 py-0.5 text-xs font-mono font-bold text-primary bg-surface border border-outline-variant/40 rounded-lg focus:outline-none focus:border-primary text-right"
+              />
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               {UNIDADES_FRECUENTES.map((u) => {
@@ -116,6 +120,7 @@ export const ItemCreateModal: React.FC<ItemCreateModalProps> = ({
                   <button
                     key={u}
                     type="button"
+                    tabIndex={-1}
                     onClick={() => setUnidad(u)}
                     className={`px-2.5 py-1 rounded-xl text-xs font-mono font-medium transition-all cursor-pointer ${
                       isSelected

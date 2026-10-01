@@ -36,7 +36,7 @@ describe('ItemQuantityCell', () => {
     expect(screen.getByText('boca')).toBeDefined();
   });
 
-  it('llama a onStartEditQty al hacer doble clic en la cantidad', () => {
+  it('llama a onStartEditQty al hacer clic en la cantidad', () => {
     const handleStartEdit = vi.fn();
     render(
       <ItemQuantityCell
@@ -49,8 +49,8 @@ describe('ItemQuantityCell', () => {
       />
     );
 
-    const qtySpan = screen.getByText('10');
-    fireEvent.doubleClick(qtySpan);
+    const qtyBtn = screen.getByRole('button', { name: /editar cantidad/i });
+    fireEvent.click(qtyBtn);
     expect(handleStartEdit).toHaveBeenCalled();
   });
 
@@ -70,7 +70,7 @@ describe('ItemQuantityCell', () => {
       />
     );
 
-    const input = screen.getByPlaceholderText('10 o =superficie * 2') as HTMLInputElement;
+    const input = screen.getByRole('textbox', { name: /editar cantidad/i }) as HTMLInputElement;
     expect(input.value).toBe('=5 * 4');
 
     // Previsualización de fórmula evaluada en vivo
@@ -96,8 +96,69 @@ describe('ItemQuantityCell', () => {
       />
     );
 
-    const input = screen.getByPlaceholderText('10 o =superficie * 2');
+    const input = screen.getByRole('textbox', { name: /editar cantidad/i });
     fireEvent.keyDown(input, { key: 'Escape' });
     expect(handleCancel).toHaveBeenCalled();
+  });
+
+  it('activa el modo edición al recibir foco con TAB', () => {
+    const handleStartEdit = vi.fn();
+
+    render(
+      <ItemQuantityCell
+        item={baseItem}
+        isEditingQty={false}
+        onStartEditQty={handleStartEdit}
+        onUpdateEditingCellValue={vi.fn()}
+        onCommitEditCell={vi.fn()}
+        onCancelEditCell={vi.fn()}
+      />
+    );
+
+    const qtyBtn = screen.getByRole('button', { name: /editar cantidad/i });
+    fireEvent.focus(qtyBtn);
+    expect(handleStartEdit).toHaveBeenCalled();
+  });
+
+  it('al presionar Backspace sobre la celda de cantidad limpia el valor y abre la edición', () => {
+    const handleStartEdit = vi.fn();
+    const handleUpdate = vi.fn();
+
+    render(
+      <ItemQuantityCell
+        item={baseItem}
+        isEditingQty={false}
+        onStartEditQty={handleStartEdit}
+        onUpdateEditingCellValue={handleUpdate}
+        onCommitEditCell={vi.fn()}
+        onCancelEditCell={vi.fn()}
+      />
+    );
+
+    const qtyBtn = screen.getByRole('button', { name: /editar cantidad/i });
+    fireEvent.keyDown(qtyBtn, { key: 'Backspace' });
+    expect(handleStartEdit).toHaveBeenCalled();
+    expect(handleUpdate).toHaveBeenCalledWith('');
+  });
+
+  it('al presionar un dígito sobre la celda de cantidad inicia edición directamente con ese dígito', () => {
+    const handleStartEdit = vi.fn();
+    const handleUpdate = vi.fn();
+
+    render(
+      <ItemQuantityCell
+        item={baseItem}
+        isEditingQty={false}
+        onStartEditQty={handleStartEdit}
+        onUpdateEditingCellValue={handleUpdate}
+        onCommitEditCell={vi.fn()}
+        onCancelEditCell={vi.fn()}
+      />
+    );
+
+    const qtyBtn = screen.getByRole('button', { name: /editar cantidad/i });
+    fireEvent.keyDown(qtyBtn, { key: '5' });
+    expect(handleStartEdit).toHaveBeenCalled();
+    expect(handleUpdate).toHaveBeenCalledWith('5');
   });
 });

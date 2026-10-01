@@ -306,13 +306,39 @@ export interface SolicitudCotizacion {
 // ─── 7. Mano de Obra y Costos Indirectos ───────────────────────────────────────
 export type RolCategoriaManoDeObra = 'oficial' | 'ayudante' | 'especialista' | 'independiente';
 
+export interface DesgloseCargasSociales {
+  leyesSocialesPct: number; // ej: 42% (Jubilación, PAMI, Obra Social, Fondo Cese 12%, ART)
+  inasistenciasPagasPct: number; // ej: 23% (Feriados, Vacaciones, Días de Lluvia, Licencias)
+}
+
+export interface ConvenioLaboral {
+  id: string; // 'uocra' | 'uom' | 'independiente' | string
+  nombre: string; // ej: 'UOCRA (CCT 76/75 - Obras)'
+  cargasSocialesPct: number; // ej: 65 (%)
+  desgloseCargas?: DesgloseCargasSociales;
+  gastosDirectosOperarioDefecto?: number; // ej: 5000 ($/día por EPP, ropa, vianda)
+  horasJornadaDefecto?: number; // ej: 9 u 8
+  descripcion?: string;
+  adicionales?: Record<string, number>; // ej: { adicionalTrabajoAltura: 0.20, adicionalZanja: 0.15, adicionalRiesgoElectrico: 0.25, adicionalNocturno: 0.50 }
+  esIndependiente?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  _updatedAt?: number;
+  deleted?: boolean;
+}
+
 export interface CategoriaManoDeObra {
   id: string;
   nombre: string;
-  costoHora: number;
+  costoHora: number; // Costo Real Empresa ($/h)
   horasJornada?: number; // Base horaria de la jornada laboral (convenio UOCRA: 9 hs por defecto, u 8 hs)
-  costoJornada?: number; // Costo por jornada completa = roundMoney(costoHora * (horasJornada ?? 9))
+  costoJornada?: number; // Costo Real Empresa por jornada completa = roundMoney(costoHora * (horasJornada ?? 9))
   rol?: RolCategoriaManoDeObra; // Rol funcional en cuadrilla ('oficial', 'ayudante', 'especialista', 'independiente')
+  convenioId?: string; // FK a ConvenioLaboral (ej: 'uocra', 'uom', 'independiente')
+  costoBasicoJornada?: number; // Salario básico de convenio o de bolsillo ($/jornada)
+  costoBasicoHora?: number; // Salario básico por hora ($/h)
+  porcentajeCargasSociales?: number; // % FCS aplicado (ej: 65), por defecto heredado del convenio
+  gastosDirectosJornada?: number; // Gastos directos por día (EPP, ropa, vianda)
   fechaActualizacion: string;
   createdAt?: string;
   updatedAt?: string;
@@ -581,6 +607,8 @@ export interface CostoIndirectoSnapshot {
 export interface ParametroItem {
   id: string; // identificador en fórmulas (ej: "bocas", "circuitos", "superficie")
   nombre: string;
+  descripcion?: string; // Etiqueta o explicación legible
+  tipo?: 'parametro' | 'variable'; // 'parametro' = input del usuario; 'variable' = cálculo interno
   unidad?: string;
   valor: number;
   formula?: string; // ej: "=superficie * 2" o expresión aritmética

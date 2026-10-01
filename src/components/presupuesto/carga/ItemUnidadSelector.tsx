@@ -5,6 +5,8 @@ interface ItemUnidadSelectorProps {
   unidad: string;
   onChangeUnidad: (nuevaUnidad: string) => void;
   disabled?: boolean;
+  buttonRef?: React.Ref<HTMLButtonElement>;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLButtonElement>) => void;
 }
 
 const UNIDADES_FRECUENTES = [
@@ -24,7 +26,9 @@ const UNIDADES_FRECUENTES = [
 export const ItemUnidadSelector: React.FC<ItemUnidadSelectorProps> = ({
   unidad,
   onChangeUnidad,
-  disabled = false
+  disabled = false,
+  buttonRef,
+  onKeyDown
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [customValue, setCustomValue] = useState('');
@@ -85,13 +89,23 @@ export const ItemUnidadSelector: React.FC<ItemUnidadSelectorProps> = ({
   return (
     <div className="relative inline-block text-left" ref={containerRef}>
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled}
         onClick={(e) => {
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-mono font-medium text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors cursor-pointer disabled:opacity-50"
+        onKeyDown={(e) => {
+          if (onKeyDown) {
+            onKeyDown(e);
+          }
+          if (e.key === ' ' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            setIsOpen(true);
+          }
+        }}
+        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-mono font-medium text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-primary focus:bg-surface-container-high"
         title="Cambiar unidad de medida del ítem"
       >
         <span>{currentUnidad}</span>

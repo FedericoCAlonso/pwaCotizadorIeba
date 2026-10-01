@@ -15,7 +15,8 @@ import {
   Proyecto,
   Presupuesto,
   RegistroTrabajo,
-  AppConfig
+  AppConfig,
+  ConvenioLaboral
 } from '../core/types';
 import {
   DEFAULT_APP_CONFIG,
@@ -29,6 +30,7 @@ import {
   INITIAL_TAREAS_TIPO,
   INITIAL_CONTACTOS
 } from '../core/sampleData';
+import { CONVENIOS_PREDEFINIDOS } from '../core/calculations';
 
 export class CotizadorDatabase extends Dexie {
   categoriasMaterial!: Table<CategoriaMaterial, string>;
@@ -48,6 +50,7 @@ export class CotizadorDatabase extends Dexie {
   presupuestos!: Table<Presupuesto, string>;
   registrosTrabajo!: Table<RegistroTrabajo, string>;
   config!: Table<AppConfig, string>;
+  convenios!: Table<ConvenioLaboral, string>;
 
   constructor() {
     super('CotizadorIebaDB');
@@ -209,6 +212,10 @@ export class CotizadorDatabase extends Dexie {
     this.version(7).stores({
       presupuestos: 'id, numero, clienteId, estado, fechaEmision, presupuestoOrigenId, revision, deleted, updatedAt'
     });
+
+    this.version(8).stores({
+      convenios: 'id, nombre, deleted, updatedAt'
+    });
   }
 }
 
@@ -218,7 +225,7 @@ export const db = new CotizadorDatabase();
  * Realiza un borrado lógico (Tombstone) marcando deleted = true y actualizando updatedAt.
  */
 export async function softDelete(
-  tableName: 'categoriasMaterial' | 'materiales' | 'productos' | 'ofertas' | 'solicitudesCotizacion' | 'insumos' | 'manoObra' | 'costosIndirectos' | 'tareasTipo' | 'contactos' | 'clientes' | 'proveedores' | 'proyectos' | 'presupuestos' | 'registrosTrabajo' | 'config',
+  tableName: 'categoriasMaterial' | 'materiales' | 'productos' | 'ofertas' | 'solicitudesCotizacion' | 'insumos' | 'manoObra' | 'costosIndirectos' | 'tareasTipo' | 'contactos' | 'clientes' | 'proveedores' | 'proyectos' | 'presupuestos' | 'registrosTrabajo' | 'config' | 'convenios',
   id: string
 ): Promise<void> {
   const table = db[tableName] as Table<any, string>;
@@ -261,7 +268,8 @@ export async function initializeDatabaseSeed(): Promise<void> {
       db.contactos,
       db.clientes,
       db.proveedores,
-      db.config
+      db.config,
+      db.convenios
     ], async () => {
       // 1. Asegurar que las categorías semillas existan y tengan los atributos sugeridos y supercategorías actualizados
       for (const cat of INITIAL_CATEGORIAS_MATERIAL) {
@@ -489,6 +497,19 @@ export async function initializeDatabaseSeed(): Promise<void> {
 
       // 12. Inicializar configuración por defecto si la base está vacía
       if (await db.config.count() === 0) await db.config.add(DEFAULT_APP_CONFIG);
+
+      // 13. Inicializar convenios laborales si la base está vacía
+      if (await db.convenios.count() === 0) {
+        const now = new Date().toISOString();
+        for (const c of CONVENIOS_PREDEFINIDOS) {
+          await db.convenios.add({
+            ...c,
+            createdAt: now,
+            updatedAt: now,
+            deleted: false
+          });
+        }
+      }
     });
     console.log('Verificación e inicialización de semillas de BD completada.');
   } catch (err) {
@@ -517,6 +538,7 @@ export async function exportDatabaseJSON(): Promise<string> {
     presupuestos: await db.presupuestos.toArray(),
     registrosTrabajo: await db.registrosTrabajo.toArray(),
     config: await db.config.toArray(),
+    convenios: await db.convenios.toArray(),
     exportDate: new Date().toISOString()
   };
   return JSON.stringify(data, null, 2);
@@ -543,7 +565,8 @@ export async function importDatabaseJSON(jsonStr: string): Promise<void> {
     db.proyectos,
     db.presupuestos,
     db.registrosTrabajo,
-    db.config
+    db.config,
+    db.convenios
   ], async () => {
     if (data.categoriasMaterial) { await db.categoriasMaterial.clear(); await db.categoriasMaterial.bulkPut(data.categoriasMaterial); }
     if (data.materiales) { await db.materiales.clear(); await db.materiales.bulkPut(data.materiales); }
@@ -561,6 +584,7 @@ export async function importDatabaseJSON(jsonStr: string): Promise<void> {
     if (data.presupuestos) { await db.presupuestos.clear(); await db.presupuestos.bulkPut(data.presupuestos); }
     if (data.registrosTrabajo) { await db.registrosTrabajo.clear(); await db.registrosTrabajo.bulkPut(data.registrosTrabajo); }
     if (data.config) { await db.config.clear(); await db.config.bulkPut(data.config); }
+    if (data.convenios) { await db.convenios.clear(); await db.convenios.bulkPut(data.convenios); }
   });
 }
 
@@ -586,7 +610,8 @@ export async function resetDatabaseToDefaults(): Promise<void> {
     db.proyectos,
     db.presupuestos,
     db.registrosTrabajo,
-    db.config
+    db.config,
+    db.convenios
   ], async () => {
     // 1. Limpiar todas las tablas
     await db.categoriasMaterial.clear();
@@ -605,6 +630,7 @@ export async function resetDatabaseToDefaults(): Promise<void> {
     await db.presupuestos.clear();
     await db.registrosTrabajo.clear();
     await db.config.clear();
+    await db.convenios.clear();
 
     // 2. Re-sembrar datos de fábrica
     if (INITIAL_CATEGORIAS_MATERIAL.length > 0) await db.categoriasMaterial.bulkPut(INITIAL_CATEGORIAS_MATERIAL);
@@ -617,6 +643,11 @@ export async function resetDatabaseToDefaults(): Promise<void> {
     if (INITIAL_TAREAS_TIPO.length > 0) await db.tareasTipo.bulkPut(INITIAL_TAREAS_TIPO);
     if (INITIAL_CONTACTOS.length > 0) await db.contactos.bulkPut(INITIAL_CONTACTOS);
     await db.config.add(DEFAULT_APP_CONFIG);
+
+    const now = new Date().toISOString();
+    for (const c of CONVENIOS_PREDEFINIDOS) {
+      await db.convenios.put({ ...c, createdAt: now, updatedAt: now, deleted: false });
+    }
   });
 }
 

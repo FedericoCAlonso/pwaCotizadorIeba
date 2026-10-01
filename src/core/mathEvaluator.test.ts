@@ -179,6 +179,18 @@ describe('mathEvaluator', () => {
         expect(evaluateMathExpression('es_trifasica ? 380 : 220', { es_trifasica: true }).value).toBe(380);
         expect(evaluateMathExpression('es_trifasica ? 380 : 220', { es_trifasica: false }).value).toBe(220);
       });
+
+      it('soporta variables con notación de punto como uocra.adicionalTrabajoAltura', () => {
+        const scope = {
+          horas: 5,
+          'uocra.adicionalTrabajoAltura': 0.20,
+          es_altura: true
+        };
+        const expr = 'horas * 1000 * (es_altura ? 1 + uocra.adicionalTrabajoAltura : 1)';
+        const res = evaluateMathExpression(expr, scope);
+        expect(res.isValid).toBe(true);
+        expect(res.value).toBe(6000); // 5 * 1000 * 1.2 = 6000
+      });
     });
   });
 

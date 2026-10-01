@@ -41,15 +41,13 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
 }) => {
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-surface pb-2">
-      {/* Cabecera de Columnas: Costo Directo y Precio Final Simultáneos */}
+      {/* Cabecera de Columnas: Flujo de Cotización Limpio y Enfocado */}
       <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 bg-surface-container-high border-b border-outline-variant/30 text-xs font-bold text-on-surface-variant uppercase tracking-wider select-none shadow-2xs">
-        <div className="flex-1 min-w-0 pr-2 pl-3">Descripción del Ítem</div>
-        <div className="w-20 sm:w-24 shrink-0 px-2 text-right">Cantidad</div>
-        <div className="hidden sm:block w-24 sm:w-28 shrink-0 px-2 text-right">Costo Unit.</div>
-        <div className="w-28 sm:w-32 shrink-0 px-2 text-right">Costo Total</div>
-        <div className="hidden md:block w-24 sm:w-28 shrink-0 px-2 text-right text-primary/80">P. Unit. Final</div>
-        <div className="w-28 sm:w-36 shrink-0 px-2 text-right text-primary font-bold">Precio Final</div>
-        <div className="w-20 sm:w-24 shrink-0 text-right pr-1">Acciones</div>
+        <div className="flex-1 min-w-0 pr-2 pl-3">Descripción del Ítem / Rubro</div>
+        <div className="w-28 sm:w-32 md:w-36 shrink-0 px-2 text-right">Cantidad</div>
+        <div className="hidden sm:block w-28 sm:w-32 shrink-0 px-2 text-right">P. Unit. Final</div>
+        <div className="w-32 sm:w-40 shrink-0 px-2 text-right text-primary font-bold">Precio Final</div>
+        <div className="w-32 sm:w-36 shrink-0 text-right pr-2">Acciones</div>
       </div>
 
       {/* Estado vacío si no hay rubros ni ítems */}
@@ -81,22 +79,24 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
       )}
 
       {/* Rubros y sus Ítems */}
-      {capitulos.map((cap) => {
+      {capitulos.map((cap, capIdx) => {
         const capRawItems = items.filter((it) => it.capituloId === cap.id);
         const capCalculatedItems = capRawItems.map((it) => calculatedItemsMap.get(it.id) || it);
         const capCalculatedTotals = totales?.capitulosTotales?.[cap.id];
+        const chapterNumber = String(capIdx + 1);
 
         return (
           <div key={cap.id} className="border-b border-outline-variant/30 last:border-b-0">
             <TreeSheetChapterRow
               capitulo={cap}
               items={capCalculatedItems}
+              indexNumber={chapterNumber}
               capituloTotales={capCalculatedTotals}
               isCollapsed={vm.collapsedChapters.has(cap.id)}
               isSelected={vm.selectedChapterId === cap.id}
               onToggleCollapse={() => vm.toggleChapterCollapse(cap.id)}
               onSelect={() => vm.handleSelectRow(null, cap.id)}
-              onAddItem={() => vm.handleOpenCreateItemModal(cap.id)}
+              onAddItem={() => vm.handleCreateItem(cap.id, 'end')}
               onOpenCatalog={() => {
                 vm.handleSelectRow(null, cap.id);
                 vm.handleOpenCatalogPicker(cap.id);
@@ -113,7 +113,7 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
                     <div className="flex items-center gap-3 not-italic">
                       <button
                         type="button"
-                        onClick={() => vm.handleOpenCreateItemModal(cap.id)}
+                        onClick={() => vm.handleCreateItem(cap.id, 'end')}
                         className="text-primary hover:underline font-semibold cursor-pointer"
                       >
                         + Agregar ítem
@@ -133,12 +133,14 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
                   </div>
                 ) : (
                   <>
-                    {capRawItems.map((rawItem) => {
+                    {capRawItems.map((rawItem, itemIdx) => {
                       const item = calculatedItemsMap.get(rawItem.id) || rawItem;
+                      const itemNumber = `${chapterNumber}.${itemIdx + 1}`;
                       return (
                         <TreeSheetRow
                           key={item.id}
                           item={item}
+                          indexNumber={itemNumber}
                           isSelected={vm.selectedItemId === item.id}
                           isExpanded={vm.expandedItems.has(item.id)}
                           onToggleExpand={() => vm.toggleItemExpand(item.id)}
@@ -207,7 +209,7 @@ export const TreeSheetDesktopTable: React.FC<TreeSheetDesktopTableProps> = ({
                     <div className="flex items-center gap-3 px-8 py-2 bg-surface-container-lowest/60 border-t border-dashed border-outline-variant/20 text-xs">
                       <button
                         type="button"
-                        onClick={() => vm.handleOpenCreateItemModal(cap.id)}
+                        onClick={() => vm.handleCreateItem(cap.id, 'end')}
                         className="inline-flex items-center gap-1 font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer"
                         title="Agregar ítem libre en este rubro"
                       >

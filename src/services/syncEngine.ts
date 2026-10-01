@@ -91,7 +91,8 @@ export class DecentralizedSyncEngine {
       'proyectos',
       'presupuestos',
       'registrosTrabajo',
-      'config'
+      'config',
+      'convenios'
     ] as const;
 
     TABLES_TO_WATCH.forEach((tableName) => {
@@ -422,6 +423,7 @@ export class DecentralizedSyncEngine {
       const cleanPresupuestos = (await db.presupuestos.toArray()).filter(x => !x.deleted);
       const cleanRegistrosTrabajo = (await db.registrosTrabajo.toArray()).filter(x => !x.deleted);
       const cleanConfig = await db.config.toArray();
+      const cleanConvenios = (await db.convenios.toArray()).filter(x => !x.deleted);
 
       // 5. Aplicar limpieza a IndexedDB local dentro de una transacción
       await db.transaction('rw', [
@@ -439,7 +441,8 @@ export class DecentralizedSyncEngine {
         db.tareasTipo,
         db.proyectos,
         db.presupuestos,
-        db.registrosTrabajo
+        db.registrosTrabajo,
+        db.convenios
       ], async () => {
         await db.contactos.clear();
         await db.contactos.bulkAdd(cleanContactos);
@@ -485,6 +488,9 @@ export class DecentralizedSyncEngine {
 
         await db.registrosTrabajo.clear();
         await db.registrosTrabajo.bulkAdd(cleanRegistrosTrabajo);
+
+        await db.convenios.clear();
+        await db.convenios.bulkAdd(cleanConvenios);
       });
 
       // 6. Construir Master Payload maestro compacto y limpio
@@ -508,6 +514,7 @@ export class DecentralizedSyncEngine {
         presupuestos: cleanPresupuestos,
         registrosTrabajo: cleanRegistrosTrabajo,
         config: cleanConfig,
+        convenios: cleanConvenios,
         trazaProyectos: cleanTrazaProyectos
       };
 

@@ -208,16 +208,41 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   }, []);
 
   const handleOpenSaveAsTemplateFromItem = useCallback((item: ItemPresupuesto) => {
+    const rawParams = item.parametros || [];
+    const itemParametros = rawParams
+      .filter((p) => p.tipo !== 'variable' && !p.formula)
+      .map((p) => ({
+        id: p.id,
+        nombre: p.descripcion || p.nombre || p.id,
+        tipo: 'numero' as const,
+        valorDefault: p.valor || 1,
+        unidad: p.unidad,
+        descripcion: p.descripcion
+      }));
+
+    const itemVariables = rawParams
+      .filter((p) => p.tipo === 'variable' || Boolean(p.formula))
+      .map((v) => ({
+        id: v.id,
+        nombre: v.descripcion || v.nombre || v.id,
+        formula: v.formula ? (v.formula.startsWith('=') ? v.formula.substring(1) : v.formula) : String(v.valor),
+        unidad: v.unidad,
+        descripcion: v.descripcion
+      }));
+
     setSaveAsTemplateData({
       nombre: item.descripcion,
       unidad: item.unidad || 'u',
       naturaleza: item.naturaleza || 'instalacion',
       notasTecnicas: item.notasTecnicas || '',
       clausulaExclusiones: item.clausulaExclusiones || '',
+      parametros: itemParametros,
+      variables: itemVariables,
       insumos: (item.insumosSnapshot || []).map((ins) => ({
         insumoId: ins.insumoId,
         insumoNombre: ins.nombre,
         cantidad: ins.cantidadTotal,
+        formula: ins.formulaCantidad ? (ins.formulaCantidad.startsWith('=') ? ins.formulaCantidad.substring(1) : ins.formulaCantidad) : undefined,
         unidad: ins.unidad,
         precioUnitario: ins.precioUnitarioCongelado
       })),
@@ -225,6 +250,7 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
         categoriaId: mo.categoriaId,
         categoriaNombre: mo.nombreCategoria,
         horas: mo.horasTotales,
+        formula: mo.formulaHoras ? (mo.formulaHoras.startsWith('=') ? mo.formulaHoras.substring(1) : mo.formulaHoras) : undefined,
         costoHora: mo.costoHoraCongelado
       }))
     });
