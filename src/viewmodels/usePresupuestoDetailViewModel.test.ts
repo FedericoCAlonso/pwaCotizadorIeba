@@ -3,6 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 import { usePresupuestoDetailViewModel } from './usePresupuestoDetailViewModel';
 import { DEFAULT_APP_CONFIG } from '../core/sampleData';
 import { Presupuesto } from '../core/types';
+import { softDelete } from '../db/database';
 
 vi.mock('../contexts/ToastContext', () => ({
   useToast: () => ({
@@ -104,7 +105,8 @@ vi.mock('../db/database', () => ({
         { id: 'of-1', materialId: 'mat-cable-2.5-marron', precio: 1200, fecha: new Date().toISOString() }
       ])
     }
-  }
+  },
+  softDelete: vi.fn().mockResolvedValue(undefined)
 }));
 
 describe('usePresupuestoDetailViewModel', () => {
@@ -172,5 +174,23 @@ describe('usePresupuestoDetailViewModel', () => {
         })
       })
     );
+  });
+
+  it('elimina el presupuesto mediante softDelete cuando el usuario confirma', async () => {
+    const { result } = renderHook(() =>
+      usePresupuestoDetailViewModel({
+        presupuestoId: 'pres-123',
+        config: DEFAULT_APP_CONFIG,
+        onEdit: mockOnEdit,
+        onDuplicate: mockOnDuplicate,
+        onViewMaterialsInCatalog: mockOnViewMaterials
+      })
+    );
+
+    await act(async () => {
+      await result.current.handleDelete();
+    });
+
+    expect(softDelete).toHaveBeenCalledWith('presupuestos', 'pres-123');
   });
 });

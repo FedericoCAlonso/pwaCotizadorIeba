@@ -41,8 +41,8 @@ export const ContactosManager: React.FC<ContactosManagerProps> = ({
   const allContactos = useLiveQuery(() => db.contactos.toArray()) || [];
   const contactos = useMemo(() => allContactos.filter((c) => !c.deleted), [allContactos]);
 
-  const presupuestos = useLiveQuery(() => db.presupuestos.toArray()) || [];
-  const rfqs = useLiveQuery(() => db.solicitudesCotizacion.toArray()) || [];
+  const presupuestos = (useLiveQuery(() => db.presupuestos.toArray()) || []).filter((p) => !p.deleted);
+  const rfqs = (useLiveQuery(() => db.solicitudesCotizacion.toArray()) || []).filter((s) => !s.deleted);
 
   // State
   const [searchQuery, setSearchQuery] = useState('');

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/database';
+import { db, softDelete } from '../db/database';
 import {
   Presupuesto,
   AppConfig,
@@ -37,7 +37,8 @@ export function usePresupuestoDetailViewModel({
 
   // ─── Data Access ──────────────────────────────────────────────────────────────
   const presupuestos = useLiveQuery(() => db.presupuestos.where('id').equals(presupuestoId).toArray(), [presupuestoId]);
-  const presupuesto = presupuestos && presupuestos.length > 0 ? presupuestos[0] : null;
+  const rawPresupuesto = presupuestos && presupuestos.length > 0 ? presupuestos[0] : null;
+  const presupuesto = rawPresupuesto && !rawPresupuesto.deleted ? rawPresupuesto : null;
 
   const rawContactos = useLiveQuery(() => db.contactos.toArray()) || [];
   const rawClientes = useLiveQuery(() => db.clientes.toArray()) || [];
@@ -240,7 +241,7 @@ export function usePresupuestoDetailViewModel({
       isDestructive: true
     });
     if (ok) {
-      await db.presupuestos.delete(presupuesto.id);
+      await softDelete('presupuestos', presupuesto.id);
       toast.info('Presupuesto eliminado');
     }
   };

@@ -24,12 +24,12 @@ interface ConsolidatedItem {
 }
 
 export const LogisticaManager: React.FC = () => {
-  const presupuestos = useLiveQuery(() => db.presupuestos.toArray()) || [];
-  const materiales = useLiveQuery(() => db.materiales.toArray()) || [];
-  const productos = useLiveQuery(() => db.productos.toArray()) || [];
-  const ofertas = useLiveQuery(() => db.ofertas.reverse().toArray()) || [];
-  const proveedores = useLiveQuery(() => db.proveedores.toArray()) || [];
-  const clientes = useLiveQuery(() => db.clientes.toArray()) || [];
+  const presupuestos = (useLiveQuery(() => db.presupuestos.toArray()) || []).filter(p => !p.deleted);
+  const materiales = (useLiveQuery(() => db.materiales.toArray()) || []).filter(m => !m.deleted);
+  const productos = (useLiveQuery(() => db.productos.toArray()) || []).filter(p => !p.deleted);
+  const ofertas = (useLiveQuery(() => db.ofertas.reverse().toArray()) || []).filter(o => !o.deleted);
+  const proveedores = (useLiveQuery(() => db.proveedores.toArray()) || []).filter(p => !p.deleted);
+  const clientes = (useLiveQuery(() => db.clientes.toArray()) || []).filter(c => !c.deleted);
 
   const clientesMap = new Map(clientes.map(c => [c.id, c]));
   const materialesMap = new Map(materiales.map(m => [m.id, m]));
