@@ -66,3 +66,8 @@ Este documento consolida la visión estratégica del **Cotizador PWA IEBA**, su 
   - Emisión de Facturas A, B o C directamente desde el presupuesto aprobado mediante Web Services de AFIP.
 - [ ] **Gestión de Cobranzas y Pagos Parciales**:
   - Registro de anticipos (ej: 50% acopio de materiales), pagos contra avance y saldo final de obra.
+
+## Planillas Inteligentes (Fases 3 y 4)
+- [x] FASE 3: Sugerencia de materiales por función, autocompletado de mejor oferta, insertar trabajo tipo y pegado multilínea/TSV.
+- [x] FASE 4: Vista compacta para pantallas estrechas (< 700 px) con navegación lista-detalle, cascada APU plegable y control inferior fijo.
+
