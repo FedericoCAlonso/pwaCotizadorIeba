@@ -26,6 +26,7 @@ import {
   aplicarActualizacionPreciosPresupuesto,
   calcularCostoHoraDesdeJornada,
   calcularCostoJornadaDesdeHora,
+  evaluarParametrosYLineasItem,
   DEFAULT_CLAUSULA_OBRA_EXISTENTE
 } from './calculations';
 import { evaluateCondition, evaluateMathExpression } from './mathEvaluator';
@@ -2959,6 +2960,174 @@ describe('22. Motor de Actualización Integral de Precios y Tarifas', () => {
       expect(sumaPreciosItems).toBe(result.precioFinalGlobal);
       expect(it1.precioVentaClienteTotal).toBeGreaterThan(0);
       expect(it2.precioVentaClienteTotal).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Ítems vacíos y prevención de montos fantasmas de costo directo', () => {
+    it('un ítem nuevo o vacío con costo 0 e indirectos porcentuales produce estrictamente $0.00 en costo directo y totales', () => {
+      const emptyItem: ItemPresupuesto = {
+        id: 'empty-1',
+        descripcion: 'Nuevo Ítem',
+        cantidad: 1,
+        unidad: 'u',
+        costoInsumos: 0,
+        costoManoObra: 0,
+        costoServiciosTercerizados: 0,
+        costoDirectoTotal: 0,
+        costoUnitario: 0,
+        costoTotal: 0,
+        precioVentaUnitario: 0,
+        precioVentaTotal: 0,
+        insumosSnapshot: [],
+        manoObraSnapshot: []
+      };
+
+      const result = calcularTotalesPresupuesto({
+        items: [emptyItem],
+        gastosConfig: [
+          { id: 'gasto-indirecto-pct', nombre: 'Gastos Administrativos', aplica: true, modalidad: 'porcentual', valor: 15 }
+        ],
+        beneficioPorcentaje: 20,
+        margenRiesgoPorcentaje: 5,
+        tipoFactura: 'Factura B',
+        impuestosDetalle: [
+          { id: 'iva', nombre: 'IVA 21%', porcentaje: 21, aplica: true, discriminar: true, montoCalculado: 0 }
+        ]
+      });
+
+      expect(result.subtotalCostosDirectos).toBe(0);
+      expect(result.costoDirectoBase).toBe(0);
+      expect(result.costoGlobal).toBe(0);
+      expect(result.subtotalSinImpuestos).toBe(0);
+      expect(result.precioFinalGlobal).toBe(0);
+      expect(result.totalARS).toBe(0);
+
+      expect(result.itemsCalculados).toHaveLength(1);
+      const calc = result.itemsCalculados[0];
+      expect(calc.costoDirectoTotal).toBe(0);
+      expect(calc.costoUnitario).toBe(0);
+      expect(calc.precioVentaTotal).toBe(0);
+      expect(calc.precioVentaUnitario).toBe(0);
+      expect(calc.precioFinalItem).toBe(0);
+    });
+
+    it('no resucita precioVentaTotal como costo de mano de obra directa al vaciar un ítem', () => {
+      // Ítem que previamente tenía precio calculado pero cuyos componentes se vaciaron
+      const clearedItem: ItemPresupuesto = {
+        id: 'cleared-1',
+        descripcion: 'Ítem con líneas eliminadas',
+        cantidad: 1,
+        unidad: 'u',
+        costoInsumos: 0,
+        costoManoObra: 0,
+        costoServiciosTercerizados: 0,
+        costoDirectoTotal: 0,
+        costoUnitario: 0,
+        precioVentaUnitario: 75000,
+        precioVentaTotal: 75000,
+        precioFinalItem: 75000,
+        subtotalItem: 62000,
+        insumosSnapshot: [],
+        manoObraSnapshot: []
+      };
+
+      const result = calcularTotalesPresupuesto({
+        items: [clearedItem],
+        beneficioPorcentaje: 20,
+        impuestosDetalle: []
+      });
+
+      expect(result.subtotalCostosDirectos).toBe(0);
+      expect(result.costoDirectoBase).toBe(0);
+      expect(result.costoGlobal).toBe(0);
+      expect(result.precioFinalGlobal).toBe(0);
+
+      const calc = result.itemsCalculados[0];
+      expect(calc.costoDirectoTotal).toBe(0);
+      expect(calc.costoManoObra).toBe(0);
+      expect(calc.costoUnitario).toBe(0);
+      expect(calc.precioVentaTotal).toBe(0);
+      expect(calc.precioFinalItem).toBe(0);
+    });
+
+    it('en un presupuesto con ítem con costo y otro ítem vacío, el ítem vacío permanece en $0.00 sin fugas de redondeo', () => {
+      const activeItem: ItemPresupuesto = {
+        id: 'active-1',
+        descripcion: 'Instalación Tablero Seccional',
+        cantidad: 1,
+        unidad: 'u',
+        costoInsumos: 60000,
+        costoManoObra: 40000,
+        costoDirectoTotal: 100000,
+        costoUnitario: 100000,
+        precioVentaUnitario: 0,
+        precioVentaTotal: 0,
+        insumosSnapshot: [],
+        manoObraSnapshot: []
+      };
+
+      const emptyItem: ItemPresupuesto = {
+        id: 'empty-2',
+        descripcion: 'Nuevo Ítem Pendiente',
+        cantidad: 1,
+        unidad: 'u',
+        costoInsumos: 0,
+        costoManoObra: 0,
+        costoDirectoTotal: 0,
+        costoUnitario: 0,
+        precioVentaUnitario: 0,
+        precioVentaTotal: 0,
+        insumosSnapshot: [],
+        manoObraSnapshot: []
+      };
+
+      const result = calcularTotalesPresupuesto({
+        items: [activeItem, emptyItem],
+        beneficioPorcentaje: 20,
+        impuestosDetalle: [
+          { id: 'iva', nombre: 'IVA 21%', porcentaje: 21, aplica: true, discriminar: true, montoCalculado: 0 }
+        ]
+      });
+
+      expect(result.subtotalCostosDirectos).toBe(100000);
+      expect(result.itemsCalculados).toHaveLength(2);
+
+      const [calcActive, calcEmpty] = result.itemsCalculados;
+      expect(calcActive.costoDirectoTotal).toBe(100000);
+      expect(calcActive.precioFinalItem).toBe(145200);
+
+      expect(calcEmpty.costoDirectoTotal).toBe(0);
+      expect(calcEmpty.costoUnitario).toBe(0);
+      expect(calcEmpty.precioFinalItem).toBe(0);
+      expect(calcEmpty.precioVentaTotal).toBe(0);
+      expect(calcEmpty.precioVentaUnitario).toBe(0);
+    });
+
+    it('evaluarParametrosYLineasItem resetea precios de venta y subtotales a 0 cuando el costo directo es 0 sin precio manual', () => {
+      const itemVacio: ItemPresupuesto = {
+        id: 'eval-vacio',
+        descripcion: 'Ítem evaluado sin líneas',
+        cantidad: 2,
+        unidad: 'bocas',
+        costoInsumos: 0,
+        costoManoObra: 0,
+        costoDirectoTotal: 0,
+        costoUnitario: 0,
+        precioVentaUnitario: 50000,
+        precioVentaTotal: 100000,
+        precioFinalItem: 100000,
+        subtotalItem: 80000,
+        insumosSnapshot: [],
+        manoObraSnapshot: []
+      };
+
+      const res = evaluarParametrosYLineasItem(itemVacio);
+      expect(res.item.costoDirectoTotal).toBe(0);
+      expect(res.item.costoUnitario).toBe(0);
+      expect(res.item.precioVentaUnitario).toBe(0);
+      expect(res.item.precioVentaTotal).toBe(0);
+      expect(res.item.precioFinalItem).toBe(0);
+      expect(res.item.subtotalItem).toBe(0);
     });
   });
 });

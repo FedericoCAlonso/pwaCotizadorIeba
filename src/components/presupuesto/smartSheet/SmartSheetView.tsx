@@ -189,6 +189,10 @@ export const SmartSheetView: React.FC<SmartSheetViewProps> = ({
             costoDirectoTotal,
             costoUnitario,
             costoTotal: costoDirectoTotal,
+            precioVentaUnitario: costoDirectoTotal === 0 && !item.precioManual ? 0 : item.precioVentaUnitario,
+            precioVentaTotal: costoDirectoTotal === 0 && !item.precioManual ? 0 : item.precioVentaTotal,
+            precioFinalItem: costoDirectoTotal === 0 && !item.precioManual ? 0 : item.precioFinalItem,
+            subtotalItem: costoDirectoTotal === 0 && !item.precioManual ? 0 : item.subtotalItem,
             desacoplado: item.tareaTipoId ? true : item.desacoplado
           };
         })

@@ -839,6 +839,8 @@ export function usePresupuestoEditorViewModel({
       costoTotal: 0,
       precioVentaUnitario: 0,
       precioVentaTotal: 0,
+      precioFinalItem: 0,
+      subtotalItem: 0,
       insumosSnapshot: [],
       manoObraSnapshot: [],
       serviciosTercerizados: [
@@ -1263,6 +1265,8 @@ export function usePresupuestoEditorViewModel({
       costoTotal: 0,
       precioVentaUnitario: 0,
       precioVentaTotal: 0,
+      precioFinalItem: 0,
+      subtotalItem: 0,
       insumosSnapshot: [],
       manoObraSnapshot: []
     };

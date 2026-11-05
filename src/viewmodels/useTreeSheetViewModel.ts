@@ -319,9 +319,15 @@ export function useTreeSheetViewModel(props: UseTreeSheetViewModelProps) {
         unidad: unidad,
         costoInsumos: 0,
         costoManoObra: 0,
+        costoServicios: 0,
+        costoServiciosTercerizados: 0,
         costoDirectoTotal: 0,
+        costoUnitario: 0,
+        costoTotal: 0,
         precioVentaUnitario: 0,
         precioVentaTotal: 0,
+        precioFinalItem: 0,
+        subtotalItem: 0,
         insumosSnapshot: [],
         manoObraSnapshot: []
       });

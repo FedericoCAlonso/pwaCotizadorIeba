@@ -1401,8 +1401,6 @@ export function calcularTotalesPresupuesto(params: {
         : (safeNum(item.costoUnitario) > 0 ? roundMoney(safeNum(item.costoUnitario) * cant) : 0);
       if (directTotal <= 0 && safeNum(item.precioManual) > 0) {
         directTotal = roundMoney(safeNum(item.precioManual) * cant);
-      } else if (directTotal <= 0 && safeNum(item.precioVentaTotal) > 0) {
-        directTotal = safeNum(item.precioVentaTotal);
       }
       if (directTotal > 0) {
         cManoObraTeorica = directTotal;
@@ -1689,8 +1687,6 @@ export function calcularTotalesPresupuesto(params: {
         : (safeNum(item.costoUnitario) > 0 ? roundMoney(safeNum(item.costoUnitario) * cant) : 0);
       if (directTotal <= 0 && safeNum(item.precioManual) > 0) {
         directTotal = roundMoney(safeNum(item.precioManual) * cant);
-      } else if (directTotal <= 0 && safeNum(item.precioVentaTotal) > 0) {
-        directTotal = safeNum(item.precioVentaTotal);
       }
       if (directTotal > 0) {
         cManoObraTeorica = directTotal;
@@ -1795,9 +1791,7 @@ export function calcularTotalesPresupuesto(params: {
       precioVentaClienteUnitario: precioVentaUnitario,
       precioVentaUnitario,
       precioVentaTotal,
-      costoUnitario: item.costoUnitario !== undefined && safeNum(item.costoUnitario) > 0
-        ? item.costoUnitario
-        : roundMoney(costoDirectoItem / cant)
+      costoUnitario: roundMoney(costoDirectoItem / cant)
     };
   });
 
@@ -3052,6 +3046,10 @@ export function evaluarParametrosYLineasItem(
       costoDirectoTotal: costoDirecto,
       costoTotal: costoDirecto,
       costoUnitario,
+      precioVentaUnitario: costoDirecto === 0 && !item.precioManual ? 0 : item.precioVentaUnitario,
+      precioVentaTotal: costoDirecto === 0 && !item.precioManual ? 0 : item.precioVentaTotal,
+      precioFinalItem: costoDirecto === 0 && !item.precioManual ? 0 : item.precioFinalItem,
+      subtotalItem: costoDirecto === 0 && !item.precioManual ? 0 : item.subtotalItem,
       erroresFormulas: Object.keys(errores).length > 0 ? errores : undefined
     },
     errores
