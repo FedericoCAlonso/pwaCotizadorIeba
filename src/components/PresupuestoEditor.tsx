@@ -34,6 +34,7 @@ import { usePresupuestoEditorViewModel } from '../viewmodels/usePresupuestoEdito
 import { usePresupuestoItemsOperations } from '../viewmodels/usePresupuestoItemsOperations';
 import { PresupuestoEditorModals, SaveAsTemplateData } from './presupuesto/editor/PresupuestoEditorModals';
 import { TreeSheetView, TreeSheetViewRef } from './presupuesto/carga/TreeSheetView';
+import { SmartSheetView } from './presupuesto/smartSheet/SmartSheetView';
 import { QuoteProjectModal } from './presupuesto/QuoteProjectModal';
 
 interface PresupuestoEditorProps {
@@ -198,6 +199,8 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [showListaMaterialesModal, setShowListaMaterialesModal] = useState(false);
   const [showQuoteProjectModal, setShowQuoteProjectModal] = useState(false);
+  // Toggle de vista: 'smart' (Planilla Inteligente - Fase 1) o 'classic' (Editor Clásico)
+  const [editorMode, setEditorMode] = useState<'smart' | 'classic'>('smart');
 
   useEffect(() => {
     const handleResize = () => {
@@ -577,6 +580,34 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
 
         {/* Bloque Central: Botón Único de Inserción + Parámetros de Obra + Paleta de Comandos */}
         <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Toggle temporal: Planilla Inteligente vs Editor Clásico */}
+            <div className="flex items-center p-0.5 bg-surface-container-highest rounded-xl border border-outline-variant/30 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setEditorMode('smart')}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                  editorMode === 'smart'
+                    ? 'bg-primary text-on-primary shadow-xs'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+                title="Planilla Inteligente (Esquema fijo en 3 zonas: Itemizado, Líneas y Cascada)"
+              >
+                Planilla Inteligente
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditorMode('classic')}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                  editorMode === 'classic'
+                    ? 'bg-primary text-on-primary shadow-xs'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+                title="Editor Clásico (Planilla de árbol interactiva)"
+              >
+                Editor Clásico
+              </button>
+            </div>
+
             {/* Botón de Nivel 1: + Rubro */}
             <button
               type="button"
@@ -647,45 +678,59 @@ export const PresupuestoEditor: React.FC<PresupuestoEditorProps> = ({
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col rounded-2xl border border-outline-variant/30 overflow-hidden shadow-xs bg-surface">
-        <TreeSheetView
-          ref={treeSheetRef}
-          items={items}
-          setItems={setItems}
-          capitulos={capitulos}
-          setCapitulos={setCapitulos}
-          calculosVariables={calculosVariables}
-          setCalculosVariables={setCalculosVariables}
-          calculatedCells={calculatedCells}
-          setCalculatedCells={setCalculatedCells}
-          gastosConfig={gastosConfig}
-          setGastosConfig={setGastosConfig}
-          totales={totales}
-          tareasTipo={tareasTipo}
-          insumosMap={insumosMap}
-          manoObraMap={manoObraMap}
-          margenPorcentaje={margenPorcentaje}
-          onUpdateMargenPorcentaje={setMargenPorcentaje}
-          nivelMargenRiesgo={nivelMargenRiesgo}
-          margenRiesgoPorcentaje={margenRiesgoPorcentaje}
-          onUpdateMargenRiesgo={(nivel, pct) => {
-            setNivelMargenRiesgo(nivel);
-            setMargenRiesgoPorcentaje(pct);
-          }}
-          tipoFactura={tipoFactura}
-          onUpdateTipoFactura={handleTipoFacturaChange}
-          impuestosDetalle={impuestosDetalle}
-          onToggleTax={handleToggleTax}
-          onUpdateTaxPct={handleUpdateTaxPct}
-          onOpenParametricJobModal={(tarea, itemIndex, targetChapterId) => {
-            if (itemIndex !== undefined && itemIndex !== null) {
-              handleOpenParametricModalForExistingItem(itemIndex);
-            } else {
-              handleOpenParametricModalForNewTask(tarea, targetChapterId);
-            }
-          }}
-          onSaveAsTareaTipo={handleSaveAsTemplateAction}
-          onSaveDraft={() => handleSavePresupuesto('borrador')}
-        />
+        {editorMode === 'smart' ? (
+          <SmartSheetView
+            items={items}
+            setItems={setItems}
+            capitulos={capitulos}
+            totales={totales}
+            calculosVariables={calculosVariables}
+            onToggleClassicView={() => setEditorMode('classic')}
+            tareasTipo={tareasTipo}
+            insumosMap={insumosMap}
+            manoObraMap={manoObraMap}
+          />
+        ) : (
+          <TreeSheetView
+            ref={treeSheetRef}
+            items={items}
+            setItems={setItems}
+            capitulos={capitulos}
+            setCapitulos={setCapitulos}
+            calculosVariables={calculosVariables}
+            setCalculosVariables={setCalculosVariables}
+            calculatedCells={calculatedCells}
+            setCalculatedCells={setCalculatedCells}
+            gastosConfig={gastosConfig}
+            setGastosConfig={setGastosConfig}
+            totales={totales}
+            tareasTipo={tareasTipo}
+            insumosMap={insumosMap}
+            manoObraMap={manoObraMap}
+            margenPorcentaje={margenPorcentaje}
+            onUpdateMargenPorcentaje={setMargenPorcentaje}
+            nivelMargenRiesgo={nivelMargenRiesgo}
+            margenRiesgoPorcentaje={margenRiesgoPorcentaje}
+            onUpdateMargenRiesgo={(nivel, pct) => {
+              setNivelMargenRiesgo(nivel);
+              setMargenRiesgoPorcentaje(pct);
+            }}
+            tipoFactura={tipoFactura}
+            onUpdateTipoFactura={handleTipoFacturaChange}
+            impuestosDetalle={impuestosDetalle}
+            onToggleTax={handleToggleTax}
+            onUpdateTaxPct={handleUpdateTaxPct}
+            onOpenParametricJobModal={(tarea, itemIndex, targetChapterId) => {
+              if (itemIndex !== undefined && itemIndex !== null) {
+                handleOpenParametricModalForExistingItem(itemIndex);
+              } else {
+                handleOpenParametricModalForNewTask(tarea, targetChapterId);
+              }
+            }}
+            onSaveAsTareaTipo={handleSaveAsTemplateAction}
+            onSaveDraft={() => handleSavePresupuesto('borrador')}
+          />
+        )}
       </div>
 
       {/* Consolidated Editor Modals */}
