@@ -1613,7 +1613,7 @@ function buildSmartMaterialSuggestions(
   replaceStart: number,
   safeCol: number,
   ctx: NotebookDocumentContext,
-  options: { prefixPlus?: boolean; insertOnNewIndentedLine?: boolean } = {}
+  options: { prefixPlus?: boolean; insertOnNewIndentedLine?: boolean; parentIndent?: number } = {}
 ): NotebookAutocompleteSuggestion[] {
   const { insumosMap } = buildMaps(ctx);
   const { qty, unitHint, cleanQuery } = extractInlineQuantityHint(rawQuery);
@@ -1625,6 +1625,10 @@ function buildSmartMaterialSuggestions(
     productosByMat.set(p.materialId, list);
   }
 
+  const childIndentStr = options.insertOnNewIndentedLine
+    ? '  '
+    : ' '.repeat((options.parentIndent ?? 2) + 2);
+
   const out: NotebookAutocompleteSuggestion[] = [];
   for (const m of ctx.materiales) {
     if (m.deleted || m.activo === false) continue;
@@ -1634,12 +1638,15 @@ function buildSmartMaterialSuggestions(
 
     const unidad = unitHint || m.unidadVenta || 'u';
     const qtyText = qty || '1';
-    const prefix = options.prefixPlus ? '+' : '';
-    const baseName = `${prefix}${m.nombre}  `;
-    const insertText = `${baseName}${qtyText}${unidad}`;
+    const prefix = options.prefixPlus ? '+' : 'mat: ';
+    const headerLine = `${prefix}${m.nombre}`;
+    const qtyPrefix = `${childIndentStr}cantidad = `;
+    const qtyLine = `${qtyPrefix}${qtyText}${unidad}`;
+    const insertText = `${headerLine}\n${qtyLine}`;
     const hasExplicitQty = qty !== undefined;
-    const selStart = hasExplicitQty ? insertText.length : baseName.length;
-    const selEnd = hasExplicitQty ? insertText.length : baseName.length + qtyText.length;
+    const qtyOffsetBase = headerLine.length + 1 + qtyPrefix.length;
+    const selStart = hasExplicitQty ? insertText.length : qtyOffsetBase;
+    const selEnd = hasExplicitQty ? insertText.length : qtyOffsetBase + qtyText.length;
 
     const matchesPrefix =
       !options.prefixPlus &&
@@ -1657,7 +1664,7 @@ function buildSmartMaterialSuggestions(
       selectionStartOffset: selStart,
       selectionEndOffset: selEnd,
       insertOnNewIndentedLine: options.insertOnNewIndentedLine,
-      ghostText: matchesPrefix ? `${m.nombre.slice(cleanQuery.length)}  ${qtyText}${unidad}` : undefined,
+      ghostText: matchesPrefix ? m.nombre.slice(cleanQuery.length) : undefined,
       frecuenciaUso: m.frecuenciaUso ?? 0,
       score: sc
     });
@@ -1706,6 +1713,37 @@ function buildTopLevelSuggestions(
     }
   }
   return out.sort((a, b) => b.score - a.score);
+}
+
+interface EnclosingSubItemInfo {
+  kind: 'material' | 'agregado' | 'mano_obra' | 'servicio';
+  indent: number;
+  headerLine: string;
+}
+
+function findEnclosingSubItemInfo(lines: string[], linea1Based: number): EnclosingSubItemInfo | null {
+  const curIdx = Math.max(0, Math.min(linea1Based - 1, lines.length - 1));
+  const curRaw = lines[curIdx] ?? '';
+  const curIndent = curRaw.length - curRaw.trimStart().length;
+  if (curIndent === 0) return null;
+
+  for (let i = curIdx - 1; i >= 0; i--) {
+    const raw = lines[i];
+    if (!raw.trim()) return null;
+    const indent = raw.length - raw.trimStart().length;
+    if (indent === 0) return null;
+    if (indent < curIndent) {
+      const t = raw.trim();
+      if (/^mo:/i.test(t)) return { kind: 'mano_obra', indent, headerLine: t };
+      if (/^serv:/i.test(t)) return { kind: 'servicio', indent, headerLine: t };
+      if (t.startsWith('+')) return { kind: 'agregado', indent, headerLine: t };
+      if (/^mat:/i.test(t) || (!t.startsWith('-') && !/^[a-zA-Z_][\w-]*\s*=/.test(t))) {
+        return { kind: 'material', indent, headerLine: t };
+      }
+      return null;
+    }
+  }
+  return null;
 }
 
 function findTareaTipoFromLine(headerLine: string, tareasTipo: TareaTipo[]): TareaTipo | undefined {
@@ -1763,34 +1801,144 @@ export function getContextualAutocompleteSuggestions(
     ? findEnclosingItemBlockInfo(lines, linea1Based)
     : null;
 
-  // Nivel 1: sub-línea indentada dentro de un ítem (`tarea:`, `/tt`, `item:`)
+  // Nivel 1 y Nivel 2: sub-línea indentada dentro de un ítem (`tarea:`, `/tt`, `item:`) o sub-ítem (`mat:`, `+`, `mo:`, `serv:`)
   if (enclosingBlock !== null) {
     const inner = trimmedBefore.toLowerCase();
+    const enclosingSub = findEnclosingSubItemInfo(lines, linea1Based);
     const tareaEnclosing =
       enclosingBlock.kind === 'tt' ? findTareaTipoFromLine(enclosingBlock.headerLine, ctx.tareasTipo) : undefined;
 
-    if (inner.startsWith('mo:')) {
+    // Nivel 2: atributos indentados debajo de `mat:`, `+Material`, `mo:` o `serv:`
+    if (enclosingSub !== null) {
+      const brandMatch = trimmedBefore.match(/^(marca|producto)\s*=\s*(.*)$/i);
+      if (brandMatch && (enclosingSub.kind === 'material' || enclosingSub.kind === 'agregado')) {
+        const prodQuery = brandMatch[2].trimStart();
+        const eqIdx = beforeCursor.indexOf('=');
+        const valStart = eqIdx + 1 + (beforeCursor.slice(eqIdx + 1).length - prodQuery.length);
+        const matHeaderClean = enclosingSub.headerLine
+          .replace(/^(?:mat:|\+)\s*/i, '')
+          .replace(/\[[^\]]*\]/, '')
+          .trim();
+        const matMatches = buildSmartMaterialSuggestions(matHeaderClean, indentLen, safeCol, ctx);
+        const topMatId = matMatches[0]?.id.replace(/^(mat|add)-/, '');
+        const matObj = ctx.materiales.find(m => m.id === topMatId);
+        const unidad = matObj?.unidadVenta || 'u';
+        const prods = (ctx.productos ?? []).filter(
+          p => !p.deleted && p.activo !== false && (!topMatId || p.materialId === topMatId)
+        );
+        suggestions = prods
+          .map(p => {
+            const label = `${p.marca} ${p.modelo}`.trim();
+            const sc = fuzzyMatchScore(prodQuery, label);
+            if (sc === null) return null;
+            const prodOffer = (ctx.ofertas ?? [])
+              .filter(o => o.productoId === p.id)
+              .sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
+            const detailParts = [p.esPreferido ? 'Preferido' : 'Producto'];
+            if (prodOffer) detailParts.push(`$${Math.round(prodOffer.precio).toLocaleString('es-AR')}/${unidad}`);
+            const insertText = prodQuery ? label : ` ${label}`;
+            return {
+              id: `prod-${p.id}`,
+              kind: 'producto' as AutocompleteKind,
+              label,
+              detail: detailParts.join(' · '),
+              insertText,
+              replaceStartCol: prodQuery ? valStart + 1 : safeCol + 1,
+              replaceEndCol: safeCol + 1,
+              ghostText: label.toLowerCase().startsWith(prodQuery.toLowerCase())
+                ? label.slice(prodQuery.length)
+                : undefined,
+              frecuenciaUso: p.esPreferido ? 10 : 1,
+              score: sc + (p.esPreferido ? 150 : 0)
+            };
+          })
+          .filter((x): x is NonNullable<typeof x> => x !== null);
+      } else if (/^[a-zA-Z_][\w-]*\s*=\s*/.test(trimmedBefore)) {
+        const eqIdx = beforeCursor.indexOf('=');
+        const valQuery = beforeCursor.slice(eqIdx + 1).trimStart();
+        const valStart = beforeCursor.length - valQuery.length;
+        suggestions = variablesExistentes
+          .map(v => {
+            const sc = fuzzyMatchScore(valQuery, v);
+            if (sc === null) return null;
+            return {
+              id: `var-child-${v}`,
+              kind: 'variable' as AutocompleteKind,
+              label: v,
+              detail: 'Variable de cotización',
+              insertText: valQuery ? v : ` ${v}`,
+              replaceStartCol: valQuery ? valStart + 1 : safeCol + 1,
+              replaceEndCol: safeCol + 1,
+              ghostText: v.startsWith(valQuery) ? v.slice(valQuery.length) : undefined,
+              frecuenciaUso: 5,
+              score: sc
+            };
+          })
+          .filter((x): x is NonNullable<typeof x> => x !== null);
+      } else if (trimmedBefore.length >= 1 || forceOpen) {
+        const matHeaderClean = enclosingSub.headerLine
+          .replace(/^(?:mat:|\+)\s*/i, '')
+          .replace(/\[[^\]]*\]/, '')
+          .trim();
+        const matObj = ctx.materiales.find(m => normalizeSearch(m.nombre) === normalizeSearch(matHeaderClean));
+        const unidad = matObj?.unidadVenta || 'u';
+        const attrDefs =
+          enclosingSub.kind === 'material' || enclosingSub.kind === 'agregado'
+            ? [
+                { id: 'marca', insertText: 'marca = ', detail: 'Especificar marca o producto del catálogo', selOffset: 8, selEnd: 8 },
+                { id: 'cantidad', insertText: `cantidad = 1${unidad}`, detail: `Cantidad del material (${unidad})`, selOffset: 11, selEnd: 12 }
+              ]
+            : enclosingSub.kind === 'mano_obra'
+              ? [{ id: 'horas', insertText: 'horas = 2hs', detail: 'Horas de mano de obra', selOffset: 8, selEnd: 9 }]
+              : [
+                  { id: 'cantidad', insertText: 'cantidad = 1gl', detail: 'Cantidad del servicio', selOffset: 11, selEnd: 12 },
+                  { id: 'costo', insertText: 'costo = 0', detail: 'Costo unitario del servicio', selOffset: 8, selEnd: 9 }
+                ];
+        suggestions = attrDefs
+          .map(attr => {
+            const sc = fuzzyMatchScore(trimmedBefore, attr.id);
+            if (sc === null) return null;
+            return {
+              id: `subattr-${attr.id}`,
+              kind: 'parametro' as AutocompleteKind,
+              label: attr.insertText.trim(),
+              detail: attr.detail,
+              insertText: attr.insertText,
+              replaceStartCol: indentLen + 1,
+              replaceEndCol: safeCol + 1,
+              selectionStartOffset: attr.selOffset,
+              selectionEndOffset: attr.selEnd,
+              ghostText: attr.insertText.startsWith(trimmedBefore)
+                ? attr.insertText.slice(trimmedBefore.length)
+                : undefined,
+              frecuenciaUso: 10,
+              score: sc + 100
+            };
+          })
+          .filter((x): x is NonNullable<typeof x> => x !== null);
+      }
+    } else if (inner.startsWith('mo:')) {
       const q = trimmedBefore.slice(3).trim();
-      const replaceStart = beforeCursor.toLowerCase().indexOf('mo:') + 3;
+      const childIndentStr = ' '.repeat(indentLen + 2);
       suggestions = ctx.manoObra
         .map(m => {
           const sc = fuzzyMatchScore(q, m.nombre);
           if (sc === null) return null;
-          const base = ` ${m.nombre}  `;
-          const insertText = `${base}2hs`;
+          const headerLine = `mo: ${m.nombre}`;
+          const hoursPrefix = `${childIndentStr}horas = `;
+          const insertText = `${headerLine}\n${hoursPrefix}2hs`;
+          const selStart = headerLine.length + 1 + hoursPrefix.length;
           return {
             id: `mo-${m.id}`,
             kind: 'mano_obra' as AutocompleteKind,
             label: m.nombre,
             detail: `$${safeNum(m.costoHora).toLocaleString('es-AR')}/h`,
             insertText,
-            replaceStartCol: replaceStart + 1,
+            replaceStartCol: indentLen + 1,
             replaceEndCol: safeCol + 1,
-            selectionStartOffset: base.length,
-            selectionEndOffset: base.length + 1,
-            ghostText: m.nombre.toLowerCase().startsWith(q.toLowerCase())
-              ? `${m.nombre.slice(q.length)}  2hs`
-              : undefined,
+            selectionStartOffset: selStart,
+            selectionEndOffset: selStart + 1,
+            ghostText: m.nombre.toLowerCase().startsWith(q.toLowerCase()) ? m.nombre.slice(q.length) : undefined,
             frecuenciaUso: 0,
             score: sc
           };
@@ -1893,10 +2041,13 @@ export function getContextualAutocompleteSuggestions(
         .filter((x): x is NonNullable<typeof x> => x !== null);
     } else if (enclosingBlock.kind === 'tt' && trimmedBefore.startsWith('+')) {
       const q = trimmedBefore.slice(1).trim();
-      suggestions = buildSmartMaterialSuggestions(q, indentLen, safeCol, ctx, { prefixPlus: true });
+      suggestions = buildSmartMaterialSuggestions(q, indentLen, safeCol, ctx, {
+        prefixPlus: true,
+        parentIndent: indentLen
+      });
     } else if (trimmedBefore.length >= 1 || forceOpen) {
       const q = trimmedBefore.replace(/^mat:\s*/i, '');
-      const matSugs = buildSmartMaterialSuggestions(q, indentLen, safeCol, ctx);
+      const matSugs = buildSmartMaterialSuggestions(q, indentLen, safeCol, ctx, { parentIndent: indentLen });
       suggestions.push(...matSugs);
 
       // En /tt también sugerimos parámetros faltantes en sub-línea indentada
@@ -1925,18 +2076,63 @@ export function getContextualAutocompleteSuggestions(
         }
       }
 
-      // También sugerir prefijo mo: cuando empieza a escribir "mo" o en forceOpen
+      // En `item:` sugerir atributos indentados cantidad / precio si aún no están presentes
+      if (enclosingBlock.kind === 'item') {
+        const yaPresentes = collectPresentKeysInBlock(lines, enclosingBlock.startIdx);
+        const itemAttrs = [
+          { id: 'cantidad', insertText: 'cantidad = 1u', detail: 'Cantidad del ítem libre', selStart: 11, selEnd: 12 },
+          { id: 'precio', insertText: 'precio = 0', detail: 'Precio unitario del ítem libre', selStart: 9, selEnd: 10 }
+        ];
+        for (const attr of itemAttrs) {
+          if (yaPresentes.has(attr.id)) continue;
+          const sc = fuzzyMatchScore(trimmedBefore, attr.id);
+          if (sc === null) continue;
+          suggestions.push({
+            id: `itemattr-${attr.id}`,
+            kind: 'parametro',
+            label: attr.insertText,
+            detail: attr.detail,
+            insertText: attr.insertText,
+            replaceStartCol: indentLen + 1,
+            replaceEndCol: safeCol + 1,
+            selectionStartOffset: attr.selStart,
+            selectionEndOffset: attr.selEnd,
+            ghostText: attr.insertText.startsWith(trimmedBefore) ? attr.insertText.slice(trimmedBefore.length) : undefined,
+            frecuenciaUso: 8,
+            score: sc + 130
+          });
+        }
+      }
+
+      // También sugerir prefijo mo: y serv: cuando empieza a escribirlo o en forceOpen
       if (trimmedBefore === '' || 'mo:'.startsWith(inner)) {
         suggestions.push({
           id: 'sub-cmd-mo',
           kind: 'comando',
           label: 'mo: ',
-          detail: 'Agregar mano de obra (horas)',
+          detail: 'Agregar mano de obra (con horas indentadas)',
           insertText: 'mo: ',
           replaceStartCol: indentLen + 1,
           replaceEndCol: safeCol + 1,
           frecuenciaUso: 4,
           score: trimmedBefore ? 700 : 30
+        });
+      }
+      if (trimmedBefore === '' || 'serv:'.startsWith(inner)) {
+        const childIndentStr = ' '.repeat(indentLen + 2);
+        const servText = `serv: Descripción\n${childIndentStr}cantidad = 1gl\n${childIndentStr}costo = 0`;
+        suggestions.push({
+          id: 'sub-cmd-serv',
+          kind: 'comando',
+          label: 'serv: ',
+          detail: 'Agregar servicio o subcontrato indentado',
+          insertText: servText,
+          replaceStartCol: indentLen + 1,
+          replaceEndCol: safeCol + 1,
+          selectionStartOffset: 6,
+          selectionEndOffset: 'serv: Descripción'.length,
+          frecuenciaUso: 3,
+          score: trimmedBefore ? 680 : 25
         });
       }
     }
@@ -2208,11 +2404,20 @@ function collectBlockEditableSlots(lines: string[], rootIdx: number, endIdx: num
     }
 
     if (!isRoot && /^[ \t]+/.test(line)) {
-      // 1. Sub-línea parámetro: `  sup = 60`
+      // 1. Sub-línea parámetro o atributo hijo: `  sup = 60`, `    cantidad = 120m`, `    horas = 2hs`
       const paramMatch = line.match(/^\s*([a-zA-Z_][a-zA-Z0-9_-]*)\s*=\s*(.+?)\s*$/);
       if (paramMatch) {
-        const valStr = paramMatch[2];
-        const valIdx = line.lastIndexOf(valStr);
+        const keyLower = paramMatch[1].toLowerCase();
+        const rawVal = paramMatch[2];
+        let valStr = rawVal;
+        if (keyLower === 'cantidad' || keyLower === 'horas') {
+          const numUnit = rawVal.match(/^(\d+(?:[.,]\d+)?|\([^)]+\))([a-zA-Z²]+)$/);
+          if (numUnit) {
+            valStr = numUnit[1];
+          }
+        }
+        const eqPos = line.indexOf('=');
+        const valIdx = line.indexOf(rawVal, eqPos >= 0 ? eqPos + 1 : 0);
         slots.push({
           linea: lineNum,
           valStart1Based: valIdx + 1,
@@ -2222,7 +2427,7 @@ function collectBlockEditableSlots(lines: string[], rootIdx: number, endIdx: num
         continue;
       }
 
-      // 2. Sub-línea material / +material / mo: con cantidad al final
+      // 2. Sub-línea material / +material / mo: con cantidad inline al final (compatibilidad con entrada manual)
       const qtyMatch = line.match(/^(.*?\s)(\d+(?:[.,]\d+)?|\([^)]+\))([a-zA-Z²]+)\s*$/);
       if (qtyMatch && !trimmed.startsWith('-')) {
         const valStr = qtyMatch[2];
@@ -2383,8 +2588,8 @@ export function buildNotebookCommandPalette(
     },
     {
       id: 'cmd-new-item-libre',
-      label: 'Nuevo ítem libre compacto',
-      description: 'Inserta item: descripción cantidad unidad precio',
+      label: 'Nuevo ítem libre',
+      description: 'Inserta bloque item: con cantidad y precio indentados',
       category: 'estructura',
       keywords: ['item', 'libre', 'rapido'],
       insertLine: 'item: ',
@@ -2616,7 +2821,7 @@ export function construirLineaItemLibreRapido(
   const descLimpia = descripcion.trim().replace(/\s+/g, ' ');
   const cantVal = Math.max(0.01, safeNum(cantidad) || 1);
   const precioVal = Math.max(0, safeNum(precioUnitario));
-  return `item: ${descLimpia}  ${cantVal} u  ${precioVal}`;
+  return `item: ${descLimpia}\n  cantidad = ${cantVal}u\n  precio = ${precioVal}`;
 }
 
 /**

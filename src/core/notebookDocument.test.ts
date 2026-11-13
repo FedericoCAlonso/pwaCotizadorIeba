@@ -402,7 +402,7 @@ describe('notebookDocument', () => {
     expect(actualizada).toBe('/tt recableado-completo  sup=75  bocas=20  -extra');
 
     const libre = construirLineaItemLibreRapido('Visita técnica   en obra', 2, 15000);
-    expect(libre).toBe('item: Visita técnica en obra  2 u  15000');
+    expect(libre).toBe('item: Visita técnica en obra\n  cantidad = 2u\n  precio = 15000');
 
     const doc = ['/tt recableado-completo  bocas=10', '  cable 2.5mm celeste  20m', libre].join('\n');
     const sinPrimero = eliminarBloqueEnLinea(doc, 1);
@@ -421,18 +421,41 @@ describe('notebookDocument', () => {
     expect(forcedAc.isOpen).toBe(true);
     expect(forcedAc.suggestions.some(s => s.insertText === '/tt ')).toBe(true);
 
-    // Búsqueda inteligente de materiales: tokens desordenados + cantidad inline
+    // Búsqueda inteligente de materiales: tokens desordenados + cantidad indentada debajo
     const matSmart = getContextualAutocompleteSuggestions('tarea: Tablero\n  celeste 2.5 25m', 2, 18, contexto);
     expect(matSmart.isOpen).toBe(true);
     expect(matSmart.suggestions[0].kind).toBe('material');
-    expect(matSmart.suggestions[0].insertText).toBe('Cable 2.5mm Celeste  25m');
+    expect(matSmart.suggestions[0].insertText).toBe('mat: Cable 2.5mm Celeste\n    cantidad = 25m');
     expect(matSmart.suggestions[0].detail).toContain('Prysmian');
 
-    // Autocompletado de [Marca Modelo]
-    const prodAc = getContextualAutocompleteSuggestions('tarea: Tablero\n  Cable 2.5mm Celeste [Prys', 2, 28, contexto);
-    expect(prodAc.isOpen).toBe(true);
-    expect(prodAc.suggestions[0].kind).toBe('producto');
-    expect(prodAc.suggestions[0].insertText).toContain('Prysmian Superastic]');
+    // Autocompletado de mano de obra indentado (mo: -> horas = 2hs)
+    const moAc = getContextualAutocompleteSuggestions('tarea: Tablero\n  mo: ofi', 2, 10, contexto);
+    expect(moAc.isOpen).toBe(true);
+    expect(moAc.suggestions[0].kind).toBe('mano_obra');
+    expect(moAc.suggestions[0].insertText).toBe('mo: Oficial Electricista\n    horas = 2hs');
+
+    // Autocompletado de atributo hijo nivel 2 (`marca = ` debajo de `mat:`)
+    const brandChildAc = getContextualAutocompleteSuggestions(
+      'tarea: Tablero\n  mat: Cable 2.5mm Celeste\n    marca = Prys',
+      3,
+      17,
+      contexto
+    );
+    expect(brandChildAc.isOpen).toBe(true);
+    expect(brandChildAc.suggestions[0].kind).toBe('producto');
+    expect(brandChildAc.suggestions[0].insertText).toBe('Prysmian Superastic');
+
+    // Tab selecciona sólo el número (sin unidad) en cantidad = 25m / horas = 4.5hs
+    const matTabDoc = 'tarea: Tablero\n  mat: Cable 2.5mm Celeste\n    cantidad = 25m\n  mo: Oficial\n    horas = 4.5hs';
+    const tabQty = findNextParameterSlotInDocument(matTabDoc, 2, 5, 1);
+    expect(tabQty.handled).toBe(true);
+    expect(tabQty.linea).toBe(3);
+    expect(matTabDoc.split('\n')[2].slice((tabQty.selectionStartCol ?? 1) - 1, (tabQty.selectionEndCol ?? 1) - 1)).toBe('25');
+
+    const tabHrs = findNextParameterSlotInDocument(matTabDoc, 3, tabQty.columna, 1);
+    expect(tabHrs.handled).toBe(true);
+    expect(tabHrs.linea).toBe(5);
+    expect(matTabDoc.split('\n')[4].slice((tabHrs.selectionStartCol ?? 1) - 1, (tabHrs.selectionEndCol ?? 1) - 1)).toBe('4.5');
 
     // Tab y Shift+Tab saltan entre sub-líneas indentadas de un bloque /tt
     const multilineDoc = '/tt recableado-completo\n  sup = 60\n  bocas = 24';

@@ -318,7 +318,7 @@ function parseQuantityUnitPair(
 }
 
 function splitAttachedQuantityUnit(token: string): { qty: string; unit: string } | null {
-  const mNum = token.match(/^(-?\d+(?:[.,]\d+)?)([a-zA-Z²]+)$/);
+  const mNum = token.match(/^(-?\d+(?:[.,]\d+)?)([a-zA-Z²_]+)$/);
   if (mNum) {
     return { qty: mNum[1], unit: mNum[2] };
   }
@@ -331,7 +331,7 @@ function splitAttachedQuantityUnit(token: string): { qty: string; unit: string }
         if (depth === 0) {
           const qty = token.slice(0, i + 1);
           const unit = token.slice(i + 1);
-          if (/^[a-zA-Z²]+$/.test(unit)) {
+          if (/^[a-zA-Z²_]+$/.test(unit)) {
             return { qty, unit };
           }
           return null;
@@ -562,6 +562,63 @@ function extractTrailingQuantityUnit(
   return { ok: true, value: parsedQtyUnit.value, prefixTokens };
 }
 
+function looksLikeTrailingQtyAttempt(tokens: TokenWithPos[], validUnits: Map<string, string>): boolean {
+  if (tokens.length === 0) return false;
+  const last = tokens[tokens.length - 1].text;
+  if (splitAttachedQuantityUnit(last)) return true;
+  if (tokens.length >= 2) {
+    const prev = tokens[tokens.length - 2].text;
+    const prevIsNumOrFormula =
+      /^-?\d+(?:[.,]\d+)?$/.test(prev) || (prev.startsWith('(') && prev.endsWith(')'));
+    if (prevIsNumOrFormula && (/^[a-zA-Z²_]+$/.test(last) || validUnits.has(normalizeText(last)))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function resolveProductAttachment(
+  productoRef: string,
+  materialId: string,
+  materialNombre: string,
+  productos: Producto[],
+  lineNum: number,
+  colOffset: number,
+  longitud: number,
+  rawLine: string
+): { productoId?: string; productoReferencia?: string; error?: NotebookParseError } {
+  const prodLookup = resolverProducto(productoRef, materialId, productos);
+  if (prodLookup.status === 'not_found') {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud,
+        codigo: 'producto_inexistente',
+        mensaje: `Producto/marca '${productoRef}' no encontrado para '${materialNombre}'.`,
+        textoLinea: rawLine,
+      },
+    };
+  }
+  if (prodLookup.status === 'ambiguous') {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud,
+        codigo: 'producto_ambiguo',
+        mensaje: `Producto ambiguo '${productoRef}' para '${materialNombre}'.`,
+        textoLinea: rawLine,
+        candidatos: prodLookup.candidatos.map((p) => `${p.marca} ${p.modelo}`.trim()),
+      },
+    };
+  }
+  return {
+    productoId: prodLookup.item.id,
+    productoReferencia: `${prodLookup.item.marca} ${prodLookup.item.modelo}`.trim(),
+  };
+}
+
 function parseMaterialLineContent(
   rawContent: string,
   lineNum: number,
@@ -571,31 +628,35 @@ function parseMaterialLineContent(
   validUnits: Map<string, string>
 ): { linea?: NotebookMaterialLinea; error?: NotebookParseError } {
   const tokens = tokenizeLineWithPos(rawContent, 0);
-  if (tokens.length < 2) {
+  if (tokens.length === 0) {
     return {
       error: {
         linea: lineNum,
         columna: colOffset,
-        longitud: rawContent.length,
+        longitud: Math.max(1, rawContent.length),
         codigo: 'sintaxis_invalida',
-        mensaje: 'Línea de material incompleta. Formato esperado: <material>  <cantidad><unidad>',
+        mensaje: 'Falta especificar el nombre o referencia del material.',
         textoLinea: rawLine,
       },
     };
   }
 
-  const qtyRes = extractTrailingQuantityUnit(
-    tokens,
-    validUnits,
-    lineNum,
-    colOffset,
-    rawLine,
-    `Falta cantidad y unidad válidas al final de la línea '${rawContent}'.`
-  );
-  if (!qtyRes.ok) return { error: qtyRes.error };
+  let parsedQty: ParsedQuantityUnit | undefined;
+  let refTokens = tokens;
 
-  const parsedQtyUnit = { value: qtyRes.value };
-  const refTokens = qtyRes.prefixTokens;
+  if (looksLikeTrailingQtyAttempt(tokens, validUnits)) {
+    const qtyRes = extractTrailingQuantityUnit(
+      tokens,
+      validUnits,
+      lineNum,
+      colOffset,
+      rawLine,
+      `Falta cantidad y unidad válidas al final de la línea '${rawContent}'.`
+    );
+    if (!qtyRes.ok) return { error: qtyRes.error };
+    parsedQty = qtyRes.value;
+    refTokens = qtyRes.prefixTokens;
+  }
 
   let refText = refTokens.map((t) => t.text).join(' ').trim();
   let productoRef: string | undefined;
@@ -648,35 +709,25 @@ function parseMaterialLineContent(
   let productoId: string | undefined;
   let productoNombre: string | undefined;
   if (productoRef) {
-    const prodLookup = resolverProducto(productoRef, matLookup.item.id, contexto.productos ?? []);
-    if (prodLookup.status === 'not_found') {
-      return {
-        error: {
-          linea: lineNum,
-          columna: colOffset,
-          longitud: refText.length,
-          codigo: 'producto_inexistente',
-          mensaje: `Producto/marca '${productoRef}' no encontrado para '${matLookup.item.nombre}'.`,
-          textoLinea: rawLine,
-        },
-      };
-    }
-    if (prodLookup.status === 'ambiguous') {
-      return {
-        error: {
-          linea: lineNum,
-          columna: colOffset,
-          longitud: refText.length,
-          codigo: 'producto_ambiguo',
-          mensaje: `Producto ambiguo '${productoRef}' para '${matLookup.item.nombre}'.`,
-          textoLinea: rawLine,
-          candidatos: prodLookup.candidatos.map((p) => `${p.marca} ${p.modelo}`.trim()),
-        },
-      };
-    }
-    productoId = prodLookup.item.id;
-    productoNombre = `${prodLookup.item.marca} ${prodLookup.item.modelo}`.trim();
+    const prodRes = resolveProductAttachment(
+      productoRef,
+      matLookup.item.id,
+      matLookup.item.nombre,
+      contexto.productos ?? [],
+      lineNum,
+      colOffset,
+      refText.length,
+      rawLine
+    );
+    if (prodRes.error) return { error: prodRes.error };
+    productoId = prodRes.productoId;
+    productoNombre = prodRes.productoReferencia;
   }
+
+  const finalQty: ParsedQuantityUnit = parsedQty ?? {
+    cantidad: 1,
+    unidad: matLookup.item.unidadVenta || 'u',
+  };
 
   return {
     linea: {
@@ -684,11 +735,11 @@ function parseMaterialLineContent(
       referencia: matLookup.item.nombre,
       materialId: matLookup.item.id,
       ...(productoId ? { productoId, productoReferencia: productoNombre } : {}),
-      ...(parsedQtyUnit.value.cantidad !== undefined ? { cantidad: parsedQtyUnit.value.cantidad } : {}),
-      ...(parsedQtyUnit.value.formulaCantidad !== undefined
-        ? { formulaCantidad: parsedQtyUnit.value.formulaCantidad }
+      ...(finalQty.cantidad !== undefined ? { cantidad: finalQty.cantidad } : {}),
+      ...(finalQty.formulaCantidad !== undefined
+        ? { formulaCantidad: finalQty.formulaCantidad }
         : {}),
-      unidad: parsedQtyUnit.value.unidad,
+      unidad: finalQty.unidad,
     },
   };
 }
@@ -701,14 +752,14 @@ function parseManoObraLineContent(
   contexto: NotebookParseContext
 ): { linea?: NotebookManoObraLinea; error?: NotebookParseError } {
   const tokens = tokenizeLineWithPos(rawContent, 0);
-  if (tokens.length < 2) {
+  if (tokens.length === 0) {
     return {
       error: {
         linea: lineNum,
         columna: colOffset,
-        longitud: rawContent.length,
+        longitud: Math.max(1, rawContent.length),
         codigo: 'sintaxis_invalida',
-        mensaje: 'Formato inválido en mo:. Esperado: mo: <categoría>  <horas>h',
+        mensaje: 'Falta especificar la categoría de mano de obra después de mo:.',
         textoLinea: rawLine,
       },
     };
@@ -718,24 +769,30 @@ function parseManoObraLineContent(
     ['h', 'h'],
     ['hs', 'hs'],
   ]);
-  const qtyRes = extractTrailingQuantityUnit(
-    tokens,
-    moUnits,
-    lineNum,
-    colOffset,
-    rawLine,
-    `Se esperaba duración en horas ('h' o 'hs') al final de '${rawContent}'.`
-  );
-  if (!qtyRes.ok) {
-    return {
-      error:
-        tokens.length < 3 && !splitAttachedQuantityUnit(tokens[tokens.length - 1].text)
-          ? { ...qtyRes.error, codigo: 'unidad_desconocida' }
-          : qtyRes.error,
-    };
+
+  let parsedQty: ParsedQuantityUnit | undefined;
+  let refTokens = tokens;
+
+  if (looksLikeTrailingQtyAttempt(tokens, moUnits)) {
+    const qtyRes = extractTrailingQuantityUnit(
+      tokens,
+      moUnits,
+      lineNum,
+      colOffset,
+      rawLine,
+      `Se esperaba duración en horas ('h' o 'hs') al final de '${rawContent}'.`
+    );
+    if (!qtyRes.ok) {
+      return {
+        error:
+          tokens.length < 3 && !splitAttachedQuantityUnit(tokens[tokens.length - 1].text)
+            ? { ...qtyRes.error, codigo: 'unidad_desconocida' }
+            : qtyRes.error,
+      };
+    }
+    parsedQty = qtyRes.value;
+    refTokens = qtyRes.prefixTokens;
   }
-  const parsedQtyUnit = { value: qtyRes.value };
-  const refTokens = qtyRes.prefixTokens;
 
   const refText = refTokens.map((t) => t.text).join(' ').trim();
   const lookup = resolverManoObra(refText, contexto.manoObra ?? []);
@@ -765,16 +822,18 @@ function parseManoObraLineContent(
     };
   }
 
+  const finalQty: ParsedQuantityUnit = parsedQty ?? { cantidad: 1, unidad: 'hs' };
+
   return {
     linea: {
       tipo: 'mano_obra',
       referencia: lookup.item.nombre,
       categoriaId: lookup.item.id,
-      ...(parsedQtyUnit.value.cantidad !== undefined ? { horas: parsedQtyUnit.value.cantidad } : {}),
-      ...(parsedQtyUnit.value.formulaCantidad !== undefined
-        ? { formulaHoras: parsedQtyUnit.value.formulaCantidad }
+      ...(finalQty.cantidad !== undefined ? { horas: finalQty.cantidad } : {}),
+      ...(finalQty.formulaCantidad !== undefined
+        ? { formulaHoras: finalQty.formulaCantidad }
         : {}),
-      unidad: parsedQtyUnit.value.unidad as 'h' | 'hs',
+      unidad: finalQty.unidad as 'h' | 'hs',
     },
   };
 }
@@ -805,6 +864,35 @@ function parseServicioLineContent(
   validUnits: Map<string, string>
 ): { linea?: NotebookServicioLinea; error?: NotebookParseError } {
   const tokens = tokenizeLineWithPos(rawContent, 0);
+  if (tokens.length === 0) {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud: Math.max(1, rawContent.length),
+        codigo: 'sintaxis_invalida',
+        mensaje: 'Falta descripción en serv:.',
+        textoLinea: rawLine,
+      },
+    };
+  }
+
+  const lastTok = tokens[tokens.length - 1];
+  const lastIsScalarOrFormula =
+    !splitAttachedQuantityUnit(lastTok.text) && parseScalarOrFormula(lastTok.text).valid;
+
+  if (!lastIsScalarOrFormula && !looksLikeTrailingQtyAttempt(tokens, validUnits)) {
+    return {
+      linea: {
+        tipo: 'servicio',
+        descripcion: rawContent.trim(),
+        cantidad: 1,
+        unidad: 'gl',
+        costoUnitario: 0,
+      },
+    };
+  }
+
   if (tokens.length < 3) {
     return {
       error: {
@@ -818,7 +906,7 @@ function parseServicioLineContent(
     };
   }
 
-  const costToken = tokens[tokens.length - 1];
+  const costToken = lastTok;
   const costParsed = parseScalarOrFormula(costToken.text);
   if (!costParsed.valid) {
     return {
@@ -1233,14 +1321,14 @@ function parseItemLine(
   }
 
   const coreTokens = tokens.slice(0, endIdx);
-  if (coreTokens.length < 2) {
+  if (coreTokens.length === 0) {
     return {
       error: {
         linea: lineNum,
         columna: colOffset,
         longitud: rawContent.length,
-        codigo: 'cantidad_invalida',
-        mensaje: "El bloque 'item:' requiere descripción, cantidad y unidad (ej: item: Canaleta  1 gl  45000).",
+        codigo: 'sintaxis_invalida',
+        mensaje: "Falta descripción después de 'item:'.",
         textoLinea: rawLine,
       },
     };
@@ -1265,6 +1353,26 @@ function parseItemLine(
   }
 
   const qtySlice = coreTokens.slice(0, qtyEndIdx);
+  const hasInlineQty =
+    precioUnitario !== undefined ||
+    formulaPrecio !== undefined ||
+    looksLikeTrailingQtyAttempt(qtySlice, validUnits);
+
+  if (!hasInlineQty) {
+    const descripcion = coreTokens.map((t) => t.text).join(' ').trim();
+    return {
+      block: {
+        tipo: 'item_libre',
+        modo: 'item',
+        descripcion,
+        cantidad: 1,
+        unidad: 'u',
+        parametros,
+        lineas: [],
+      },
+    };
+  }
+
   if (qtySlice.length < 2) {
     return {
       error: {
@@ -1394,19 +1502,224 @@ function assignParameterValue(
   return {};
 }
 
+type SubItemParseContext =
+  | { kind: 'linea'; ref: NotebookItemLinea; indent: number }
+  | { kind: 'agregado'; ref: NotebookAjusteAgregado; indent: number };
+
+function parseValueWithOptionalUnit(
+  rawVal: string,
+  defaultUnit: string,
+  validUnits: Map<string, string>,
+  lineNum: number,
+  col: number,
+  rawLine: string
+): { value?: ParsedQuantityUnit; error?: NotebookParseError } {
+  const tokens = tokenizeLineWithPos(rawVal, 0);
+  if (tokens.length === 0) {
+    return {
+      error: {
+        linea: lineNum,
+        columna: col,
+        longitud: 1,
+        codigo: 'cantidad_invalida',
+        mensaje: 'Falta valor numérico o fórmula.',
+        textoLinea: rawLine,
+      },
+    };
+  }
+
+  if (tokens.length === 1) {
+    const attached = splitAttachedQuantityUnit(tokens[0].text);
+    if (attached) {
+      const res = parseQuantityUnitPair(attached.qty, attached.unit, validUnits);
+      if (!res.ok) {
+        return {
+          error: {
+            linea: lineNum,
+            columna: col,
+            longitud: tokens[0].text.length,
+            codigo: res.codigo,
+            mensaje: res.mensaje,
+            textoLinea: rawLine,
+          },
+        };
+      }
+      return { value: res.value };
+    }
+    const res = parseQuantityUnitPair(tokens[0].text, defaultUnit, validUnits);
+    if (!res.ok) {
+      return {
+        error: {
+          linea: lineNum,
+          columna: col,
+          longitud: tokens[0].text.length,
+          codigo: res.codigo,
+          mensaje: res.mensaje,
+          textoLinea: rawLine,
+        },
+      };
+    }
+    return { value: res.value };
+  }
+
+  const res = parseQuantityUnitPair(tokens[0].text, tokens[tokens.length - 1].text, validUnits);
+  if (!res.ok) {
+    return {
+      error: {
+        linea: lineNum,
+        columna: col,
+        longitud: rawVal.length,
+        codigo: res.codigo,
+        mensaje: res.mensaje,
+        textoLinea: rawLine,
+      },
+    };
+  }
+  return { value: res.value };
+}
+
+function parseChildSubItemLine(
+  trimmed: string,
+  subCtx: SubItemParseContext,
+  lineNum: number,
+  colStart: number,
+  rawLine: string,
+  contexto: NotebookParseContext,
+  validUnits: Map<string, string>,
+  errores: NotebookParseError[]
+): boolean {
+  const m = trimmed.match(/^([a-zA-Z_][\w-]*)\s*=\s*(.*)$/);
+  if (!m) return false;
+  const key = m[1].toLowerCase();
+  const rawVal = m[2].trim();
+
+  const matRef =
+    subCtx.kind === 'agregado' ? subCtx.ref : subCtx.ref.tipo === 'material' ? subCtx.ref : null;
+  if (matRef) {
+    if (key === 'marca' || key === 'producto') {
+      if (!rawVal) {
+        errores.push({
+          linea: lineNum,
+          columna: colStart,
+          longitud: trimmed.length,
+          codigo: 'sintaxis_invalida',
+          mensaje: `Falta especificar marca/producto después de '${key} ='.`,
+          textoLinea: rawLine,
+        });
+        return true;
+      }
+      if (!matRef.materialId) return true;
+      const prodRes = resolveProductAttachment(
+        rawVal,
+        matRef.materialId,
+        matRef.referencia,
+        contexto.productos ?? [],
+        lineNum,
+        colStart,
+        rawVal.length,
+        rawLine
+      );
+      if (prodRes.error) {
+        errores.push(prodRes.error);
+      } else {
+        matRef.productoId = prodRes.productoId;
+        matRef.productoReferencia = prodRes.productoReferencia;
+      }
+      return true;
+    }
+
+    if (key === 'cantidad') {
+      const parsed = parseValueWithOptionalUnit(rawVal, matRef.unidad || 'u', validUnits, lineNum, colStart, rawLine);
+      if (parsed.error) {
+        errores.push(parsed.error);
+      } else if (parsed.value) {
+        delete matRef.cantidad;
+        delete matRef.formulaCantidad;
+        if (parsed.value.cantidad !== undefined) matRef.cantidad = parsed.value.cantidad;
+        if (parsed.value.formulaCantidad !== undefined) matRef.formulaCantidad = parsed.value.formulaCantidad;
+        matRef.unidad = parsed.value.unidad;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  if (subCtx.kind === 'linea' && subCtx.ref.tipo === 'mano_obra') {
+    const moRef = subCtx.ref;
+    if (key === 'horas' || key === 'cantidad') {
+      const moUnits = new Map<string, string>([
+        ['h', 'h'],
+        ['hs', 'hs'],
+      ]);
+      const parsed = parseValueWithOptionalUnit(rawVal, moRef.unidad || 'hs', moUnits, lineNum, colStart, rawLine);
+      if (parsed.error) {
+        errores.push(parsed.error);
+      } else if (parsed.value) {
+        delete moRef.horas;
+        delete moRef.formulaHoras;
+        if (parsed.value.cantidad !== undefined) moRef.horas = parsed.value.cantidad;
+        if (parsed.value.formulaCantidad !== undefined) moRef.formulaHoras = parsed.value.formulaCantidad;
+        moRef.unidad = parsed.value.unidad as 'h' | 'hs';
+      }
+      return true;
+    }
+    return false;
+  }
+
+  if (subCtx.kind === 'linea' && subCtx.ref.tipo === 'servicio') {
+    const servRef = subCtx.ref;
+    if (key === 'cantidad') {
+      const parsed = parseValueWithOptionalUnit(rawVal, servRef.unidad || 'gl', validUnits, lineNum, colStart, rawLine);
+      if (parsed.error) {
+        errores.push(parsed.error);
+      } else if (parsed.value) {
+        delete servRef.cantidad;
+        delete servRef.formulaCantidad;
+        if (parsed.value.cantidad !== undefined) servRef.cantidad = parsed.value.cantidad;
+        if (parsed.value.formulaCantidad !== undefined) servRef.formulaCantidad = parsed.value.formulaCantidad;
+        servRef.unidad = parsed.value.unidad;
+      }
+      return true;
+    }
+    if (key === 'costo' || key === 'precio') {
+      const scalar = parseScalarOrFormula(rawVal);
+      if (!scalar.valid) {
+        errores.push({
+          linea: lineNum,
+          columna: colStart,
+          longitud: trimmed.length,
+          codigo: 'cantidad_invalida',
+          mensaje: scalar.error || `Costo inválido '${rawVal}'.`,
+          textoLinea: rawLine,
+        });
+      } else {
+        delete servRef.costoUnitario;
+        delete servRef.formulaCosto;
+        if (scalar.num !== undefined) servRef.costoUnitario = scalar.num;
+        if (scalar.formula !== undefined) servRef.formulaCosto = scalar.formula;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  return false;
+}
+
 function parseIndentedAdjustmentOrParam(
   trimmed: string,
   lineNum: number,
+  leadingSpaces: number,
   colStart: number,
   rawLine: string,
   currentItem: NotebookTareaTipoBlock | NotebookItemLibreBlock,
   contexto: NotebookParseContext,
   validUnits: Map<string, string>,
   errores: NotebookParseError[]
-): boolean {
+): { handled: boolean; createdSubItem?: SubItemParseContext } {
   // 1. Quitado (-clave) en /tt
   if (trimmed.startsWith('-')) {
-    if (currentItem.tipo !== 'tarea_tipo') return false;
+    if (currentItem.tipo !== 'tarea_tipo') return { handled: false };
     const clave = trimmed.slice(1).trim();
     if (!clave) {
       errores.push({
@@ -1420,12 +1733,12 @@ function parseIndentedAdjustmentOrParam(
     } else {
       currentItem.quitados.push(clave);
     }
-    return true;
+    return { handled: true };
   }
 
-  // 2. Agregado (+material [Marca] cantUnidad) en /tt
+  // 2. Agregado (+material [Marca] [cantUnidad]) en /tt
   if (trimmed.startsWith('+')) {
-    if (currentItem.tipo !== 'tarea_tipo') return false;
+    if (currentItem.tipo !== 'tarea_tipo') return { handled: false };
     const content = trimmed.slice(1).trim();
     if (!content) {
       errores.push({
@@ -1436,13 +1749,15 @@ function parseIndentedAdjustmentOrParam(
         mensaje: "Falta referencia de material después de '+'.",
         textoLinea: rawLine,
       });
-      return true;
+      return { handled: true };
     }
     const res = parseMaterialLineContent(content, lineNum, colStart + 1, rawLine, contexto, validUnits);
     if (res.error) {
       errores.push(res.error);
-    } else if (res.linea) {
-      currentItem.agregados.push({
+      return { handled: true };
+    }
+    if (res.linea) {
+      const agRef: NotebookAjusteAgregado = {
         referencia: res.linea.referencia,
         materialId: res.linea.materialId,
         ...(res.linea.productoId
@@ -1451,12 +1766,17 @@ function parseIndentedAdjustmentOrParam(
         ...(res.linea.cantidad !== undefined ? { cantidad: res.linea.cantidad } : {}),
         ...(res.linea.formulaCantidad !== undefined ? { formulaCantidad: res.linea.formulaCantidad } : {}),
         unidad: res.linea.unidad,
-      });
+      };
+      currentItem.agregados.push(agRef);
+      return {
+        handled: true,
+        createdSubItem: { kind: 'agregado', ref: agRef, indent: leadingSpaces },
+      };
     }
-    return true;
+    return { handled: true };
   }
 
-  // 3. Parámetro local indentado: <param> = <valor_o_expr>
+  // 3. Parámetro o propiedad indentada en bloque raíz (<param> = <valor_o_expr>)
   const paramMatch = trimmed.match(/^([a-zA-Z_][\w-]*)\s*=\s*(.*)$/);
   if (paramMatch) {
     const key = paramMatch[1].trim();
@@ -1480,22 +1800,66 @@ function parseIndentedAdjustmentOrParam(
       if (res.isCantidad !== undefined) {
         currentItem.cantidad = res.isCantidad;
       }
-    } else {
-      assignParameterValue(
-        key,
-        rawVal,
-        lineNum,
-        colStart,
-        trimmed.length,
-        rawLine,
-        currentItem.parametros,
-        errores
-      );
+      return { handled: true };
     }
-    return true;
+
+    if (currentItem.modo === 'item') {
+      const lowerKey = key.toLowerCase();
+      if (lowerKey === 'cantidad') {
+        const parsed = parseValueWithOptionalUnit(
+          rawVal,
+          currentItem.unidad || 'u',
+          validUnits,
+          lineNum,
+          colStart,
+          rawLine
+        );
+        if (parsed.error) {
+          errores.push(parsed.error);
+        } else if (parsed.value) {
+          delete currentItem.cantidad;
+          delete currentItem.formulaCantidad;
+          if (parsed.value.cantidad !== undefined) currentItem.cantidad = parsed.value.cantidad;
+          if (parsed.value.formulaCantidad !== undefined) currentItem.formulaCantidad = parsed.value.formulaCantidad;
+          currentItem.unidad = parsed.value.unidad;
+        }
+        return { handled: true };
+      }
+      if (lowerKey === 'precio' || lowerKey === 'costo') {
+        const scalar = parseScalarOrFormula(rawVal);
+        if (!scalar.valid) {
+          errores.push({
+            linea: lineNum,
+            columna: colStart,
+            longitud: trimmed.length,
+            codigo: 'cantidad_invalida',
+            mensaje: scalar.error || `Precio inválido '${rawVal}'.`,
+            textoLinea: rawLine,
+          });
+        } else {
+          delete currentItem.precioUnitario;
+          delete currentItem.formulaPrecio;
+          if (scalar.num !== undefined) currentItem.precioUnitario = scalar.num;
+          if (scalar.formula !== undefined) currentItem.formulaPrecio = scalar.formula;
+        }
+        return { handled: true };
+      }
+    }
+
+    assignParameterValue(
+      key,
+      rawVal,
+      lineNum,
+      colStart,
+      trimmed.length,
+      rawLine,
+      currentItem.parametros,
+      errores
+    );
+    return { handled: true };
   }
 
-  return false;
+  return { handled: false };
 }
 
 /**
@@ -1510,6 +1874,7 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
 
   const lines = (texto || '').split(/\r?\n/);
   let currentItem: NotebookTareaTipoBlock | NotebookItemLibreBlock | null = null;
+  let currentSubItem: SubItemParseContext | null = null;
 
   for (let idx = 0; idx < lines.length; idx++) {
     const rawLine = lines[idx];
@@ -1518,6 +1883,7 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
 
     if (!trimmed) {
       currentItem = null;
+      currentSubItem = null;
       continue;
     }
 
@@ -1531,6 +1897,7 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
     // 1. Capítulo: # Nombre
     if (trimmed.startsWith('#')) {
       currentItem = null;
+      currentSubItem = null;
       const nombre = trimmed.slice(1).trim();
       if (!nombre) {
         errores.push({
@@ -1550,6 +1917,7 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
     // 2. Comando con barra (/tt ...)
     if (trimmed.startsWith('/')) {
       currentItem = null;
+      currentSubItem = null;
       const res = parseTrabajoTipoLine(rawLine, lineNum, leadingSpaces, contexto, validUnits);
       errores.push(...res.errores);
       if (res.block) {
@@ -1581,6 +1949,7 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
 
       if (directive === 'nota') {
         currentItem = null;
+        currentSubItem = null;
         if (!rest) {
           errores.push({
             linea: lineNum,
@@ -1598,6 +1967,7 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
 
       if (directive === 'supuesto') {
         currentItem = null;
+        currentSubItem = null;
         const supMatch = rest.match(/^([a-zA-Z_][\w-]*)\s*=\s*(.+)$/);
         if (!supMatch) {
           errores.push({
@@ -1630,6 +2000,7 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
       }
 
       if (directive === 'tarea') {
+        currentSubItem = null;
         if (!rest) {
           errores.push({
             linea: lineNum,
@@ -1655,6 +2026,7 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
       }
 
       if (directive === 'item') {
+        currentSubItem = null;
         const res = parseItemLine(rest, lineNum, contentCol, rawLine, validUnits);
         if (res.error) {
           errores.push(res.error);
@@ -1679,18 +2051,28 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
         continue;
       }
 
+      currentSubItem = null;
       if (directive === 'mat') {
         const res = parseMaterialLineContent(rest, lineNum, contentCol, rawLine, contexto, validUnits);
         if (res.error) errores.push(res.error);
-        else if (res.linea) currentItem.lineas.push(res.linea);
+        else if (res.linea) {
+          currentItem.lineas.push(res.linea);
+          currentSubItem = { kind: 'linea', ref: res.linea, indent: leadingSpaces };
+        }
       } else if (directive === 'mo') {
         const res = parseManoObraLineContent(rest, lineNum, contentCol, rawLine, contexto);
         if (res.error) errores.push(res.error);
-        else if (res.linea) currentItem.lineas.push(res.linea);
+        else if (res.linea) {
+          currentItem.lineas.push(res.linea);
+          currentSubItem = { kind: 'linea', ref: res.linea, indent: leadingSpaces };
+        }
       } else if (directive === 'serv') {
         const res = parseServicioLineContent(rest, lineNum, contentCol, rawLine, validUnits);
         if (res.error) errores.push(res.error);
-        else if (res.linea) currentItem.lineas.push(res.linea);
+        else if (res.linea) {
+          currentItem.lineas.push(res.linea);
+          currentSubItem = { kind: 'linea', ref: res.linea, indent: leadingSpaces };
+        }
       }
       continue;
     }
@@ -1699,6 +2081,7 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
     const varMatch = trimmed.match(/^([a-zA-Z_]\w*)\s*=\s*(.*)$/);
     if (varMatch && leadingSpaces === 0) {
       currentItem = null;
+      currentSubItem = null;
       const id = varMatch[1];
       const expr = varMatch[2].trim();
 
@@ -1743,29 +2126,51 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
       continue;
     }
 
-    // 5. Sub-líneas indentadas de parámetro / ajuste (-/+), o línea de material dentro del ítem activo
+    // 5. Sub-líneas indentadas de sub-ítem, parámetro / ajuste (-/+), o línea de material dentro del ítem activo
     if (currentItem) {
-      if (
-        leadingSpaces > 0 &&
-        parseIndentedAdjustmentOrParam(
+      if (currentSubItem && leadingSpaces > currentSubItem.indent) {
+        const handledChild = parseChildSubItemLine(
+          trimmed,
+          currentSubItem,
+          lineNum,
+          colStart,
+          rawLine,
+          contexto,
+          validUnits,
+          errores
+        );
+        if (handledChild) {
+          continue;
+        }
+      } else if (currentSubItem && leadingSpaces <= currentSubItem.indent) {
+        currentSubItem = null;
+      }
+
+      if (leadingSpaces > 0) {
+        const adj = parseIndentedAdjustmentOrParam(
           trimmed,
           lineNum,
+          leadingSpaces,
           colStart,
           rawLine,
           currentItem,
           contexto,
           validUnits,
           errores
-        )
-      ) {
-        continue;
+        );
+        if (adj.handled) {
+          currentSubItem = adj.createdSubItem ?? null;
+          continue;
+        }
       }
 
+      currentSubItem = null;
       const res = parseMaterialLineContent(trimmed, lineNum, colStart, rawLine, contexto, validUnits);
       if (res.error) {
         errores.push(res.error);
       } else if (res.linea) {
         currentItem.lineas.push(res.linea);
+        currentSubItem = { kind: 'linea', ref: res.linea, indent: leadingSpaces };
       }
       continue;
     }
@@ -1811,22 +2216,30 @@ function serializeLinea(
   materialesById: Map<string, Material>,
   productosById: Map<string, Producto>,
   manoObraById: Map<string, CategoriaManoDeObra>
-): string {
+): string[] {
   if (linea.tipo === 'material') {
     const matNombre = (linea.materialId && materialesById.get(linea.materialId)?.nombre) || linea.referencia;
     const prod = linea.productoId ? productosById.get(linea.productoId) : undefined;
     const prodNombre = prod ? `${prod.marca} ${prod.modelo}`.trim() : linea.productoReferencia;
-    const prodTag = prodNombre ? ` [${prodNombre}]` : '';
-    return `  ${matNombre}${prodTag}  ${formatQtyUnit(linea.cantidad, linea.formulaCantidad, linea.unidad)}`;
+    const out = [`  mat: ${matNombre}`];
+    if (prodNombre) {
+      out.push(`    marca = ${prodNombre}`);
+    }
+    out.push(`    cantidad = ${formatQtyUnit(linea.cantidad, linea.formulaCantidad, linea.unidad)}`);
+    return out;
   }
   if (linea.tipo === 'mano_obra') {
     const moNombre = (linea.categoriaId && manoObraById.get(linea.categoriaId)?.nombre) || linea.referencia;
     const qtyStr = linea.formulaHoras !== undefined ? `(${linea.formulaHoras})` : String(linea.horas ?? 1);
-    return `  mo: ${moNombre}  ${qtyStr}${linea.unidad}`;
+    return [`  mo: ${moNombre}`, `    horas = ${qtyStr}${linea.unidad}`];
   }
   const qtyStr = linea.formulaCantidad !== undefined ? `(${linea.formulaCantidad})` : String(linea.cantidad ?? 1);
   const costStr = linea.formulaCosto !== undefined ? `(${linea.formulaCosto})` : String(linea.costoUnitario ?? 0);
-  return `  serv: ${linea.descripcion}  ${qtyStr} ${linea.unidad}  ${costStr}`;
+  return [
+    `  serv: ${linea.descripcion}`,
+    `    cantidad = ${qtyStr}${linea.unidad}`,
+    `    costo = ${costStr}`,
+  ];
 }
 
 /**
@@ -1888,11 +2301,14 @@ export function serialize(
         const matName = (ag.materialId && materialesById.get(ag.materialId)?.nombre) || ag.referencia;
         const prod = ag.productoId ? productosById.get(ag.productoId) : undefined;
         const prodNombre = prod ? `${prod.marca} ${prod.modelo}`.trim() : ag.productoReferencia;
-        const prodTag = prodNombre ? ` [${prodNombre}]` : '';
-        lines.push(`  +${matName}${prodTag}  ${formatQtyUnit(ag.cantidad, ag.formulaCantidad, ag.unidad)}`);
+        lines.push(`  +${matName}`);
+        if (prodNombre) {
+          lines.push(`    marca = ${prodNombre}`);
+        }
+        lines.push(`    cantidad = ${formatQtyUnit(ag.cantidad, ag.formulaCantidad, ag.unidad)}`);
       }
       for (const l of b.lineas) {
-        lines.push(serializeLinea(l, materialesById, productosById, manoObraById));
+        lines.push(...serializeLinea(l, materialesById, productosById, manoObraById));
       }
       continue;
     }
@@ -1901,20 +2317,20 @@ export function serialize(
       if (b.modo === 'tarea') {
         lines.push(`tarea: ${b.descripcion}`);
       } else {
+        lines.push(`item: ${b.descripcion}`);
         const qtyStr = b.formulaCantidad !== undefined ? `(${b.formulaCantidad})` : String(b.cantidad ?? 1);
-        const parts: string[] = [`item: ${b.descripcion}`, `${qtyStr} ${b.unidad ?? 'u'}`];
+        lines.push(`  cantidad = ${qtyStr}${b.unidad ?? 'u'}`);
         if (b.formulaPrecio !== undefined) {
-          parts.push(`(${b.formulaPrecio})`);
+          lines.push(`  precio = (${b.formulaPrecio})`);
         } else if (b.precioUnitario !== undefined) {
-          parts.push(String(b.precioUnitario));
+          lines.push(`  precio = ${b.precioUnitario}`);
         }
-        lines.push(parts.join('  '));
       }
       for (const [k, v] of Object.entries(b.parametros)) {
         lines.push(`  ${k} = ${v}`);
       }
       for (const l of b.lineas) {
-        lines.push(serializeLinea(l, materialesById, productosById, manoObraById));
+        lines.push(...serializeLinea(l, materialesById, productosById, manoObraById));
       }
     }
   }

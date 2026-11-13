@@ -160,6 +160,15 @@ function replaceSpanInLine(
   };
 }
 
+function mapSnippetOffsetWithIndent(snippet: string, offset: number, indentPerLine = 2): number {
+  const clamped = Math.max(0, Math.min(offset, snippet.length));
+  let newlines = 0;
+  for (let i = 0; i < clamped; i++) {
+    if (snippet[i] === '\n') newlines++;
+  }
+  return indentPerLine + clamped + newlines * indentPerLine;
+}
+
 function applyAutocompleteSuggestionToText(
   texto: string,
   linea1Based: number,
@@ -172,21 +181,25 @@ function applyAutocompleteSuggestionToText(
     const start = Math.max(0, Math.min(sug.replaceStartCol - 1, raw.length));
     const end = Math.max(start, Math.min(sug.replaceEndCol - 1, raw.length));
     lines[idx] = `${raw.slice(0, start)}${raw.slice(end)}`.trimEnd();
-    const newLine = `  ${sug.insertText}`;
-    lines.splice(idx + 1, 0, newLine);
+    const rawSnippetLines = sug.insertText.split('\n');
+    const indentedLines = rawSnippetLines.map(l => `  ${l}`);
+    const prefixedSnippet = indentedLines.join('\n');
+    lines.splice(idx + 1, 0, ...indentedLines);
 
-    const hasSel =
-      sug.selectionStartOffset !== undefined &&
-      sug.selectionEndOffset !== undefined &&
-      sug.selectionEndOffset > sug.selectionStartOffset;
-    const endCol = 3 + (sug.selectionEndOffset ?? sug.insertText.length);
-    const startCol = 3 + (sug.selectionStartOffset ?? sug.insertText.length);
+    const rawEnd = sug.selectionEndOffset ?? sug.insertText.length;
+    const rawStart = sug.selectionStartOffset ?? rawEnd;
+    const adjStart = mapSnippetOffsetWithIndent(sug.insertText, rawStart);
+    const adjEnd = mapSnippetOffsetWithIndent(sug.insertText, rawEnd);
+    const startPos = offsetToLineColInsideSnippet(idx + 2, 0, prefixedSnippet, adjStart);
+    const endPos = offsetToLineColInsideSnippet(idx + 2, 0, prefixedSnippet, adjEnd);
+    const hasSel = rawEnd > rawStart && startPos.linea === endPos.linea;
+
     return {
       nextTexto: lines.join('\n'),
       nextCursor: {
-        linea: idx + 2,
-        columna: endCol,
-        ...(hasSel ? { selectionStartCol: startCol, selectionEndCol: endCol } : {})
+        linea: endPos.linea,
+        columna: endPos.col1Based,
+        ...(hasSel ? { selectionStartCol: startPos.col1Based, selectionEndCol: endPos.col1Based } : {})
       }
     };
   }
@@ -855,8 +868,14 @@ export function useNotebookDocumentViewModel({
     const after = rawLine.slice(colIdx);
     const trimmed = rawLine.trim();
 
-    // Si es una sub-línea indentada vacía (solo espacios), salir del bloque limpiando indentación
+    // Si es una sub-línea indentada vacía (solo espacios), des-indentar 2 espacios o salir del bloque
     if (/^\s+$/.test(rawLine)) {
+      if (rawLine.length > 2) {
+        const outdented = rawLine.slice(0, -2);
+        lines[idx] = outdented;
+        commitEdit(lines.join('\n'), { linea: idx + 1, columna: outdented.length + 1 }, { coalesce: false });
+        return true;
+      }
       lines[idx] = '';
       commitEdit(lines.join('\n'), { linea: idx + 1, columna: 1 }, { coalesce: false });
       return true;
@@ -865,9 +884,10 @@ export function useNotebookDocumentViewModel({
     const indentMatch = rawLine.match(/^(\s+)/);
     const startsBlockHeader =
       trimmed.startsWith('/tt ') || trimmed.startsWith('tarea:') || trimmed.startsWith('item:');
+    const startsSubItemHeader = Boolean(indentMatch) && /^(?:mat:|mo:|serv:|\+)/i.test(trimmed);
 
     if (indentMatch && after.trim() === '') {
-      const indent = indentMatch[1];
+      const indent = startsSubItemHeader ? `${indentMatch[1]}  ` : indentMatch[1];
       lines[idx] = before;
       lines.splice(idx + 1, 0, indent);
       commitEdit(

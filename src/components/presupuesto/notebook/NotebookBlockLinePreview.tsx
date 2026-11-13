@@ -139,10 +139,34 @@ function buildChipsForSubline(
   const paramMatch = trimmed.match(/^([a-zA-Z_][\w-]*)\s*=\s*(.+)$/);
   if (paramMatch) {
     const paramKey = paramMatch[1];
+    const paramKeyLower = paramKey.toLowerCase();
+    const paramVal = paramMatch[2].trim();
+
+    if (paramKeyLower === 'marca' || paramKeyLower === 'producto') {
+      return {
+        chips: [{ key: `submk-${paramKey}`, label: paramVal, tone: 'marca' }]
+      };
+    }
+    if (paramKeyLower === 'cantidad') {
+      return {
+        chips: [{ key: `subqty-${paramKey}`, label: paramVal, tone: 'unidad' }]
+      };
+    }
+    if (paramKeyLower === 'horas') {
+      return {
+        chips: [{ key: `subhrs-${paramKey}`, label: paramVal, tone: 'param', icon: 'wrench' }]
+      };
+    }
+    if (paramKeyLower === 'costo' || paramKeyLower === 'precio') {
+      return {
+        chips: [{ key: `subcost-${paramKey}`, label: `${paramKey}: ${paramVal}`, tone: 'param' }]
+      };
+    }
+
     if (enclosingBlock.tipo === 'tarea_tipo') {
       const tt = contexto.tareasTipo.find(t => t.id === enclosingBlock.tareaTipoId);
       const paramDef = tt?.parametros?.find(
-        p => p.id === paramKey || p.nombre.toLowerCase() === paramKey.toLowerCase()
+        p => p.id === paramKey || p.nombre.toLowerCase() === paramKeyLower
       );
       if (paramDef) {
         return {
@@ -168,7 +192,7 @@ function buildChipsForSubline(
   }
 
   if (trimmed.startsWith('+') || enclosingBlock.tipo === 'item_libre' || enclosingBlock.tipo === 'tarea_tipo') {
-    const lower = trimmed.replace(/^[+]\s*/, '').toLowerCase();
+    const lower = trimmed.replace(/^(?:mat:|\+)\s*/i, '').toLowerCase();
     const matMatch = enclosingItem?.insumosSnapshot.find(ins =>
       lower.includes(ins.nombre.toLowerCase().slice(0, Math.min(8, ins.nombre.length)))
     );

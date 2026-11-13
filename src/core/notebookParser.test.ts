@@ -421,16 +421,71 @@ describe('notebookParser (Fase 2)', () => {
         '  sup = 85',
         '  bocas = 24',
         '  -cableado',
-        '  +Cable Unipolar 2.5mm² Celeste [Prysmian Superastic]  30m',
+        '  +Cable Unipolar 2.5mm² Celeste',
+        '    marca = Prysmian Superastic',
+        '    cantidad = 30m',
+        'tarea: Armado de tablero',
+        '  mat: Cable Unipolar 2.5mm² Celeste',
+        '    marca = Prysmian Superastic',
+        '    cantidad = 120m',
+        '  mo: Oficial Electricista',
+        '    horas = 4.5hs',
+        '  serv: Flete y acarreo',
+        '    cantidad = 1gl',
+        '    costo = 25000',
+        'item: Visita técnica en obra',
+        '  cantidad = 2u',
+        '  precio = 15000',
       ].join('\n');
 
       const parsed = parse(textoIndentado, ctx);
       expect(parsed.valido).toBe(true);
-      expect(parsed.bloques).toHaveLength(1);
+      expect(parsed.bloques).toHaveLength(3);
       expect(parsed.bloques[0]).toMatchObject({
         tipo: 'tarea_tipo',
         overridesParametros: { sup: 85, bocas: 24 },
         quitados: ['cableado'],
+        agregados: [
+          expect.objectContaining({
+            referencia: 'Cable Unipolar 2.5mm² Celeste',
+            productoReferencia: 'Prysmian Superastic',
+            cantidad: 30,
+            unidad: 'm',
+          }),
+        ],
+      });
+      expect(parsed.bloques[1]).toMatchObject({
+        tipo: 'item_libre',
+        modo: 'tarea',
+        descripcion: 'Armado de tablero',
+        lineas: [
+          expect.objectContaining({
+            tipo: 'material',
+            productoReferencia: 'Prysmian Superastic',
+            cantidad: 120,
+            unidad: 'm',
+          }),
+          expect.objectContaining({
+            tipo: 'mano_obra',
+            horas: 4.5,
+            unidad: 'hs',
+          }),
+          expect.objectContaining({
+            tipo: 'servicio',
+            descripcion: 'Flete y acarreo',
+            cantidad: 1,
+            unidad: 'gl',
+            costoUnitario: 25000,
+          }),
+        ],
+      });
+      expect(parsed.bloques[2]).toMatchObject({
+        tipo: 'item_libre',
+        modo: 'item',
+        descripcion: 'Visita técnica en obra',
+        cantidad: 2,
+        unidad: 'u',
+        precioUnitario: 15000,
       });
 
       const out = serialize(parsed.bloques, ctx);
@@ -439,7 +494,21 @@ describe('notebookParser (Fase 2)', () => {
         '  sup = 85',
         '  bocas = 24',
         '  -cableado',
-        '  +Cable Unipolar 2.5mm² Celeste [Prysmian Superastic]  30m',
+        '  +Cable Unipolar 2.5mm² Celeste',
+        '    marca = Prysmian Superastic',
+        '    cantidad = 30m',
+        'tarea: Armado de tablero',
+        '  mat: Cable Unipolar 2.5mm² Celeste',
+        '    marca = Prysmian Superastic',
+        '    cantidad = 120m',
+        '  mo: Oficial Electricista',
+        '    horas = 4.5hs',
+        '  serv: Flete y acarreo',
+        '    cantidad = 1gl',
+        '    costo = 25000',
+        'item: Visita técnica en obra',
+        '  cantidad = 2u',
+        '  precio = 15000',
       ].join('\n'));
     });
   });
