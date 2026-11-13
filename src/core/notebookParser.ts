@@ -1,0 +1,1728 @@
+/**
+ * notebookParser.ts - Parser y serializador puro (sin estado ni dependencias de UI)
+ * para el Notebook de Cotizaciones.
+ *
+ * Gramática determinista:
+ * - Variable:        <ident> = <expresión>
+ * - Supuesto:        supuesto: <clave> = <valor>
+ * - Nota interna:    nota: <texto>
+ * - Capítulo:        # <nombre>
+ * - Trabajo tipo:    /tt <ref> [cantidad=<n>] [param=valor ...] [-quitado ...] [+matRef <cant><unidad> ...]
+ * - Tarea contenedor: tarea: <descripción> [<cant><unidad>] [param=valor ...]
+ * - Ítem libre:      item: <descripción>  <cant><unidad>  [<precio>] [param=valor ...]
+ * - Sub-líneas dentro de un ítem (/tt, tarea:, item:):
+ *   - Material:      [mat:] <ref_material> [[Marca/Producto]]  <cant_o_formula><unidad>
+ *   - Mano de obra:  mo: <ref_categoria>  <horas_o_formula>h
+ *   - Servicio:      serv: <descripción>  <cant_o_formula> <unidad>  <costo_o_formula>
+ */
+
+import {
+  CategoriaManoDeObra,
+  Material,
+  Producto,
+  TareaTipo,
+} from './types';
+import { evaluateMathExpression, RESERVED_KEYWORDS } from './mathEvaluator';
+import {
+  extraerDependenciasExpresion,
+  slugifyIdentificador,
+} from './notebookDomain';
+
+export const UNIDADES_CONOCIDAS_DEFAULT = [
+  'm',
+  'u',
+  'gl',
+  'kg',
+  'rollo',
+  'caja',
+  'par',
+  'juego',
+  'litro',
+  'ml',
+  'tramo',
+  'h',
+  'hs',
+  'boca',
+  'bocas',
+  'circuito',
+  'circuitos',
+  'm2',
+  'm²',
+  'servicio',
+] as const;
+
+export type NotebookErrorCode =
+  | 'directiva_desconocida'
+  | 'sintaxis_invalida'
+  | 'nombre_reservado'
+  | 'expresion_invalida'
+  | 'cantidad_invalida'
+  | 'unidad_desconocida'
+  | 'referencia_inexistente'
+  | 'ambiguo'
+  | 'parametro_desconocido'
+  | 'valor_supuesto_invalido'
+  | 'linea_fuera_de_item'
+  | 'producto_inexistente'
+  | 'producto_ambiguo';
+
+export interface NotebookParseError {
+  linea: number; // Base 1
+  columna: number; // Base 1
+  longitud: number;
+  codigo: NotebookErrorCode;
+  mensaje: string;
+  textoLinea: string;
+  candidatos?: string[];
+}
+
+export interface NotebookMaterialLinea {
+  tipo: 'material';
+  referencia: string;
+  materialId?: string;
+  productoId?: string;
+  productoReferencia?: string;
+  cantidad?: number;
+  formulaCantidad?: string;
+  unidad: string;
+}
+
+export interface NotebookManoObraLinea {
+  tipo: 'mano_obra';
+  referencia: string;
+  categoriaId?: string;
+  horas?: number;
+  formulaHoras?: string;
+  unidad: 'h' | 'hs';
+}
+
+export interface NotebookServicioLinea {
+  tipo: 'servicio';
+  descripcion: string;
+  cantidad?: number;
+  formulaCantidad?: string;
+  unidad: string;
+  costoUnitario?: number;
+  formulaCosto?: string;
+}
+
+export type NotebookItemLinea =
+  | NotebookMaterialLinea
+  | NotebookManoObraLinea
+  | NotebookServicioLinea;
+
+export interface NotebookAjusteAgregado {
+  referencia: string;
+  materialId?: string;
+  cantidad?: number;
+  formulaCantidad?: string;
+  unidad: string;
+}
+
+export interface NotebookVariableBlock {
+  tipo: 'variable';
+  id: string;
+  expresion: string;
+}
+
+export interface NotebookSupuestoBlock {
+  tipo: 'supuesto';
+  clave: string;
+  valor: string;
+}
+
+export interface NotebookNotaInternaBlock {
+  tipo: 'nota_interna';
+  texto: string;
+}
+
+export interface NotebookCapituloBlock {
+  tipo: 'capitulo';
+  nombre: string;
+}
+
+export interface NotebookTareaTipoBlock {
+  tipo: 'tarea_tipo';
+  referencia: string;
+  tareaTipoId?: string;
+  cantidad?: number;
+  overridesParametros: Record<string, number | string>;
+  quitados: string[];
+  agregados: NotebookAjusteAgregado[];
+  lineas: NotebookItemLinea[];
+}
+
+export interface NotebookItemLibreBlock {
+  tipo: 'item_libre';
+  modo: 'tarea' | 'item';
+  descripcion: string;
+  cantidad?: number;
+  formulaCantidad?: string;
+  unidad?: string;
+  precioUnitario?: number;
+  formulaPrecio?: string;
+  parametros: Record<string, number | string>;
+  lineas: NotebookItemLinea[];
+}
+
+export type NotebookBlock =
+  | NotebookVariableBlock
+  | NotebookSupuestoBlock
+  | NotebookNotaInternaBlock
+  | NotebookCapituloBlock
+  | NotebookTareaTipoBlock
+  | NotebookItemLibreBlock;
+
+export interface NotebookParseContext {
+  tareasTipo: TareaTipo[];
+  materiales: Material[];
+  productos?: Producto[];
+  manoObra?: CategoriaManoDeObra[];
+  unidadesValidas?: string[];
+}
+
+export interface NotebookParseResult {
+  bloques: NotebookBlock[];
+  errores: NotebookParseError[];
+  valido: boolean;
+}
+
+const DIRECTIVAS_CON_DOS_PUNTOS = new Set([
+  'supuesto',
+  'nota',
+  'tarea',
+  'item',
+  'mat',
+  'mo',
+  'serv',
+]);
+
+function normalizeText(str: string): string {
+  return (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function tokenizeCatalogText(str: string): string[] {
+  const norm = normalizeText(str);
+  const rawTokens = norm.split(/[^a-z0-9.,²]+/).filter(Boolean);
+  const out = new Set<string>();
+  for (const raw of rawTokens) {
+    const clean = raw.replace(/,/g, '.');
+    out.add(clean);
+    // Separa número seguido de unidad (ej: "2.5mm²" -> "2.5" y "mm²")
+    const numUnit = clean.match(/^(\d+(?:\.\d+)?)([a-z²]+)$/);
+    if (numUnit) {
+      out.add(numUnit[1]);
+      out.add(numUnit[2]);
+    }
+  }
+  return Array.from(out);
+}
+
+function buildValidUnitsMap(contexto: NotebookParseContext): Map<string, string> {
+  const map = new Map<string, string>();
+  const add = (u: string) => {
+    const clean = (u || '').trim();
+    if (!clean) return;
+    map.set(normalizeText(clean), clean);
+  };
+  UNIDADES_CONOCIDAS_DEFAULT.forEach(add);
+  (contexto.unidadesValidas ?? []).forEach(add);
+  for (const m of contexto.materiales) {
+    if (m.unidadVenta) {
+      const firstWord = m.unidadVenta.trim().split(/\s+/)[0];
+      if (firstWord) add(firstWord);
+    }
+  }
+  return map;
+}
+
+function validateMathSyntax(expr: string): { valid: boolean; error?: string } {
+  const trimmed = (expr || '').trim();
+  if (!trimmed) {
+    return { valid: false, error: 'Expresión vacía.' };
+  }
+  const deps = extraerDependenciasExpresion(trimmed);
+  const dummyScope: Record<string, number> = {};
+  for (const d of deps) {
+    dummyScope[d] = 1.137;
+  }
+  const res = evaluateMathExpression(trimmed, dummyScope);
+  if (res.isValid) {
+    return { valid: true };
+  }
+  if (res.error === 'Error de evaluación o división por cero') {
+    return { valid: true };
+  }
+  return { valid: false, error: res.error || 'Sintaxis matemática inválida.' };
+}
+
+interface ParsedQuantityUnit {
+  cantidad?: number;
+  formulaCantidad?: string;
+  unidad: string;
+}
+
+function parseQuantityUnitPair(
+  qtyRaw: string,
+  unitRaw: string,
+  validUnits: Map<string, string>
+): { ok: true; value: ParsedQuantityUnit } | { ok: false; codigo: NotebookErrorCode; mensaje: string } {
+  const unitKey = normalizeText(unitRaw);
+  const canonicalUnit = validUnits.get(unitKey);
+  if (!canonicalUnit) {
+    return {
+      ok: false,
+      codigo: 'unidad_desconocida',
+      mensaje: `Unidad desconocida '${unitRaw}'.`,
+    };
+  }
+
+  const trimmedQty = qtyRaw.trim();
+  if (/^-?\d+(?:[.,]\d+)?$/.test(trimmedQty)) {
+    const num = Number(trimmedQty.replace(',', '.'));
+    if (!Number.isFinite(num) || num <= 0) {
+      return {
+        ok: false,
+        codigo: 'cantidad_invalida',
+        mensaje: `Cantidad inválida '${qtyRaw}': debe ser mayor a cero.`,
+      };
+    }
+    return { ok: true, value: { cantidad: num, unidad: canonicalUnit } };
+  }
+
+  // Fórmulas explícitas: =expr o (expr)
+  if (trimmedQty.startsWith('=') || (trimmedQty.startsWith('(') && trimmedQty.endsWith(')'))) {
+    const expr = trimmedQty.startsWith('=') ? trimmedQty.slice(1).trim() : trimmedQty.slice(1, -1).trim();
+    const syntax = validateMathSyntax(expr);
+    if (!syntax.valid) {
+      return {
+        ok: false,
+        codigo: 'expresion_invalida',
+        mensaje: `Fórmula de cantidad inválida '${qtyRaw}': ${syntax.error}`,
+      };
+    }
+    return { ok: true, value: { formulaCantidad: expr, unidad: canonicalUnit } };
+  }
+
+  return {
+    ok: false,
+    codigo: 'cantidad_invalida',
+    mensaje: `Cantidad inválida '${qtyRaw}'.`,
+  };
+}
+
+function splitAttachedQuantityUnit(token: string): { qty: string; unit: string } | null {
+  const mNum = token.match(/^(-?\d+(?:[.,]\d+)?)([a-zA-Z²]+)$/);
+  if (mNum) {
+    return { qty: mNum[1], unit: mNum[2] };
+  }
+  if (token.startsWith('(')) {
+    let depth = 0;
+    for (let i = 0; i < token.length; i++) {
+      if (token[i] === '(') depth++;
+      else if (token[i] === ')') {
+        depth--;
+        if (depth === 0) {
+          const qty = token.slice(0, i + 1);
+          const unit = token.slice(i + 1);
+          if (/^[a-zA-Z²]+$/.test(unit)) {
+            return { qty, unit };
+          }
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+type LookupResult<T> =
+  | { status: 'resolved'; item: T }
+  | { status: 'ambiguous'; candidatos: T[] }
+  | { status: 'not_found' };
+
+function resolveCatalogItem<T extends { id: string; nombre: string }>(
+  query: string,
+  items: T[],
+  extraTextFn?: (item: T) => string,
+  slugFn?: (item: T) => string | undefined
+): LookupResult<T> {
+  const qNorm = normalizeText(query);
+  if (!qNorm) return { status: 'not_found' };
+
+  // 1. Coincidencia exacta determinista por id, slug o nombre normalizado
+  const exact = items.filter((item) => {
+    if (item.id === query || normalizeText(item.id) === qNorm) return true;
+    const itemSlug = slugFn ? slugFn(item) : undefined;
+    if (itemSlug && normalizeText(itemSlug) === qNorm) return true;
+    if (slugifyIdentificador(item.nombre) === slugifyIdentificador(query) && slugifyIdentificador(query) !== '') {
+      return normalizeText(item.nombre) === qNorm || itemSlug === qNorm || qNorm === slugifyIdentificador(item.nombre);
+    }
+    return normalizeText(item.nombre) === qNorm;
+  });
+
+  if (exact.length === 1) return { status: 'resolved', item: exact[0] };
+  if (exact.length > 1) return { status: 'ambiguous', candidatos: exact };
+
+  // 2. Coincidencia exacta por conjunto completo de tokens (sin heurísticas difusas)
+  const queryTokens = tokenizeCatalogText(query);
+  if (queryTokens.length === 0) return { status: 'not_found' };
+
+  const tokenMatches = items.filter((item) => {
+    const fullText = extraTextFn ? `${item.nombre} ${extraTextFn(item)}` : item.nombre;
+    const itemTokens = new Set(tokenizeCatalogText(fullText));
+    return queryTokens.every((qt) => itemTokens.has(qt));
+  });
+
+  if (tokenMatches.length === 1) return { status: 'resolved', item: tokenMatches[0] };
+  if (tokenMatches.length > 1) return { status: 'ambiguous', candidatos: tokenMatches };
+  return { status: 'not_found' };
+}
+
+function resolverTrabajoTipo(ref: string, tareasTipo: TareaTipo[]): LookupResult<TareaTipo> {
+  const qNorm = normalizeText(ref);
+  if (!qNorm) return { status: 'not_found' };
+
+  const activos = tareasTipo.filter((t) => !t.deleted);
+  const matches = activos.filter((t) => {
+    if (t.id === ref || normalizeText(t.id) === qNorm) return true;
+    if (t.slug && normalizeText(t.slug) === qNorm) return true;
+    if (slugifyIdentificador(t.nombre) === qNorm) return true;
+    return normalizeText(t.nombre) === qNorm;
+  });
+
+  if (matches.length === 1) return { status: 'resolved', item: matches[0] };
+  if (matches.length > 1) return { status: 'ambiguous', candidatos: matches };
+  return { status: 'not_found' };
+}
+
+function resolverMaterial(ref: string, materiales: Material[]): LookupResult<Material> {
+  const activos = materiales.filter((m) => !m.deleted && m.activo !== false);
+  return resolveCatalogItem(
+    ref,
+    activos,
+    (m) => (m.atributos ?? []).map((a) => `${a.clave} ${a.valor}`).join(' ')
+  );
+}
+
+function resolverProducto(
+  prodRef: string,
+  materialId: string,
+  productos: Producto[]
+): LookupResult<Producto> {
+  const qNorm = normalizeText(prodRef);
+  const delMaterial = productos.filter((p) => !p.deleted && p.activo !== false && p.materialId === materialId);
+
+  const exact = delMaterial.filter(
+    (p) =>
+      p.id === prodRef ||
+      normalizeText(`${p.marca} ${p.modelo}`.trim()) === qNorm ||
+      normalizeText(p.marca) === qNorm ||
+      (p.codigoFabricante && normalizeText(p.codigoFabricante) === qNorm)
+  );
+  if (exact.length === 1) return { status: 'resolved', item: exact[0] };
+  if (exact.length > 1) return { status: 'ambiguous', candidatos: exact };
+
+  const queryTokens = tokenizeCatalogText(prodRef);
+  const tokenMatches = delMaterial.filter((p) => {
+    const tokens = new Set(tokenizeCatalogText(`${p.marca} ${p.modelo} ${p.codigoFabricante ?? ''}`));
+    return queryTokens.length > 0 && queryTokens.every((qt) => tokens.has(qt));
+  });
+  if (tokenMatches.length === 1) return { status: 'resolved', item: tokenMatches[0] };
+  if (tokenMatches.length > 1) return { status: 'ambiguous', candidatos: tokenMatches };
+  return { status: 'not_found' };
+}
+
+function resolverManoObra(ref: string, manoObra: CategoriaManoDeObra[]): LookupResult<CategoriaManoDeObra> {
+  const activos = manoObra.filter((m) => !m.deleted);
+  return resolveCatalogItem(ref, activos);
+}
+
+interface TokenWithPos {
+  text: string;
+  quoted: boolean;
+  col: number;
+}
+
+function tokenizeLineWithPos(line: string, startOffset: number): TokenWithPos[] {
+  const tokens: TokenWithPos[] = [];
+  let i = startOffset;
+  while (i < line.length) {
+    while (i < line.length && /\s/.test(line[i])) i++;
+    if (i >= line.length) break;
+
+    const col = i + 1;
+    // Soporta +"Texto con espacios"
+    if ((line[i] === '+' || line[i] === '-') && line[i + 1] === '"') {
+      const sign = line[i];
+      let j = i + 2;
+      while (j < line.length && line[j] !== '"') j++;
+      const inner = line.slice(i + 2, j);
+      tokens.push({ text: `${sign}${inner}`, quoted: true, col });
+      i = j < line.length ? j + 1 : j;
+      continue;
+    }
+
+    if (line[i] === '"') {
+      let j = i + 1;
+      while (j < line.length && line[j] !== '"') j++;
+      const inner = line.slice(i + 1, j);
+      tokens.push({ text: inner, quoted: true, col });
+      i = j < line.length ? j + 1 : j;
+      continue;
+    }
+
+    let j = i;
+    let parenDepth = 0;
+    while (j < line.length) {
+      const ch = line[j];
+      if (ch === '(') parenDepth++;
+      else if (ch === ')' && parenDepth > 0) parenDepth--;
+      else if (/\s/.test(ch) && parenDepth === 0) break;
+      j++;
+    }
+    tokens.push({ text: line.slice(i, j), quoted: false, col });
+    i = j;
+  }
+  return tokens;
+}
+
+function collectAllowedSupuestos(contexto: NotebookParseContext): Map<string, Set<string>> {
+  const map = new Map<string, Set<string>>();
+  for (const tt of contexto.tareasTipo) {
+    for (const s of tt.supuestos ?? []) {
+      const set = map.get(s.id) ?? new Set<string>();
+      for (const opt of s.opciones) {
+        set.add(opt);
+      }
+      map.set(s.id, set);
+    }
+  }
+  return map;
+}
+
+function extractTrailingQuantityUnit(
+  tokens: TokenWithPos[],
+  validUnits: Map<string, string>,
+  lineNum: number,
+  colOffset: number,
+  rawLine: string,
+  missingMessage: string
+):
+  | { ok: true; value: ParsedQuantityUnit; prefixTokens: TokenWithPos[] }
+  | { ok: false; error: NotebookParseError } {
+  const last = tokens[tokens.length - 1];
+  const attached = splitAttachedQuantityUnit(last.text);
+  let parsedQtyUnit: ReturnType<typeof parseQuantityUnitPair>;
+  let prefixTokens: TokenWithPos[];
+  let qtyCol = last.col + colOffset - 1;
+
+  if (attached) {
+    parsedQtyUnit = parseQuantityUnitPair(attached.qty, attached.unit, validUnits);
+    prefixTokens = tokens.slice(0, -1);
+  } else if (tokens.length >= 3) {
+    const prev = tokens[tokens.length - 2];
+    qtyCol = prev.col + colOffset - 1;
+    parsedQtyUnit = parseQuantityUnitPair(prev.text, last.text, validUnits);
+    prefixTokens = tokens.slice(0, -2);
+  } else {
+    return {
+      ok: false,
+      error: {
+        linea: lineNum,
+        columna: last.col + colOffset - 1,
+        longitud: last.text.length,
+        codigo: 'cantidad_invalida',
+        mensaje: missingMessage,
+        textoLinea: rawLine,
+      },
+    };
+  }
+
+  if (!parsedQtyUnit.ok) {
+    return {
+      ok: false,
+      error: {
+        linea: lineNum,
+        columna: qtyCol,
+        longitud: last.text.length,
+        codigo: parsedQtyUnit.codigo,
+        mensaje: parsedQtyUnit.mensaje,
+        textoLinea: rawLine,
+      },
+    };
+  }
+
+  return { ok: true, value: parsedQtyUnit.value, prefixTokens };
+}
+
+function parseMaterialLineContent(
+  rawContent: string,
+  lineNum: number,
+  colOffset: number,
+  rawLine: string,
+  contexto: NotebookParseContext,
+  validUnits: Map<string, string>
+): { linea?: NotebookMaterialLinea; error?: NotebookParseError } {
+  const tokens = tokenizeLineWithPos(rawContent, 0);
+  if (tokens.length < 2) {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud: rawContent.length,
+        codigo: 'sintaxis_invalida',
+        mensaje: 'Línea de material incompleta. Formato esperado: <material>  <cantidad><unidad>',
+        textoLinea: rawLine,
+      },
+    };
+  }
+
+  const qtyRes = extractTrailingQuantityUnit(
+    tokens,
+    validUnits,
+    lineNum,
+    colOffset,
+    rawLine,
+    `Falta cantidad y unidad válidas al final de la línea '${rawContent}'.`
+  );
+  if (!qtyRes.ok) return { error: qtyRes.error };
+
+  const parsedQtyUnit = { value: qtyRes.value };
+  const refTokens = qtyRes.prefixTokens;
+
+  let refText = refTokens.map((t) => t.text).join(' ').trim();
+  let productoRef: string | undefined;
+  const prodMatch = refText.match(/^(.*?)\s*\[([^\]]+)\]\s*$/);
+  if (prodMatch) {
+    refText = prodMatch[1].trim();
+    productoRef = prodMatch[2].trim();
+  }
+
+  if (!refText) {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud: rawContent.length,
+        codigo: 'referencia_inexistente',
+        mensaje: 'Falta especificar el nombre o referencia del material.',
+        textoLinea: rawLine,
+      },
+    };
+  }
+
+  const matLookup = resolverMaterial(refText, contexto.materiales);
+  if (matLookup.status === 'not_found') {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud: refText.length,
+        codigo: 'referencia_inexistente',
+        mensaje: `Material no encontrado en el catálogo: '${refText}'.`,
+        textoLinea: rawLine,
+      },
+    };
+  }
+  if (matLookup.status === 'ambiguous') {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud: refText.length,
+        codigo: 'ambiguo',
+        mensaje: `Referencia ambigua '${refText}': coincide con ${matLookup.candidatos.map((c) => c.nombre).join(', ')}.`,
+        textoLinea: rawLine,
+        candidatos: matLookup.candidatos.map((c) => c.nombre),
+      },
+    };
+  }
+
+  let productoId: string | undefined;
+  let productoNombre: string | undefined;
+  if (productoRef) {
+    const prodLookup = resolverProducto(productoRef, matLookup.item.id, contexto.productos ?? []);
+    if (prodLookup.status === 'not_found') {
+      return {
+        error: {
+          linea: lineNum,
+          columna: colOffset,
+          longitud: refText.length,
+          codigo: 'producto_inexistente',
+          mensaje: `Producto/marca '${productoRef}' no encontrado para '${matLookup.item.nombre}'.`,
+          textoLinea: rawLine,
+        },
+      };
+    }
+    if (prodLookup.status === 'ambiguous') {
+      return {
+        error: {
+          linea: lineNum,
+          columna: colOffset,
+          longitud: refText.length,
+          codigo: 'producto_ambiguo',
+          mensaje: `Producto ambiguo '${productoRef}' para '${matLookup.item.nombre}'.`,
+          textoLinea: rawLine,
+          candidatos: prodLookup.candidatos.map((p) => `${p.marca} ${p.modelo}`.trim()),
+        },
+      };
+    }
+    productoId = prodLookup.item.id;
+    productoNombre = `${prodLookup.item.marca} ${prodLookup.item.modelo}`.trim();
+  }
+
+  return {
+    linea: {
+      tipo: 'material',
+      referencia: matLookup.item.nombre,
+      materialId: matLookup.item.id,
+      ...(productoId ? { productoId, productoReferencia: productoNombre } : {}),
+      ...(parsedQtyUnit.value.cantidad !== undefined ? { cantidad: parsedQtyUnit.value.cantidad } : {}),
+      ...(parsedQtyUnit.value.formulaCantidad !== undefined
+        ? { formulaCantidad: parsedQtyUnit.value.formulaCantidad }
+        : {}),
+      unidad: parsedQtyUnit.value.unidad,
+    },
+  };
+}
+
+function parseManoObraLineContent(
+  rawContent: string,
+  lineNum: number,
+  colOffset: number,
+  rawLine: string,
+  contexto: NotebookParseContext
+): { linea?: NotebookManoObraLinea; error?: NotebookParseError } {
+  const tokens = tokenizeLineWithPos(rawContent, 0);
+  if (tokens.length < 2) {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud: rawContent.length,
+        codigo: 'sintaxis_invalida',
+        mensaje: 'Formato inválido en mo:. Esperado: mo: <categoría>  <horas>h',
+        textoLinea: rawLine,
+      },
+    };
+  }
+
+  const moUnits = new Map<string, string>([
+    ['h', 'h'],
+    ['hs', 'hs'],
+  ]);
+  const qtyRes = extractTrailingQuantityUnit(
+    tokens,
+    moUnits,
+    lineNum,
+    colOffset,
+    rawLine,
+    `Se esperaba duración en horas ('h' o 'hs') al final de '${rawContent}'.`
+  );
+  if (!qtyRes.ok) {
+    return {
+      error:
+        tokens.length < 3 && !splitAttachedQuantityUnit(tokens[tokens.length - 1].text)
+          ? { ...qtyRes.error, codigo: 'unidad_desconocida' }
+          : qtyRes.error,
+    };
+  }
+  const parsedQtyUnit = { value: qtyRes.value };
+  const refTokens = qtyRes.prefixTokens;
+
+  const refText = refTokens.map((t) => t.text).join(' ').trim();
+  const lookup = resolverManoObra(refText, contexto.manoObra ?? []);
+  if (lookup.status === 'not_found') {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud: refText.length || 1,
+        codigo: 'referencia_inexistente',
+        mensaje: `Categoría de mano de obra no encontrada: '${refText}'.`,
+        textoLinea: rawLine,
+      },
+    };
+  }
+  if (lookup.status === 'ambiguous') {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud: refText.length,
+        codigo: 'ambiguo',
+        mensaje: `Categoría de mano de obra ambigua '${refText}': coincide con ${lookup.candidatos.map((c) => c.nombre).join(', ')}.`,
+        textoLinea: rawLine,
+        candidatos: lookup.candidatos.map((c) => c.nombre),
+      },
+    };
+  }
+
+  return {
+    linea: {
+      tipo: 'mano_obra',
+      referencia: lookup.item.nombre,
+      categoriaId: lookup.item.id,
+      ...(parsedQtyUnit.value.cantidad !== undefined ? { horas: parsedQtyUnit.value.cantidad } : {}),
+      ...(parsedQtyUnit.value.formulaCantidad !== undefined
+        ? { formulaHoras: parsedQtyUnit.value.formulaCantidad }
+        : {}),
+      unidad: parsedQtyUnit.value.unidad as 'h' | 'hs',
+    },
+  };
+}
+
+function parseScalarOrFormula(raw: string): { num?: number; formula?: string; valid: boolean; error?: string } {
+  const trimmed = raw.trim();
+  if (/^-?\d+(?:[.,]\d+)?$/.test(trimmed)) {
+    const num = Number(trimmed.replace(',', '.'));
+    if (!Number.isFinite(num) || num < 0) {
+      return { valid: false, error: `Valor numérico inválido '${raw}'.` };
+    }
+    return { num, valid: true };
+  }
+  if (trimmed.startsWith('=') || (trimmed.startsWith('(') && trimmed.endsWith(')'))) {
+    const expr = trimmed.startsWith('=') ? trimmed.slice(1).trim() : trimmed.slice(1, -1).trim();
+    const syntax = validateMathSyntax(expr);
+    if (!syntax.valid) return { valid: false, error: syntax.error };
+    return { formula: expr, valid: true };
+  }
+  return { valid: false, error: `Se esperaba número positivo o fórmula entre paréntesis en '${raw}'.` };
+}
+
+function parseServicioLineContent(
+  rawContent: string,
+  lineNum: number,
+  colOffset: number,
+  rawLine: string,
+  validUnits: Map<string, string>
+): { linea?: NotebookServicioLinea; error?: NotebookParseError } {
+  const tokens = tokenizeLineWithPos(rawContent, 0);
+  if (tokens.length < 3) {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud: rawContent.length,
+        codigo: 'sintaxis_invalida',
+        mensaje: 'Formato inválido en serv:. Esperado: serv: <descripción>  <cantidad> <unidad>  <costo>',
+        textoLinea: rawLine,
+      },
+    };
+  }
+
+  const costToken = tokens[tokens.length - 1];
+  const costParsed = parseScalarOrFormula(costToken.text);
+  if (!costParsed.valid) {
+    return {
+      error: {
+        linea: lineNum,
+        columna: costToken.col + colOffset - 1,
+        longitud: costToken.text.length,
+        codigo: 'cantidad_invalida',
+        mensaje: costParsed.error || `Costo inválido '${costToken.text}'.`,
+        textoLinea: rawLine,
+      },
+    };
+  }
+
+  const beforeCost = tokens.slice(0, -1);
+  const qtyRes = extractTrailingQuantityUnit(
+    beforeCost,
+    validUnits,
+    lineNum,
+    colOffset,
+    rawLine,
+    'Falta cantidad y unidad en serv:.'
+  );
+  if (!qtyRes.ok) return { error: qtyRes.error };
+
+  const parsedQtyUnit = { value: qtyRes.value };
+  const descTokens = qtyRes.prefixTokens;
+
+  const descripcion = descTokens.map((t) => t.text).join(' ').trim();
+  if (!descripcion) {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud: rawContent.length,
+        codigo: 'sintaxis_invalida',
+        mensaje: 'Falta descripción en serv:.',
+        textoLinea: rawLine,
+      },
+    };
+  }
+
+  return {
+    linea: {
+      tipo: 'servicio',
+      descripcion,
+      ...(parsedQtyUnit.value.cantidad !== undefined ? { cantidad: parsedQtyUnit.value.cantidad } : {}),
+      ...(parsedQtyUnit.value.formulaCantidad !== undefined
+        ? { formulaCantidad: parsedQtyUnit.value.formulaCantidad }
+        : {}),
+      unidad: parsedQtyUnit.value.unidad,
+      ...(costParsed.num !== undefined ? { costoUnitario: costParsed.num } : {}),
+      ...(costParsed.formula !== undefined ? { formulaCosto: costParsed.formula } : {}),
+    },
+  };
+}
+
+function parseTrabajoTipoLine(
+  rawLine: string,
+  lineNum: number,
+  leadingSpaces: number,
+  contexto: NotebookParseContext,
+  validUnits: Map<string, string>
+): { block?: NotebookTareaTipoBlock; errores: NotebookParseError[] } {
+  const errores: NotebookParseError[] = [];
+  const afterSlash = rawLine.slice(leadingSpaces);
+  const tokens = tokenizeLineWithPos(afterSlash, 0);
+  const cmd = tokens[0];
+
+  if (cmd.text !== '/tt') {
+    errores.push({
+      linea: lineNum,
+      columna: leadingSpaces + cmd.col,
+      longitud: cmd.text.length,
+      codigo: 'directiva_desconocida',
+      mensaje: `Directiva desconocida '${cmd.text}'. ¿Quisiste decir '/tt'?`,
+      textoLinea: rawLine,
+    });
+    return { errores };
+  }
+
+  if (tokens.length < 2) {
+    errores.push({
+      linea: lineNum,
+      columna: leadingSpaces + 1,
+      longitud: cmd.text.length,
+      codigo: 'sintaxis_invalida',
+      mensaje: "Falta el identificador del trabajo tipo después de '/tt'.",
+      textoLinea: rawLine,
+    });
+    return { errores };
+  }
+
+  const refTok = tokens[1];
+  const ttLookup = resolverTrabajoTipo(refTok.text, contexto.tareasTipo);
+  if (ttLookup.status === 'not_found') {
+    errores.push({
+      linea: lineNum,
+      columna: leadingSpaces + refTok.col,
+      longitud: refTok.text.length,
+      codigo: 'referencia_inexistente',
+      mensaje: `Trabajo tipo no encontrado en catálogo: '${refTok.text}'.`,
+      textoLinea: rawLine,
+    });
+    return { errores };
+  }
+  if (ttLookup.status === 'ambiguous') {
+    errores.push({
+      linea: lineNum,
+      columna: leadingSpaces + refTok.col,
+      longitud: refTok.text.length,
+      codigo: 'ambiguo',
+      mensaje: `Trabajo tipo ambiguo '${refTok.text}': coincide con ${ttLookup.candidatos.map((c) => c.nombre).join(', ')}.`,
+      textoLinea: rawLine,
+      candidatos: ttLookup.candidatos.map((c) => c.slug || c.nombre),
+    });
+    return { errores };
+  }
+
+  const tareaTipo = ttLookup.item;
+  const declaredParams = new Set((tareaTipo.parametros ?? []).map((p) => p.id));
+  const overridesParametros: Record<string, number | string> = {};
+  const quitados: string[] = [];
+  const agregados: NotebookAjusteAgregado[] = [];
+  let cantidad: number | undefined;
+
+  let i = 2;
+  while (i < tokens.length) {
+    const tok = tokens[i];
+    const col = leadingSpaces + tok.col;
+
+    if (tok.text.startsWith('-')) {
+      const clave = tok.text.slice(1).trim();
+      if (!clave) {
+        errores.push({
+          linea: lineNum,
+          columna: col,
+          longitud: tok.text.length,
+          codigo: 'sintaxis_invalida',
+          mensaje: "Falta identificador después de '-'.",
+          textoLinea: rawLine,
+        });
+      } else {
+        quitados.push(clave);
+      }
+      i++;
+      continue;
+    }
+
+    if (tok.text.startsWith('+')) {
+      const matRef = tok.text.slice(1).trim();
+      if (!matRef) {
+        errores.push({
+          linea: lineNum,
+          columna: col,
+          longitud: tok.text.length,
+          codigo: 'sintaxis_invalida',
+          mensaje: "Falta referencia de material después de '+'.",
+          textoLinea: rawLine,
+        });
+        i++;
+        continue;
+      }
+
+      if (i + 1 >= tokens.length) {
+        errores.push({
+          linea: lineNum,
+          columna: col,
+          longitud: tok.text.length,
+          codigo: 'cantidad_invalida',
+          mensaje: `Falta cantidad y unidad para el agregado '+${matRef}'.`,
+          textoLinea: rawLine,
+        });
+        i++;
+        continue;
+      }
+
+      const nextTok = tokens[i + 1];
+      const attached = splitAttachedQuantityUnit(nextTok.text);
+      let parsedQtyUnit: ReturnType<typeof parseQuantityUnitPair>;
+      let consumed = 2;
+
+      if (attached) {
+        parsedQtyUnit = parseQuantityUnitPair(attached.qty, attached.unit, validUnits);
+      } else if (i + 2 < tokens.length) {
+        const unitTok = tokens[i + 2];
+        parsedQtyUnit = parseQuantityUnitPair(nextTok.text, unitTok.text, validUnits);
+        consumed = 3;
+      } else {
+        errores.push({
+          linea: lineNum,
+          columna: leadingSpaces + nextTok.col,
+          longitud: nextTok.text.length,
+          codigo: 'unidad_desconocida',
+          mensaje: `Falta unidad válida en agregado '+${matRef} ${nextTok.text}'.`,
+          textoLinea: rawLine,
+        });
+        i += 2;
+        continue;
+      }
+
+      if (!parsedQtyUnit.ok) {
+        errores.push({
+          linea: lineNum,
+          columna: leadingSpaces + nextTok.col,
+          longitud: nextTok.text.length,
+          codigo: parsedQtyUnit.codigo,
+          mensaje: parsedQtyUnit.mensaje,
+          textoLinea: rawLine,
+        });
+        i += consumed;
+        continue;
+      }
+
+      const matLookup = resolverMaterial(matRef, contexto.materiales);
+      if (matLookup.status === 'not_found') {
+        errores.push({
+          linea: lineNum,
+          columna: col,
+          longitud: tok.text.length,
+          codigo: 'referencia_inexistente',
+          mensaje: `Material agregado no encontrado en catálogo: '${matRef}'.`,
+          textoLinea: rawLine,
+        });
+      } else if (matLookup.status === 'ambiguous') {
+        errores.push({
+          linea: lineNum,
+          columna: col,
+          longitud: tok.text.length,
+          codigo: 'ambiguo',
+          mensaje: `Referencia ambigua '+${matRef}': coincide con ${matLookup.candidatos.map((c) => c.nombre).join(', ')}.`,
+          textoLinea: rawLine,
+          candidatos: matLookup.candidatos.map((c) => c.nombre),
+        });
+      } else {
+        agregados.push({
+          referencia: matLookup.item.nombre,
+          materialId: matLookup.item.id,
+          ...(parsedQtyUnit.value.cantidad !== undefined ? { cantidad: parsedQtyUnit.value.cantidad } : {}),
+          ...(parsedQtyUnit.value.formulaCantidad !== undefined
+            ? { formulaCantidad: parsedQtyUnit.value.formulaCantidad }
+            : {}),
+          unidad: parsedQtyUnit.value.unidad,
+        });
+      }
+
+      i += consumed;
+      continue;
+    }
+
+    const eqIdx = tok.text.indexOf('=');
+    if (eqIdx > 0) {
+      const key = tok.text.slice(0, eqIdx).trim();
+      const rawVal = tok.text.slice(eqIdx + 1).trim();
+
+      if (!rawVal) {
+        errores.push({
+          linea: lineNum,
+          columna: col,
+          longitud: tok.text.length,
+          codigo: 'sintaxis_invalida',
+          mensaje: `Falta valor para el parámetro '${key}'.`,
+          textoLinea: rawLine,
+        });
+        i++;
+        continue;
+      }
+
+      if (key === 'cantidad') {
+        const num = Number(rawVal.replace(',', '.'));
+        if (!Number.isFinite(num) || num <= 0) {
+          errores.push({
+            linea: lineNum,
+            columna: col,
+            longitud: tok.text.length,
+            codigo: 'cantidad_invalida',
+            mensaje: `Cantidad inválida '${rawVal}' en trabajo tipo.`,
+            textoLinea: rawLine,
+          });
+        } else {
+          cantidad = num;
+        }
+        i++;
+        continue;
+      }
+
+      if (declaredParams.size > 0 && !declaredParams.has(key)) {
+        errores.push({
+          linea: lineNum,
+          columna: col,
+          longitud: key.length,
+          codigo: 'parametro_desconocido',
+          mensaje: `Parámetro desconocido '${key}' para el trabajo tipo '${tareaTipo.slug || tareaTipo.nombre}'.`,
+          textoLinea: rawLine,
+        });
+        i++;
+        continue;
+      }
+
+      if (/^-?\d+(?:[.,]\d+)?$/.test(rawVal)) {
+        overridesParametros[key] = Number(rawVal.replace(',', '.'));
+      } else {
+        const syntax = validateMathSyntax(rawVal);
+        if (!syntax.valid) {
+          errores.push({
+            linea: lineNum,
+            columna: col,
+            longitud: tok.text.length,
+            codigo: 'expresion_invalida',
+            mensaje: `Expresión inválida en parámetro '${key}': ${syntax.error}`,
+            textoLinea: rawLine,
+          });
+        } else {
+          overridesParametros[key] = rawVal;
+        }
+      }
+
+      i++;
+      continue;
+    }
+
+    errores.push({
+      linea: lineNum,
+      columna: col,
+      longitud: tok.text.length,
+      codigo: 'sintaxis_invalida',
+      mensaje: `Token inesperado '${tok.text}' en línea /tt.`,
+      textoLinea: rawLine,
+    });
+    i++;
+  }
+
+  return {
+    block: {
+      tipo: 'tarea_tipo',
+      referencia: tareaTipo.slug || slugifyIdentificador(tareaTipo.nombre) || tareaTipo.id,
+      tareaTipoId: tareaTipo.id,
+      ...(cantidad !== undefined ? { cantidad } : {}),
+      overridesParametros,
+      quitados,
+      agregados,
+      lineas: [],
+    },
+    errores,
+  };
+}
+
+function parseItemLine(
+  rawContent: string,
+  lineNum: number,
+  colOffset: number,
+  rawLine: string,
+  validUnits: Map<string, string>
+): { block?: NotebookItemLibreBlock; error?: NotebookParseError } {
+  const tokens = tokenizeLineWithPos(rawContent, 0);
+  if (tokens.length === 0) {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud: 1,
+        codigo: 'sintaxis_invalida',
+        mensaje: "Falta descripción, cantidad y unidad después de 'item:'.",
+        textoLinea: rawLine,
+      },
+    };
+  }
+
+  // Extrae parámetros opcionales key=val al final
+  const parametros: Record<string, number | string> = {};
+  let endIdx = tokens.length;
+  while (endIdx > 0) {
+    const tok = tokens[endIdx - 1];
+    const eqIdx = tok.text.indexOf('=');
+    if (eqIdx > 0 && /^[a-zA-Z_]\w*$/.test(tok.text.slice(0, eqIdx))) {
+      const k = tok.text.slice(0, eqIdx);
+      const v = tok.text.slice(eqIdx + 1);
+      if (!v) {
+        return {
+          error: {
+            linea: lineNum,
+            columna: tok.col + colOffset - 1,
+            longitud: tok.text.length,
+            codigo: 'sintaxis_invalida',
+            mensaje: `Falta valor para parámetro '${k}' en item:.`,
+            textoLinea: rawLine,
+          },
+        };
+      }
+      if (/^-?\d+(?:[.,]\d+)?$/.test(v)) {
+        parametros[k] = Number(v.replace(',', '.'));
+      } else {
+        const syntax = validateMathSyntax(v);
+        if (!syntax.valid) {
+          return {
+            error: {
+              linea: lineNum,
+              columna: tok.col + colOffset - 1,
+              longitud: tok.text.length,
+              codigo: 'expresion_invalida',
+              mensaje: `Expresión inválida en parámetro '${k}': ${syntax.error}`,
+              textoLinea: rawLine,
+            },
+          };
+        }
+        parametros[k] = v;
+      }
+      endIdx--;
+    } else {
+      break;
+    }
+  }
+
+  const coreTokens = tokens.slice(0, endIdx);
+  if (coreTokens.length < 2) {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud: rawContent.length,
+        codigo: 'cantidad_invalida',
+        mensaje: "El bloque 'item:' requiere descripción, cantidad y unidad (ej: item: Canaleta  1 gl  45000).",
+        textoLinea: rawLine,
+      },
+    };
+  }
+
+  let precioUnitario: number | undefined;
+  let formulaPrecio: string | undefined;
+  let qtyEndIdx = coreTokens.length;
+
+  const maybePrice = coreTokens[coreTokens.length - 1];
+  const maybePriceParsed = parseScalarOrFormula(maybePrice.text);
+  // Si el último token es número o fórmula explícita (= / (...)) y no tiene unidad pegada, lo tratamos como precio siempre que antes haya una unidad válida
+  if (maybePriceParsed.valid && !splitAttachedQuantityUnit(maybePrice.text) && coreTokens.length >= 3) {
+    const prevTok = coreTokens[coreTokens.length - 2];
+    const prevAttached = splitAttachedQuantityUnit(prevTok.text);
+    const prevIsUnit = validUnits.has(normalizeText(prevTok.text));
+    if (prevAttached || prevIsUnit) {
+      precioUnitario = maybePriceParsed.num;
+      formulaPrecio = maybePriceParsed.formula;
+      qtyEndIdx = coreTokens.length - 1;
+    }
+  }
+
+  const qtySlice = coreTokens.slice(0, qtyEndIdx);
+  if (qtySlice.length < 2) {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud: rawContent.length,
+        codigo: 'cantidad_invalida',
+        mensaje: "Falta cantidad y unidad en 'item:'.",
+        textoLinea: rawLine,
+      },
+    };
+  }
+
+  const qtyRes = extractTrailingQuantityUnit(
+    qtySlice,
+    validUnits,
+    lineNum,
+    colOffset,
+    rawLine,
+    `Falta cantidad y unidad válidas en '${rawContent}'.`
+  );
+  if (!qtyRes.ok) return { error: qtyRes.error };
+
+  const parsedQtyUnit = { value: qtyRes.value };
+  const descTokens = qtyRes.prefixTokens;
+
+  const descripcion = descTokens.map((t) => t.text).join(' ').trim();
+  if (!descripcion) {
+    return {
+      error: {
+        linea: lineNum,
+        columna: colOffset,
+        longitud: rawContent.length,
+        codigo: 'sintaxis_invalida',
+        mensaje: "Falta descripción antes de la cantidad en 'item:'.",
+        textoLinea: rawLine,
+      },
+    };
+  }
+
+  return {
+    block: {
+      tipo: 'item_libre',
+      modo: 'item',
+      descripcion,
+      ...(parsedQtyUnit.value.cantidad !== undefined ? { cantidad: parsedQtyUnit.value.cantidad } : {}),
+      ...(parsedQtyUnit.value.formulaCantidad !== undefined
+        ? { formulaCantidad: parsedQtyUnit.value.formulaCantidad }
+        : {}),
+      unidad: parsedQtyUnit.value.unidad,
+      ...(precioUnitario !== undefined ? { precioUnitario } : {}),
+      ...(formulaPrecio !== undefined ? { formulaPrecio } : {}),
+      parametros,
+      lineas: [],
+    },
+  };
+}
+
+/**
+ * Parsea texto del notebook a bloques tipados y errores deterministas con línea y columna.
+ * Función pura sin estado ni acceso a UI.
+ */
+export function parse(texto: string, contexto: NotebookParseContext): NotebookParseResult {
+  const bloques: NotebookBlock[] = [];
+  const errores: NotebookParseError[] = [];
+  const validUnits = buildValidUnitsMap(contexto);
+  const allowedSupuestos = collectAllowedSupuestos(contexto);
+
+  const lines = (texto || '').split(/\r?\n/);
+  let currentItem: NotebookTareaTipoBlock | NotebookItemLibreBlock | null = null;
+
+  for (let idx = 0; idx < lines.length; idx++) {
+    const rawLine = lines[idx];
+    const lineNum = idx + 1;
+    const trimmed = rawLine.trim();
+
+    if (!trimmed) {
+      currentItem = null;
+      continue;
+    }
+
+    const leadingSpaces = rawLine.length - rawLine.trimStart().length;
+    const colStart = leadingSpaces + 1;
+
+    // 1. Capítulo: # Nombre
+    if (trimmed.startsWith('#')) {
+      currentItem = null;
+      const nombre = trimmed.slice(1).trim();
+      if (!nombre) {
+        errores.push({
+          linea: lineNum,
+          columna: colStart,
+          longitud: trimmed.length,
+          codigo: 'sintaxis_invalida',
+          mensaje: "El título del capítulo después de '#' no puede estar vacío.",
+          textoLinea: rawLine,
+        });
+      } else {
+        bloques.push({ tipo: 'capitulo', nombre });
+      }
+      continue;
+    }
+
+    // 2. Comando con barra (/tt ...)
+    if (trimmed.startsWith('/')) {
+      currentItem = null;
+      const res = parseTrabajoTipoLine(rawLine, lineNum, leadingSpaces, contexto, validUnits);
+      errores.push(...res.errores);
+      if (res.block) {
+        bloques.push(res.block);
+        currentItem = res.block;
+      }
+      continue;
+    }
+
+    // 3. Directivas con dos puntos (<palabra>: ...)
+    const directiveMatch = trimmed.match(/^([a-zA-Z_]\w*)\s*:(.*)$/);
+    if (directiveMatch) {
+      const directive = directiveMatch[1].toLowerCase();
+      const rest = directiveMatch[2].trim();
+      const colonIdx = rawLine.indexOf(':');
+      const contentCol = colonIdx + 2;
+
+      if (!DIRECTIVAS_CON_DOS_PUNTOS.has(directive)) {
+        errores.push({
+          linea: lineNum,
+          columna: colStart,
+          longitud: directiveMatch[1].length,
+          codigo: 'directiva_desconocida',
+          mensaje: `Directiva desconocida '${directiveMatch[1]}:'. Válidas: tarea, item, supuesto, nota, mat, mo, serv.`,
+          textoLinea: rawLine,
+        });
+        continue;
+      }
+
+      if (directive === 'nota') {
+        currentItem = null;
+        if (!rest) {
+          errores.push({
+            linea: lineNum,
+            columna: colStart,
+            longitud: trimmed.length,
+            codigo: 'sintaxis_invalida',
+            mensaje: "La nota interna después de 'nota:' no puede estar vacía.",
+            textoLinea: rawLine,
+          });
+        } else {
+          bloques.push({ tipo: 'nota_interna', texto: rest });
+        }
+        continue;
+      }
+
+      if (directive === 'supuesto') {
+        currentItem = null;
+        const supMatch = rest.match(/^([a-zA-Z_][\w-]*)\s*=\s*(.+)$/);
+        if (!supMatch) {
+          errores.push({
+            linea: lineNum,
+            columna: contentCol,
+            longitud: Math.max(1, rest.length),
+            codigo: 'sintaxis_invalida',
+            mensaje: "Formato inválido en supuesto:. Esperado: supuesto: <clave> = <valor>",
+            textoLinea: rawLine,
+          });
+          continue;
+        }
+        const clave = supMatch[1].trim();
+        const valor = supMatch[2].trim();
+        const allowed = allowedSupuestos.get(clave);
+        if (allowed && !allowed.has(valor)) {
+          errores.push({
+            linea: lineNum,
+            columna: contentCol,
+            longitud: rest.length,
+            codigo: 'valor_supuesto_invalido',
+            mensaje: `Valor '${valor}' inválido para supuesto '${clave}'. Opciones: ${Array.from(allowed).join(', ')}.`,
+            textoLinea: rawLine,
+            candidatos: Array.from(allowed),
+          });
+          continue;
+        }
+        bloques.push({ tipo: 'supuesto', clave, valor });
+        continue;
+      }
+
+      if (directive === 'tarea') {
+        if (!rest) {
+          errores.push({
+            linea: lineNum,
+            columna: colStart,
+            longitud: trimmed.length,
+            codigo: 'sintaxis_invalida',
+            mensaje: "Falta la descripción después de 'tarea:'.",
+            textoLinea: rawLine,
+          });
+          currentItem = null;
+          continue;
+        }
+        const block: NotebookItemLibreBlock = {
+          tipo: 'item_libre',
+          modo: 'tarea',
+          descripcion: rest,
+          parametros: {},
+          lineas: [],
+        };
+        bloques.push(block);
+        currentItem = block;
+        continue;
+      }
+
+      if (directive === 'item') {
+        const res = parseItemLine(rest, lineNum, contentCol, rawLine, validUnits);
+        if (res.error) {
+          errores.push(res.error);
+          currentItem = null;
+        } else if (res.block) {
+          bloques.push(res.block);
+          currentItem = res.block;
+        }
+        continue;
+      }
+
+      // Sub-líneas explícitas: mat:, mo:, serv:
+      if (!currentItem) {
+        errores.push({
+          linea: lineNum,
+          columna: colStart,
+          longitud: trimmed.length,
+          codigo: 'linea_fuera_de_item',
+          mensaje: `La línea '${directive}:' debe estar dentro de un ítem ('tarea:', 'item:' o '/tt').`,
+          textoLinea: rawLine,
+        });
+        continue;
+      }
+
+      if (directive === 'mat') {
+        const res = parseMaterialLineContent(rest, lineNum, contentCol, rawLine, contexto, validUnits);
+        if (res.error) errores.push(res.error);
+        else if (res.linea) currentItem.lineas.push(res.linea);
+      } else if (directive === 'mo') {
+        const res = parseManoObraLineContent(rest, lineNum, contentCol, rawLine, contexto);
+        if (res.error) errores.push(res.error);
+        else if (res.linea) currentItem.lineas.push(res.linea);
+      } else if (directive === 'serv') {
+        const res = parseServicioLineContent(rest, lineNum, contentCol, rawLine, validUnits);
+        if (res.error) errores.push(res.error);
+        else if (res.linea) currentItem.lineas.push(res.linea);
+      }
+      continue;
+    }
+
+    // 4. Variable global: ident = expr (no puede estar indentada como sub-línea)
+    const varMatch = trimmed.match(/^([a-zA-Z_]\w*)\s*=\s*(.*)$/);
+    if (varMatch && leadingSpaces === 0) {
+      currentItem = null;
+      const id = varMatch[1];
+      const expr = varMatch[2].trim();
+
+      if (id === 'cantidad' || RESERVED_KEYWORDS.has(id.toLowerCase())) {
+        errores.push({
+          linea: lineNum,
+          columna: colStart,
+          longitud: id.length,
+          codigo: 'nombre_reservado',
+          mensaje: `'${id}' es una palabra reservada y no puede usarse como variable.`,
+          textoLinea: rawLine,
+        });
+        continue;
+      }
+
+      if (!expr) {
+        errores.push({
+          linea: lineNum,
+          columna: colStart,
+          longitud: trimmed.length,
+          codigo: 'sintaxis_invalida',
+          mensaje: `Falta expresión o valor a la derecha de '${id} ='.`,
+          textoLinea: rawLine,
+        });
+        continue;
+      }
+
+      const syntax = validateMathSyntax(expr);
+      if (!syntax.valid) {
+        errores.push({
+          linea: lineNum,
+          columna: rawLine.indexOf('=') + 2,
+          longitud: expr.length,
+          codigo: 'expresion_invalida',
+          mensaje: `Expresión inválida en variable '${id}': ${syntax.error}`,
+          textoLinea: rawLine,
+        });
+        continue;
+      }
+
+      bloques.push({ tipo: 'variable', id, expresion: expr });
+      continue;
+    }
+
+    // 5. Línea de material dentro del ítem activo (ej: "cable 2.5 celeste  120m")
+    if (currentItem) {
+      const res = parseMaterialLineContent(trimmed, lineNum, colStart, rawLine, contexto, validUnits);
+      if (res.error) {
+        errores.push(res.error);
+      } else if (res.linea) {
+        currentItem.lineas.push(res.linea);
+      }
+      continue;
+    }
+
+    // 6. Verificar si es una línea de material huérfana fuera de ítem; si no, reportar sintaxis inválida
+    const orphanMat = parseMaterialLineContent(trimmed, lineNum, colStart, rawLine, contexto, validUnits);
+    if (orphanMat.linea) {
+      errores.push({
+        linea: lineNum,
+        columna: colStart,
+        longitud: trimmed.length,
+        codigo: 'linea_fuera_de_item',
+        mensaje: `El material '${orphanMat.linea.referencia}' debe ir dentro de un ítem ('tarea:', 'item:' o '/tt').`,
+        textoLinea: rawLine,
+      });
+      continue;
+    }
+
+    errores.push({
+      linea: lineNum,
+      columna: colStart,
+      longitud: trimmed.length,
+      codigo: 'sintaxis_invalida',
+      mensaje: `Línea no reconocida o fuera de contexto: '${trimmed}'.`,
+      textoLinea: rawLine,
+    });
+  }
+
+  return {
+    bloques,
+    errores,
+    valido: errores.length === 0,
+  };
+}
+
+function formatQtyUnit(cantidad?: number, formula?: string, unidad?: string): string {
+  const qtyStr = formula !== undefined ? `(${formula})` : String(cantidad ?? 1);
+  return `${qtyStr}${unidad ?? ''}`;
+}
+
+function quoteIfSpaces(text: string): string {
+  return /\s/.test(text) ? `"${text}"` : text;
+}
+
+function serializeLinea(
+  linea: NotebookItemLinea,
+  materialesById: Map<string, Material>,
+  productosById: Map<string, Producto>,
+  manoObraById: Map<string, CategoriaManoDeObra>
+): string {
+  if (linea.tipo === 'material') {
+    const matNombre = (linea.materialId && materialesById.get(linea.materialId)?.nombre) || linea.referencia;
+    const prod = linea.productoId ? productosById.get(linea.productoId) : undefined;
+    const prodNombre = prod ? `${prod.marca} ${prod.modelo}`.trim() : linea.productoReferencia;
+    const prodTag = prodNombre ? ` [${prodNombre}]` : '';
+    return `  ${matNombre}${prodTag}  ${formatQtyUnit(linea.cantidad, linea.formulaCantidad, linea.unidad)}`;
+  }
+  if (linea.tipo === 'mano_obra') {
+    const moNombre = (linea.categoriaId && manoObraById.get(linea.categoriaId)?.nombre) || linea.referencia;
+    const qtyStr = linea.formulaHoras !== undefined ? `(${linea.formulaHoras})` : String(linea.horas ?? 1);
+    return `  mo: ${moNombre}  ${qtyStr}${linea.unidad}`;
+  }
+  const qtyStr = linea.formulaCantidad !== undefined ? `(${linea.formulaCantidad})` : String(linea.cantidad ?? 1);
+  const costStr = linea.formulaCosto !== undefined ? `(${linea.formulaCosto})` : String(linea.costoUnitario ?? 0);
+  return `  serv: ${linea.descripcion}  ${qtyStr} ${linea.unidad}  ${costStr}`;
+}
+
+/**
+ * Serializa bloques tipados del notebook a su representación textual canónica.
+ * Garantiza round-trip determinista: parse(serialize(x, ctx), ctx) equivale a x.
+ */
+export function serialize(
+  bloques: NotebookBlock[],
+  contexto?: Partial<NotebookParseContext>
+): string {
+  const tareasById = new Map((contexto?.tareasTipo ?? []).map((t) => [t.id, t]));
+  const materialesById = new Map((contexto?.materiales ?? []).map((m) => [m.id, m]));
+  const productosById = new Map((contexto?.productos ?? []).map((p) => [p.id, p]));
+  const manoObraById = new Map((contexto?.manoObra ?? []).map((mo) => [mo.id, mo]));
+
+  const lines: string[] = [];
+
+  for (let i = 0; i < bloques.length; i++) {
+    const b = bloques[i];
+
+    if (b.tipo === 'variable') {
+      lines.push(`${b.id} = ${b.expresion}`);
+      continue;
+    }
+
+    if (b.tipo === 'supuesto') {
+      lines.push(`supuesto: ${b.clave} = ${b.valor}`);
+      continue;
+    }
+
+    if (b.tipo === 'nota_interna') {
+      lines.push(`nota: ${b.texto}`);
+      continue;
+    }
+
+    if (b.tipo === 'capitulo') {
+      if (lines.length > 0 && lines[lines.length - 1] !== '') {
+        lines.push('');
+      }
+      lines.push(`# ${b.nombre}`);
+      continue;
+    }
+
+    if (b.tipo === 'tarea_tipo') {
+      const tt = b.tareaTipoId ? tareasById.get(b.tareaTipoId) : undefined;
+      const ref = tt?.slug || (tt ? slugifyIdentificador(tt.nombre) : '') || b.referencia;
+      const parts: string[] = [`/tt ${ref}`];
+
+      if (b.cantidad !== undefined && b.cantidad !== 1) {
+        parts.push(`cantidad=${b.cantidad}`);
+      }
+      for (const [k, v] of Object.entries(b.overridesParametros)) {
+        parts.push(`${k}=${v}`);
+      }
+      for (const q of b.quitados) {
+        parts.push(`-${q}`);
+      }
+      for (const ag of b.agregados) {
+        const matName = (ag.materialId && materialesById.get(ag.materialId)?.nombre) || ag.referencia;
+        parts.push(`+${quoteIfSpaces(matName)} ${formatQtyUnit(ag.cantidad, ag.formulaCantidad, ag.unidad)}`);
+      }
+      lines.push(parts.join('  '));
+      for (const l of b.lineas) {
+        lines.push(serializeLinea(l, materialesById, productosById, manoObraById));
+      }
+      continue;
+    }
+
+    if (b.tipo === 'item_libre') {
+      if (b.modo === 'tarea') {
+        lines.push(`tarea: ${b.descripcion}`);
+      } else {
+        const qtyStr = b.formulaCantidad !== undefined ? `(${b.formulaCantidad})` : String(b.cantidad ?? 1);
+        const parts: string[] = [`item: ${b.descripcion}`, `${qtyStr} ${b.unidad ?? 'u'}`];
+        if (b.formulaPrecio !== undefined) {
+          parts.push(`(${b.formulaPrecio})`);
+        } else if (b.precioUnitario !== undefined) {
+          parts.push(String(b.precioUnitario));
+        }
+        for (const [k, v] of Object.entries(b.parametros)) {
+          parts.push(`${k}=${v}`);
+        }
+        lines.push(parts.join('  '));
+      }
+      for (const l of b.lineas) {
+        lines.push(serializeLinea(l, materialesById, productosById, manoObraById));
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
