@@ -10,8 +10,8 @@ import { TareasTipoManager } from './components/TareasTipoManager';
 import { ContactosManager } from './components/ContactosManager';
 import { SolicitudCotizacionManager } from './components/SolicitudesCotizacionManager';
 import { PresupuestosList } from './components/PresupuestosList';
-import { PresupuestoEditor } from './components/PresupuestoEditor';
 import { NotebookDesktopView } from './components/presupuesto/notebook/NotebookDesktopView';
+import { MobileEjecutarView } from './components/presupuesto/mobile/MobileEjecutarView';
 import { PresupuestoDetail } from './components/PresupuestoDetail';
 import { RegistroTrabajoManager } from './components/RegistroTrabajoManager';
 import { LogisticaManager } from './components/LogisticaManager';
@@ -271,23 +271,16 @@ export function App() {
                     onSaved={handleSavedPresupuesto}
                   />
                 ) : (
-                  <PresupuestoEditor
+                  <MobileEjecutarView
                     presupuestoId={selectedPresupuestoId}
-                    initialClienteId={initialClienteId}
+                    initialPresupuesto={initialClienteId ? { clienteId: initialClienteId } : undefined}
                     config={config}
-                    isZenMode={isZenMode}
-                    onToggleZenMode={() => setIsZenMode((v) => !v)}
                     onBack={() => {
                       setActiveEditingPresupuestoId(undefined);
                       setSelectedPresupuestoId(undefined);
                       setViewMode('list');
                     }}
                     onSaved={handleSavedPresupuesto}
-                    onDraftAutoSaved={(id) => {
-                      setSelectedPresupuestoId(id);
-                      setActiveEditingPresupuestoId(id);
-                    }}
-                    onViewMaterialsInCatalog={handleViewMaterialsInCatalog}
                   />
                 )
               )}
