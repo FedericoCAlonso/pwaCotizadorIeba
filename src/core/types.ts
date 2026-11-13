@@ -391,6 +391,8 @@ export interface InsumoEnTarea {
   insumoId?: string; // alias
   productoId?: string;
   nombreSlot?: string; // Nombre descriptivo del slot dinámico (ej: "Gabinete DIN", "Térmica General")
+  claveAjuste?: string; // Identificador estable para quitar/ajustar en instancia (-clave)
+  unidad?: string; // Unidad opcional si no se resuelve aún el material
   filtroMaterial?: FiltroMaterialEnTarea; // Selector dinámico por categoría y atributos técnicos
   reglasDinamicas?: ReglaInsumoDinamico[]; // Reglas de selección por función / escalonamiento
   cantidad: number;
@@ -401,6 +403,7 @@ export interface InsumoEnTarea {
 
 export interface ManoObraEnTarea {
   categoriaId: string;
+  claveAjuste?: string; // Identificador estable para ajustes en instancia
   horas: number;
   horasSetup?: number; // Horas fijas de alistamiento/preparación (setup de herramientas y replanteo)
   horasRendimiento?: number; // Horas netas unitarias de ejecución
@@ -423,10 +426,68 @@ export interface ParametroTrabajoTipo {
   nombre: string; // Nombre visible (ej: "Cantidad de Bocas", "Superficie en m²")
   tipo: 'numero' | 'select' | 'boolean';
   valorDefault: number;
+  min?: number; // Límite inferior opcional para steppers / validación
+  max?: number; // Límite superior opcional para steppers / validación
+  step?: number; // Incremento sugerido para steppers
   unidad?: string; // ej: "bocas", "m²", "ml", "u"
   descripcion?: string; // Texto de ayuda
   opciones?: OpcionVariableTrabajo[]; // Cuando tipo === 'select'
   condicion?: string; // Expresión condicional opcional (ej: "requiere_unifilar == 1", "bocas > 10")
+}
+
+/**
+ * Cláusula individual de alcance (inclusión o exclusión) de un Trabajo Tipo.
+ */
+export interface ClausulaAlcance {
+  id: string;
+  texto: string;
+  tema?: string; // Para agrupar por tema y deduplicar entre tareas
+}
+
+/**
+ * Alcance estructurado de un Trabajo Tipo: lista de inclusiones y exclusiones.
+ */
+export interface AlcanceTrabajoTipo {
+  inclusiones: ClausulaAlcance[];
+  exclusiones: ClausulaAlcance[];
+}
+
+/**
+ * Supuesto declarado por un Trabajo Tipo (ej: cañería: original | verificada | no_verificada).
+ */
+export interface SupuestoDeclarado {
+  id: string;
+  nombre: string;
+  opciones: string[];
+  valorDefault: string;
+  descripcion?: string;
+}
+
+/**
+ * Advertencia condicional al cliente dependiente de un supuesto no verificado.
+ */
+export interface AdvertenciaCondicional {
+  id: string;
+  supuestoId: string; // Supuesto del que depende (si está verificado o no_aplica, no se evalúa ni muestra)
+  valoresActivacion: string[]; // Valores que disparan la advertencia (ej: ['no_verificada', 'original'])
+  tema: string; // Tema para agrupación y deduplicación
+  textoPlantilla: string; // Oración única: qué pasa y cuánto cuesta (ej: "... a ${precio} por metro.")
+  precioUnitarioContingencia?: number; // Precio unitario de contingencia ante consecuencia económica
+  unidadContingencia?: string; // ej: 'm', 'u', 'gl'
+  cambiaResponsabilidad?: boolean; // True si afecta responsabilidad técnica/contractual
+}
+
+/**
+ * Referencia de composición: un Trabajo Tipo puede incluir otros Trabajos Tipo.
+ */
+export interface SubTrabajoTipo {
+  id?: string;
+  claveAjuste?: string; // Identificador estable para excluir en instancia (-clave)
+  tareaTipoId: string;
+  cantidadFormula?: string;
+  cantidadDefault?: number;
+  parametrosOverrides?: Record<string, string | number>;
+  condicion?: string;
 }
 
 /**
@@ -453,6 +514,7 @@ export interface CuadrillaRecomendada {
 export interface TareaTipo {
   id: string;
   nombre: string;
+  slug?: string; // Identificador corto determinista para comandos del notebook (ej: 'recableado-completo')
   version?: number; // Versión de la tarea tipo en catálogo (default: 1)
   categoria: string;
   unidad: string;
@@ -463,6 +525,10 @@ export interface TareaTipo {
 
   notasTecnicas?: string;
   clausulaExclusiones?: string; // Texto de exclusiones y resguardo legal / técnico
+  alcance?: AlcanceTrabajoTipo; // Lista estructurada de inclusiones y exclusiones
+  supuestos?: SupuestoDeclarado[]; // Supuestos declarados (ej: cañería: original | verificada | no_verificada)
+  advertenciasCondicionales?: AdvertenciaCondicional[]; // Advertencias dependientes de supuestos no verificados
+  subTrabajos?: SubTrabajoTipo[]; // Composición: otros trabajos tipo incluidos
 
   // Parámetros de Entrada (Inputs del Usuario)
   parametros?: ParametroTrabajoTipo[];
@@ -616,18 +682,42 @@ export interface ParametroItem {
   origen?: 'propio' | 'tarea_tipo' | 'capitulo' | 'cotizacion';
 }
 
+export type EstadoValorizacion = 'sin_valorizar' | 'valorizada';
+
+export interface AjusteItemAgregado {
+  id: string;
+  tipo: 'material' | 'mano_obra' | 'servicio' | 'item_libre' | 'tarea_tipo';
+  referenciaId?: string; // materialId, categoriaManoObraId o tareaTipoId
+  productoId?: string;
+  descripcion: string;
+  cantidad: number;
+  formulaCantidad?: string;
+  unidad: string;
+  precioUnitario?: number;
+}
+
+export interface AjustesInstanciaTrabajoTipo {
+  quitados: string[]; // Claves/IDs quitados de la instancia (ej: 'puesta-a-tierra')
+  agregados: AjusteItemAgregado[]; // Elementos agregados sobre la definición base (ej: '+canaleta 20m')
+}
+
 export interface ItemPresupuesto {
   id: string;
   capituloId?: string;
   tipoItem?: 'tarea_tipo' | 'material_directo' | 'servicio_tercerizado' | 'item_libre';
+  estadoValorizacion?: EstadoValorizacion; // Estado para flujo de dos pasadas ('sin_valorizar' | 'valorizada')
   tareaTipoId?: string;
   tareaTipoVersion?: number; // Versión de la tarea tipo asociada
   desacoplado?: boolean; // True si el ítem fue desacoplado de la tarea tipo al editar sus líneas
+  overridesParametros?: Record<string, number | string>; // Overrides de parámetros sobre la referencia a TareaTipo
+  ajustesInstancia?: AjustesInstanciaTrabajoTipo; // Ajustes (+agregados / -quitados) sin copiar la TareaTipo
+  supuestosLocales?: Record<string, string>; // Overrides locales de supuestos para este ítem
   erroresFormulas?: Record<string, string>; // Errores de fórmulas (ej: ciclos, variables no definidas)
   materialId?: string;
   productoId?: string;
   ofertaId?: string;
   precioManual?: number;
+  formulaPrecio?: string; // Fórmula opcional de precio/costo unitario para ítems libres
 
   descripcion: string;
   cantidad: number;
@@ -657,6 +747,8 @@ export interface ItemPresupuesto {
   clausulaExclusiones?: string;
   clausulaTecnica?: string;
   notasTecnicas?: string;
+  notasInternas?: string; // Nota interna por ítem (nunca se emite en documento al cliente)
+  advertenciaCliente?: string; // Advertencia explícita al cliente asociada al ítem
   esAdHoc?: boolean;
   tareaTipoConfig?: TareaTipo;
 
@@ -772,6 +864,45 @@ export interface CalculatedCell {
   scope?: 'global' | 'local';
 }
 
+/**
+ * Variable de cotización como entidad de primer nivel en el modelo Presupuesto,
+ * con soporte para dependencias entre variables y detección de ciclos.
+ */
+export interface VariableCotizacion {
+  id: string; // Nombre identificador en fórmulas (ej: 'sup', 'bocas')
+  nombre?: string; // Etiqueta legible opcional
+  expresion: string; // Expresión numérica o fórmula (ej: '60', 'sup * 0.4')
+  valorEvaluado?: number;
+  unidad?: string;
+  dependencias?: string[];
+  error?: string;
+  orden?: number;
+}
+
+/**
+ * Nota interna de la cotización: se persiste en Dexie y nunca sale en el documento al cliente.
+ */
+export interface NotaInterna {
+  id: string;
+  texto: string;
+  capituloId?: string;
+  itemId?: string;
+  createdAt?: string;
+}
+
+/**
+ * Advertencia al cliente evaluada y formateada para la sección "Alcance y supuestos".
+ */
+export interface AdvertenciaEvaluada {
+  id: string;
+  tema: string;
+  texto: string;
+  precioUnitarioContingencia?: number;
+  unidadContingencia?: string;
+  supuestoId?: string;
+  origenTareaTipoId?: string;
+}
+
 export interface Presupuesto {
   id: string;
   numero: string;
@@ -837,8 +968,12 @@ export interface Presupuesto {
   estado: EstadoPresupuesto;
   notasInternas?: string;
   notasCliente?: string;
+  supuestos?: Record<string, string>; // Valores activos de supuestos en la cotización (ej: { caneria: 'no_verificada' })
+  notasInternasLista?: NotaInterna[]; // Notas internas estructuradas (nunca se incluyen en documentos al cliente)
+  advertenciasCliente?: AdvertenciaEvaluada[]; // Advertencias filtradas por supuestos activos para el cliente
 
-  // ─── Modo Experto & Celdas de Cálculo (dslText no se persiste) ───
+  // ─── Variables de Cotización y Celdas Derivadas ───
+  variablesCotizacion?: VariableCotizacion[];
   calculatedCells?: CalculatedCell[];
   calculosVariables?: Record<string, number | string>;
 
