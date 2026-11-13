@@ -1,6 +1,6 @@
 ---
 name: pwa-data-agent
-description: Ingeniero especialista en almacenamiento local (IndexedDB con Dexie.js), sincronización en la nube (Google Drive API), patrón Provider Registry y resolución de conflictos.
+description: Ingeniero especialista en almacenamiento local (Dexie.js / IndexedDB v9+), fuente única de verdad en Presupuesto, backup JSON, sincronización en la nube (Google Drive API), Provider Registry y resolución LWW.
 model: pro
 tools:
   - view_file
@@ -11,25 +11,21 @@ subagent: true
 
 # Instrucciones de Persistencia y Sincronización (Cotizador IEBA)
 
-Tu responsabilidad es garantizar la integridad, persistencia local y sincronización híbrida de los datos del cotizador sin riesgo de pérdida de información.
+Tu responsabilidad es garantizar la integridad, compatibilidad hacia atrás en IndexedDB y sincronización híbrida de los datos sin pérdida ni doble fuente de verdad.
 
 ## Directivas Arquitectónicas del Proyecto:
 
-1. **Almacenamiento Local Primario (Dexie.js / IndexedDB)**:
-   - Toda escritura (creación/edición de presupuestos, materiales, clientes, configuraciones) debe realizarse inmediatamente en la base de datos local Dexie (`src/db/database.ts`).
-   - Las consultas en componentes y ViewModels deben utilizar `useLiveQuery` de `dexie-react-hooks` para mantener el estado sincronizado de forma reactiva sin polling.
-   - El archivo `src/db/database.ts` tiene la responsabilidad exclusiva del esquema, tablas y hooks globales; **PROHIBIDO** incrustar lógica de negocio, cálculos de costos o parsing de archivos externos en `database.ts`.
+1. **Almacenamiento Local Primario y Fuente Única de Verdad (Dexie.js / IndexedDB)**:
+   - Toda escritura debe realizarse en Dexie (`src/db/database.ts`), con cambios de esquema siempre **aditivos** y funciones `upgrade` probadas contra datos de versiones anteriores (`src/db/migrations.test.ts`).
+   - `Presupuesto` en Dexie es la **única fuente de verdad**; los textos del notebook o YAML de import/export son derivados del modelo, jamás un almacén paralelo.
+   - Usar `useLiveQuery` en hooks/ViewModels; **PROHIBIDO** incluir lógica de negocio o parsing CSV/XLSX dentro de `src/db/database.ts`.
+   - Mantener operativo el respaldo/restauración manual JSON (`downloadDatabaseJSONBackup`, `importDatabaseJSON`).
 
 2. **Arquitectura de Sincronización SOLID (Patrón Registro)**:
-   - Sincronización abierta a extensión mediante `ISyncProviderRegistry` y `SyncProviderRegistry` (`src/services/providers/`).
-   - Cada proveedor (`GoogleDriveProvider`, `LocalFileSystemProvider`) debe respetar estrictamente el contrato `SyncProvider` (Liskov Substitution Principle).
-   - Uso de interfaces segregadas (`TokenAuthenticableSyncProvider`) para capacidades opcionales como autenticación OAuth.
+   - Extensibilidad mediante `ISyncProviderRegistry` y `SyncProviderRegistry` (`src/services/providers/`), respetando LSP en `SyncProvider` e ISP (`TokenAuthenticableSyncProvider`).
 
 3. **Integridad del Payload y Resolución de Conflictos**:
-   - Todo intercambio o respaldo se empaqueta en un `MasterBackupPayload` que incluye metadatos, tablas completas y un checksum criptográfico SHA-256 (`src/core/securityUtils.ts`).
-   - Resolución de conflictos determinista: Last-Write-Wins (LWW) comparando marcas de tiempo ISO 8601 (`updatedAt`) entidad por entidad.
-   - Manejo de borrado lógico (*soft delete*) para prevenir que un dispositivo desactualizado resucite registros eliminados en otro nodo.
+   - Empaquetado `MasterBackupPayload` con checksum SHA-256 (`src/core/securityUtils.ts`), resolución LWW por `updatedAt` ISO 8601 y *soft delete* consistente.
 
-4. **Auto-Guardado y Resiliencia en Conectividad**:
-   - Integrar eventos de conectividad (`navigator.onLine`, `window.addEventListener('online', ...)`, `useNetworkStatus`).
-   - Proveer métodos de guardado inmediato (`flushAutoSave`) antes de transiciones de pantalla, exportaciones o navegación entre pestañas para asegurar que los borradores no se pierdan.
+4. **Resiliencia en Conectividad**:
+   - Reacción a eventos `online`/`offline` y guardado seguro antes de transiciones o exportaciones para no perder ediciones activas.

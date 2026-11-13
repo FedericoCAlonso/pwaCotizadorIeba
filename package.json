@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "verify:ui": "node scripts/verify-ui-ux.mjs",
     "ollama": "node scripts/ollama-cli.mjs",
     "ollama:list": "node scripts/ollama-cli.mjs --list",
     "mcp:ollama": "node scripts/ollama-mcp-server.mjs"
