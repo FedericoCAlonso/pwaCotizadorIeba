@@ -27,7 +27,9 @@ import {
   HelpCircle,
   Keyboard
 } from 'lucide-react';
-import { exportDatabaseJSON, importDatabaseJSON } from '../db/database';
+import { importDatabaseJSON } from '../db/database';
+import { downloadDatabaseJSONBackup } from '../core/backupUtils';
+import { TERMINOLOGY } from '../config/terminology';
 import { AppConfig, ThemeMode } from '../core/types';
 import { useAuth } from '../contexts/AuthContext';
 import { AuthModal } from './AuthModal';
@@ -90,7 +92,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const handleExportJSON = async () => {
     try {
-      await exportDatabaseJSON();
+      await downloadDatabaseJSONBackup();
       setShowExportSuccess(true);
       setTimeout(() => setShowExportSuccess(false), 3000);
     } catch (error) {
@@ -414,11 +416,11 @@ export const Header: React.FC<HeaderProps> = ({
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container-highest transition-colors"
                   >
                     <Download className="w-4 h-4 text-on-surface-variant" />
-                    Respaldar datos (JSON)
+                    {TERMINOLOGY.respaldarBackupJson}
                   </button>
                   <label className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container-highest transition-colors cursor-pointer">
                     <Upload className="w-4 h-4 text-on-surface-variant" />
-                    Restaurar datos (JSON)
+                    {TERMINOLOGY.restaurarBackupJson}
                     <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" aria-label="Seleccionar archivo de respaldo JSON" />
                   </label>
                   <hr className="border-outline-variant/50 my-1" />

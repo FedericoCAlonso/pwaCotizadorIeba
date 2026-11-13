@@ -31,6 +31,7 @@ import {
   INITIAL_CONTACTOS
 } from '../core/sampleData';
 import { CONVENIOS_PREDEFINIDOS } from '../core/calculations';
+import { migratePresupuestoToV9, migrateTareaTipoToV9 } from './migrations';
 
 export class CotizadorDatabase extends Dexie {
   categoriasMaterial!: Table<CategoriaMaterial, string>;
@@ -215,6 +216,21 @@ export class CotizadorDatabase extends Dexie {
 
     this.version(8).stores({
       convenios: 'id, nombre, deleted, updatedAt'
+    });
+
+    this.version(9).stores({
+      tareasTipo: 'id, nombre, categoria, slug, deleted, updatedAt'
+    }).upgrade(async (tx) => {
+      try {
+        await tx.table('tareasTipo').toCollection().modify((tt: TareaTipo) => {
+          Object.assign(tt, migrateTareaTipoToV9(tt));
+        });
+        await tx.table('presupuestos').toCollection().modify((p: Presupuesto) => {
+          Object.assign(p, migratePresupuestoToV9(p));
+        });
+      } catch (e) {
+        console.warn('Upgrade a versión 9 (notebook de cotizaciones):', e);
+      }
     });
   }
 }
@@ -522,6 +538,7 @@ export async function initializeDatabaseSeed(): Promise<void> {
  */
 export async function exportDatabaseJSON(): Promise<string> {
   const data = {
+    schemaVersion: 9,
     categoriasMaterial: await db.categoriasMaterial.toArray(),
     materiales: await db.materiales.toArray(),
     productos: await db.productos.toArray(),
@@ -549,6 +566,12 @@ export async function exportDatabaseJSON(): Promise<string> {
  */
 export async function importDatabaseJSON(jsonStr: string): Promise<void> {
   const data = JSON.parse(jsonStr);
+  const migratedTareasTipo = Array.isArray(data.tareasTipo)
+    ? data.tareasTipo.map((tt: TareaTipo) => migrateTareaTipoToV9(tt))
+    : null;
+  const migratedPresupuestos = Array.isArray(data.presupuestos)
+    ? data.presupuestos.map((p: Presupuesto) => migratePresupuestoToV9(p))
+    : null;
   await db.transaction('rw', [
     db.categoriasMaterial,
     db.materiales,
@@ -576,12 +599,12 @@ export async function importDatabaseJSON(jsonStr: string): Promise<void> {
     if (data.insumos) { await db.insumos.clear(); await db.insumos.bulkPut(data.insumos); }
     if (data.manoObra) { await db.manoObra.clear(); await db.manoObra.bulkPut(data.manoObra); }
     if (data.costosIndirectos) { await db.costosIndirectos.clear(); await db.costosIndirectos.bulkPut(data.costosIndirectos); }
-    if (data.tareasTipo) { await db.tareasTipo.clear(); await db.tareasTipo.bulkPut(data.tareasTipo); }
+    if (migratedTareasTipo) { await db.tareasTipo.clear(); await db.tareasTipo.bulkPut(migratedTareasTipo); }
     if (data.contactos) { await db.contactos.clear(); await db.contactos.bulkPut(data.contactos); }
     if (data.clientes) { await db.clientes.clear(); await db.clientes.bulkPut(data.clientes); }
     if (data.proveedores) { await db.proveedores.clear(); await db.proveedores.bulkPut(data.proveedores); }
     if (data.proyectos) { await db.proyectos.clear(); await db.proyectos.bulkPut(data.proyectos); }
-    if (data.presupuestos) { await db.presupuestos.clear(); await db.presupuestos.bulkPut(data.presupuestos); }
+    if (migratedPresupuestos) { await db.presupuestos.clear(); await db.presupuestos.bulkPut(migratedPresupuestos); }
     if (data.registrosTrabajo) { await db.registrosTrabajo.clear(); await db.registrosTrabajo.bulkPut(data.registrosTrabajo); }
     if (data.config) { await db.config.clear(); await db.config.bulkPut(data.config); }
     if (data.convenios) { await db.convenios.clear(); await db.convenios.bulkPut(data.convenios); }
