@@ -1,6 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')) as { version: string };
+const buildStamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+const cacheVersion = process.env.VITE_CACHE_VERSION || `v${pkg.version}-${buildStamp}`;
 
 export default defineConfig({
   base: '/pwaCotizadorIeba/',
@@ -47,7 +52,10 @@ export default defineConfig({
         ]
       },
       workbox: {
-        cacheId: 'cotizador-ieba',
+        cacheId: `cotizador-ieba-${cacheVersion}`,
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         runtimeCaching: [
@@ -55,7 +63,7 @@ export default defineConfig({
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'cotizador-ieba-fonts-stylesheets',
+              cacheName: `cotizador-ieba-${cacheVersion}-fonts-stylesheets`,
               expiration: {
                 maxEntries: 10,
                 maxAgeSeconds: 60 * 60 * 24 * 365
@@ -69,7 +77,7 @@ export default defineConfig({
             urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'cotizador-ieba-fonts-webfonts',
+              cacheName: `cotizador-ieba-${cacheVersion}-fonts-webfonts`,
               expiration: {
                 maxEntries: 30,
                 maxAgeSeconds: 60 * 60 * 24 * 365

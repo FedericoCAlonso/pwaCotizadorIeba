@@ -29,15 +29,33 @@ export const PWAInstallBanner: React.FC = () => {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-    // 2. Register Service Worker
+    // 2. Register Service Worker con actualización automática
+    let refreshing = false;
+    const hadController = 'serviceWorker' in navigator && Boolean(navigator.serviceWorker.controller);
+    const handleControllerChange = () => {
+      if (!hadController || refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    };
+
     if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
       const updateSW = registerSW({
+        immediate: true,
         onNeedRefresh() {
           setNeedRefresh(true);
+          updateSW(true);
         },
         onOfflineReady() {
           setOfflineReady(true);
           setTimeout(() => setOfflineReady(false), 5000);
+        },
+        onRegisteredSW(_swUrl, registration) {
+          if (registration) {
+            setInterval(() => {
+              registration.update().catch(() => {});
+            }, 60 * 60 * 1000);
+          }
         },
       });
 
@@ -60,6 +78,9 @@ export const PWAInstallBanner: React.FC = () => {
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+      }
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
