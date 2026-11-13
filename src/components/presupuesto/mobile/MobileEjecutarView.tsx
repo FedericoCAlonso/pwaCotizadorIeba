@@ -83,31 +83,31 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
     return (
       <article
         key={item.id}
-        className="space-y-3 rounded-2xl border border-m3-outline-variant/70 bg-m3-surface p-4 shadow-xs"
+        className="space-y-3 rounded-2xl border border-outline-variant/70 bg-surface p-4 shadow-xs"
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <span className="rounded-md bg-m3-surface-container-high px-2 py-0.5 text-[11px] font-medium text-m3-on-surface-variant">
+              <span className="rounded-md bg-surface-container-high px-2 py-0.5 text-[11px] font-medium text-on-surface-variant">
                 {tareaTipo ? TERMINOLOGY.trabajoTipoSingular : TERMINOLOGY.elementoLibre}
               </span>
               {subtotalInfo?.estadoValorizacion === 'sin_valorizar' && (
-                <span className="rounded-md bg-m3-secondary-container px-2 py-0.5 text-[11px] font-medium text-m3-on-secondary-container">
+                <span className="rounded-md bg-secondary-container px-2 py-0.5 text-[11px] font-medium text-on-secondary-container">
                   {TERMINOLOGY.estadoSinValorizar}
                 </span>
               )}
             </div>
-            <h3 className="mt-1 text-base font-semibold leading-snug text-m3-on-surface">
+            <h3 className="mt-1 text-base font-semibold leading-snug text-on-surface">
               {item.descripcion}
             </h3>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <span className="text-sm font-bold text-m3-primary">{formatARS(subtotalVal)}</span>
+            <span className="text-sm font-bold text-primary">{formatARS(subtotalVal)}</span>
             <button
               type="button"
               aria-label={`Quitar ${item.descripcion}`}
               onClick={() => vm.eliminarItemPorId(item.id)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl text-m3-on-surface-variant hover:bg-m3-error-container hover:text-m3-on-error-container"
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-on-surface-variant hover:bg-error-container hover:text-on-error-container"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -134,14 +134,14 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
               })}
           </div>
         ) : (
-          <div className="flex items-center justify-between rounded-xl bg-m3-surface-container-low px-3 py-2 text-xs text-m3-on-surface-variant">
+          <div className="flex items-center justify-between rounded-xl bg-surface-container-low px-3 py-2 text-xs text-on-surface-variant">
             <span>
-              Cantidad: <strong className="text-m3-on-surface">{item.cantidad}</strong>{' '}
+              Cantidad: <strong className="text-on-surface">{item.cantidad}</strong>{' '}
               {item.unidad || 'u'}
             </span>
             <span>
               Unitario:{' '}
-              <strong className="text-m3-on-surface">
+              <strong className="text-on-surface">
                 {formatARS(item.precioManual ?? item.precioVentaUnitario)}
               </strong>
             </span>
@@ -152,13 +152,13 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-m3-surface-container-lowest text-m3-on-surface">
-      <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-m3-outline-variant bg-m3-surface/95 px-3 py-2.5 backdrop-blur-sm">
+    <div className="flex flex-1 min-h-0 w-full max-w-full flex-col overflow-hidden bg-surface-container-lowest text-on-surface">
+      <header className="shrink-0 z-20 flex items-center gap-2 border-b border-outline-variant/60 bg-surface px-3 py-2.5">
         <button
           type="button"
           onClick={onBack}
           aria-label="Volver"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-m3-on-surface hover:bg-m3-surface-container"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-on-surface hover:bg-surface-container"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -169,14 +169,14 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
           onChange={e => vm.actualizarMetadataPresupuesto({ direccionObra: e.target.value })}
           placeholder={vm.presupuesto.numero || 'Obra o referencia'}
           aria-label="Obra o referencia"
-          className="min-w-0 flex-1 bg-transparent text-base font-semibold text-m3-on-surface focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent text-base font-semibold text-on-surface focus:outline-none"
         />
 
         <button
           type="button"
           onClick={vm.toggleVistaPrevia}
           aria-label="Vista previa al cliente"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-m3-on-surface-variant hover:bg-m3-surface-container"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
         >
           <Eye className="h-5 w-5" />
         </button>
@@ -185,18 +185,18 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
           type="button"
           onClick={() => void vm.guardar()}
           aria-label="Guardar cotización"
-          className="flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-m3-primary-container px-3.5 text-xs font-semibold text-m3-on-primary-container"
+          className="flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-primary-container px-3.5 text-xs font-semibold text-on-primary-container"
         >
           <Save className="h-4 w-4" />
           <span>{vm.saveStatus === 'saved' && !vm.isDirty ? 'Guardado' : 'Guardar'}</span>
         </button>
       </header>
 
-      <div className="grid grid-cols-2 gap-2.5 border-b border-m3-outline-variant/60 bg-m3-surface px-4 py-3">
+      <div className="shrink-0 grid grid-cols-2 gap-2.5 border-b border-outline-variant/40 bg-surface px-3.5 py-2.5">
         <button
           type="button"
           onClick={() => setPickerOpen(true)}
-          className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-m3-primary px-3 py-2.5 text-sm font-semibold text-m3-on-primary shadow-sm active:scale-[0.99]"
+          className="flex min-h-[46px] min-w-0 items-center justify-center gap-2 rounded-2xl bg-primary px-3 py-2 text-sm font-semibold text-on-primary shadow-sm active:scale-[0.99]"
         >
           <Wrench className="h-4 w-4 shrink-0" />
           <span className="truncate">+ {TERMINOLOGY.trabajoTipoSingular}</span>
@@ -205,14 +205,14 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
         <button
           type="button"
           onClick={() => setFreeItemOpen(true)}
-          className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-m3-outline bg-m3-surface-container-low px-3 py-2.5 text-sm font-semibold text-m3-on-surface active:scale-[0.99]"
+          className="flex min-h-[46px] min-w-0 items-center justify-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-low px-3 py-2 text-sm font-semibold text-on-surface active:scale-[0.99]"
         >
-          <Plus className="h-4 w-4 shrink-0 text-m3-primary" />
+          <Plus className="h-4 w-4 shrink-0 text-primary" />
           <span className="truncate">{TERMINOLOGY.elementoLibre}</span>
         </button>
       </div>
 
-      <main className="flex-1 space-y-3 p-4 pb-32">
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-3 p-3.5 sm:p-4">
         {vm.alcanceYAdvertencias.advertenciasVisibles.length > 0 && (
           <section className="space-y-1.5 rounded-2xl border border-amber-300/60 bg-amber-50/70 p-3 text-xs text-amber-950 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-100">
             <div className="flex items-center gap-1.5 font-semibold">
@@ -228,12 +228,12 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
         )}
 
         {vm.presupuesto.items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-m3-outline-variant bg-m3-surface px-6 py-12 text-center">
-            <ReceiptText className="h-10 w-10 text-m3-primary/70" />
-            <h2 className="mt-3 text-base font-semibold text-m3-on-surface">
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-outline-variant bg-surface px-6 py-12 text-center">
+            <ReceiptText className="h-10 w-10 text-primary/70" />
+            <h2 className="mt-3 text-base font-semibold text-on-surface">
               Cotización rápida en obra
             </h2>
-            <p className="mt-1 max-w-xs text-xs text-m3-on-surface-variant">
+            <p className="mt-1 max-w-xs text-xs text-on-surface-variant">
               Elegí un {TERMINOLOGY.trabajoTipoSingular.toLowerCase()} precargado para completar
               sus medidas o sumá un {TERMINOLOGY.elementoLibre.toLowerCase()} en tres campos.
             </p>
@@ -245,21 +245,21 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
 
       <footer
         aria-label="Total en vivo"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-m3-outline-variant bg-m3-surface/95 px-4 py-3 shadow-lg backdrop-blur-md"
+        className="shrink-0 z-20 border-t border-outline-variant/60 bg-surface px-4 py-3 pb-safe shadow-lg"
       >
         <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium uppercase tracking-wide text-m3-on-surface-variant">
+              <span className="text-xs font-medium uppercase tracking-wide text-on-surface-variant">
                 Total estimado
               </span>
               {vm.esTotalParcial && (
-                <span className="rounded-full bg-m3-secondary-container px-2 py-0.5 text-[10px] font-semibold text-m3-on-secondary-container">
+                <span className="rounded-full bg-secondary-container px-2 py-0.5 text-[10px] font-semibold text-on-secondary-container">
                   Parcial ({vm.cantidadSinValorizar})
                 </span>
               )}
             </div>
-            <p className="truncate text-xl font-bold text-m3-primary" data-testid="mobile-live-total">
+            <p className="truncate text-xl font-bold text-primary" data-testid="mobile-live-total">
               {formatARS(vm.totales.precioFinalGlobal)}
             </p>
           </div>
@@ -267,7 +267,7 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
           <button
             type="button"
             onClick={() => setShareOpen(true)}
-            className="flex h-12 shrink-0 items-center gap-2 rounded-2xl bg-m3-primary px-5 text-sm font-semibold text-m3-on-primary shadow-sm active:scale-95"
+            className="flex h-12 shrink-0 items-center gap-2 rounded-2xl bg-primary px-5 text-sm font-semibold text-on-primary shadow-sm active:scale-95"
           >
             <Share2 className="h-4 w-4" />
             <span>Compartir</span>

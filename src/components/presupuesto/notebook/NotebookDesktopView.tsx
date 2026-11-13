@@ -352,8 +352,8 @@ export const NotebookDesktopView: React.FC<NotebookDesktopViewProps> = ({
 
         {/* Lienzo de código / celdas tipadas + Ghost Text + Popup de autocompletado */}
         <div className="relative flex-1 min-w-0 py-3">
-          {/* Capa visual de Ghost Text sincronizada */}
-          {vm.autocomplete.ghostText && (
+          {/* Capa visual de Ghost Text sincronizada (evita solapamiento con el placeholder en editor vacío) */}
+          {vm.autocomplete.ghostText && vm.texto.length > 0 && (
             <div
               aria-hidden="true"
               style={{ top: `${12 + (vm.cursor.linea - 1) * 28}px` }}

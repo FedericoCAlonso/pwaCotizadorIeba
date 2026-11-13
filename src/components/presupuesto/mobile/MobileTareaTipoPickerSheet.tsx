@@ -104,7 +104,7 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
     return (
       <div
         key={tarea.id}
-        className="flex items-center gap-2 rounded-2xl border border-m3-outline-variant/60 bg-m3-surface p-2.5"
+        className="flex items-center gap-2.5 rounded-2xl border border-outline-variant/40 bg-surface-container-low p-3 shadow-xs"
       >
         <button
           type="button"
@@ -112,8 +112,10 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
           disabled={submitting}
           className="min-w-0 flex-1 text-left"
         >
-          <p className="truncate text-sm font-semibold text-m3-on-surface">{tarea.nombre}</p>
-          <p className="mt-0.5 truncate text-xs text-m3-on-surface-variant">
+          <p className="line-clamp-2 text-sm font-semibold leading-snug text-on-surface">
+            {tarea.nombre}
+          </p>
+          <p className="mt-1 truncate text-xs text-on-surface-variant">
             {tarea.categoria}
             {paramCount > 0 ? ` · ${paramCount} parámetro${paramCount > 1 ? 's' : ''}` : ' · Directo'}
           </p>
@@ -131,7 +133,7 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
               setSubmitting(false);
             }
           }}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-m3-primary-container text-m3-on-primary-container active:scale-95"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-container text-on-primary-container active:scale-95"
         >
           <Plus className="h-5 w-5" />
         </button>
@@ -141,7 +143,7 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-m3-surface-container-lowest"
+      className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-surface"
       role="dialog"
       aria-modal="true"
       aria-label={
@@ -150,18 +152,18 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
           : `Elegir ${TERMINOLOGY.trabajoTipoSingular}`
       }
     >
-      <header className="flex items-center justify-between gap-2 border-b border-m3-outline-variant bg-m3-surface px-4 py-3">
+      <header className="flex items-center justify-between gap-2 border-b border-outline-variant bg-surface px-4 py-3">
         {selectedTarea ? (
           <button
             type="button"
             onClick={() => setSelectedTarea(null)}
-            className="flex h-10 items-center gap-1.5 rounded-xl px-2 text-sm font-medium text-m3-on-surface hover:bg-m3-surface-container"
+            className="flex h-10 items-center gap-1.5 rounded-xl px-2 text-sm font-medium text-on-surface hover:bg-surface-container"
           >
             <ArrowLeft className="h-4 w-4" />
             Volver
           </button>
         ) : (
-          <h2 className="text-base font-semibold text-m3-on-surface">
+          <h2 className="text-base font-semibold text-on-surface">
             Agregar {TERMINOLOGY.trabajoTipoSingular}
           </h2>
         )}
@@ -169,7 +171,7 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
           type="button"
           aria-label="Cerrar selector"
           onClick={onClose}
-          className="flex h-10 w-10 items-center justify-center rounded-full text-m3-on-surface-variant hover:bg-m3-surface-container"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
         >
           <X className="h-5 w-5" />
         </button>
@@ -179,9 +181,9 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
         <form onSubmit={handleConfirmConfigured} className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 space-y-3 overflow-y-auto p-4">
             <div>
-              <h3 className="text-lg font-semibold text-m3-on-surface">{selectedTarea.nombre}</h3>
+              <h3 className="text-lg font-semibold text-on-surface">{selectedTarea.nombre}</h3>
               {selectedTarea.notasTecnicas && (
-                <p className="mt-0.5 text-xs text-m3-on-surface-variant">
+                <p className="mt-0.5 text-xs text-on-surface-variant">
                   {selectedTarea.notasTecnicas}
                 </p>
               )}
@@ -198,11 +200,11 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
                 />
               ))}
           </div>
-          <div className="border-t border-m3-outline-variant bg-m3-surface p-4">
+          <div className="border-t border-outline-variant bg-surface p-4">
             <button
               type="submit"
               disabled={submitting}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-m3-primary text-base font-semibold text-m3-on-primary shadow-sm active:scale-[0.99] disabled:opacity-50"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-base font-semibold text-on-primary shadow-sm active:scale-[0.99] disabled:opacity-50"
             >
               <Check className="h-5 w-5" />
               Agregar a la cotización
@@ -211,9 +213,9 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
         </form>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="border-b border-m3-outline-variant/60 bg-m3-surface px-4 py-3">
+          <div className="border-b border-outline-variant/60 bg-surface px-4 py-3">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-m3-on-surface-variant" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
               <input
                 type="search"
                 autoFocus
@@ -221,7 +223,7 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
                 onChange={e => setQuery(e.target.value)}
                 placeholder={`Buscar ${TERMINOLOGY.trabajoTipoSingular.toLowerCase()}...`}
                 aria-label={`Buscar ${TERMINOLOGY.trabajoTipoSingular.toLowerCase()}`}
-                className="h-11 w-full rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest pl-10 pr-3 text-sm text-m3-on-surface focus:border-m3-primary focus:outline-none"
+                className="h-11 w-full rounded-xl border border-outline-variant bg-surface-container-lowest pl-10 pr-3 text-sm text-on-surface focus:border-primary focus:outline-none"
               />
             </div>
           </div>
@@ -229,7 +231,7 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
           <div className="flex-1 space-y-4 overflow-y-auto p-4">
             {recientes.length > 0 && (
               <section aria-label="Recientes" className="space-y-2">
-                <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-m3-primary">
+                <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
                   <Clock className="h-3.5 w-3.5" />
                   Recientes
                 </h3>
@@ -239,14 +241,14 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
 
             <section className="space-y-2">
               {recientes.length > 0 && catalogoRestante.length > 0 && (
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-m3-on-surface-variant">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
                   Todos ({catalogoRestante.length})
                 </h3>
               )}
               {catalogoRestante.length > 0 ? (
                 <div className="space-y-2">{catalogoRestante.map(renderTareaCard)}</div>
               ) : recientes.length === 0 ? (
-                <p className="py-10 text-center text-sm text-m3-on-surface-variant">
+                <p className="py-10 text-center text-sm text-on-surface-variant">
                   No se encontraron {TERMINOLOGY.trabajoTipoPlural.toLowerCase()} para esa búsqueda.
                 </p>
               ) : null}

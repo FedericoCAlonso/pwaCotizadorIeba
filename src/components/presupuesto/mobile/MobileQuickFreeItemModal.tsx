@@ -48,17 +48,17 @@ export const MobileQuickFreeItemModal: React.FC<MobileQuickFreeItemModalProps> =
     >
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md space-y-4 rounded-t-3xl bg-m3-surface p-5 shadow-xl sm:rounded-3xl"
+        className="w-full max-w-md space-y-4 rounded-t-3xl bg-surface p-5 shadow-xl sm:rounded-3xl"
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-m3-on-surface">
+          <h2 className="text-base font-semibold text-on-surface">
             Nuevo {TERMINOLOGY.elementoLibre}
           </h2>
           <button
             type="button"
             aria-label="Cerrar"
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-m3-on-surface-variant hover:bg-m3-surface-container"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
           >
             <X className="h-5 w-5" />
           </button>
@@ -68,7 +68,7 @@ export const MobileQuickFreeItemModal: React.FC<MobileQuickFreeItemModalProps> =
           <div>
             <label
               htmlFor="quick-item-desc"
-              className="mb-1 block text-xs font-medium text-m3-on-surface-variant"
+              className="mb-1 block text-xs font-medium text-on-surface-variant"
             >
               Descripción
             </label>
@@ -80,7 +80,7 @@ export const MobileQuickFreeItemModal: React.FC<MobileQuickFreeItemModalProps> =
               value={descripcion}
               onChange={e => setDescripcion(e.target.value)}
               placeholder="Ej. Visita de diagnóstico / Canaleta extra"
-              className="h-11 w-full rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest px-3 text-sm text-m3-on-surface focus:border-m3-primary focus:outline-none"
+              className="h-11 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus:border-primary focus:outline-none"
             />
           </div>
 
@@ -88,7 +88,7 @@ export const MobileQuickFreeItemModal: React.FC<MobileQuickFreeItemModalProps> =
             <div>
               <label
                 htmlFor="quick-item-qty"
-                className="mb-1 block text-xs font-medium text-m3-on-surface-variant"
+                className="mb-1 block text-xs font-medium text-on-surface-variant"
               >
                 Cantidad
               </label>
@@ -101,13 +101,13 @@ export const MobileQuickFreeItemModal: React.FC<MobileQuickFreeItemModalProps> =
                 required
                 value={cantidad}
                 onChange={e => setCantidad(e.target.value)}
-                className="h-11 w-full rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest px-3 text-sm font-medium text-m3-on-surface focus:border-m3-primary focus:outline-none"
+                className="h-11 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface focus:border-primary focus:outline-none"
               />
             </div>
             <div>
               <label
                 htmlFor="quick-item-price"
-                className="mb-1 block text-xs font-medium text-m3-on-surface-variant"
+                className="mb-1 block text-xs font-medium text-on-surface-variant"
               >
                 Precio unitario ($)
               </label>
@@ -121,7 +121,7 @@ export const MobileQuickFreeItemModal: React.FC<MobileQuickFreeItemModalProps> =
                 value={precio}
                 onChange={e => setPrecio(e.target.value)}
                 placeholder="0"
-                className="h-11 w-full rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest px-3 text-sm font-medium text-m3-on-surface focus:border-m3-primary focus:outline-none"
+                className="h-11 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface focus:border-primary focus:outline-none"
               />
             </div>
           </div>
@@ -130,7 +130,7 @@ export const MobileQuickFreeItemModal: React.FC<MobileQuickFreeItemModalProps> =
         <button
           type="submit"
           disabled={!canSubmit}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-m3-primary text-sm font-semibold text-m3-on-primary shadow-sm active:scale-[0.99] disabled:opacity-40"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-on-primary shadow-sm active:scale-[0.99] disabled:opacity-40"
         >
           <Check className="h-4 w-4" />
           Agregar {TERMINOLOGY.elementoLibre.toLowerCase()}

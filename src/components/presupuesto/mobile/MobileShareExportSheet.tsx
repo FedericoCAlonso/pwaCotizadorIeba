@@ -99,13 +99,13 @@ export const MobileShareExportSheet: React.FC<MobileShareExportSheetProps> = ({
           aria-modal="true"
           aria-label="Compartir o exportar cotización"
         >
-          <div className="w-full max-w-lg space-y-3 rounded-t-3xl bg-m3-surface p-5 shadow-xl">
+          <div className="w-full max-w-lg space-y-3 rounded-t-3xl bg-surface p-5 shadow-xl">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-base font-semibold text-m3-on-surface">
+                <h2 className="text-base font-semibold text-on-surface">
                   Compartir y exportar
                 </h2>
-                <p className="text-xs text-m3-on-surface-variant">
+                <p className="text-xs text-on-surface-variant">
                   Total: {formatARS(totalFinal)}
                 </p>
               </div>
@@ -113,14 +113,14 @@ export const MobileShareExportSheet: React.FC<MobileShareExportSheetProps> = ({
                 type="button"
                 aria-label="Cerrar opciones de compartir"
                 onClick={onClose}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-m3-on-surface-variant hover:bg-m3-surface-container"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {statusMsg && (
-              <p className="rounded-xl bg-m3-surface-container px-3 py-2 text-xs text-m3-on-surface">
+              <p className="rounded-xl bg-surface-container px-3 py-2 text-xs text-on-surface">
                 {statusMsg}
               </p>
             )}
@@ -130,7 +130,7 @@ export const MobileShareExportSheet: React.FC<MobileShareExportSheetProps> = ({
                 type="button"
                 disabled={busy !== null}
                 onClick={handleNativeShare}
-                className="flex min-h-[48px] items-center gap-3 rounded-2xl bg-m3-primary px-4 py-3 text-left text-sm font-semibold text-m3-on-primary shadow-sm disabled:opacity-50"
+                className="flex min-h-[48px] items-center gap-3 rounded-2xl bg-primary px-4 py-3 text-left text-sm font-semibold text-on-primary shadow-sm disabled:opacity-50"
               >
                 <Share2 className="h-5 w-5 shrink-0" />
                 <span>Compartir PDF</span>
@@ -142,9 +142,9 @@ export const MobileShareExportSheet: React.FC<MobileShareExportSheetProps> = ({
                   onClose();
                   setWaOpen(true);
                 }}
-                className="flex min-h-[48px] items-center gap-3 rounded-2xl border border-m3-outline-variant bg-m3-surface-container-low px-4 py-3 text-left text-sm font-medium text-m3-on-surface"
+                className="flex min-h-[48px] items-center gap-3 rounded-2xl border border-outline-variant bg-surface-container-low px-4 py-3 text-left text-sm font-medium text-on-surface"
               >
-                <MessageCircle className="h-5 w-5 shrink-0 text-m3-primary" />
+                <MessageCircle className="h-5 w-5 shrink-0 text-primary" />
                 <span>Enviar resumen por WhatsApp</span>
               </button>
 
@@ -154,9 +154,9 @@ export const MobileShareExportSheet: React.FC<MobileShareExportSheetProps> = ({
                   onClose();
                   onOpenPreview();
                 }}
-                className="flex min-h-[48px] items-center gap-3 rounded-2xl border border-m3-outline-variant bg-m3-surface-container-low px-4 py-3 text-left text-sm font-medium text-m3-on-surface"
+                className="flex min-h-[48px] items-center gap-3 rounded-2xl border border-outline-variant bg-surface-container-low px-4 py-3 text-left text-sm font-medium text-on-surface"
               >
-                <Eye className="h-5 w-5 shrink-0 text-m3-on-surface-variant" />
+                <Eye className="h-5 w-5 shrink-0 text-on-surface-variant" />
                 <span>Vista previa al cliente</span>
               </button>
 
@@ -165,18 +165,18 @@ export const MobileShareExportSheet: React.FC<MobileShareExportSheetProps> = ({
                   type="button"
                   disabled={busy !== null}
                   onClick={handleExportPDF}
-                  className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-m3-outline-variant bg-m3-surface px-3 py-2.5 text-sm font-medium text-m3-on-surface"
+                  className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-outline-variant bg-surface px-3 py-2.5 text-sm font-medium text-on-surface"
                 >
-                  <FileText className="h-4 w-4 text-m3-error" />
+                  <FileText className="h-4 w-4 text-error" />
                   <span>Descargar PDF</span>
                 </button>
                 <button
                   type="button"
                   disabled={busy !== null}
                   onClick={handleExportXLSX}
-                  className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-m3-outline-variant bg-m3-surface px-3 py-2.5 text-sm font-medium text-m3-on-surface"
+                  className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-outline-variant bg-surface px-3 py-2.5 text-sm font-medium text-on-surface"
                 >
-                  <FileSpreadsheet className="h-4 w-4 text-m3-primary" />
+                  <FileSpreadsheet className="h-4 w-4 text-primary" />
                   <span>Descargar Excel</span>
                 </button>
               </div>

@@ -203,10 +203,12 @@ export function App() {
     setViewMode('detail');
   };
 
+  const hideGlobalHeader = viewMode === 'editor' && (isZenMode || !isDesktopViewport);
+
   return (
-    <div className={`${viewMode === 'editor' ? 'h-screen max-h-screen overflow-hidden' : 'min-h-screen'} bg-background text-on-background flex flex-col font-sans transition-colors duration-300`}>
-      {/* Header (Oculto en Modo Foco durante la edición) */}
-      {!(viewMode === 'editor' && isZenMode) && (
+    <div className={`${viewMode === 'editor' ? 'h-screen max-h-screen overflow-hidden' : 'min-h-screen overflow-x-hidden'} w-full max-w-full bg-background text-on-background flex flex-col font-sans transition-colors duration-300`}>
+      {/* Header (Oculto en Modo Foco o en vista móvil de ejecución dedicada) */}
+      {!hideGlobalHeader && (
         <Header
           activeTab={activeTab}
           setActiveTab={(tab) => {
@@ -233,12 +235,14 @@ export function App() {
       )}
 
       {/* Main Content Area */}
-      <main className={`flex-1 w-full mx-auto ${
+      <main className={`flex-1 w-full max-w-full min-w-0 mx-auto ${
         viewMode === 'editor'
-          ? (isZenMode
+          ? (!isDesktopViewport
+              ? 'p-0 max-w-none min-h-0 overflow-hidden flex flex-col'
+              : isZenMode
               ? 'p-1 max-w-none min-h-0 overflow-hidden flex flex-col'
               : 'px-2 sm:px-4 md:px-5 lg:px-6 pt-1 sm:pt-1.5 pb-1 max-w-none min-h-0 overflow-hidden flex flex-col')
-          : 'max-w-[1920px] px-2 sm:px-4 md:px-5 lg:px-6 pt-2 sm:pt-4 pb-28 md:py-5'
+          : 'max-w-[1920px] px-2.5 sm:px-4 md:px-5 lg:px-6 pt-2 sm:pt-4 pb-28 md:py-5 overflow-x-hidden'
       }`}>
         {/* Tab panel — role="tabpanel" vincula el contenido activo al tablist via aria-controls */}
         <div
@@ -246,7 +250,7 @@ export function App() {
           id={`panel-${activeTab}`}
           aria-labelledby={`tab-${activeTab}`}
           tabIndex={0}
-          className={`outline-none ${viewMode === 'editor' ? 'flex-1 min-h-0 flex flex-col' : ''}`}
+          className={`outline-none w-full min-w-0 ${viewMode === 'editor' ? 'flex-1 min-h-0 flex flex-col' : ''}`}
         >
           {activeTab === 'presupuestos' && (
             <>
@@ -358,8 +362,8 @@ export function App() {
         onClose={() => setShowShortcutsModal(false)}
       />
 
-      {/* PWA Notifications & Install Banner */}
-      <PWAInstallBanner />
+      {/* PWA Notifications & Install Banner (oculto durante la edición para no tapar el total móvil) */}
+      {viewMode !== 'editor' && <PWAInstallBanner />}
     </div>
   );
 }

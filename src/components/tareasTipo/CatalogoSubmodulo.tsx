@@ -167,11 +167,11 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
           return (
             <div
               key={tarea.id}
-              className="bg-surface-container-low hover:bg-surface-container-high rounded-2xl p-5 transition-colors flex flex-col justify-between space-y-4"
+              className="bg-surface-container-low hover:bg-surface-container-high rounded-2xl p-4 sm:p-5 transition-colors flex flex-col justify-between space-y-4 min-w-0 overflow-hidden"
             >
-              <div>
-                <div className="flex justify-between items-start">
-                  <div>
+              <div className="min-w-0">
+                <div className="flex justify-between items-start gap-2 min-w-0">
+                  <div className="min-w-0 flex-1">
                     {/* Chip M3: 8dp (rounded-lg) */}
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-semibold text-on-tertiary-container bg-tertiary-container px-2.5 py-0.5 rounded-lg uppercase tracking-wider select-none">
@@ -200,7 +200,6 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                         </span>
                       )}
                     </div>
-                    <h3 className="font-bold text-on-surface text-base mt-1.5 leading-snug">{tarea.nombre}</h3>
                   </div>
 
                   <div className="flex items-center gap-0.5 shrink-0 -mt-1 -mr-1">
@@ -284,6 +283,8 @@ export const CatalogoSubmodulo: React.FC<CatalogoSubmoduloProps> = ({
                     </button>
                   </div>
                 </div>
+
+                <h3 className="font-bold text-on-surface text-base mt-2.5 leading-snug">{tarea.nombre}</h3>
 
                 {tarea.notasTecnicas && (
                   <p className="text-xs text-on-surface-variant mt-2 line-clamp-2 italic">

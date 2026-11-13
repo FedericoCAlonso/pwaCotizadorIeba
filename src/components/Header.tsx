@@ -201,9 +201,9 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="bg-surface sticky top-0 z-30 transition-colors shadow-sm border-b border-outline-variant/20">
       {/* Top App Bar area */}
-      <div className="w-full max-w-[1920px] mx-auto px-3 sm:px-4 md:px-5 lg:px-6 h-16 flex items-center justify-between gap-4">
+      <div className="w-full max-w-[1920px] mx-auto px-2.5 sm:px-4 md:px-5 lg:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4 min-w-0">
         {/* Brand */}
-        <div className="flex items-center gap-3 font-bold text-primary tracking-wider shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 font-bold text-primary tracking-wider shrink-0">
           <div className="bg-primary-container p-2 rounded-full">
             <Zap className="w-5 h-5 fill-primary text-primary" />
           </div>
@@ -212,7 +212,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Right side controls */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-3 min-w-0">
           {/* Online status — discrete */}
           <div className={`hidden md:flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${isOnline ? 'bg-tertiary-container text-on-tertiary-container' : 'bg-error-container text-on-error-container'}`}>
             {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
@@ -494,7 +494,7 @@ export const Header: React.FC<HeaderProps> = ({
                   setActiveTab(item.id);
                   setShowMobileDrawer(false);
                 }}
-                className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl min-w-[64px] min-h-[48px] transition-all"
+                className="flex flex-1 min-w-0 flex-col items-center justify-center py-1 px-1 rounded-2xl min-h-[48px] transition-all"
               >
                 <div
                   className={`px-4 py-1 rounded-full flex items-center justify-center transition-all ${
@@ -525,7 +525,7 @@ export const Header: React.FC<HeaderProps> = ({
                 aria-selected={isMoreActive}
                 aria-haspopup="dialog"
                 onClick={() => setShowMobileDrawer(true)}
-                className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl min-w-[64px] min-h-[48px] transition-all"
+                className="flex flex-1 min-w-0 flex-col items-center justify-center py-1 px-1 rounded-2xl min-h-[48px] transition-all"
                 aria-label="Abrir menú de herramientas y más opciones"
               >
                 <div

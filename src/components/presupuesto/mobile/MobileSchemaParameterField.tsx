@@ -31,13 +31,13 @@ export const MobileSchemaParameterField: React.FC<MobileSchemaParameterFieldProp
   if (param.tipo === 'boolean') {
     const active = value >= 1;
     return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-m3-outline-variant/60 bg-m3-surface px-3 py-2.5">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-outline-variant/60 bg-surface px-3 py-2.5">
         <div className="min-w-0 flex-1">
-          <label htmlFor={inputId} className="block text-sm font-medium text-m3-on-surface">
+          <label htmlFor={inputId} className="block text-sm font-medium text-on-surface">
             {param.nombre}
           </label>
           {param.descripcion && (
-            <p className="text-xs text-m3-on-surface-variant line-clamp-2">{param.descripcion}</p>
+            <p className="text-xs text-on-surface-variant line-clamp-2">{param.descripcion}</p>
           )}
         </div>
         <button
@@ -48,8 +48,8 @@ export const MobileSchemaParameterField: React.FC<MobileSchemaParameterFieldProp
           onClick={() => onChange(active ? 0 : 1)}
           className={`min-h-[44px] min-w-[76px] shrink-0 rounded-full px-4 text-sm font-semibold transition-colors ${
             active
-              ? 'bg-m3-primary text-m3-on-primary shadow-sm'
-              : 'border border-m3-outline bg-m3-surface-container-high text-m3-on-surface-variant'
+              ? 'bg-primary text-on-primary shadow-sm'
+              : 'border border-outline bg-surface-container-high text-on-surface-variant'
           }`}
         >
           {active ? 'Sí' : 'No'}
@@ -60,15 +60,15 @@ export const MobileSchemaParameterField: React.FC<MobileSchemaParameterFieldProp
 
   if (param.tipo === 'select' && param.opciones && param.opciones.length > 0) {
     return (
-      <div className="space-y-1.5 rounded-xl border border-m3-outline-variant/60 bg-m3-surface px-3 py-2.5">
+      <div className="space-y-1.5 rounded-xl border border-outline-variant/60 bg-surface px-3 py-2.5">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-sm font-medium text-m3-on-surface">{param.nombre}</span>
+          <span className="text-sm font-medium text-on-surface">{param.nombre}</span>
           {param.unidad && (
-            <span className="text-xs text-m3-on-surface-variant">{param.unidad}</span>
+            <span className="text-xs text-on-surface-variant">{param.unidad}</span>
           )}
         </div>
         {param.descripcion && (
-          <p className="text-xs text-m3-on-surface-variant">{param.descripcion}</p>
+          <p className="text-xs text-on-surface-variant">{param.descripcion}</p>
         )}
         <div className="grid grid-cols-2 gap-2 pt-1" role="radiogroup" aria-label={param.nombre}>
           {param.opciones.map(op => {
@@ -82,8 +82,8 @@ export const MobileSchemaParameterField: React.FC<MobileSchemaParameterFieldProp
                 onClick={() => onChange(op.valor)}
                 className={`min-h-[44px] rounded-xl px-3 py-2 text-left text-xs font-medium transition-colors ${
                   selected
-                    ? 'bg-m3-primary text-m3-on-primary shadow-sm'
-                    : 'border border-m3-outline-variant bg-m3-surface-container text-m3-on-surface hover:bg-m3-surface-container-high'
+                    ? 'bg-primary text-on-primary shadow-sm'
+                    : 'border border-outline-variant bg-surface-container text-on-surface hover:bg-surface-container-high'
                 }`}
               >
                 {op.label}
@@ -98,17 +98,17 @@ export const MobileSchemaParameterField: React.FC<MobileSchemaParameterFieldProp
   const step = param.step && param.step > 0 ? param.step : 1;
 
   return (
-    <div className="space-y-1.5 rounded-xl border border-m3-outline-variant/60 bg-m3-surface px-3 py-2.5">
+    <div className="space-y-1.5 rounded-xl border border-outline-variant/60 bg-surface px-3 py-2.5">
       <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={inputId} className="text-sm font-medium text-m3-on-surface">
+        <label htmlFor={inputId} className="text-sm font-medium text-on-surface">
           {param.nombre}
         </label>
         {param.unidad && (
-          <span className="text-xs font-medium text-m3-on-surface-variant">{param.unidad}</span>
+          <span className="text-xs font-medium text-on-surface-variant">{param.unidad}</span>
         )}
       </div>
       {param.descripcion && (
-        <p className="text-xs text-m3-on-surface-variant">{param.descripcion}</p>
+        <p className="text-xs text-on-surface-variant">{param.descripcion}</p>
       )}
       <div className="flex items-center gap-2 pt-0.5">
         <button
@@ -116,7 +116,7 @@ export const MobileSchemaParameterField: React.FC<MobileSchemaParameterFieldProp
           aria-label={`Disminuir ${param.nombre}`}
           onClick={() => onChange(clampParamValue(param, value - step))}
           disabled={param.min !== undefined && value <= param.min}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-m3-outline-variant bg-m3-surface-container-high text-m3-on-surface active:scale-95 disabled:opacity-40"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-high text-on-surface active:scale-95 disabled:opacity-40"
         >
           <Minus className="h-4 w-4" />
         </button>
@@ -136,7 +136,7 @@ export const MobileSchemaParameterField: React.FC<MobileSchemaParameterFieldProp
               onChange(clampParamValue(param, parsed));
             }
           }}
-          className="h-11 min-w-0 flex-1 rounded-xl border border-m3-outline-variant bg-m3-surface-container-lowest px-3 text-center text-base font-semibold text-m3-on-surface focus:border-m3-primary focus:outline-none"
+          className="h-11 min-w-0 flex-1 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-center text-base font-semibold text-on-surface focus:border-primary focus:outline-none"
         />
 
         <button
@@ -144,7 +144,7 @@ export const MobileSchemaParameterField: React.FC<MobileSchemaParameterFieldProp
           aria-label={`Aumentar ${param.nombre}`}
           onClick={() => onChange(clampParamValue(param, value + step))}
           disabled={param.max !== undefined && value >= param.max}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-m3-outline-variant bg-m3-surface-container-high text-m3-on-surface active:scale-95 disabled:opacity-40"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-high text-on-surface active:scale-95 disabled:opacity-40"
         >
           <Plus className="h-4 w-4" />
         </button>
