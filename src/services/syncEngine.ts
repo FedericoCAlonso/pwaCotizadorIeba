@@ -189,8 +189,15 @@ export class DecentralizedSyncEngine {
       this.debouncedSyncTimer = null;
     }
 
-    // No auto-sync para respaldo puramente manual
+    // No auto-sync para respaldo puramente manual o proveedor aún no conectado/configurado
     if (this.activeProviderType === 'manual_json') {
+      return;
+    }
+
+    const activeProvider = this.registry.has(this.activeProviderType)
+      ? this.getProvider(this.activeProviderType)
+      : null;
+    if (!activeProvider || (typeof activeProvider.getStatus === 'function' && !activeProvider.getStatus().isConfigured)) {
       return;
     }
 
@@ -200,7 +207,19 @@ export class DecentralizedSyncEngine {
 
     this.debouncedSyncTimer = setTimeout(() => {
       this.debouncedSyncTimer = null;
-      if (typeof navigator !== 'undefined' && navigator.onLine && !this.isSyncing && this.hasPendingChanges) {
+      const currentProvider = this.registry.has(this.activeProviderType)
+        ? this.getProvider(this.activeProviderType)
+        : null;
+      const providerConfigured =
+        currentProvider &&
+        (typeof currentProvider.getStatus !== 'function' || currentProvider.getStatus().isConfigured);
+      if (
+        typeof navigator !== 'undefined' &&
+        navigator.onLine &&
+        !this.isSyncing &&
+        this.hasPendingChanges &&
+        providerConfigured
+      ) {
         this.executeSync().catch((err) => {
           console.warn('[DecentralizedSync] Auto-sync programado tras guardado falló:', err);
         });

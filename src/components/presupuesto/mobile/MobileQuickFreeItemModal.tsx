@@ -58,7 +58,7 @@ export const MobileQuickFreeItemModal: React.FC<MobileQuickFreeItemModalProps> =
             type="button"
             aria-label="Cerrar"
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
           >
             <X className="h-5 w-5" />
           </button>

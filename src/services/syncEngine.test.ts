@@ -20,6 +20,7 @@ describe('DecentralizedSyncEngine - Auto-Sync and Pending Changes', () => {
 
   afterEach(() => {
     syncEngine.stopAutoSync();
+    vi.restoreAllMocks();
   });
 
   it('notifica mutación local marcando hasPendingChanges en true', () => {
@@ -48,7 +49,8 @@ describe('DecentralizedSyncEngine - Auto-Sync and Pending Changes', () => {
       connect: vi.fn().mockResolvedValue(true),
       disconnect: vi.fn().mockResolvedValue(undefined),
       readMasterPayload: vi.fn().mockResolvedValue(null),
-      writeMasterPayload: vi.fn().mockResolvedValue(undefined)
+      writeMasterPayload: vi.fn().mockResolvedValue(undefined),
+      getStatus: vi.fn().mockReturnValue({ isConfigured: true, label: 'Mock' })
     };
 
     vi.spyOn(syncEngine, 'getProvider').mockReturnValue(mockProvider as any);
@@ -114,5 +116,36 @@ describe('DecentralizedSyncEngine - Auto-Sync and Pending Changes', () => {
 
     const isolatedEngine = new DecentralizedSyncEngine(customRegistry);
     expect(isolatedEngine.getProvider('manual_json').name).toBe('Custom Memory Provider');
+  });
+
+  it('omite auto-sync debounced cuando el proveedor activo no está configurado y lo ejecuta si está configurado', async () => {
+    vi.useFakeTimers();
+    const unconfiguredProvider = {
+      type: 'local_file' as const,
+      name: 'Local FS Unconfigured',
+      isAvailable: vi.fn().mockResolvedValue(true),
+      connect: vi.fn().mockResolvedValue(false),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+      readMasterPayload: vi.fn().mockResolvedValue(null),
+      writeMasterPayload: vi.fn().mockResolvedValue(true),
+      getStatus: vi.fn().mockReturnValue({ isConfigured: false, label: 'Sin archivo' })
+    };
+
+    const customRegistry = new SyncProviderRegistry([unconfiguredProvider]);
+    const isolatedEngine = new DecentralizedSyncEngine(customRegistry);
+    const execSpy = vi.spyOn(isolatedEngine, 'executeSync');
+
+    isolatedEngine.notifyLocalMutation();
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(execSpy).not.toHaveBeenCalled();
+
+    unconfiguredProvider.getStatus.mockReturnValue({ isConfigured: true, label: 'Conectado' });
+    vi.spyOn(db.config, 'toArray').mockResolvedValue([]);
+    isolatedEngine.notifyLocalMutation();
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(execSpy).toHaveBeenCalledTimes(1);
+
+    isolatedEngine.clearLocalSyncState();
+    vi.useRealTimers();
   });
 });

@@ -157,7 +157,7 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
           <button
             type="button"
             onClick={() => setSelectedTarea(null)}
-            className="flex h-10 items-center gap-1.5 rounded-xl px-2 text-sm font-medium text-on-surface hover:bg-surface-container"
+            className="flex h-11 items-center gap-1.5 rounded-xl px-2.5 text-sm font-medium text-on-surface hover:bg-surface-container"
           >
             <ArrowLeft className="h-4 w-4" />
             Volver
@@ -171,7 +171,7 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
           type="button"
           aria-label="Cerrar selector"
           onClick={onClose}
-          className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
         >
           <X className="h-5 w-5" />
         </button>

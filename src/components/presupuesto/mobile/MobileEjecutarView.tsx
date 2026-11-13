@@ -107,7 +107,7 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
               type="button"
               aria-label={`Quitar ${item.descripcion}`}
               onClick={() => vm.eliminarItemPorId(item.id)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl text-on-surface-variant hover:bg-error-container hover:text-on-error-container"
+              className="flex h-11 w-11 items-center justify-center rounded-xl text-on-surface-variant hover:bg-error-container hover:text-on-error-container"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -153,12 +153,12 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
 
   return (
     <div className="flex flex-1 min-h-0 w-full max-w-full flex-col overflow-hidden bg-surface-container-lowest text-on-surface">
-      <header className="shrink-0 z-20 flex items-center gap-2 border-b border-outline-variant/60 bg-surface px-3 py-2.5">
+      <header className="shrink-0 z-20 flex items-center gap-2 border-b border-outline-variant/60 bg-surface px-3 py-2">
         <button
           type="button"
           onClick={onBack}
           aria-label="Volver"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-on-surface hover:bg-surface-container"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-surface hover:bg-surface-container"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -176,7 +176,7 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
           type="button"
           onClick={vm.toggleVistaPrevia}
           aria-label="Vista previa al cliente"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
         >
           <Eye className="h-5 w-5" />
         </button>
@@ -185,7 +185,7 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
           type="button"
           onClick={() => void vm.guardar()}
           aria-label="Guardar cotización"
-          className="flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-primary-container px-3.5 text-xs font-semibold text-on-primary-container"
+          className="flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-primary-container px-4 text-xs font-semibold text-on-primary-container"
         >
           <Save className="h-4 w-4" />
           <span>{vm.saveStatus === 'saved' && !vm.isDirty ? 'Guardado' : 'Guardar'}</span>
