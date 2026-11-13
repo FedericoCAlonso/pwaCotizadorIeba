@@ -11,6 +11,7 @@ import { ContactosManager } from './components/ContactosManager';
 import { SolicitudCotizacionManager } from './components/SolicitudesCotizacionManager';
 import { PresupuestosList } from './components/PresupuestosList';
 import { PresupuestoEditor } from './components/PresupuestoEditor';
+import { NotebookDesktopView } from './components/presupuesto/notebook/NotebookDesktopView';
 import { PresupuestoDetail } from './components/PresupuestoDetail';
 import { RegistroTrabajoManager } from './components/RegistroTrabajoManager';
 import { LogisticaManager } from './components/LogisticaManager';
@@ -34,6 +35,15 @@ export function App() {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [isZenMode, setIsZenMode] = useState(false);
+  const [isDesktopViewport, setIsDesktopViewport] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 768 : true
+  );
+
+  useEffect(() => {
+    const onResize = () => setIsDesktopViewport(window.innerWidth >= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const configs = useLiveQuery(() => db.config.toArray());
   const config: AppConfig | undefined = configs && configs.length > 0 ? configs[0] : undefined;
@@ -248,24 +258,38 @@ export function App() {
                 />
               )}
               {viewMode === 'editor' && config && (
-                <PresupuestoEditor
-                  presupuestoId={selectedPresupuestoId}
-                  initialClienteId={initialClienteId}
-                  config={config}
-                  isZenMode={isZenMode}
-                  onToggleZenMode={() => setIsZenMode((v) => !v)}
-                  onBack={() => {
-                    setActiveEditingPresupuestoId(undefined);
-                    setSelectedPresupuestoId(undefined);
-                    setViewMode('list');
-                  }}
-                  onSaved={handleSavedPresupuesto}
-                  onDraftAutoSaved={(id) => {
-                    setSelectedPresupuestoId(id);
-                    setActiveEditingPresupuestoId(id);
-                  }}
-                  onViewMaterialsInCatalog={handleViewMaterialsInCatalog}
-                />
+                isDesktopViewport ? (
+                  <NotebookDesktopView
+                    presupuestoId={selectedPresupuestoId}
+                    initialPresupuesto={initialClienteId ? { clienteId: initialClienteId } : undefined}
+                    config={config}
+                    onBack={() => {
+                      setActiveEditingPresupuestoId(undefined);
+                      setSelectedPresupuestoId(undefined);
+                      setViewMode('list');
+                    }}
+                    onSaved={handleSavedPresupuesto}
+                  />
+                ) : (
+                  <PresupuestoEditor
+                    presupuestoId={selectedPresupuestoId}
+                    initialClienteId={initialClienteId}
+                    config={config}
+                    isZenMode={isZenMode}
+                    onToggleZenMode={() => setIsZenMode((v) => !v)}
+                    onBack={() => {
+                      setActiveEditingPresupuestoId(undefined);
+                      setSelectedPresupuestoId(undefined);
+                      setViewMode('list');
+                    }}
+                    onSaved={handleSavedPresupuesto}
+                    onDraftAutoSaved={(id) => {
+                      setSelectedPresupuestoId(id);
+                      setActiveEditingPresupuestoId(id);
+                    }}
+                    onViewMaterialsInCatalog={handleViewMaterialsInCatalog}
+                  />
+                )
               )}
               {viewMode === 'detail' && selectedPresupuestoId && config && (
                 <PresupuestoDetail
