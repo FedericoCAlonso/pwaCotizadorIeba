@@ -15,6 +15,7 @@ import {
   NotaInterna,
   Oferta,
   ParametroItem,
+  ParametroTrabajoTipo,
   Presupuesto,
   Producto,
   TareaTipo,
@@ -2070,3 +2071,127 @@ export function evaluateNotebookText(
   );
   return { parseResult, aplicacion };
 }
+
+// ─── Helpers para Modo Móvil ("Ejecutar") ────────────────────────────────────
+
+/**
+ * Ordena los Trabajos Tipo para el buscador móvil:
+ * 1) Recientes arriba (`ultimoUsoFecha` descendente)
+ * 2) Más frecuentes (`frecuenciaUso` descendente)
+ * 3) Alfabético; cuando hay consulta, filtra por coincidencia difusa.
+ */
+export function ordenarTareasTipoParaMovil(
+  tareasTipo: TareaTipo[],
+  query = ''
+): TareaTipo[] {
+  const q = query.trim();
+
+  const compareRecienteYFrecuencia = (a: TareaTipo, b: TareaTipo): number => {
+    const timeA = a.ultimoUsoFecha ? new Date(a.ultimoUsoFecha).getTime() : 0;
+    const timeB = b.ultimoUsoFecha ? new Date(b.ultimoUsoFecha).getTime() : 0;
+    if (timeB !== timeA) return timeB - timeA;
+    const freqDiff = (b.frecuenciaUso ?? 0) - (a.frecuenciaUso ?? 0);
+    if (freqDiff !== 0) return freqDiff;
+    return a.nombre.localeCompare(b.nombre);
+  };
+
+  if (!q) {
+    return [...tareasTipo].sort(compareRecienteYFrecuencia);
+  }
+
+  return tareasTipo
+    .map(t => {
+      const slug = t.slug || slugifyIdentificador(t.nombre);
+      const best = Math.max(
+        fuzzyMatchScore(q, t.nombre) ?? -1,
+        fuzzyMatchScore(q, slug) ?? -1,
+        fuzzyMatchScore(q, t.categoria) ?? -1
+      );
+      return best >= 0 ? { t, best } : null;
+    })
+    .filter((x): x is { t: TareaTipo; best: number } => x !== null)
+    .sort((a, b) => b.best - a.best || compareRecienteYFrecuencia(a.t, b.t))
+    .map(x => x.t);
+}
+
+/**
+ * Evalúa si un parámetro del esquema del Trabajo Tipo debe mostrarse según su condición opcional.
+ */
+export function evaluarVisibilidadParametroEnEsquema(
+  param: ParametroTrabajoTipo,
+  valoresActuales: Record<string, number>,
+  scopeGlobal: Record<string, number> = {}
+): boolean {
+  if (!param.condicion || !param.condicion.trim()) {
+    return true;
+  }
+  return evaluateCondition(param.condicion, { ...scopeGlobal, ...valoresActuales });
+}
+
+/**
+ * Construye una línea canónica `/tt` desde un `TareaTipo` y valores iniciales opcionales.
+ */
+export function construirLineaTareaTipoDesdeEsquema(
+  tarea: TareaTipo,
+  valoresParametros?: Record<string, number>
+): string {
+  const slug = tarea.slug || slugifyIdentificador(tarea.nombre);
+  const params = tarea.parametros || [];
+  if (params.length === 0) {
+    const cant = valoresParametros?.cantidad;
+    return cant !== undefined && cant !== 1 ? `/tt ${slug}  cantidad=${cant}` : `/tt ${slug}`;
+  }
+  const tokens = params.map(p => {
+    const val = valoresParametros?.[p.id] ?? p.valorDefault ?? 1;
+    return `${p.id}=${val}`;
+  });
+  return `/tt ${slug}  ${tokens.join('  ')}`;
+}
+
+/**
+ * Construye una línea canónica de ítem libre rápido desde el atajo móvil de 3 campos
+ * (descripción, cantidad, precio unitario).
+ */
+export function construirLineaItemLibreRapido(
+  descripcion: string,
+  cantidad: number,
+  precioUnitario: number
+): string {
+  const descLimpia = descripcion.trim().replace(/\s+/g, ' ');
+  const cantVal = Math.max(0.01, safeNum(cantidad) || 1);
+  const precioVal = Math.max(0, safeNum(precioUnitario));
+  return `item: ${descLimpia}  ${cantVal} u  ${precioVal}`;
+}
+
+/**
+ * Actualiza o inserta `paramId=valor` en una línea `/tt` existente sin perder ajustes `-`/`+`.
+ */
+export function actualizarParametroEnLineaTt(
+  line: string,
+  paramId: string,
+  valor: number
+): string {
+  const escaped = paramId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const paramRegex = new RegExp(`(^|\\s)${escaped}=[^\\s]+`);
+  if (paramRegex.test(line)) {
+    return line.replace(paramRegex, `$1${paramId}=${valor}`);
+  }
+  return `${line.trimEnd()}  ${paramId}=${valor}`;
+}
+
+/**
+ * Elimina de `texto` el bloque cuya línea inicial es `startLinea1Based` y cualquier sub-línea indentada.
+ */
+export function eliminarBloqueEnLinea(texto: string, startLinea1Based: number): string {
+  const lines = texto.split(/\r?\n/);
+  const startIdx = startLinea1Based - 1;
+  if (startIdx < 0 || startIdx >= lines.length) return texto;
+
+  let endIdx = startIdx + 1;
+  while (endIdx < lines.length && /^[ \t]+/.test(lines[endIdx])) {
+    endIdx++;
+  }
+  lines.splice(startIdx, endIdx - startIdx);
+  return lines.join('\n').replace(/^\n+|\n+$/g, '');
+}
+

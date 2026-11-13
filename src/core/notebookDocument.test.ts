@@ -8,13 +8,19 @@ import {
   TareaTipo
 } from './types';
 import {
+  actualizarParametroEnLineaTt,
   buildNotebookCommandPalette,
+  construirLineaItemLibreRapido,
+  construirLineaTareaTipoDesdeEsquema,
   construirTareaTipoDesdeItemLibre,
+  eliminarBloqueEnLinea,
   evaluateNotebookText,
+  evaluarVisibilidadParametroEnEsquema,
   filterNotebookCommandPalette,
   findNextParameterSlot,
   getContextualAutocompleteSuggestions,
   NotebookDocumentContext,
+  ordenarTareasTipoParaMovil,
   presupuestoToNotebookBlocks
 } from './notebookDocument';
 import { parse, serialize } from './notebookParser';
@@ -330,5 +336,71 @@ describe('notebookDocument', () => {
     const palette = buildNotebookCommandPalette(contexto);
     const filtered = filterNotebookCommandPalette(palette, 'siguiente sin valorizar');
     expect(filtered[0].actionType).toBe('next_unvalorized');
+  });
+
+  it('ordena trabajos tipo para móvil con recientes arriba y filtra por texto', () => {
+    const ttReciente: TareaTipo = {
+      ...tareaRecableado,
+      id: 'tt-reciente',
+      nombre: 'Instalación Tablero Seccional',
+      slug: 'tablero-seccional',
+      frecuenciaUso: 3,
+      ultimoUsoFecha: '2026-11-12T10:00:00.000Z'
+    };
+    const ttViejaFrecuente: TareaTipo = {
+      ...tareaRecableado,
+      id: 'tt-vieja',
+      nombre: 'Recableado Antiguo',
+      slug: 'recableado-antiguo',
+      frecuenciaUso: 40,
+      ultimoUsoFecha: '2026-10-01T10:00:00.000Z'
+    };
+    const ordenadas = ordenarTareasTipoParaMovil([tareaRecableado, ttViejaFrecuente, ttReciente]);
+    expect(ordenadas[0].id).toBe('tt-reciente');
+    expect(ordenadas[1].id).toBe('tt-vieja');
+
+    const filtradas = ordenarTareasTipoParaMovil([tareaRecableado, ttViejaFrecuente, ttReciente], 'seccional');
+    expect(filtradas).toHaveLength(1);
+    expect(filtradas[0].id).toBe('tt-reciente');
+  });
+
+  it('evalúa visibilidad condicional y manipula líneas de esquema e ítem libre rápido', () => {
+    expect(
+      evaluarVisibilidadParametroEnEsquema(
+        {
+          id: 'metros_extra',
+          nombre: 'Metros extra',
+          tipo: 'numero',
+          valorDefault: 5,
+          condicion: 'bocas >= 10'
+        },
+        { bocas: 8 }
+      )
+    ).toBe(false);
+    expect(
+      evaluarVisibilidadParametroEnEsquema(
+        {
+          id: 'metros_extra',
+          nombre: 'Metros extra',
+          tipo: 'numero',
+          valorDefault: 5,
+          condicion: 'bocas >= 10'
+        },
+        { bocas: 12 }
+      )
+    ).toBe(true);
+
+    const lineaTt = construirLineaTareaTipoDesdeEsquema(tareaRecableado, { sup: 75, bocas: 16 });
+    expect(lineaTt).toBe('/tt recableado-completo  sup=75  bocas=16');
+
+    const actualizada = actualizarParametroEnLineaTt(`${lineaTt}  -extra`, 'bocas', 20);
+    expect(actualizada).toBe('/tt recableado-completo  sup=75  bocas=20  -extra');
+
+    const libre = construirLineaItemLibreRapido('Visita técnica   en obra', 2, 15000);
+    expect(libre).toBe('item: Visita técnica en obra  2 u  15000');
+
+    const doc = ['/tt recableado-completo  bocas=10', '  cable 2.5mm celeste  20m', libre].join('\n');
+    const sinPrimero = eliminarBloqueEnLinea(doc, 1);
+    expect(sinPrimero).toBe(libre);
   });
 });

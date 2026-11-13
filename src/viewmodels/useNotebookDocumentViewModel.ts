@@ -5,6 +5,7 @@ import {
   AppConfig,
   CapituloPresupuesto,
   CategoriaManoDeObra,
+  Contacto,
   CostoIndirecto,
   Insumo,
   ItemPresupuesto,
@@ -17,10 +18,14 @@ import {
 import { ResultadoAlcanceYAdvertencias } from '../core/notebookDomain';
 import { safeNum, TotalesPresupuestoResultado } from '../core/calculations';
 import {
+  actualizarParametroEnLineaTt,
   applyNotebookBlocksToPresupuesto,
   buildNotebookCommandPalette,
   buildParseContext,
+  construirLineaItemLibreRapido,
+  construirLineaTareaTipoDesdeEsquema,
   construirTareaTipoDesdeItemLibre,
+  eliminarBloqueEnLinea,
   evaluateNotebookText,
   filterNotebookCommandPalette,
   findNextParameterSlot,
@@ -30,6 +35,7 @@ import {
   NotebookCommandPaletteItem,
   NotebookDocumentContext,
   NotebookErrorDocumento,
+  ordenarTareasTipoParaMovil,
   presupuestoToNotebookBlocks,
   SubtotalBloqueInfo,
   SugerenciaConversionTareaTipo,
@@ -176,6 +182,10 @@ export function useNotebookDocumentViewModel({
       db.costosIndirectos?.toArray
         ? db.costosIndirectos.toArray()
         : Promise.resolve([] as CostoIndirecto[]),
+    []
+  );
+  const dbContactos = useLiveQuery(
+    () => (db.contactos?.toArray ? db.contactos.toArray() : Promise.resolve([] as Contacto[])),
     []
   );
 
@@ -722,9 +732,99 @@ export function useNotebookDocumentViewModel({
     setTextoState(serialize(blocks, buildParseContext(contexto)));
   }, [presupuesto, contexto]);
 
+  // ─── Acciones de Modo Ejecutar (Móvil orientado a esquemas de Trabajo Tipo) ──
+  const clienteActual = useMemo<Contacto | undefined>(() => {
+    if (!presupuesto.clienteId || !dbContactos) return undefined;
+    return dbContactos.find(c => c.id === presupuesto.clienteId && !c.deleted);
+  }, [presupuesto.clienteId, dbContactos]);
+
+  const buscarTareasTipoMovil = useCallback(
+    (query = ''): TareaTipo[] => ordenarTareasTipoParaMovil(contexto.tareasTipo, query),
+    [contexto.tareasTipo]
+  );
+
+  const agregarTareaTipoDesdeEsquema = useCallback(
+    async (
+      tareaTipoId: string,
+      valoresParametros?: Record<string, number>
+    ): Promise<void> => {
+      const tarea = contexto.tareasTipo.find(t => t.id === tareaTipoId);
+      if (!tarea) return;
+
+      const newLine = construirLineaTareaTipoDesdeEsquema(tarea, valoresParametros);
+      const base = texto.trimEnd();
+      const nextTexto = base ? `${base}\n${newLine}` : newLine;
+      setTexto(nextTexto);
+
+      const ahora = new Date().toISOString();
+      const siguienteFrecuencia = safeNum(tarea.frecuenciaUso) + 1;
+      const tareaActualizada: TareaTipo = {
+        ...tarea,
+        frecuenciaUso: siguienteFrecuencia,
+        ultimoUsoFecha: ahora,
+        updatedAt: ahora
+      };
+      setExtraTareasTipo(prev => [...prev.filter(t => t.id !== tarea.id), tareaActualizada]);
+      if (db.tareasTipo?.update) {
+        try {
+          await db.tareasTipo.update(tarea.id, {
+            frecuenciaUso: siguienteFrecuencia,
+            ultimoUsoFecha: ahora,
+            updatedAt: ahora
+          });
+        } catch {
+          // En entornos de test con mock parcial de Dexie o fuera de DB, mantener estado en memoria
+        }
+      }
+    },
+    [contexto.tareasTipo, texto, setTexto]
+  );
+
+  const actualizarParametroDeItem = useCallback(
+    (itemId: string, paramId: string, valor: number) => {
+      const entry = Object.entries(subtotalesPorBloque).find(
+        ([, info]) => info.itemId === itemId
+      );
+      if (!entry) return;
+      const linea1Based = Number(entry[0]);
+      if (!Number.isFinite(linea1Based) || linea1Based < 1) return;
+
+      const lines = texto.split(/\r?\n/);
+      const idx = linea1Based - 1;
+      if (idx < 0 || idx >= lines.length) return;
+      lines[idx] = actualizarParametroEnLineaTt(lines[idx], paramId, valor);
+      setTexto(lines.join('\n'));
+    },
+    [subtotalesPorBloque, texto, setTexto]
+  );
+
+  const agregarItemLibreRapido = useCallback(
+    (descripcion: string, cantidad: number, precioUnitario: number) => {
+      if (!descripcion.trim()) return;
+      const newLine = construirLineaItemLibreRapido(descripcion, cantidad, precioUnitario);
+      const base = texto.trimEnd();
+      setTexto(base ? `${base}\n${newLine}` : newLine);
+    },
+    [texto, setTexto]
+  );
+
+  const eliminarItemPorId = useCallback(
+    (itemId: string) => {
+      const entry = Object.entries(subtotalesPorBloque).find(
+        ([, info]) => info.itemId === itemId
+      );
+      if (!entry) return;
+      const linea1Based = Number(entry[0]);
+      if (!Number.isFinite(linea1Based) || linea1Based < 1) return;
+      setTexto(eliminarBloqueEnLinea(texto, linea1Based));
+    },
+    [subtotalesPorBloque, texto, setTexto]
+  );
+
   return {
     // Modelo & Proyección
     presupuesto,
+    clienteActual,
     contexto,
     texto,
     setTexto,
@@ -783,6 +883,13 @@ export function useNotebookDocumentViewModel({
     toggleVistaPrevia,
     mostrarAyudaAtajos,
     toggleAyudaAtajos,
+
+    // Acciones Modo Ejecutar (Móvil)
+    buscarTareasTipoMovil,
+    agregarTareaTipoDesdeEsquema,
+    actualizarParametroDeItem,
+    agregarItemLibreRapido,
+    eliminarItemPorId,
 
     // Errores y Lints
     errores,
