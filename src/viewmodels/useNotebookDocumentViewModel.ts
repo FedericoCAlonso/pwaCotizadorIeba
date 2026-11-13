@@ -735,6 +735,7 @@ export function useNotebookDocumentViewModel({
     alcanceYAdvertencias: alcanceYAdvertencias as ResultadoAlcanceYAdvertencias,
     subtotalesPorBloque,
     subtotalesPorItemId,
+    blockLineNumbers,
     capitulos: presupuesto.capitulos as CapituloPresupuesto[],
     isDirty,
     saveStatus,
