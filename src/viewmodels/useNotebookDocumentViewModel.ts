@@ -18,7 +18,7 @@ import {
 import { ResultadoAlcanceYAdvertencias } from '../core/notebookDomain';
 import { safeNum, TotalesPresupuestoResultado } from '../core/calculations';
 import {
-  actualizarParametroEnLineaTt,
+  actualizarParametroEnBloque,
   applyNotebookBlocksToPresupuesto,
   buildNotebookCommandPalette,
   buildParseContext,
@@ -28,10 +28,11 @@ import {
   eliminarBloqueEnLinea,
   evaluateNotebookText,
   filterNotebookCommandPalette,
-  findNextParameterSlot,
+  findNextParameterSlotInDocument,
   getContextualAutocompleteSuggestions,
   ModoPasadaCotizacion,
   NotebookAutocompleteResult,
+  NotebookAutocompleteSuggestion,
   NotebookCommandPaletteItem,
   NotebookDocumentContext,
   NotebookErrorDocumento,
@@ -43,6 +44,15 @@ import {
 } from '../core/notebookDocument';
 import { NotebookBlock, serialize } from '../core/notebookParser';
 import { PRESUPUESTO_MAXIMO_ADVERTENCIAS_VISIBLES, slugifyIdentificador } from '../core/notebookDomain';
+
+interface HistorySnapshot {
+  texto: string;
+  cursor: NotebookCursor;
+  timestamp: number;
+}
+
+const MAX_UNDO_HISTORY = 100;
+const TYPING_COALESCE_WINDOW_MS = 550;
 
 export interface NotebookCursor {
   linea: number;
@@ -88,27 +98,108 @@ function resolveBlockIndexForLine(blockLineNumbers: number[], linea: number): nu
   return active >= 0 ? active : 0;
 }
 
+function offsetToLineColInsideSnippet(
+  baseLine1Based: number,
+  baseStartCol0Based: number,
+  snippet: string,
+  offset: number
+): { linea: number; col1Based: number } {
+  const safe = Math.max(0, Math.min(offset, snippet.length));
+  const sub = snippet.slice(0, safe);
+  const parts = sub.split('\n');
+  if (parts.length === 1) {
+    return {
+      linea: baseLine1Based,
+      col1Based: baseStartCol0Based + parts[0].length + 1
+    };
+  }
+  return {
+    linea: baseLine1Based + parts.length - 1,
+    col1Based: (parts[parts.length - 1]?.length ?? 0) + 1
+  };
+}
+
 function replaceSpanInLine(
   texto: string,
   linea1Based: number,
   startCol1Based: number,
   endCol1Based: number,
-  insertText: string
+  insertText: string,
+  selStartOffset?: number,
+  selEndOffset?: number
 ): { nextTexto: string; nextCursor: NotebookCursor } {
   const lines = texto.split(/\r?\n/);
   const idx = Math.max(0, Math.min(linea1Based - 1, lines.length - 1));
   const raw = lines[idx] ?? '';
   const start = Math.max(0, Math.min(startCol1Based - 1, raw.length));
   const end = Math.max(start, Math.min(endCol1Based - 1, raw.length));
-  const updatedLine = `${raw.slice(0, start)}${insertText}${raw.slice(end)}`;
-  lines[idx] = updatedLine;
+  const updatedChunk = `${raw.slice(0, start)}${insertText}${raw.slice(end)}`;
+  const insertedLines = updatedChunk.split('\n');
+  lines.splice(idx, 1, ...insertedLines);
+
+  const endOffset = selEndOffset ?? insertText.length;
+  const startOffset = selStartOffset ?? endOffset;
+  const startPos = offsetToLineColInsideSnippet(idx + 1, start, insertText, startOffset);
+  const endPos = offsetToLineColInsideSnippet(idx + 1, start, insertText, endOffset);
+
+  const hasSingleLineSelection =
+    selStartOffset !== undefined &&
+    selEndOffset !== undefined &&
+    selEndOffset > selStartOffset &&
+    startPos.linea === endPos.linea;
+
   return {
     nextTexto: lines.join('\n'),
     nextCursor: {
-      linea: idx + 1,
-      columna: start + insertText.length + 1
+      linea: endPos.linea,
+      columna: endPos.col1Based,
+      ...(hasSingleLineSelection
+        ? { selectionStartCol: startPos.col1Based, selectionEndCol: endPos.col1Based }
+        : {})
     }
   };
+}
+
+function applyAutocompleteSuggestionToText(
+  texto: string,
+  linea1Based: number,
+  sug: NotebookAutocompleteSuggestion
+): { nextTexto: string; nextCursor: NotebookCursor } {
+  if (sug.insertOnNewIndentedLine) {
+    const lines = texto.split(/\r?\n/);
+    const idx = Math.max(0, Math.min(linea1Based - 1, lines.length - 1));
+    const raw = lines[idx] ?? '';
+    const start = Math.max(0, Math.min(sug.replaceStartCol - 1, raw.length));
+    const end = Math.max(start, Math.min(sug.replaceEndCol - 1, raw.length));
+    lines[idx] = `${raw.slice(0, start)}${raw.slice(end)}`.trimEnd();
+    const newLine = `  ${sug.insertText}`;
+    lines.splice(idx + 1, 0, newLine);
+
+    const hasSel =
+      sug.selectionStartOffset !== undefined &&
+      sug.selectionEndOffset !== undefined &&
+      sug.selectionEndOffset > sug.selectionStartOffset;
+    const endCol = 3 + (sug.selectionEndOffset ?? sug.insertText.length);
+    const startCol = 3 + (sug.selectionStartOffset ?? sug.insertText.length);
+    return {
+      nextTexto: lines.join('\n'),
+      nextCursor: {
+        linea: idx + 2,
+        columna: endCol,
+        ...(hasSel ? { selectionStartCol: startCol, selectionEndCol: endCol } : {})
+      }
+    };
+  }
+
+  return replaceSpanInLine(
+    texto,
+    linea1Based,
+    sug.replaceStartCol,
+    sug.replaceEndCol,
+    sug.insertText,
+    sug.selectionStartOffset,
+    sug.selectionEndOffset
+  );
 }
 
 function insertLineAtCursor(
@@ -128,11 +219,30 @@ function insertLineAtCursor(
     lines.splice(targetIdx, 0, lineContent);
   }
 
+  const chunkLines = lineContent.split('\n');
+  if (chunkLines.length > 1) {
+    const firstParamMatch = chunkLines[1].match(/^(\s*[a-zA-Z_][\w-]*\s*=\s*)(.+)$/);
+    if (firstParamMatch) {
+      const selStartCol = firstParamMatch[1].length + 1;
+      const selEndCol = chunkLines[1].length + 1;
+      return {
+        nextTexto: lines.join('\n'),
+        nextCursor: {
+          linea: targetIdx + 2,
+          columna: selEndCol,
+          selectionStartCol: selStartCol,
+          selectionEndCol: selEndCol
+        }
+      };
+    }
+  }
+
+  const lastChunkLine = chunkLines[chunkLines.length - 1] ?? '';
   return {
     nextTexto: lines.join('\n'),
     nextCursor: {
-      linea: targetIdx + 1,
-      columna: lineContent.length + 1
+      linea: targetIdx + chunkLines.length,
+      columna: lastChunkLine.length + 1
     }
   };
 }
@@ -232,7 +342,10 @@ export function useNotebookDocumentViewModel({
 
   const [passMode, setPassMode] = useState<ModoPasadaCotizacion>(initialPassMode);
   const [cursor, setCursorState] = useState<NotebookCursor>({ linea: 1, columna: 1 });
+  const [cursorSyncSeq, setCursorSyncSeq] = useState(0);
   const [autocompleteSelectedIndex, setAutocompleteSelectedIndex] = useState(0);
+  const [autocompleteDismissedLineKey, setAutocompleteDismissedLineKey] = useState<string | null>(null);
+  const [forceAutocompleteOpen, setForceAutocompleteOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState('');
   const [paletteSelectedIndex, setPaletteSelectedIndex] = useState(0);
@@ -240,6 +353,10 @@ export function useNotebookDocumentViewModel({
   const [mostrarAyudaAtajos, setMostrarAyudaAtajos] = useState(false);
   const [saveStatus, setSaveStatus] = useState<NotebookSaveStatus>('idle');
   const [isDirty, setIsDirty] = useState(false);
+  const [historyState, setHistoryState] = useState<{
+    past: HistorySnapshot[];
+    future: HistorySnapshot[];
+  }>({ past: [], future: [] });
 
   const initialProjectedText = useMemo(() => {
     const baseEval = applyNotebookBlocksToPresupuesto(
@@ -255,13 +372,22 @@ export function useNotebookDocumentViewModel({
 
   const [texto, setTextoState] = useState<string>(() => initialProjectedText);
   const hydratedIdRef = useRef<string | undefined>(loadedFromDb?.id);
+  const latestTextoRef = useRef<string>(texto);
+  const latestCursorRef = useRef<NotebookCursor>(cursor);
+  const historyRef = useRef<{ past: HistorySnapshot[]; future: HistorySnapshot[] }>(historyState);
+  latestTextoRef.current = texto;
+  latestCursorRef.current = cursor;
 
   // Hidrata si llega el presupuesto asincrónicamente desde IndexedDB (sin pisar ediciones del usuario)
   useEffect(() => {
     if (loadedFromDb && hydratedIdRef.current !== loadedFromDb.id && !isDirty) {
       hydratedIdRef.current = loadedFromDb.id;
       const blocks = presupuestoToNotebookBlocks(loadedFromDb, contexto);
-      setTextoState(serialize(blocks, buildParseContext(contexto)));
+      const nextSerialized = serialize(blocks, buildParseContext(contexto));
+      latestTextoRef.current = nextSerialized;
+      setTextoState(nextSerialized);
+      historyRef.current = { past: [], future: [] };
+      setHistoryState({ past: [], future: [] });
     }
   }, [loadedFromDb, contexto, isDirty]);
 
@@ -358,17 +484,35 @@ export function useNotebookDocumentViewModel({
     [presupuesto.variablesCotizacion]
   );
 
-  const autocomplete = useMemo<NotebookAutocompleteResult>(
+  const currentLineKey = useMemo(() => {
+    const lines = texto.split(/\r?\n/);
+    const lineText = lines[Math.max(0, Math.min(cursor.linea - 1, lines.length - 1))] ?? '';
+    return `${cursor.linea}:${lineText}`;
+  }, [texto, cursor.linea]);
+
+  const rawAutocomplete = useMemo<NotebookAutocompleteResult>(
     () =>
       getContextualAutocompleteSuggestions(
         texto,
         cursor.linea,
         cursor.columna,
         contexto,
-        variableNames
+        variableNames,
+        { forceOpen: forceAutocompleteOpen }
       ),
-    [texto, cursor.linea, cursor.columna, contexto, variableNames]
+    [texto, cursor.linea, cursor.columna, contexto, variableNames, forceAutocompleteOpen]
   );
+
+  const autocomplete = useMemo<NotebookAutocompleteResult>(() => {
+    if (!forceAutocompleteOpen && autocompleteDismissedLineKey === currentLineKey) {
+      return {
+        ...rawAutocomplete,
+        isOpen: false,
+        ghostText: ''
+      };
+    }
+    return rawAutocomplete;
+  }, [rawAutocomplete, forceAutocompleteOpen, autocompleteDismissedLineKey, currentLineKey]);
 
   const clampedAutocompleteIndex = useMemo(() => {
     if (autocomplete.suggestions.length === 0) return 0;
@@ -424,20 +568,165 @@ export function useNotebookDocumentViewModel({
     return unvalorizedEntries.find(e => e.linea > cursor.linea) || unvalorizedEntries[0];
   }, [unvalorizedEntries, cursor.linea]);
 
-  // ─── Acciones de Edición y Cursor ──────────────────────────────────────────
-  const setTexto = useCallback((nuevoTexto: string) => {
-    setTextoState(nuevoTexto);
+  // ─── Historial Undo / Redo y Edición ───────────────────────────────────────
+  const commitEdit = useCallback(
+    (
+      nuevoTexto: string,
+      nextCursor?: NotebookCursor,
+      options?: { coalesce?: boolean; recordHistory?: boolean; markDirty?: boolean }
+    ) => {
+      const prevTexto = latestTextoRef.current;
+      const prevCursor = latestCursorRef.current;
+      const shouldRecord = options?.recordHistory !== false && nuevoTexto !== prevTexto;
+
+      if (shouldRecord) {
+        const now = Date.now();
+        const prevHist = historyRef.current;
+        const lastSnap = prevHist.past[prevHist.past.length - 1];
+        const lenDelta = Math.abs(nuevoTexto.length - prevTexto.length);
+        const lineChanged =
+          (nuevoTexto.match(/\n/g)?.length ?? 0) !== (prevTexto.match(/\n/g)?.length ?? 0);
+        const isWhitespaceBoundary = lenDelta === 1 && /\s$/.test(nuevoTexto);
+        const canCoalesce =
+          Boolean(options?.coalesce) &&
+          Boolean(lastSnap) &&
+          now - (lastSnap?.timestamp ?? 0) < TYPING_COALESCE_WINDOW_MS &&
+          lenDelta === 1 &&
+          !lineChanged &&
+          !isWhitespaceBoundary;
+
+        let nextPast: HistorySnapshot[];
+        if (canCoalesce && lastSnap) {
+          nextPast = [
+            ...prevHist.past.slice(0, -1),
+            { ...lastSnap, timestamp: now }
+          ];
+        } else {
+          nextPast = [
+            ...prevHist.past,
+            { texto: prevTexto, cursor: prevCursor, timestamp: now }
+          ].slice(-MAX_UNDO_HISTORY);
+        }
+
+        const updatedHist = { past: nextPast, future: [] };
+        historyRef.current = updatedHist;
+        setHistoryState(updatedHist);
+      }
+
+      if (nuevoTexto !== prevTexto) {
+        latestTextoRef.current = nuevoTexto;
+        setTextoState(nuevoTexto);
+      }
+      if (nextCursor) {
+        latestCursorRef.current = nextCursor;
+        setCursorState(nextCursor);
+        if (!options?.coalesce) {
+          setCursorSyncSeq(s => s + 1);
+        }
+      }
+      setAutocompleteSelectedIndex(0);
+      setAutocompleteDismissedLineKey(null);
+      setForceAutocompleteOpen(false);
+      setForzarValorizarTodos(false);
+      if (options?.markDirty !== false) {
+        setIsDirty(true);
+        setSaveStatus('idle');
+      }
+    },
+    []
+  );
+
+  const undo = useCallback((): boolean => {
+    const currentHist = historyRef.current;
+    if (currentHist.past.length === 0) return false;
+    const prevSnapshot = currentHist.past[currentHist.past.length - 1];
+    const nextHist = {
+      past: currentHist.past.slice(0, -1),
+      future: [
+        ...currentHist.future,
+        {
+          texto: latestTextoRef.current,
+          cursor: latestCursorRef.current,
+          timestamp: Date.now()
+        }
+      ].slice(-MAX_UNDO_HISTORY)
+    };
+    historyRef.current = nextHist;
+    setHistoryState(nextHist);
+    latestTextoRef.current = prevSnapshot.texto;
+    latestCursorRef.current = prevSnapshot.cursor;
+    setTextoState(prevSnapshot.texto);
+    setCursorState(prevSnapshot.cursor);
+    setCursorSyncSeq(s => s + 1);
     setAutocompleteSelectedIndex(0);
-    setForzarValorizarTodos(false);
+    setAutocompleteDismissedLineKey(null);
+    setForceAutocompleteOpen(false);
     setIsDirty(true);
     setSaveStatus('idle');
+    return true;
   }, []);
 
+  const redo = useCallback((): boolean => {
+    const currentHist = historyRef.current;
+    if (currentHist.future.length === 0) return false;
+    const nextSnapshot = currentHist.future[currentHist.future.length - 1];
+    const nextHist = {
+      past: [
+        ...currentHist.past,
+        {
+          texto: latestTextoRef.current,
+          cursor: latestCursorRef.current,
+          timestamp: Date.now()
+        }
+      ].slice(-MAX_UNDO_HISTORY),
+      future: currentHist.future.slice(0, -1)
+    };
+    historyRef.current = nextHist;
+    setHistoryState(nextHist);
+    latestTextoRef.current = nextSnapshot.texto;
+    latestCursorRef.current = nextSnapshot.cursor;
+    setTextoState(nextSnapshot.texto);
+    setCursorState(nextSnapshot.cursor);
+    setCursorSyncSeq(s => s + 1);
+    setAutocompleteSelectedIndex(0);
+    setAutocompleteDismissedLineKey(null);
+    setForceAutocompleteOpen(false);
+    setIsDirty(true);
+    setSaveStatus('idle');
+    return true;
+  }, []);
+
+  const setTexto = useCallback(
+    (nuevoTexto: string, nextCursor?: NotebookCursor) => {
+      commitEdit(nuevoTexto, nextCursor, { coalesce: true });
+    },
+    [commitEdit]
+  );
+
   const setCursor = useCallback((linea: number, columna: number) => {
-    setCursorState({
-      linea: Math.max(1, linea),
-      columna: Math.max(1, columna)
-    });
+    const nextLinea = Math.max(1, linea);
+    const nextColumna = Math.max(1, columna);
+    const prev = latestCursorRef.current;
+    if (prev.linea === nextLinea && prev.columna === nextColumna) {
+      return;
+    }
+    const nextCursor: NotebookCursor = { linea: nextLinea, columna: nextColumna };
+    latestCursorRef.current = nextCursor;
+    setCursorState(nextCursor);
+    setAutocompleteSelectedIndex(0);
+    if (prev.linea !== nextLinea) {
+      setForceAutocompleteOpen(false);
+    }
+  }, []);
+
+  const dismissAutocomplete = useCallback(() => {
+    setAutocompleteDismissedLineKey(currentLineKey);
+    setForceAutocompleteOpen(false);
+  }, [currentLineKey]);
+
+  const forceOpenAutocomplete = useCallback(() => {
+    setAutocompleteDismissedLineKey(null);
+    setForceAutocompleteOpen(true);
     setAutocompleteSelectedIndex(0);
   }, []);
 
@@ -457,62 +746,216 @@ export function useNotebookDocumentViewModel({
       const sug = autocomplete.suggestions[targetIdx];
       if (!sug) return false;
 
-      const { nextTexto, nextCursor } = replaceSpanInLine(
-        texto,
-        cursor.linea,
-        sug.replaceStartCol,
-        sug.replaceEndCol,
-        sug.insertText
+      const { nextTexto, nextCursor } = applyAutocompleteSuggestionToText(
+        latestTextoRef.current,
+        latestCursorRef.current.linea,
+        sug
       );
-      setTextoState(nextTexto);
-      setCursorState(nextCursor);
-      setAutocompleteSelectedIndex(0);
-      setIsDirty(true);
+      commitEdit(nextTexto, nextCursor, { coalesce: false });
       return true;
     },
-    [autocomplete.suggestions, clampedAutocompleteIndex, texto, cursor.linea]
+    [autocomplete.suggestions, clampedAutocompleteIndex, commitEdit]
   );
 
   const acceptGhostText = useCallback(() => {
     if (!autocomplete.ghostText) return false;
     const { nextTexto, nextCursor } = replaceSpanInLine(
-      texto,
-      cursor.linea,
-      cursor.columna,
-      cursor.columna,
+      latestTextoRef.current,
+      latestCursorRef.current.linea,
+      latestCursorRef.current.columna,
+      latestCursorRef.current.columna,
       autocomplete.ghostText
     );
-    setTextoState(nextTexto);
-    setCursorState(nextCursor);
-    setAutocompleteSelectedIndex(0);
-    setIsDirty(true);
+    commitEdit(nextTexto, nextCursor, { coalesce: false });
     return true;
-  }, [autocomplete.ghostText, texto, cursor.linea, cursor.columna]);
+  }, [autocomplete.ghostText, commitEdit]);
 
-  const handleTabKey = useCallback((): TabJumpResult => {
-    if (autocomplete.isOpen && autocomplete.ghostText) {
-      const len = autocomplete.ghostText.length;
-      acceptGhostText();
-      return {
-        handled: true,
-        linea: cursor.linea,
-        columna: cursor.columna + len
-      };
+  const handleTabKey = useCallback(
+    (shiftKey = false): TabJumpResult => {
+      if (!shiftKey && autocomplete.isOpen && autocomplete.suggestions.length > 0) {
+        const accepted = acceptAutocomplete();
+        if (accepted) {
+          return {
+            handled: true,
+            linea: latestCursorRef.current.linea,
+            columna: latestCursorRef.current.columna,
+            selectionStartCol: latestCursorRef.current.selectionStartCol,
+            selectionEndCol: latestCursorRef.current.selectionEndCol
+          };
+        }
+      }
+
+      if (!shiftKey && autocomplete.isOpen && autocomplete.ghostText) {
+        const len = autocomplete.ghostText.length;
+        const startLinea = latestCursorRef.current.linea;
+        const startCol = latestCursorRef.current.columna;
+        acceptGhostText();
+        return {
+          handled: true,
+          linea: startLinea,
+          columna: startCol + len
+        };
+      }
+
+      const jump = findNextParameterSlotInDocument(
+        latestTextoRef.current,
+        latestCursorRef.current.linea,
+        latestCursorRef.current.columna,
+        shiftKey ? -1 : 1
+      );
+      if (jump.handled) {
+        const nextCursor: NotebookCursor = {
+          linea: jump.linea,
+          columna: jump.columna,
+          selectionStartCol: jump.selectionStartCol,
+          selectionEndCol: jump.selectionEndCol
+        };
+        latestCursorRef.current = nextCursor;
+        setCursorState(nextCursor);
+        return jump;
+      }
+
+      // Fallback estándar de editor: indentar / des-indentar 2 espacios en la línea actual
+      const lines = latestTextoRef.current.split(/\r?\n/);
+      const idx = Math.max(0, Math.min(latestCursorRef.current.linea - 1, lines.length - 1));
+      const rawLine = lines[idx] ?? '';
+      if (shiftKey) {
+        const leadingMatch = rawLine.match(/^( {1,2})/);
+        if (leadingMatch) {
+          const removed = leadingMatch[1].length;
+          lines[idx] = rawLine.slice(removed);
+          const nextCol = Math.max(1, latestCursorRef.current.columna - removed);
+          commitEdit(lines.join('\n'), { linea: idx + 1, columna: nextCol }, { coalesce: false });
+          return { handled: true, linea: idx + 1, columna: nextCol };
+        }
+        return { handled: false, linea: idx + 1, columna: latestCursorRef.current.columna };
+      }
+
+      lines[idx] = `  ${rawLine}`;
+      const nextCol = latestCursorRef.current.columna + 2;
+      commitEdit(lines.join('\n'), { linea: idx + 1, columna: nextCol }, { coalesce: false });
+      return { handled: true, linea: idx + 1, columna: nextCol };
+    },
+    [
+      autocomplete.isOpen,
+      autocomplete.ghostText,
+      autocomplete.suggestions.length,
+      acceptGhostText,
+      acceptAutocomplete,
+      commitEdit
+    ]
+  );
+
+  const handleEnterKey = useCallback((): boolean => {
+    const lines = latestTextoRef.current.split(/\r?\n/);
+    const idx = Math.max(0, Math.min(latestCursorRef.current.linea - 1, lines.length - 1));
+    const rawLine = lines[idx] ?? '';
+    const colIdx = Math.max(0, Math.min(latestCursorRef.current.columna - 1, rawLine.length));
+    const before = rawLine.slice(0, colIdx);
+    const after = rawLine.slice(colIdx);
+    const trimmed = rawLine.trim();
+
+    // Si es una sub-línea indentada vacía (solo espacios), salir del bloque limpiando indentación
+    if (/^\s+$/.test(rawLine)) {
+      lines[idx] = '';
+      commitEdit(lines.join('\n'), { linea: idx + 1, columna: 1 }, { coalesce: false });
+      return true;
     }
 
-    const lines = texto.split(/\r?\n/);
-    const rawLine = lines[Math.max(0, cursor.linea - 1)] || '';
-    const jump = findNextParameterSlot(rawLine, cursor.linea, cursor.columna);
-    if (jump.handled) {
-      setCursorState({
-        linea: jump.linea,
-        columna: jump.columna,
-        selectionStartCol: jump.selectionStartCol,
-        selectionEndCol: jump.selectionEndCol
-      });
+    const indentMatch = rawLine.match(/^(\s+)/);
+    const startsBlockHeader =
+      trimmed.startsWith('/tt ') || trimmed.startsWith('tarea:') || trimmed.startsWith('item:');
+
+    if (indentMatch && after.trim() === '') {
+      const indent = indentMatch[1];
+      lines[idx] = before;
+      lines.splice(idx + 1, 0, indent);
+      commitEdit(
+        lines.join('\n'),
+        { linea: idx + 2, columna: indent.length + 1 },
+        { coalesce: false }
+      );
+      return true;
     }
-    return jump;
-  }, [autocomplete.isOpen, autocomplete.ghostText, acceptGhostText, texto, cursor.linea, cursor.columna]);
+
+    if (startsBlockHeader && after.trim() === '') {
+      lines[idx] = before;
+      lines.splice(idx + 1, 0, '  ');
+      commitEdit(lines.join('\n'), { linea: idx + 2, columna: 3 }, { coalesce: false });
+      return true;
+    }
+
+    return false;
+  }, [commitEdit]);
+
+  const moveCurrentLine = useCallback(
+    (direction: -1 | 1): boolean => {
+      const lines = latestTextoRef.current.split(/\r?\n/);
+      const idx = Math.max(0, Math.min(latestCursorRef.current.linea - 1, lines.length - 1));
+      const targetIdx = idx + direction;
+      if (targetIdx < 0 || targetIdx >= lines.length) return false;
+      const temp = lines[idx];
+      lines[idx] = lines[targetIdx];
+      lines[targetIdx] = temp;
+      commitEdit(
+        lines.join('\n'),
+        { linea: targetIdx + 1, columna: latestCursorRef.current.columna },
+        { coalesce: false }
+      );
+      return true;
+    },
+    [commitEdit]
+  );
+
+  const duplicateCurrentLine = useCallback((): boolean => {
+    const lines = latestTextoRef.current.split(/\r?\n/);
+    const idx = Math.max(0, Math.min(latestCursorRef.current.linea - 1, lines.length - 1));
+    lines.splice(idx + 1, 0, lines[idx] ?? '');
+    commitEdit(
+      lines.join('\n'),
+      { linea: idx + 2, columna: latestCursorRef.current.columna },
+      { coalesce: false }
+    );
+    return true;
+  }, [commitEdit]);
+
+  const deleteCurrentLine = useCallback((): boolean => {
+    const lines = latestTextoRef.current.split(/\r?\n/);
+    const idx = Math.max(0, Math.min(latestCursorRef.current.linea - 1, lines.length - 1));
+    if (lines.length === 1) {
+      if (lines[0] === '') return false;
+      commitEdit('', { linea: 1, columna: 1 }, { coalesce: false });
+      return true;
+    }
+    lines.splice(idx, 1);
+    const nextIdx = Math.min(idx, lines.length - 1);
+    commitEdit(lines.join('\n'), { linea: nextIdx + 1, columna: 1 }, { coalesce: false });
+    return true;
+  }, [commitEdit]);
+
+  const toggleCommentCurrentLine = useCallback((): boolean => {
+    const lines = latestTextoRef.current.split(/\r?\n/);
+    const idx = Math.max(0, Math.min(latestCursorRef.current.linea - 1, lines.length - 1));
+    const rawLine = lines[idx] ?? '';
+    const indentMatch = rawLine.match(/^(\s*)(.*)$/);
+    const indent = indentMatch?.[1] ?? '';
+    const body = indentMatch?.[2] ?? '';
+    let nextCol = latestCursorRef.current.columna;
+
+    if (body.startsWith('// ')) {
+      lines[idx] = `${indent}${body.slice(3)}`;
+      nextCol = Math.max(1, nextCol - 3);
+    } else if (body.startsWith('//')) {
+      lines[idx] = `${indent}${body.slice(2)}`;
+      nextCol = Math.max(1, nextCol - 2);
+    } else {
+      lines[idx] = `${indent}// ${body}`;
+      nextCol += 3;
+    }
+
+    commitEdit(lines.join('\n'), { linea: idx + 1, columna: nextCol }, { coalesce: false });
+    return true;
+  }, [commitEdit]);
 
   // ─── Acciones de Flujo 2 Pasadas y Metadata ────────────────────────────────
   const irASiguienteSinValorizar = useCallback((): SiguienteSinValorizarInfo | null => {
@@ -620,11 +1063,10 @@ export function useNotebookDocumentViewModel({
         { ...presupuesto, items: itemsActualizados },
         nextCtx
       );
-      setTextoState(serialize(projectedBlocks, buildParseContext(nextCtx)));
-      setIsDirty(true);
+      commitEdit(serialize(projectedBlocks, buildParseContext(nextCtx)), undefined, { coalesce: false });
       return nuevaTarea;
     },
-    [sugerenciasConversion, presupuesto, contexto]
+    [sugerenciasConversion, presupuesto, contexto, commitEdit]
   );
 
   // ─── Acciones de Paleta de Comandos (Ctrl+K / /) ───────────────────────────
@@ -668,13 +1110,11 @@ export function useNotebookDocumentViewModel({
         case 'insert_line': {
           if (cmd.insertLine !== undefined) {
             const { nextTexto, nextCursor } = insertLineAtCursor(
-              texto,
-              cursor.linea,
+              latestTextoRef.current,
+              latestCursorRef.current.linea,
               cmd.insertLine
             );
-            setTextoState(nextTexto);
-            setCursorState(nextCursor);
-            setIsDirty(true);
+            commitEdit(nextTexto, nextCursor, { coalesce: false });
           }
           return true;
         }
@@ -704,6 +1144,16 @@ export function useNotebookDocumentViewModel({
           toggleAyudaAtajos();
           return true;
         }
+        case 'undo': {
+          return undo();
+        }
+        case 'redo': {
+          return redo();
+        }
+        case 'open_suggestions': {
+          forceOpenAutocomplete();
+          return true;
+        }
         case 'save': {
           return (await guardar()) !== null;
         }
@@ -714,14 +1164,16 @@ export function useNotebookDocumentViewModel({
       allPaletteCommands,
       clampedPaletteIndex,
       closeCommandPalette,
-      texto,
-      cursor.linea,
+      commitEdit,
       irASiguienteSinValorizar,
       activeItemId,
       valorizarItem,
       valorizarTodasPendientes,
       toggleVistaPrevia,
       toggleAyudaAtajos,
+      undo,
+      redo,
+      forceOpenAutocomplete,
       guardar
     ]
   );
@@ -729,10 +1181,15 @@ export function useNotebookDocumentViewModel({
   // Reproyectar manualmente desde el modelo si la vista lo necesita (ej. descartar texto inválido)
   const reserializeFromPresupuesto = useCallback(() => {
     const blocks = presupuestoToNotebookBlocks(presupuesto, contexto);
-    setTextoState(serialize(blocks, buildParseContext(contexto)));
-  }, [presupuesto, contexto]);
+    commitEdit(serialize(blocks, buildParseContext(contexto)), undefined, { coalesce: false });
+  }, [presupuesto, contexto, commitEdit]);
 
   // ─── Acciones de Modo Ejecutar (Móvil orientado a esquemas de Trabajo Tipo) ──
+  const contactos = useMemo<Contacto[]>(
+    () => (dbContactos || []).filter(c => !c.deleted),
+    [dbContactos]
+  );
+
   const clienteActual = useMemo<Contacto | undefined>(() => {
     if (!presupuesto.clienteId || !dbContactos) return undefined;
     return dbContactos.find(c => c.id === presupuesto.clienteId && !c.deleted);
@@ -754,7 +1211,7 @@ export function useNotebookDocumentViewModel({
       const newLine = construirLineaTareaTipoDesdeEsquema(tarea, valoresParametros);
       const base = texto.trimEnd();
       const nextTexto = base ? `${base}\n${newLine}` : newLine;
-      setTexto(nextTexto);
+      commitEdit(nextTexto, undefined, { coalesce: false });
 
       const ahora = new Date().toISOString();
       const siguienteFrecuencia = safeNum(tarea.frecuenciaUso) + 1;
@@ -777,7 +1234,7 @@ export function useNotebookDocumentViewModel({
         }
       }
     },
-    [contexto.tareasTipo, texto, setTexto]
+    [contexto.tareasTipo, texto, commitEdit]
   );
 
   const actualizarParametroDeItem = useCallback(
@@ -789,13 +1246,15 @@ export function useNotebookDocumentViewModel({
       const linea1Based = Number(entry[0]);
       if (!Number.isFinite(linea1Based) || linea1Based < 1) return;
 
-      const lines = texto.split(/\r?\n/);
-      const idx = linea1Based - 1;
-      if (idx < 0 || idx >= lines.length) return;
-      lines[idx] = actualizarParametroEnLineaTt(lines[idx], paramId, valor);
-      setTexto(lines.join('\n'));
+      const nextTexto = actualizarParametroEnBloque(
+        latestTextoRef.current,
+        linea1Based,
+        paramId,
+        valor
+      );
+      commitEdit(nextTexto, undefined, { coalesce: false });
     },
-    [subtotalesPorBloque, texto, setTexto]
+    [subtotalesPorBloque, commitEdit]
   );
 
   const agregarItemLibreRapido = useCallback(
@@ -803,9 +1262,9 @@ export function useNotebookDocumentViewModel({
       if (!descripcion.trim()) return;
       const newLine = construirLineaItemLibreRapido(descripcion, cantidad, precioUnitario);
       const base = texto.trimEnd();
-      setTexto(base ? `${base}\n${newLine}` : newLine);
+      commitEdit(base ? `${base}\n${newLine}` : newLine, undefined, { coalesce: false });
     },
-    [texto, setTexto]
+    [texto, commitEdit]
   );
 
   const eliminarItemPorId = useCallback(
@@ -816,14 +1275,17 @@ export function useNotebookDocumentViewModel({
       if (!entry) return;
       const linea1Based = Number(entry[0]);
       if (!Number.isFinite(linea1Based) || linea1Based < 1) return;
-      setTexto(eliminarBloqueEnLinea(texto, linea1Based));
+      commitEdit(eliminarBloqueEnLinea(latestTextoRef.current, linea1Based), undefined, {
+        coalesce: false
+      });
     },
-    [subtotalesPorBloque, texto, setTexto]
+    [subtotalesPorBloque, commitEdit]
   );
 
   return {
     // Modelo & Proyección
     presupuesto,
+    contactos,
     clienteActual,
     contexto,
     texto,
@@ -841,8 +1303,20 @@ export function useNotebookDocumentViewModel({
     saveStatus,
     guardar,
 
+    // Historial Undo / Redo y acciones de línea
+    canUndo: historyState.past.length > 0,
+    canRedo: historyState.future.length > 0,
+    undo,
+    redo,
+    handleEnterKey,
+    moveCurrentLine,
+    duplicateCurrentLine,
+    deleteCurrentLine,
+    toggleCommentCurrentLine,
+
     // Cursor y Bloque activo
     cursor,
+    cursorSyncSeq,
     setCursor,
     activeBlockIndex,
     activeBlock,
@@ -856,6 +1330,8 @@ export function useNotebookDocumentViewModel({
     moveAutocompleteSelection,
     acceptAutocomplete,
     acceptGhostText,
+    dismissAutocomplete,
+    forceOpenAutocomplete,
 
     // Paleta de Comandos (Ctrl+K / /)
     commandPalette,

@@ -8,6 +8,7 @@ import {
   TareaTipo
 } from './types';
 import {
+  actualizarParametroEnBloque,
   actualizarParametroEnLineaTt,
   buildNotebookCommandPalette,
   construirLineaItemLibreRapido,
@@ -18,6 +19,7 @@ import {
   evaluarVisibilidadParametroEnEsquema,
   filterNotebookCommandPalette,
   findNextParameterSlot,
+  findNextParameterSlotInDocument,
   getContextualAutocompleteSuggestions,
   NotebookDocumentContext,
   ordenarTareasTipoParaMovil,
@@ -391,9 +393,12 @@ describe('notebookDocument', () => {
     ).toBe(true);
 
     const lineaTt = construirLineaTareaTipoDesdeEsquema(tareaRecableado, { sup: 75, bocas: 16 });
-    expect(lineaTt).toBe('/tt recableado-completo  sup=75  bocas=16');
+    expect(lineaTt).toBe('/tt recableado-completo\n  sup = 75\n  bocas = 16');
 
-    const actualizada = actualizarParametroEnLineaTt(`${lineaTt}  -extra`, 'bocas', 20);
+    const actualizadoBloque = actualizarParametroEnBloque(`${lineaTt}\n  -extra`, 1, 'bocas', 20);
+    expect(actualizadoBloque).toBe('/tt recableado-completo\n  sup = 75\n  bocas = 20\n  -extra');
+
+    const actualizada = actualizarParametroEnLineaTt('/tt recableado-completo  sup=75  bocas=16  -extra', 'bocas', 20);
     expect(actualizada).toBe('/tt recableado-completo  sup=75  bocas=20  -extra');
 
     const libre = construirLineaItemLibreRapido('Visita técnica   en obra', 2, 15000);
@@ -402,5 +407,48 @@ describe('notebookDocument', () => {
     const doc = ['/tt recableado-completo  bocas=10', '  cable 2.5mm celeste  20m', libre].join('\n');
     const sinPrimero = eliminarBloqueEnLinea(doc, 1);
     expect(sinPrimero).toBe(libre);
+  });
+
+  it('autocompleta de forma no invasiva, soporta búsqueda inteligente de materiales y navegación Tab/Shift+Tab multilínea', () => {
+    // Línea vacía o texto común no abre sugerencias invasivamente
+    const emptyAc = getContextualAutocompleteSuggestions('', 1, 1, contexto);
+    expect(emptyAc.isOpen).toBe(false);
+    const shortAc = getContextualAutocompleteSuggestions('ho', 1, 3, contexto);
+    expect(shortAc.isOpen).toBe(false);
+
+    // Ctrl+Space (forceOpen) sí abre comandos
+    const forcedAc = getContextualAutocompleteSuggestions('', 1, 1, contexto, [], { forceOpen: true });
+    expect(forcedAc.isOpen).toBe(true);
+    expect(forcedAc.suggestions.some(s => s.insertText === '/tt ')).toBe(true);
+
+    // Búsqueda inteligente de materiales: tokens desordenados + cantidad inline
+    const matSmart = getContextualAutocompleteSuggestions('tarea: Tablero\n  celeste 2.5 25m', 2, 18, contexto);
+    expect(matSmart.isOpen).toBe(true);
+    expect(matSmart.suggestions[0].kind).toBe('material');
+    expect(matSmart.suggestions[0].insertText).toBe('Cable 2.5mm Celeste  25m');
+    expect(matSmart.suggestions[0].detail).toContain('Prysmian');
+
+    // Autocompletado de [Marca Modelo]
+    const prodAc = getContextualAutocompleteSuggestions('tarea: Tablero\n  Cable 2.5mm Celeste [Prys', 2, 28, contexto);
+    expect(prodAc.isOpen).toBe(true);
+    expect(prodAc.suggestions[0].kind).toBe('producto');
+    expect(prodAc.suggestions[0].insertText).toContain('Prysmian Superastic]');
+
+    // Tab y Shift+Tab saltan entre sub-líneas indentadas de un bloque /tt
+    const multilineDoc = '/tt recableado-completo\n  sup = 60\n  bocas = 24';
+    const j1 = findNextParameterSlotInDocument(multilineDoc, 1, 4, 1);
+    expect(j1.handled).toBe(true);
+    expect(j1.linea).toBe(2);
+    expect(j1.paramId).toBe('sup');
+
+    const j2 = findNextParameterSlotInDocument(multilineDoc, j1.linea, j1.columna, 1);
+    expect(j2.handled).toBe(true);
+    expect(j2.linea).toBe(3);
+    expect(j2.paramId).toBe('bocas');
+
+    const back = findNextParameterSlotInDocument(multilineDoc, j2.linea, j2.columna, -1);
+    expect(back.handled).toBe(true);
+    expect(back.linea).toBe(2);
+    expect(back.paramId).toBe('sup');
   });
 });

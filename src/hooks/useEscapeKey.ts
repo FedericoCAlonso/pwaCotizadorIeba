@@ -1,26 +1,41 @@
 import { useEffect, useRef } from 'react';
-import { registerModalInBackStack } from '../core/modalBackStack';
+import {
+  isTopEscapeLayer,
+  registerModalInBackStack,
+  RegisterEscapeLayerOptions
+} from '../core/modalBackStack';
 
 /**
- * Hook universal de descarte de modales:
- * 1. Cierra con la tecla Escape (en teclado físico de escritorio).
- * 2. Cierra con el botón/gesto Atrás en celulares (integración con History API y popstate).
+ * Hook universal de descarte por pila LIFO:
+ * 1. Cierra únicamente la capa superior con Escape (menú -> popover -> modal -> vista).
+ * 2. Cierra con el botón/gesto Atrás en celulares cuando `pushHistory !== false`.
  */
-export function useEscapeKey(isOpen: boolean, onClose: () => void) {
+export function useEscapeKey(
+  isOpen: boolean,
+  onClose: () => void,
+  options: RegisterEscapeLayerOptions = {}
+) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const pushHistory = options.pushHistory !== false;
 
   useEffect(() => {
     if (!isOpen) return;
 
-    const modalId = `modal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const unregister = registerModalInBackStack(modalId, () => {
-      onCloseRef.current();
-    });
+    const modalId = `layer-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const unregister = registerModalInBackStack(
+      modalId,
+      () => {
+        onCloseRef.current();
+      },
+      { pushHistory }
+    );
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && isTopEscapeLayer(modalId)) {
+        e.preventDefault();
         e.stopPropagation();
+        e.stopImmediatePropagation();
         onCloseRef.current();
       }
     };
@@ -30,5 +45,5 @@ export function useEscapeKey(isOpen: boolean, onClose: () => void) {
       window.removeEventListener('keydown', handleKeyDown);
       unregister();
     };
-  }, [isOpen]);
+  }, [isOpen, pushHistory]);
 }

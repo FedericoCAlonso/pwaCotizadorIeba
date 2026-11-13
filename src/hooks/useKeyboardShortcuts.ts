@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { getOpenModalsCount, handleEscapeTopLayer } from '../core/modalBackStack';
 
 const TABS_ORDER = [
   'presupuestos',
@@ -34,6 +35,8 @@ export function useKeyboardShortcuts({
 }: UseKeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+
       // 1. Verificar si el usuario está escribiendo activamente en un campo editable
       const target = e.target as HTMLElement | null;
       const isEditable =
@@ -51,11 +54,18 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      // --- Atajo Escape (Cerrar modal o Volver a lista) ---
+      // --- Atajo Escape: Respeta pila LIFO (menú -> popover -> modal -> volver a lista) ---
       if (e.key === 'Escape') {
-        const hasModalInDOM = !!document.querySelector('.fixed.inset-0, [role="dialog"]');
-        if (hasModalInDOM || isAnyModalOpen) {
+        if (getOpenModalsCount() > 0 && handleEscapeTopLayer()) {
+          e.preventDefault();
+          return;
+        }
+        const hasOverlayInDOM = !!document.querySelector(
+          '.fixed.inset-0, [role="dialog"], [role="menu"], [role="listbox"]'
+        );
+        if (hasOverlayInDOM || isAnyModalOpen) {
           onCloseActiveModals();
+          e.preventDefault();
           return;
         }
         if (viewMode === 'editor' || viewMode === 'detail') {
@@ -83,8 +93,9 @@ export function useKeyboardShortcuts({
         }
       }
 
-      // --- Atajo Buscar: Ctrl + K o '/' (solo fuera de inputs) ---
+      // --- Atajo Buscar: Ctrl + K (solo fuera de inputs/editor para no chocar con paleta del notebook) ---
       if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        if (isEditable) return;
         e.preventDefault();
         focusSearchInput();
         return;
@@ -120,8 +131,8 @@ export function useKeyboardShortcuts({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown, true);
-    return () => window.removeEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
     activeTab,
     viewMode,

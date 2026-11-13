@@ -412,5 +412,35 @@ describe('notebookParser (Fase 2)', () => {
       const texto2 = serialize(parsed.bloques, ctx);
       expect(texto2).toBe(texto1);
     });
+
+    it('soporta parámetros indentados multilínea, comentarios // y serialización indentada legible', () => {
+      const textoIndentado = [
+        '// Comentario explicativo en línea libre',
+        '/tt recableado-completo',
+        '  // Comentario dentro de bloque',
+        '  sup = 85',
+        '  bocas = 24',
+        '  -cableado',
+        '  +Cable Unipolar 2.5mm² Celeste [Prysmian Superastic]  30m',
+      ].join('\n');
+
+      const parsed = parse(textoIndentado, ctx);
+      expect(parsed.valido).toBe(true);
+      expect(parsed.bloques).toHaveLength(1);
+      expect(parsed.bloques[0]).toMatchObject({
+        tipo: 'tarea_tipo',
+        overridesParametros: { sup: 85, bocas: 24 },
+        quitados: ['cableado'],
+      });
+
+      const out = serialize(parsed.bloques, ctx);
+      expect(out).toBe([
+        '/tt recableado-completo',
+        '  sup = 85',
+        '  bocas = 24',
+        '  -cableado',
+        '  +Cable Unipolar 2.5mm² Celeste [Prysmian Superastic]  30m',
+      ].join('\n'));
+    });
   });
 });

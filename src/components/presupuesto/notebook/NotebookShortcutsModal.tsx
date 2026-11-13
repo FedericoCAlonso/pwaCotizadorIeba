@@ -1,5 +1,6 @@
 import React from 'react';
 import { Keyboard, X } from 'lucide-react';
+import { useEscapeKey } from '../../../hooks/useEscapeKey';
 
 export interface NotebookShortcutsModalProps {
   isOpen: boolean;
@@ -7,15 +8,23 @@ export interface NotebookShortcutsModalProps {
 }
 
 const SHORTCUTS: Array<{ keys: string; description: string }> = [
-  { keys: 'Ctrl + K', description: 'Abrir paleta de comandos y búsqueda de trabajos tipo' },
+  { keys: 'Ctrl + Z', description: 'Deshacer última edición' },
+  { keys: 'Ctrl + Y / Ctrl + Shift + Z', description: 'Rehacer edición deshecha' },
+  { keys: 'Ctrl + Space', description: 'Abrir sugerencias contextuales (materiales, marcas, trabajos)' },
+  { keys: 'Ctrl + K', description: 'Abrir paleta de comandos y búsqueda rápida' },
   { keys: '/', description: 'Iniciar comando /tt al comienzo de una línea' },
-  { keys: 'Tab', description: 'Aceptar sugerencia fantasma o saltar al siguiente parámetro' },
-  { keys: 'Enter', description: 'Confirmar sugerencia seleccionada o insertar nueva línea' },
+  { keys: 'Tab / Shift + Tab', description: 'Aceptar sugerencia o saltar al parámetro siguiente / anterior' },
+  { keys: 'Esc', description: 'Cerrar sugerencias, menú o diálogo superior (sin salir del editor)' },
+  { keys: 'Alt + ↑ / ↓', description: 'Mover línea actual hacia arriba o abajo' },
+  { keys: 'Ctrl + D', description: 'Duplicar línea actual' },
+  { keys: 'Ctrl + /', description: 'Comentar o descomentar línea actual (//)' },
+  { keys: 'Ctrl + Shift + K', description: 'Eliminar línea actual' },
+  { keys: 'Home', description: 'Saltar al inicio del texto indentado o inicio de línea' },
   { keys: 'Ctrl + ↓', description: 'Ir a la siguiente tarea sin valorizar (Pasada 2)' },
   { keys: 'Ctrl + Enter', description: 'Valorizar tarea actual (Material → Producto → Oferta)' },
   { keys: 'Ctrl + Shift + Enter', description: 'Valorizar todas las tareas pendientes' },
   { keys: 'Ctrl + P', description: 'Abrir o cerrar vista previa del documento al cliente' },
-  { keys: 'Ctrl + S', description: 'Guardar cotización en IndexedDB' },
+  { keys: 'Ctrl + S', description: 'Guardar cotización sin salir del editor' },
   { keys: '?', description: 'Mostrar u ocultar esta ayuda de atajos' }
 ];
 
@@ -26,6 +35,8 @@ export const NotebookShortcutsModal: React.FC<NotebookShortcutsModalProps> = ({
   isOpen,
   onClose
 }) => {
+  useEscapeKey(isOpen, onClose);
+
   if (!isOpen) return null;
 
   return (

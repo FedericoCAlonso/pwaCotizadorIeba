@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   Search,
   X,
@@ -14,6 +14,7 @@ import {
   Download
 } from 'lucide-react';
 import { CategoriaMaterial, Material, MaterialFilterContext } from '../../core/types';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 interface InsumosFilterToolbarProps {
   searchTerm: string;
@@ -65,20 +66,7 @@ export const InsumosFilterToolbar: React.FC<InsumosFilterToolbarProps> = ({
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close actions menu on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setShowActionsMenu(false);
-      }
-    };
-    if (showActionsMenu) {
-      window.addEventListener('keydown', handleKeyDown);
-    }
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [showActionsMenu]);
+  useEscapeKey(showActionsMenu, () => setShowActionsMenu(false), { pushHistory: false });
 
   // Precompute category counts for the filter dropdown
   const categoryCounts = useMemo(() => {

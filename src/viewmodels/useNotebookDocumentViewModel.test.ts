@@ -219,21 +219,30 @@ describe('useNotebookDocumentViewModel', () => {
     act(() => {
       result.current.acceptAutocomplete(0);
     });
-    expect(result.current.texto).toBe('/tt recableado-completo  sup=50  bocas=10');
+    expect(result.current.texto).toBe('/tt recableado-completo\n  sup = 50\n  bocas = 10');
+    expect(result.current.cursor.linea).toBe(2);
 
-    // Tab salta entre parámetros sup -> bocas
+    // Tab salta entre parámetros indentados sup -> bocas y Shift+Tab vuelve a sup
     act(() => {
       result.current.setCursor(1, 10);
     });
     act(() => {
       const tab1 = result.current.handleTabKey();
       expect(tab1.handled).toBe(true);
+      expect(tab1.linea).toBe(2);
       expect(tab1.paramId).toBe('sup');
     });
     act(() => {
       const tab2 = result.current.handleTabKey();
       expect(tab2.handled).toBe(true);
+      expect(tab2.linea).toBe(3);
       expect(tab2.paramId).toBe('bocas');
+    });
+    act(() => {
+      const tabBack = result.current.handleTabKey(true);
+      expect(tabBack.handled).toBe(true);
+      expect(tabBack.linea).toBe(2);
+      expect(tabBack.paramId).toBe('sup');
     });
 
     // Paleta de comandos Ctrl+K
@@ -284,5 +293,82 @@ describe('useNotebookDocumentViewModel', () => {
     });
     expect(db.tareasTipo.put).toHaveBeenCalledTimes(1);
     expect(result.current.texto).toContain('/tt instalar-fotocontrol');
+  });
+
+  it('soporta undo/redo completo, dismiss/forceOpen de autocompletado y acciones de editor', () => {
+    const { result } = renderHook(() =>
+      useNotebookDocumentViewModel({
+        config: DEFAULT_APP_CONFIG,
+        catalogOverride: baseCatalog
+      })
+    );
+
+    // Undo / Redo tras edición programática y manual
+    act(() => {
+      result.current.setTexto('tarea: Armado tablero');
+      result.current.setCursor(1, 22);
+    });
+    act(() => {
+      expect(result.current.handleEnterKey()).toBe(true);
+    });
+    expect(result.current.texto).toBe('tarea: Armado tablero\n  ');
+    expect(result.current.canUndo).toBe(true);
+
+    act(() => {
+      expect(result.current.undo()).toBe(true);
+    });
+    expect(result.current.texto).toBe('tarea: Armado tablero');
+    expect(result.current.canRedo).toBe(true);
+
+    act(() => {
+      expect(result.current.redo()).toBe(true);
+    });
+    expect(result.current.texto).toBe('tarea: Armado tablero\n  ');
+
+    // Acciones de línea (duplicar, comentar, mover, eliminar)
+    act(() => {
+      result.current.setTexto('linea 1\nlinea 2');
+      result.current.setCursor(1, 3);
+    });
+    act(() => {
+      result.current.duplicateCurrentLine();
+    });
+    expect(result.current.texto).toBe('linea 1\nlinea 1\nlinea 2');
+
+    act(() => {
+      result.current.toggleCommentCurrentLine();
+    });
+    expect(result.current.texto).toBe('linea 1\n// linea 1\nlinea 2');
+
+    act(() => {
+      result.current.moveCurrentLine(-1);
+    });
+    expect(result.current.texto).toBe('// linea 1\nlinea 1\nlinea 2');
+
+    // Dismiss & forceOpen + setCursor no resetea selección si la posición no cambia
+    act(() => {
+      result.current.setTexto('/');
+      result.current.setCursor(1, 2);
+    });
+    expect(result.current.autocomplete.isOpen).toBe(true);
+    act(() => {
+      result.current.moveAutocompleteSelection(1);
+    });
+    const selectedAfterArrow = result.current.autocompleteSelectedIndex;
+    expect(selectedAfterArrow).toBe(1);
+    act(() => {
+      result.current.setCursor(1, 2);
+    });
+    expect(result.current.autocompleteSelectedIndex).toBe(selectedAfterArrow);
+
+    act(() => {
+      result.current.dismissAutocomplete();
+    });
+    expect(result.current.autocomplete.isOpen).toBe(false);
+
+    act(() => {
+      result.current.forceOpenAutocomplete();
+    });
+    expect(result.current.autocomplete.isOpen).toBe(true);
   });
 });

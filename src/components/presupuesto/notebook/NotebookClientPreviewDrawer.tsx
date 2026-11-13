@@ -4,6 +4,7 @@ import { formatARS, safeNum, TotalesPresupuestoResultado } from '../../../core/c
 import { ResultadoAlcanceYAdvertencias } from '../../../core/notebookDomain';
 import { AppConfig, Presupuesto } from '../../../core/types';
 import { TERMINOLOGY } from '../../../config/terminology';
+import { useEscapeKey } from '../../../hooks/useEscapeKey';
 
 export interface NotebookClientPreviewDrawerProps {
   isOpen: boolean;
@@ -34,6 +35,8 @@ export const NotebookClientPreviewDrawer: React.FC<NotebookClientPreviewDrawerPr
   onClose
 }) => {
   const [condicionesExpandidas, setCondicionesExpandidas] = useState(false);
+
+  useEscapeKey(isOpen, onClose);
 
   if (!isOpen) return null;
 

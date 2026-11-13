@@ -114,6 +114,8 @@ export type NotebookItemLinea =
 export interface NotebookAjusteAgregado {
   referencia: string;
   materialId?: string;
+  productoId?: string;
+  productoReferencia?: string;
   cantidad?: number;
   formulaCantidad?: string;
   unidad: string;
@@ -1321,6 +1323,181 @@ function parseItemLine(
   };
 }
 
+function assignParameterValue(
+  key: string,
+  rawVal: string,
+  lineNum: number,
+  col: number,
+  tokLen: number,
+  rawLine: string,
+  targetOverrides: Record<string, number | string>,
+  errores: NotebookParseError[],
+  declaredParams?: Set<string>
+): { isCantidad?: number } {
+  if (!rawVal) {
+    errores.push({
+      linea: lineNum,
+      columna: col,
+      longitud: tokLen,
+      codigo: 'sintaxis_invalida',
+      mensaje: `Falta valor para el parámetro '${key}'.`,
+      textoLinea: rawLine,
+    });
+    return {};
+  }
+
+  if (key === 'cantidad' && declaredParams !== undefined) {
+    const num = Number(rawVal.replace(',', '.'));
+    if (!Number.isFinite(num) || num <= 0) {
+      errores.push({
+        linea: lineNum,
+        columna: col,
+        longitud: tokLen,
+        codigo: 'cantidad_invalida',
+        mensaje: `Cantidad inválida '${rawVal}' en trabajo tipo.`,
+        textoLinea: rawLine,
+      });
+      return {};
+    }
+    return { isCantidad: num };
+  }
+
+  if (declaredParams && declaredParams.size > 0 && !declaredParams.has(key)) {
+    errores.push({
+      linea: lineNum,
+      columna: col,
+      longitud: key.length,
+      codigo: 'parametro_desconocido',
+      mensaje: `Parámetro desconocido '${key}'.`,
+      textoLinea: rawLine,
+    });
+    return {};
+  }
+
+  if (/^-?\d+(?:[.,]\d+)?$/.test(rawVal)) {
+    targetOverrides[key] = Number(rawVal.replace(',', '.'));
+  } else {
+    const syntax = validateMathSyntax(rawVal);
+    if (!syntax.valid) {
+      errores.push({
+        linea: lineNum,
+        columna: col,
+        longitud: tokLen,
+        codigo: 'expresion_invalida',
+        mensaje: `Expresión inválida en parámetro '${key}': ${syntax.error}`,
+        textoLinea: rawLine,
+      });
+    } else {
+      targetOverrides[key] = rawVal;
+    }
+  }
+  return {};
+}
+
+function parseIndentedAdjustmentOrParam(
+  trimmed: string,
+  lineNum: number,
+  colStart: number,
+  rawLine: string,
+  currentItem: NotebookTareaTipoBlock | NotebookItemLibreBlock,
+  contexto: NotebookParseContext,
+  validUnits: Map<string, string>,
+  errores: NotebookParseError[]
+): boolean {
+  // 1. Quitado (-clave) en /tt
+  if (trimmed.startsWith('-')) {
+    if (currentItem.tipo !== 'tarea_tipo') return false;
+    const clave = trimmed.slice(1).trim();
+    if (!clave) {
+      errores.push({
+        linea: lineNum,
+        columna: colStart,
+        longitud: trimmed.length,
+        codigo: 'sintaxis_invalida',
+        mensaje: "Falta identificador después de '-'.",
+        textoLinea: rawLine,
+      });
+    } else {
+      currentItem.quitados.push(clave);
+    }
+    return true;
+  }
+
+  // 2. Agregado (+material [Marca] cantUnidad) en /tt
+  if (trimmed.startsWith('+')) {
+    if (currentItem.tipo !== 'tarea_tipo') return false;
+    const content = trimmed.slice(1).trim();
+    if (!content) {
+      errores.push({
+        linea: lineNum,
+        columna: colStart,
+        longitud: trimmed.length,
+        codigo: 'sintaxis_invalida',
+        mensaje: "Falta referencia de material después de '+'.",
+        textoLinea: rawLine,
+      });
+      return true;
+    }
+    const res = parseMaterialLineContent(content, lineNum, colStart + 1, rawLine, contexto, validUnits);
+    if (res.error) {
+      errores.push(res.error);
+    } else if (res.linea) {
+      currentItem.agregados.push({
+        referencia: res.linea.referencia,
+        materialId: res.linea.materialId,
+        ...(res.linea.productoId
+          ? { productoId: res.linea.productoId, productoReferencia: res.linea.productoReferencia }
+          : {}),
+        ...(res.linea.cantidad !== undefined ? { cantidad: res.linea.cantidad } : {}),
+        ...(res.linea.formulaCantidad !== undefined ? { formulaCantidad: res.linea.formulaCantidad } : {}),
+        unidad: res.linea.unidad,
+      });
+    }
+    return true;
+  }
+
+  // 3. Parámetro local indentado: <param> = <valor_o_expr>
+  const paramMatch = trimmed.match(/^([a-zA-Z_][\w-]*)\s*=\s*(.*)$/);
+  if (paramMatch) {
+    const key = paramMatch[1].trim();
+    const rawVal = paramMatch[2].trim();
+    if (currentItem.tipo === 'tarea_tipo') {
+      const tt = currentItem.tareaTipoId
+        ? contexto.tareasTipo.find((t) => t.id === currentItem.tareaTipoId)
+        : undefined;
+      const declaredParams = new Set((tt?.parametros ?? []).map((p) => p.id));
+      const res = assignParameterValue(
+        key,
+        rawVal,
+        lineNum,
+        colStart,
+        trimmed.length,
+        rawLine,
+        currentItem.overridesParametros,
+        errores,
+        declaredParams
+      );
+      if (res.isCantidad !== undefined) {
+        currentItem.cantidad = res.isCantidad;
+      }
+    } else {
+      assignParameterValue(
+        key,
+        rawVal,
+        lineNum,
+        colStart,
+        trimmed.length,
+        rawLine,
+        currentItem.parametros,
+        errores
+      );
+    }
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Parsea texto del notebook a bloques tipados y errores deterministas con línea y columna.
  * Función pura sin estado ni acceso a UI.
@@ -1341,6 +1518,10 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
 
     if (!trimmed) {
       currentItem = null;
+      continue;
+    }
+
+    if (trimmed.startsWith('//')) {
       continue;
     }
 
@@ -1562,8 +1743,24 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
       continue;
     }
 
-    // 5. Línea de material dentro del ítem activo (ej: "cable 2.5 celeste  120m")
+    // 5. Sub-líneas indentadas de parámetro / ajuste (-/+), o línea de material dentro del ítem activo
     if (currentItem) {
+      if (
+        leadingSpaces > 0 &&
+        parseIndentedAdjustmentOrParam(
+          trimmed,
+          lineNum,
+          colStart,
+          rawLine,
+          currentItem,
+          contexto,
+          validUnits,
+          errores
+        )
+      ) {
+        continue;
+      }
+
       const res = parseMaterialLineContent(trimmed, lineNum, colStart, rawLine, contexto, validUnits);
       if (res.error) {
         errores.push(res.error);
@@ -1607,10 +1804,6 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
 function formatQtyUnit(cantidad?: number, formula?: string, unidad?: string): string {
   const qtyStr = formula !== undefined ? `(${formula})` : String(cantidad ?? 1);
   return `${qtyStr}${unidad ?? ''}`;
-}
-
-function quoteIfSpaces(text: string): string {
-  return /\s/.test(text) ? `"${text}"` : text;
 }
 
 function serializeLinea(
@@ -1680,22 +1873,24 @@ export function serialize(
     if (b.tipo === 'tarea_tipo') {
       const tt = b.tareaTipoId ? tareasById.get(b.tareaTipoId) : undefined;
       const ref = tt?.slug || (tt ? slugifyIdentificador(tt.nombre) : '') || b.referencia;
-      const parts: string[] = [`/tt ${ref}`];
+      lines.push(`/tt ${ref}`);
 
       if (b.cantidad !== undefined && b.cantidad !== 1) {
-        parts.push(`cantidad=${b.cantidad}`);
+        lines.push(`  cantidad = ${b.cantidad}`);
       }
       for (const [k, v] of Object.entries(b.overridesParametros)) {
-        parts.push(`${k}=${v}`);
+        lines.push(`  ${k} = ${v}`);
       }
       for (const q of b.quitados) {
-        parts.push(`-${q}`);
+        lines.push(`  -${q}`);
       }
       for (const ag of b.agregados) {
         const matName = (ag.materialId && materialesById.get(ag.materialId)?.nombre) || ag.referencia;
-        parts.push(`+${quoteIfSpaces(matName)} ${formatQtyUnit(ag.cantidad, ag.formulaCantidad, ag.unidad)}`);
+        const prod = ag.productoId ? productosById.get(ag.productoId) : undefined;
+        const prodNombre = prod ? `${prod.marca} ${prod.modelo}`.trim() : ag.productoReferencia;
+        const prodTag = prodNombre ? ` [${prodNombre}]` : '';
+        lines.push(`  +${matName}${prodTag}  ${formatQtyUnit(ag.cantidad, ag.formulaCantidad, ag.unidad)}`);
       }
-      lines.push(parts.join('  '));
       for (const l of b.lineas) {
         lines.push(serializeLinea(l, materialesById, productosById, manoObraById));
       }
@@ -1713,10 +1908,10 @@ export function serialize(
         } else if (b.precioUnitario !== undefined) {
           parts.push(String(b.precioUnitario));
         }
-        for (const [k, v] of Object.entries(b.parametros)) {
-          parts.push(`${k}=${v}`);
-        }
         lines.push(parts.join('  '));
+      }
+      for (const [k, v] of Object.entries(b.parametros)) {
+        lines.push(`  ${k} = ${v}`);
       }
       for (const l of b.lineas) {
         lines.push(serializeLinea(l, materialesById, productosById, manoObraById));

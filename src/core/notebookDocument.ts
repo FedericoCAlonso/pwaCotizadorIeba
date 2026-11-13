@@ -124,6 +124,7 @@ export type AutocompleteKind =
   | 'ajuste_quitar'
   | 'ajuste_agregar'
   | 'material'
+  | 'producto'
   | 'mano_obra'
   | 'supuesto_clave'
   | 'supuesto_estado'
@@ -137,9 +138,18 @@ export interface NotebookAutocompleteSuggestion {
   insertText: string;
   replaceStartCol: number;
   replaceEndCol: number;
+  /** Selección relativa dentro de `insertText` (base 0) tras aceptar la sugerencia. */
+  selectionStartOffset?: number;
+  selectionEndOffset?: number;
+  /** Si es true, inserta en una nueva sub-línea indentada debajo de la línea actual. */
+  insertOnNewIndentedLine?: boolean;
   ghostText?: string;
   frecuenciaUso: number;
   score: number;
+}
+
+export interface AutocompleteOptions {
+  forceOpen?: boolean;
 }
 
 export interface NotebookAutocompleteResult {
@@ -167,6 +177,9 @@ export interface NotebookCommandPaletteItem {
     | 'toggle_pass_mode'
     | 'toggle_preview'
     | 'toggle_shortcuts_help'
+    | 'undo'
+    | 'redo'
+    | 'open_suggestions'
     | 'save';
 }
 
@@ -573,6 +586,8 @@ function aplicarAjustesYLineasInstancia(
       tipo: 'material',
       referencia: ag.referencia,
       materialId: ag.materialId,
+      productoId: ag.productoId,
+      productoReferencia: ag.productoReferencia,
       cantidad: ag.cantidad,
       formulaCantidad: ag.formulaCantidad,
       unidad: ag.unidad
@@ -1489,19 +1504,165 @@ function resolveTokenAtCursor(line: string, columna: number): {
   return { beforeCursor, tokenStart, currentToken };
 }
 
-function findEnclosingItemBlockKind(lines: string[], linea1Based: number): 'tarea' | 'item' | 'tt' | null {
+function findEnclosingItemBlockInfo(
+  lines: string[],
+  linea1Based: number
+): { kind: 'tarea' | 'item' | 'tt'; startIdx: number; headerLine: string } | null {
   for (let i = linea1Based - 2; i >= 0; i--) {
     const raw = lines[i];
-    if (!raw.trim()) continue;
+    if (!raw.trim()) return null;
     if (!/^[ \t]+/.test(raw)) {
       const t = raw.trim();
-      if (/^tarea:/i.test(t)) return 'tarea';
-      if (/^item:/i.test(t)) return 'item';
-      if (/^\/tt\b/i.test(t)) return 'tt';
+      if (/^tarea:/i.test(t)) return { kind: 'tarea', startIdx: i, headerLine: t };
+      if (/^item:/i.test(t)) return { kind: 'item', startIdx: i, headerLine: t };
+      if (/^\/tt\b/i.test(t)) return { kind: 'tt', startIdx: i, headerLine: t };
       return null;
     }
   }
   return null;
+}
+
+function tokenizeSmartSearch(str: string): string[] {
+  const norm = normalizeSearch(str);
+  const rawTokens = norm.split(/[^a-z0-9.,²]+/).filter(Boolean);
+  const out = new Set<string>();
+  for (const raw of rawTokens) {
+    const clean = raw.replace(/,/g, '.');
+    out.add(clean);
+    const numUnit = clean.match(/^(\d+(?:\.\d+)?)([a-z²]+)$/);
+    if (numUnit) {
+      out.add(numUnit[1]);
+      out.add(numUnit[2]);
+    }
+  }
+  return Array.from(out);
+}
+
+function extractInlineQuantityHint(rawQuery: string): { qty?: string; unitHint?: string; cleanQuery: string } {
+  const trimmed = rawQuery.trim();
+  const leading = trimmed.match(/^(\d+(?:[.,]\d+)?)\s+(.+)$/);
+  if (leading) {
+    return { qty: leading[1].replace(',', '.'), cleanQuery: leading[2].trim() };
+  }
+  const trailing = trimmed.match(/^(.+?)\s+(\d+(?:[.,]\d+)?)([a-zA-Z²]*)$/);
+  if (trailing && trailing[1].trim().length >= 2) {
+    // No confundir sección de cable tipo "cable 2.5" con cantidad si no tiene unidad y es decimal típico o corto
+    const numStr = trailing[2].replace(',', '.');
+    const unitHint = trailing[3] || undefined;
+    if (unitHint) {
+      return { qty: numStr, unitHint, cleanQuery: trailing[1].trim() };
+    }
+  }
+  return { cleanQuery: trimmed };
+}
+
+function scoreMaterialSmart(
+  query: string,
+  material: Material,
+  productosDelMaterial: Producto[]
+): number | null {
+  const q = normalizeSearch(query);
+  if (!q) return 10 + (material.frecuenciaUso ?? 0) * 5;
+
+  const directScore = fuzzyMatchScore(q, material.nombre);
+  const attrText = (material.atributos ?? []).map(a => `${a.clave} ${a.valor}`).join(' ');
+  const prodText = productosDelMaterial
+    .map(p => `${p.marca} ${p.modelo} ${p.codigoFabricante ?? ''}`)
+    .join(' ');
+  const corpus = `${material.nombre} ${attrText} ${material.categoriaId || ''} ${prodText}`;
+  const corpusNorm = normalizeSearch(corpus);
+  const corpusTokens = tokenizeSmartSearch(corpus);
+  const qTokens = tokenizeSmartSearch(q);
+
+  if (qTokens.length === 0) return directScore;
+
+  let tokenScore = 0;
+  for (const qt of qTokens) {
+    if (corpusTokens.includes(qt)) {
+      tokenScore += 180;
+    } else if (corpusTokens.some(ct => ct.startsWith(qt))) {
+      tokenScore += 130;
+    } else if (corpusNorm.includes(qt)) {
+      tokenScore += 90;
+    } else {
+      return null;
+    }
+  }
+
+  return Math.max(directScore ?? 0, tokenScore) + (material.frecuenciaUso ?? 0) * 5;
+}
+
+function resolveMaterialDetailPreview(
+  material: Material,
+  productosDelMaterial: Producto[],
+  insumosMap: Map<string, Insumo>
+): string {
+  const unidad = material.unidadVenta || 'u';
+  const resolved = insumosMap.get(material.id);
+  const preferido = productosDelMaterial.find(p => p.esPreferido) || productosDelMaterial[0];
+  const marcaStr = resolved?.marca || (preferido ? `${preferido.marca} ${preferido.modelo}`.trim() : '');
+  const precio = safeNum(resolved?.precioActual);
+  const parts = [unidad];
+  if (marcaStr) parts.push(marcaStr);
+  if (precio > 0) parts.push(`$${Math.round(precio).toLocaleString('es-AR')}/${unidad}`);
+  return parts.join(' · ');
+}
+
+function buildSmartMaterialSuggestions(
+  rawQuery: string,
+  replaceStart: number,
+  safeCol: number,
+  ctx: NotebookDocumentContext,
+  options: { prefixPlus?: boolean; insertOnNewIndentedLine?: boolean } = {}
+): NotebookAutocompleteSuggestion[] {
+  const { insumosMap } = buildMaps(ctx);
+  const { qty, unitHint, cleanQuery } = extractInlineQuantityHint(rawQuery);
+  const productosByMat = new Map<string, Producto[]>();
+  for (const p of ctx.productos ?? []) {
+    if (p.deleted || p.activo === false) continue;
+    const list = productosByMat.get(p.materialId) ?? [];
+    list.push(p);
+    productosByMat.set(p.materialId, list);
+  }
+
+  const out: NotebookAutocompleteSuggestion[] = [];
+  for (const m of ctx.materiales) {
+    if (m.deleted || m.activo === false) continue;
+    const prods = productosByMat.get(m.id) ?? [];
+    const sc = scoreMaterialSmart(cleanQuery, m, prods);
+    if (sc === null) continue;
+
+    const unidad = unitHint || m.unidadVenta || 'u';
+    const qtyText = qty || '1';
+    const prefix = options.prefixPlus ? '+' : '';
+    const baseName = `${prefix}${m.nombre}  `;
+    const insertText = `${baseName}${qtyText}${unidad}`;
+    const hasExplicitQty = qty !== undefined;
+    const selStart = hasExplicitQty ? insertText.length : baseName.length;
+    const selEnd = hasExplicitQty ? insertText.length : baseName.length + qtyText.length;
+
+    const matchesPrefix =
+      !options.prefixPlus &&
+      cleanQuery.length > 0 &&
+      m.nombre.toLowerCase().startsWith(cleanQuery.toLowerCase());
+
+    out.push({
+      id: `${options.prefixPlus ? 'add' : 'mat'}-${m.id}`,
+      kind: options.prefixPlus ? 'ajuste_agregar' : 'material',
+      label: options.prefixPlus ? `+${m.nombre}` : m.nombre,
+      detail: resolveMaterialDetailPreview(m, prods, insumosMap),
+      insertText,
+      replaceStartCol: replaceStart + 1,
+      replaceEndCol: safeCol + 1,
+      selectionStartOffset: selStart,
+      selectionEndOffset: selEnd,
+      insertOnNewIndentedLine: options.insertOnNewIndentedLine,
+      ghostText: matchesPrefix ? `${m.nombre.slice(cleanQuery.length)}  ${qtyText}${unidad}` : undefined,
+      frecuenciaUso: m.frecuenciaUso ?? 0,
+      score: sc
+    });
+  }
+  return out;
 }
 
 function buildTopLevelSuggestions(
@@ -1518,8 +1679,17 @@ function buildTopLevelSuggestions(
     { id: 'cmd-nota', label: 'nota: ', detail: 'Nota interna (no visible al cliente)', freq: 50 }
   ];
   const out: NotebookAutocompleteSuggestion[] = [];
+  const effectiveQuery =
+    query === '/'
+      ? ''
+      : query.startsWith('/') && !query.toLowerCase().startsWith('/tt')
+        ? query.slice(1)
+        : query;
+
   for (const c of comandos) {
-    const sc = fuzzyMatchScore(query, c.label);
+    const sc =
+      fuzzyMatchScore(query, c.label) ??
+      (effectiveQuery !== query ? fuzzyMatchScore(effectiveQuery, c.label) : null);
     if (sc !== null) {
       out.push({
         id: c.id,
@@ -1531,25 +1701,54 @@ function buildTopLevelSuggestions(
         replaceEndCol: safeCol + 1,
         ghostText: c.label.startsWith(query) ? c.label.slice(query.length) : undefined,
         frecuenciaUso: c.freq,
-        score: sc + c.freq
+        score: sc + c.freq + (query === '/' && c.label.startsWith('/') ? 50 : 0)
       });
     }
   }
   return out.sort((a, b) => b.score - a.score);
 }
 
+function findTareaTipoFromLine(headerLine: string, tareasTipo: TareaTipo[]): TareaTipo | undefined {
+  const m = headerLine.match(/^\/tt\s+([^\s]+)/i);
+  if (!m) return undefined;
+  const ref = m[1];
+  return tareasTipo.find(
+    t => (t.slug || slugifyIdentificador(t.nombre)) === ref || normalizeSearch(t.nombre) === normalizeSearch(ref)
+  );
+}
+
+function collectPresentKeysInBlock(lines: string[], startIdx: number): Set<string> {
+  const present = new Set<string>();
+  const rootTokens = (lines[startIdx] || '').trim().split(/\s+/).slice(2);
+  for (const tok of rootTokens) {
+    if (tok.includes('=')) present.add(tok.split('=')[0].trim());
+    if (tok.startsWith('-')) present.add(tok.slice(1).trim());
+  }
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    const raw = lines[i];
+    if (!raw.trim()) break;
+    if (!/^[ \t]+/.test(raw)) break;
+    const t = raw.trim();
+    const pm = t.match(/^([a-zA-Z_][\w-]*)\s*=/);
+    if (pm) present.add(pm[1]);
+    if (t.startsWith('-')) present.add(t.slice(1).trim());
+  }
+  return present;
+}
+
 /**
- * Calcula sugerencias de autocompletado contextual según el nivel del cursor
- * (top-level, `/tt`, parámetros, ajustes `-`/`+`, sub-líneas de `tarea:`, `supuesto:`, variables),
- * ordenadas por puntaje fuzzy y frecuencia de uso.
+ * Calcula sugerencias de autocompletado contextual según el nivel del cursor.
+ * No invasivo por defecto: no se despliega en líneas vacías salvo que `forceOpen` sea true (Ctrl+Space).
  */
 export function getContextualAutocompleteSuggestions(
   texto: string,
   linea1Based: number,
   columna1Based: number,
   ctx: NotebookDocumentContext,
-  variablesExistentes: string[] = []
+  variablesExistentes: string[] = [],
+  options: AutocompleteOptions = {}
 ): NotebookAutocompleteResult {
+  const forceOpen = options.forceOpen === true;
   const lines = texto.split(/\r?\n/);
   const lineIdx = Math.max(0, Math.min(linea1Based - 1, lines.length - 1));
   const rawLine = lines[lineIdx] || '';
@@ -1557,12 +1756,19 @@ export function getContextualAutocompleteSuggestions(
   const atTokenEnd = safeCol >= rawLine.length || /\s/.test(rawLine[safeCol]);
   const { beforeCursor, tokenStart, currentToken } = resolveTokenAtCursor(rawLine, safeCol);
   const trimmedBefore = beforeCursor.trimStart();
+  const indentLen = rawLine.length - rawLine.trimStart().length;
 
   let suggestions: NotebookAutocompleteSuggestion[] = [];
+  const enclosingBlock = /^[ \t]+/.test(rawLine)
+    ? findEnclosingItemBlockInfo(lines, linea1Based)
+    : null;
 
   // Nivel 1: sub-línea indentada dentro de un ítem (`tarea:`, `/tt`, `item:`)
-  if (/^[ \t]+/.test(rawLine) && findEnclosingItemBlockKind(lines, linea1Based) !== null) {
+  if (enclosingBlock !== null) {
     const inner = trimmedBefore.toLowerCase();
+    const tareaEnclosing =
+      enclosingBlock.kind === 'tt' ? findTareaTipoFromLine(enclosingBlock.headerLine, ctx.tareasTipo) : undefined;
+
     if (inner.startsWith('mo:')) {
       const q = trimmedBefore.slice(3).trim();
       const replaceStart = beforeCursor.toLowerCase().indexOf('mo:') + 3;
@@ -1570,14 +1776,18 @@ export function getContextualAutocompleteSuggestions(
         .map(m => {
           const sc = fuzzyMatchScore(q, m.nombre);
           if (sc === null) return null;
+          const base = ` ${m.nombre}  `;
+          const insertText = `${base}2hs`;
           return {
             id: `mo-${m.id}`,
             kind: 'mano_obra' as AutocompleteKind,
             label: m.nombre,
-            detail: `$${safeNum(m.costoHora)}/h`,
-            insertText: ` ${m.nombre}  2hs`,
+            detail: `$${safeNum(m.costoHora).toLocaleString('es-AR')}/h`,
+            insertText,
             replaceStartCol: replaceStart + 1,
             replaceEndCol: safeCol + 1,
+            selectionStartOffset: base.length,
+            selectionEndOffset: base.length + 1,
             ghostText: m.nombre.toLowerCase().startsWith(q.toLowerCase())
               ? `${m.nombre.slice(q.length)}  2hs`
               : undefined,
@@ -1586,30 +1796,149 @@ export function getContextualAutocompleteSuggestions(
           };
         })
         .filter((x): x is NonNullable<typeof x> => x !== null);
-    } else {
-      const q = trimmedBefore;
-      const replaceStart = rawLine.length - rawLine.trimStart().length;
-      suggestions = ctx.materiales
-        .map(m => {
-          const sc = fuzzyMatchScore(q, m.nombre);
+    } else if (/^[a-zA-Z_][\w-]*\s*=\s*/.test(trimmedBefore)) {
+      const eqIdx = beforeCursor.indexOf('=');
+      const valQuery = beforeCursor.slice(eqIdx + 1).trimStart();
+      const valStart = beforeCursor.length - valQuery.length;
+      suggestions = variablesExistentes
+        .map(v => {
+          const sc = fuzzyMatchScore(valQuery, v);
           if (sc === null) return null;
-          const unidad = m.unidadVenta || 'u';
           return {
-            id: `mat-${m.id}`,
-            kind: 'material' as AutocompleteKind,
-            label: m.nombre,
-            detail: m.categoriaId || unidad,
-            insertText: `${m.nombre}  1${unidad}`,
-            replaceStartCol: replaceStart + 1,
+            id: `var-sub-${v}`,
+            kind: 'variable' as AutocompleteKind,
+            label: v,
+            detail: 'Variable de cotización',
+            insertText: v,
+            replaceStartCol: valStart + 1,
             replaceEndCol: safeCol + 1,
-            ghostText: m.nombre.toLowerCase().startsWith(q.toLowerCase())
-              ? `${m.nombre.slice(q.length)}  1${unidad}`
-              : undefined,
-            frecuenciaUso: m.frecuenciaUso ?? 0,
-            score: sc + (m.frecuenciaUso ?? 0) * 5
+            ghostText: v.startsWith(valQuery) ? v.slice(valQuery.length) : undefined,
+            frecuenciaUso: 5,
+            score: sc
           };
         })
         .filter((x): x is NonNullable<typeof x> => x !== null);
+    } else if (trimmedBefore.includes('[') && !trimmedBefore.slice(trimmedBefore.lastIndexOf('[')).includes(']')) {
+      // Autocompletado de [Marca Modelo] para un material ya escrito
+      const openBracketCol = beforeCursor.lastIndexOf('[');
+      const prodQuery = beforeCursor.slice(openBracketCol + 1).trimStart();
+      const matNamePart = trimmedBefore.slice(0, trimmedBefore.lastIndexOf('[')).replace(/^(?:mat:|\+)\s*/i, '').trim();
+      const matMatches = buildSmartMaterialSuggestions(matNamePart, indentLen, safeCol, ctx);
+      const topMatId = matMatches[0]?.id.replace(/^(mat|add)-/, '');
+      const matObj = ctx.materiales.find(m => m.id === topMatId);
+      const unidad = matObj?.unidadVenta || 'u';
+      const prods = (ctx.productos ?? []).filter(
+        p => !p.deleted && p.activo !== false && (!topMatId || p.materialId === topMatId)
+      );
+      suggestions = prods
+        .map(p => {
+          const label = `${p.marca} ${p.modelo}`.trim();
+          const sc = fuzzyMatchScore(prodQuery, label);
+          if (sc === null) return null;
+          const insertText = `${label}]  1${unidad}`;
+          const numStart = `${label}]  `.length;
+          const prodOffer = (ctx.ofertas ?? [])
+            .filter(o => o.productoId === p.id)
+            .sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
+          const detailParts = [p.esPreferido ? 'Preferido' : 'Producto'];
+          if (prodOffer) detailParts.push(`$${Math.round(prodOffer.precio).toLocaleString('es-AR')}/${unidad}`);
+          return {
+            id: `prod-${p.id}`,
+            kind: 'producto' as AutocompleteKind,
+            label,
+            detail: detailParts.join(' · '),
+            insertText,
+            replaceStartCol: openBracketCol + 2,
+            replaceEndCol: safeCol + 1,
+            selectionStartOffset: numStart,
+            selectionEndOffset: numStart + 1,
+            ghostText: label.toLowerCase().startsWith(prodQuery.toLowerCase())
+              ? `${label.slice(prodQuery.length)}]  1${unidad}`
+              : undefined,
+            frecuenciaUso: p.esPreferido ? 10 : 1,
+            score: sc + (p.esPreferido ? 150 : 0)
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+    } else if (enclosingBlock.kind === 'tt' && trimmedBefore.startsWith('-')) {
+      const q = trimmedBefore.slice(1).trim();
+      const candidates = new Set<string>();
+      if (tareaEnclosing) {
+        for (const ins of tareaEnclosing.insumos || []) {
+          if (ins.claveAjuste) candidates.add(ins.claveAjuste);
+          const mat = ctx.materiales.find(m => m.id === (ins.materialId || ins.insumoId));
+          if (mat) candidates.add(slugifyIdentificador(mat.nombre));
+        }
+        for (const sub of tareaEnclosing.subTrabajos || []) {
+          if (sub.claveAjuste) candidates.add(sub.claveAjuste);
+        }
+      }
+      suggestions = Array.from(candidates)
+        .map(slug => {
+          const sc = fuzzyMatchScore(q, slug);
+          if (sc === null) return null;
+          return {
+            id: `quit-${slug}`,
+            kind: 'ajuste_quitar' as AutocompleteKind,
+            label: `-${slug}`,
+            detail: 'Quitar componente del trabajo tipo',
+            insertText: `-${slug}`,
+            replaceStartCol: indentLen + 1,
+            replaceEndCol: safeCol + 1,
+            ghostText: slug.startsWith(q) ? slug.slice(q.length) : undefined,
+            frecuenciaUso: 1,
+            score: sc
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+    } else if (enclosingBlock.kind === 'tt' && trimmedBefore.startsWith('+')) {
+      const q = trimmedBefore.slice(1).trim();
+      suggestions = buildSmartMaterialSuggestions(q, indentLen, safeCol, ctx, { prefixPlus: true });
+    } else if (trimmedBefore.length >= 1 || forceOpen) {
+      const q = trimmedBefore.replace(/^mat:\s*/i, '');
+      const matSugs = buildSmartMaterialSuggestions(q, indentLen, safeCol, ctx);
+      suggestions.push(...matSugs);
+
+      // En /tt también sugerimos parámetros faltantes en sub-línea indentada
+      if (tareaEnclosing) {
+        const yaPresentes = collectPresentKeysInBlock(lines, enclosingBlock.startIdx);
+        for (const p of tareaEnclosing.parametros || []) {
+          if (yaPresentes.has(p.id)) continue;
+          const sc = fuzzyMatchScore(trimmedBefore, p.id);
+          if (sc === null) continue;
+          const defVal = String(p.valorDefault ?? 1);
+          const insertText = `${p.id} = ${defVal}`;
+          suggestions.push({
+            id: `param-${p.id}`,
+            kind: 'parametro',
+            label: insertText,
+            detail: p.unidad ? `${p.nombre} (${p.unidad})` : p.nombre,
+            insertText,
+            replaceStartCol: indentLen + 1,
+            replaceEndCol: safeCol + 1,
+            selectionStartOffset: `${p.id} = `.length,
+            selectionEndOffset: insertText.length,
+            ghostText: insertText.startsWith(trimmedBefore) ? insertText.slice(trimmedBefore.length) : undefined,
+            frecuenciaUso: 5,
+            score: sc + 120
+          });
+        }
+      }
+
+      // También sugerir prefijo mo: cuando empieza a escribir "mo" o en forceOpen
+      if (trimmedBefore === '' || 'mo:'.startsWith(inner)) {
+        suggestions.push({
+          id: 'sub-cmd-mo',
+          kind: 'comando',
+          label: 'mo: ',
+          detail: 'Agregar mano de obra (horas)',
+          insertText: 'mo: ',
+          replaceStartCol: indentLen + 1,
+          replaceEndCol: safeCol + 1,
+          frecuenciaUso: 4,
+          score: trimmedBefore ? 700 : 30
+        });
+      }
     }
   } else if (/^\/tt\s+/i.test(trimmedBefore)) {
     const afterTt = trimmedBefore.replace(/^\/tt\s+/i, '');
@@ -1628,10 +1957,21 @@ export function getContextualAutocompleteSuggestions(
           const scNom = fuzzyMatchScore(slugQuery, t.nombre);
           const sc = Math.max(scSlug ?? -1, scNom ?? -1);
           if (sc < 0) return null;
-          const defaultsText = (t.parametros || [])
-            .map(p => `${p.id}=${p.valorDefault ?? 1}`)
-            .join('  ');
-          const fullInsert = defaultsText ? `${slug}  ${defaultsText}` : slug;
+
+          const paramLines = (t.parametros || []).map(p => `  ${p.id} = ${p.valorDefault ?? 1}`);
+          const fullInsert = paramLines.length > 0 ? `${slug}\n${paramLines.join('\n')}` : slug;
+          let selStart = fullInsert.length;
+          let selEnd = fullInsert.length;
+          if (paramLines.length > 0) {
+            const firstLine = paramLines[0];
+            const eqPos = firstLine.indexOf('= ');
+            if (eqPos >= 0) {
+              const baseOffset = slug.length + 1;
+              selStart = baseOffset + eqPos + 2;
+              selEnd = baseOffset + firstLine.length;
+            }
+          }
+
           return {
             id: `tt-${t.id}`,
             kind: 'tarea_tipo' as AutocompleteKind,
@@ -1640,9 +1980,9 @@ export function getContextualAutocompleteSuggestions(
             insertText: fullInsert,
             replaceStartCol: tokenStart + 1,
             replaceEndCol: safeCol + 1,
-            ghostText: slug.startsWith(slugQuery.toLowerCase())
-              ? `${slug.slice(slugQuery.length)}${defaultsText ? `  ${defaultsText}` : ''}`
-              : undefined,
+            selectionStartOffset: selStart,
+            selectionEndOffset: selEnd,
+            ghostText: slug.startsWith(slugQuery.toLowerCase()) ? slug.slice(slugQuery.length) : undefined,
             frecuenciaUso: t.frecuenciaUso ?? 0,
             score: sc + (t.frecuenciaUso ?? 0) * 10
           };
@@ -1671,10 +2011,11 @@ export function getContextualAutocompleteSuggestions(
               id: `quit-${slug}`,
               kind: 'ajuste_quitar' as AutocompleteKind,
               label: `-${slug}`,
-              detail: 'Quitar componente del trabajo tipo',
+              detail: 'Quitar componente en línea indentada',
               insertText: `-${slug}`,
               replaceStartCol: tokenStart + 1,
               replaceEndCol: safeCol + 1,
+              insertOnNewIndentedLine: true,
               ghostText: slug.startsWith(q) ? slug.slice(q.length) : undefined,
               frecuenciaUso: 1,
               score: sc
@@ -1683,26 +2024,10 @@ export function getContextualAutocompleteSuggestions(
           .filter((x): x is NonNullable<typeof x> => x !== null);
       } else if (currentToken.startsWith('+')) {
         const q = currentToken.slice(1);
-        suggestions = ctx.materiales
-          .map(m => {
-            const slug = slugifyIdentificador(m.nombre);
-            const sc = Math.max(fuzzyMatchScore(q, slug) ?? -1, fuzzyMatchScore(q, m.nombre) ?? -1);
-            if (sc < 0) return null;
-            const unit = m.unidadVenta || 'u';
-            return {
-              id: `add-${m.id}`,
-              kind: 'ajuste_agregar' as AutocompleteKind,
-              label: `+${slug} 1${unit}`,
-              detail: m.nombre,
-              insertText: `+${slug} 1${unit}`,
-              replaceStartCol: tokenStart + 1,
-              replaceEndCol: safeCol + 1,
-              ghostText: slug.startsWith(q) ? `${slug.slice(q.length)} 1${unit}` : undefined,
-              frecuenciaUso: m.frecuenciaUso ?? 0,
-              score: sc + (m.frecuenciaUso ?? 0) * 5
-            };
-          })
-          .filter((x): x is NonNullable<typeof x> => x !== null);
+        suggestions = buildSmartMaterialSuggestions(q, tokenStart, safeCol, ctx, {
+          prefixPlus: true,
+          insertOnNewIndentedLine: true
+        });
       } else if (currentToken.includes('=')) {
         const eqIdx = currentToken.indexOf('=');
         const valQuery = currentToken.slice(eqIdx + 1);
@@ -1724,22 +2049,26 @@ export function getContextualAutocompleteSuggestions(
             };
           })
           .filter((x): x is NonNullable<typeof x> => x !== null);
-      } else if (tarea) {
-        const yaPresentes = new Set(parts.slice(1).map(p => p.split('=')[0]));
+      } else if (tarea && (currentToken.length > 0 || forceOpen)) {
+        const yaPresentes = collectPresentKeysInBlock(lines, lineIdx);
         suggestions = (tarea.parametros || [])
           .filter(p => !yaPresentes.has(p.id))
           .map(p => {
             const sc = fuzzyMatchScore(currentToken, p.id);
             if (sc === null) return null;
-            const text = `${p.id}=${p.valorDefault ?? 1}`;
+            const defVal = String(p.valorDefault ?? 1);
+            const text = `${p.id} = ${defVal}`;
             return {
               id: `param-${p.id}`,
               kind: 'parametro' as AutocompleteKind,
               label: text,
-              detail: p.nombre,
+              detail: p.unidad ? `${p.nombre} (${p.unidad})` : p.nombre,
               insertText: text,
               replaceStartCol: tokenStart + 1,
               replaceEndCol: safeCol + 1,
+              selectionStartOffset: `${p.id} = `.length,
+              selectionEndOffset: text.length,
+              insertOnNewIndentedLine: true,
               ghostText: text.startsWith(currentToken) ? text.slice(currentToken.length) : undefined,
               frecuenciaUso: 5,
               score: sc
@@ -1785,7 +2114,7 @@ export function getContextualAutocompleteSuggestions(
           };
         })
         .filter((x): x is NonNullable<typeof x> => x !== null);
-    } else {
+    } else if (rest.trim().length > 0 || forceOpen) {
       suggestions = Array.from(supuestosDeclarados.entries())
         .map(([id, sup]) => {
           const sc = fuzzyMatchScore(rest.trim(), id);
@@ -1809,7 +2138,7 @@ export function getContextualAutocompleteSuggestions(
     }
   } else if (/^[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*/.test(trimmedBefore)) {
     const rhsToken = currentToken.replace(/^=/, '');
-    if (variablesExistentes.length > 0) {
+    if (variablesExistentes.length > 0 && (rhsToken.length > 0 || forceOpen)) {
       suggestions = variablesExistentes
         .map(v => {
           const sc = fuzzyMatchScore(rhsToken, v);
@@ -1829,21 +2158,153 @@ export function getContextualAutocompleteSuggestions(
         })
         .filter((x): x is NonNullable<typeof x> => x !== null);
     }
-  } else if (trimmedBefore.startsWith('/') || trimmedBefore.length <= 8) {
-    suggestions = buildTopLevelSuggestions(trimmedBefore, 0, safeCol);
+  } else if (/^\/[^\s]*$/.test(trimmedBefore) || forceOpen) {
+    // Solo abrir menú de comandos al escribir `/` o con Ctrl+Space explícito (no en línea vacía)
+    suggestions = buildTopLevelSuggestions(trimmedBefore, indentLen, safeCol);
   }
 
   suggestions.sort((a, b) => b.score - a.score || b.frecuenciaUso - a.frecuenciaUso);
-  const top = suggestions.slice(0, 8);
+  const top = suggestions.slice(0, 7);
   return {
-    isOpen: atTokenEnd && top.length > 0,
+    isOpen: (atTokenEnd || forceOpen) && top.length > 0,
     suggestions: top,
     ghostText: atTokenEnd ? top[0]?.ghostText || '' : '',
     kind: top[0]?.kind
   };
 }
 
-// ─── Navegación Tab entre parámetros de /tt ───────────────────────────────────
+// ─── Navegación Tab entre parámetros y cantidades del bloque ─────────────────
+
+interface EditableSlot {
+  linea: number;
+  valStart1Based: number;
+  valEnd1Based: number;
+  paramId?: string;
+}
+
+function collectBlockEditableSlots(lines: string[], rootIdx: number, endIdx: number): EditableSlot[] {
+  const slots: EditableSlot[] = [];
+
+  for (let i = rootIdx; i <= endIdx; i++) {
+    const line = lines[i] ?? '';
+    const lineNum = i + 1;
+    const isRoot = i === rootIdx;
+    const trimmed = line.trim();
+
+    if (isRoot && /^\s*\/tt\b/i.test(line)) {
+      const regex = /([a-zA-Z_][a-zA-Z0-9_-]*)\s*=\s*([^\s]+)/g;
+      let match: RegExpExecArray | null;
+      while ((match = regex.exec(line)) !== null) {
+        const valStr = match[2];
+        const valIdx = match.index + match[0].lastIndexOf(valStr);
+        slots.push({
+          linea: lineNum,
+          valStart1Based: valIdx + 1,
+          valEnd1Based: valIdx + 1 + valStr.length,
+          paramId: match[1]
+        });
+      }
+      continue;
+    }
+
+    if (!isRoot && /^[ \t]+/.test(line)) {
+      // 1. Sub-línea parámetro: `  sup = 60`
+      const paramMatch = line.match(/^\s*([a-zA-Z_][a-zA-Z0-9_-]*)\s*=\s*(.+?)\s*$/);
+      if (paramMatch) {
+        const valStr = paramMatch[2];
+        const valIdx = line.lastIndexOf(valStr);
+        slots.push({
+          linea: lineNum,
+          valStart1Based: valIdx + 1,
+          valEnd1Based: valIdx + 1 + valStr.length,
+          paramId: paramMatch[1]
+        });
+        continue;
+      }
+
+      // 2. Sub-línea material / +material / mo: con cantidad al final
+      const qtyMatch = line.match(/^(.*?\s)(\d+(?:[.,]\d+)?|\([^)]+\))([a-zA-Z²]+)\s*$/);
+      if (qtyMatch && !trimmed.startsWith('-')) {
+        const valStr = qtyMatch[2];
+        const valStart0 = qtyMatch[1].length;
+        slots.push({
+          linea: lineNum,
+          valStart1Based: valStart0 + 1,
+          valEnd1Based: valStart0 + 1 + valStr.length
+        });
+      }
+    }
+  }
+
+  return slots;
+}
+
+/**
+ * Encuentra el siguiente (o anterior con `direction = -1`) slot editable (parámetro o cantidad)
+ * dentro del bloque del cursor, soportando bloques `/tt`, `tarea:` e `item:` multilínea indentados.
+ */
+export function findNextParameterSlotInDocument(
+  texto: string,
+  linea1Based: number,
+  columna1Based: number,
+  direction: 1 | -1 = 1
+): TabJumpResult {
+  const lines = texto.split(/\r?\n/);
+  const curIdx = Math.max(0, Math.min(linea1Based - 1, lines.length - 1));
+  const curRaw = lines[curIdx] ?? '';
+  if (!curRaw.trim()) {
+    return { handled: false, linea: linea1Based, columna: columna1Based };
+  }
+
+  // Encontrar inicio del bloque
+  let rootIdx = curIdx;
+  if (/^[ \t]+/.test(curRaw)) {
+    const info = findEnclosingItemBlockInfo(lines, linea1Based);
+    if (!info) return { handled: false, linea: linea1Based, columna: columna1Based };
+    rootIdx = info.startIdx;
+  } else if (!/^\s*(\/tt\b|tarea:|item:)/i.test(curRaw)) {
+    return { handled: false, linea: linea1Based, columna: columna1Based };
+  }
+
+  // Encontrar fin del bloque
+  let endIdx = rootIdx;
+  for (let i = rootIdx + 1; i < lines.length; i++) {
+    const raw = lines[i];
+    if (!raw.trim() || !/^[ \t]+/.test(raw)) break;
+    endIdx = i;
+  }
+
+  const slots = collectBlockEditableSlots(lines, rootIdx, endIdx);
+  if (slots.length === 0) {
+    return { handled: false, linea: linea1Based, columna: columna1Based };
+  }
+
+  let chosen: EditableSlot | undefined;
+  if (direction === 1) {
+    chosen =
+      slots.find(
+        s => s.linea > linea1Based || (s.linea === linea1Based && s.valStart1Based > columna1Based)
+      ) || slots[0];
+  } else {
+    for (let i = slots.length - 1; i >= 0; i--) {
+      const s = slots[i];
+      if (s.linea < linea1Based || (s.linea === linea1Based && s.valEnd1Based < columna1Based)) {
+        chosen = s;
+        break;
+      }
+    }
+    if (!chosen) chosen = slots[slots.length - 1];
+  }
+
+  return {
+    handled: true,
+    linea: chosen.linea,
+    columna: chosen.valEnd1Based,
+    selectionStartCol: chosen.valStart1Based,
+    selectionEndCol: chosen.valEnd1Based,
+    paramId: chosen.paramId
+  };
+}
 
 /**
  * Encuentra el siguiente slot `param=valor` dentro de una línea `/tt` a partir de la columna actual
@@ -1854,37 +2315,7 @@ export function findNextParameterSlot(
   linea1Based: number,
   columna1Based: number
 ): TabJumpResult {
-  if (!/^\s*\/tt\b/i.test(line)) {
-    return { handled: false, linea: linea1Based, columna: columna1Based };
-  }
-
-  const regex = /([a-zA-Z_][a-zA-Z0-9_-]*)=([^\s]+)/g;
-  const slots: Array<{ paramId: string; valStart1Based: number; valEnd1Based: number }> = [];
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(line)) !== null) {
-    const eqOffset = match[1].length + 1;
-    const valStart = match.index + eqOffset + 1;
-    const valEnd = valStart + match[2].length;
-    slots.push({
-      paramId: match[1],
-      valStart1Based: valStart,
-      valEnd1Based: valEnd
-    });
-  }
-
-  if (slots.length === 0) {
-    return { handled: false, linea: linea1Based, columna: columna1Based };
-  }
-
-  const next = slots.find(s => s.valStart1Based > columna1Based) || slots[0];
-  return {
-    handled: true,
-    linea: linea1Based,
-    columna: next.valEnd1Based,
-    selectionStartCol: next.valStart1Based,
-    selectionEndCol: next.valEnd1Based,
-    paramId: next.paramId
-  };
+  return findNextParameterSlotInDocument(line, linea1Based, columna1Based, 1);
 }
 
 // ─── Paleta de Comandos (Ctrl+K / /) ─────────────────────────────────────────
@@ -1996,6 +2427,33 @@ export function buildNotebookCommandPalette(
       actionType: 'toggle_shortcuts_help'
     },
     {
+      id: 'cmd-open-suggestions',
+      label: 'Mostrar sugerencias contextuales',
+      description: 'Abre el autocompletado en la posición actual del cursor',
+      category: 'flujo',
+      shortcut: 'Ctrl+Space',
+      keywords: ['sugerencias', 'autocompletar', 'materiales', 'parametros'],
+      actionType: 'open_suggestions'
+    },
+    {
+      id: 'cmd-undo',
+      label: 'Deshacer último cambio',
+      description: 'Revierte la última edición del documento',
+      category: 'documento',
+      shortcut: 'Ctrl+Z',
+      keywords: ['deshacer', 'undo', 'atras'],
+      actionType: 'undo'
+    },
+    {
+      id: 'cmd-redo',
+      label: 'Rehacer cambio',
+      description: 'Reaplica el cambio deshecho',
+      category: 'documento',
+      shortcut: 'Ctrl+Y',
+      keywords: ['rehacer', 'redo', 'adelante'],
+      actionType: 'redo'
+    },
+    {
       id: 'cmd-save',
       label: 'Guardar cotización ahora',
       description: 'Persiste el presupuesto actual en IndexedDB',
@@ -2011,16 +2469,14 @@ export function buildNotebookCommandPalette(
   );
   const ttCommands: NotebookCommandPaletteItem[] = sortedTareas.map(t => {
     const slug = t.slug || slugifyIdentificador(t.nombre);
-    const paramsText = (t.parametros || [])
-      .map(p => `${p.id}=${p.valorDefault ?? 1}`)
-      .join('  ');
+    const paramLines = (t.parametros || []).map(p => `  ${p.id} = ${p.valorDefault ?? 1}`);
     return {
       id: `cmd-tt-${t.id}`,
       label: `Insertar /tt ${slug}`,
       description: t.nombre,
       category: 'trabajo_tipo',
       keywords: ['tt', 'trabajo tipo', slug, t.nombre, t.categoria],
-      insertLine: paramsText ? `/tt ${slug}  ${paramsText}` : `/tt ${slug}`,
+      insertLine: paramLines.length > 0 ? `/tt ${slug}\n${paramLines.join('\n')}` : `/tt ${slug}`,
       actionType: 'insert_line'
     };
   });
@@ -2129,7 +2585,7 @@ export function evaluarVisibilidadParametroEnEsquema(
 }
 
 /**
- * Construye una línea canónica `/tt` desde un `TareaTipo` y valores iniciales opcionales.
+ * Construye un bloque canónico `/tt` multilínea indentado desde un `TareaTipo` y valores iniciales opcionales.
  */
 export function construirLineaTareaTipoDesdeEsquema(
   tarea: TareaTipo,
@@ -2139,13 +2595,13 @@ export function construirLineaTareaTipoDesdeEsquema(
   const params = tarea.parametros || [];
   if (params.length === 0) {
     const cant = valoresParametros?.cantidad;
-    return cant !== undefined && cant !== 1 ? `/tt ${slug}  cantidad=${cant}` : `/tt ${slug}`;
+    return cant !== undefined && cant !== 1 ? `/tt ${slug}\n  cantidad = ${cant}` : `/tt ${slug}`;
   }
-  const tokens = params.map(p => {
+  const paramLines = params.map(p => {
     const val = valoresParametros?.[p.id] ?? p.valorDefault ?? 1;
-    return `${p.id}=${val}`;
+    return `  ${p.id} = ${val}`;
   });
-  return `/tt ${slug}  ${tokens.join('  ')}`;
+  return `/tt ${slug}\n${paramLines.join('\n')}`;
 }
 
 /**
@@ -2172,11 +2628,48 @@ export function actualizarParametroEnLineaTt(
   valor: number
 ): string {
   const escaped = paramId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const paramRegex = new RegExp(`(^|\\s)${escaped}=[^\\s]+`);
+  const paramRegex = new RegExp(`(^|\\s)${escaped}\\s*=\\s*[^\\s]+`);
   if (paramRegex.test(line)) {
     return line.replace(paramRegex, `$1${paramId}=${valor}`);
   }
   return `${line.trimEnd()}  ${paramId}=${valor}`;
+}
+
+/**
+ * Actualiza o inserta `  paramId = valor` dentro de un bloque `/tt` multilínea indentado.
+ */
+export function actualizarParametroEnBloque(
+  texto: string,
+  startLinea1Based: number,
+  paramId: string,
+  valor: number
+): string {
+  const lines = texto.split(/\r?\n/);
+  const startIdx = startLinea1Based - 1;
+  if (startIdx < 0 || startIdx >= lines.length) return texto;
+
+  const escaped = paramId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const subRegex = new RegExp(`^([ \\t]+)${escaped}\\s*=\\s*.*$`);
+  let endIdx = startIdx;
+
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    if (!lines[i].trim() || !/^[ \t]+/.test(lines[i])) break;
+    endIdx = i;
+    if (subRegex.test(lines[i])) {
+      lines[i] = lines[i].replace(subRegex, `$1${paramId} = ${valor}`);
+      return lines.join('\n');
+    }
+  }
+
+  // Fallback si estaba inline en la línea raíz /tt
+  const inlineRegex = new RegExp(`(^|\\s)${escaped}\\s*=\\s*[^\\s]+`);
+  if (inlineRegex.test(lines[startIdx])) {
+    lines[startIdx] = lines[startIdx].replace(inlineRegex, `$1${paramId}=${valor}`);
+    return lines.join('\n');
+  }
+
+  lines.splice(endIdx + 1, 0, `  ${paramId} = ${valor}`);
+  return lines.join('\n');
 }
 
 /**

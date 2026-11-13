@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
+import { useEscapeKey } from './useEscapeKey';
 
 describe('useKeyboardShortcuts', () => {
   let defaultProps: Parameters<typeof useKeyboardShortcuts>[0];
@@ -117,6 +118,31 @@ describe('useKeyboardShortcuts', () => {
 
     expect(preventDefaultSpy).toHaveBeenCalled();
     expect(defaultProps.setActiveTab).toHaveBeenCalledWith('insumos');
+    expect(defaultProps.setViewMode).toHaveBeenCalledWith('list');
+  });
+
+  it('respeta stack LIFO con Escape: cierra primero menú/capa superior sin salir del editor y recién sale cuando está vacío', () => {
+    const closeSubMenu = vi.fn();
+    let menuOpen = true;
+
+    const { rerender } = renderHook(
+      ({ open }: { open: boolean }) => {
+        useEscapeKey(open, closeSubMenu, { pushHistory: false });
+        useKeyboardShortcuts(defaultProps);
+      },
+      { initialProps: { open: menuOpen } }
+    );
+
+    // Primer Escape cierra únicamente el menú superior, no sale del editor
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(closeSubMenu).toHaveBeenCalledTimes(1);
+    expect(defaultProps.setViewMode).not.toHaveBeenCalled();
+
+    // Tras cerrarse el menú, el stack está vacío y el siguiente Escape sí regresa al listado
+    menuOpen = false;
+    rerender({ open: false });
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     expect(defaultProps.setViewMode).toHaveBeenCalledWith('list');
   });
 });

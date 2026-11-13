@@ -11,6 +11,7 @@ import { NotebookBlock } from '../../../core/notebookParser';
 import { ItemPresupuesto } from '../../../core/types';
 
 export interface NotebookBlockLinePreviewProps {
+  lines?: string[];
   linesCount: number;
   activeLine: number;
   bloques: NotebookBlock[];
@@ -124,11 +125,102 @@ function buildChipsForBlock(
   return chips;
 }
 
+function buildChipsForSubline(
+  rawLine: string,
+  enclosingBlock: NotebookBlock | undefined,
+  enclosingItem: ItemPresupuesto | undefined,
+  contexto: NotebookDocumentContext
+): { chips: ResolvedChip[]; sublineCost?: number } {
+  const trimmed = rawLine.trim();
+  if (!trimmed || trimmed.startsWith('//') || !enclosingBlock) {
+    return { chips: [] };
+  }
+
+  const paramMatch = trimmed.match(/^([a-zA-Z_][\w-]*)\s*=\s*(.+)$/);
+  if (paramMatch) {
+    const paramKey = paramMatch[1];
+    if (enclosingBlock.tipo === 'tarea_tipo') {
+      const tt = contexto.tareasTipo.find(t => t.id === enclosingBlock.tareaTipoId);
+      const paramDef = tt?.parametros?.find(
+        p => p.id === paramKey || p.nombre.toLowerCase() === paramKey.toLowerCase()
+      );
+      if (paramDef) {
+        return {
+          chips: [
+            {
+              key: `subp-${paramKey}`,
+              label: paramDef.unidad ? `${paramDef.nombre} (${paramDef.unidad})` : paramDef.nombre,
+              tone: 'param'
+            }
+          ]
+        };
+      }
+    }
+    return {
+      chips: [{ key: `subp-${paramKey}`, label: paramKey, tone: 'param' }]
+    };
+  }
+
+  if (trimmed.startsWith('-')) {
+    return {
+      chips: [{ key: `subq-${trimmed}`, label: trimmed, tone: 'ajuste' }]
+    };
+  }
+
+  if (trimmed.startsWith('+') || enclosingBlock.tipo === 'item_libre' || enclosingBlock.tipo === 'tarea_tipo') {
+    const lower = trimmed.replace(/^[+]\s*/, '').toLowerCase();
+    const matMatch = enclosingItem?.insumosSnapshot.find(ins =>
+      lower.includes(ins.nombre.toLowerCase().slice(0, Math.min(8, ins.nombre.length)))
+    );
+    if (matMatch) {
+      const chips: ResolvedChip[] = [
+        {
+          key: `subm-${matMatch.insumoId}`,
+          label: matMatch.nombre,
+          tone: 'material',
+          icon: 'package'
+        }
+      ];
+      if (matMatch.marca) {
+        chips.push({ key: `submk-${matMatch.insumoId}`, label: matMatch.marca, tone: 'marca' });
+      }
+      chips.push({
+        key: `subu-${matMatch.insumoId}`,
+        label: `${matMatch.cantidadTotal}${matMatch.unidad}`,
+        tone: 'unidad'
+      });
+      return { chips, sublineCost: matMatch.subtotalInsumoFinal ?? matMatch.subtotalInsumo };
+    }
+
+    if (lower.startsWith('mo:') || lower.startsWith('mano:') || lower.startsWith('mano_obra:')) {
+      const moMatch = enclosingItem?.manoObraSnapshot.find(mo =>
+        lower.includes(mo.nombreCategoria.toLowerCase().slice(0, Math.min(6, mo.nombreCategoria.length)))
+      );
+      if (moMatch) {
+        return {
+          chips: [
+            {
+              key: `submo-${moMatch.categoriaId}`,
+              label: `${moMatch.nombreCategoria} ${moMatch.horasTotales}hs`,
+              tone: 'param',
+              icon: 'wrench'
+            }
+          ],
+          sublineCost: moMatch.subtotalManoObra
+        };
+      }
+    }
+  }
+
+  return { chips: [] };
+}
+
 /**
  * Margen derecho sincronizado fila a fila con el editor de notebook (estilo outputs de Jupyter).
- * Muestra subtotales, chips resueltos (material, marca, unidad), estado de valorización y errores.
+ * Muestra subtotales, chips resueltos (material, marca, unidad) por bloque y sublínea, estado y errores.
  */
 export const NotebookBlockLinePreview: React.FC<NotebookBlockLinePreviewProps> = ({
+  lines,
   linesCount,
   activeLine,
   bloques,
@@ -156,6 +248,8 @@ export const NotebookBlockLinePreview: React.FC<NotebookBlockLinePreviewProps> =
   for (const it of items) itemById.set(it.id, it);
 
   const lineArray = Array.from({ length: Math.max(linesCount, 1) }, (_, idx) => idx + 1);
+  let currentEnclosingBlock: NotebookBlock | undefined;
+  let currentEnclosingItem: ItemPresupuesto | undefined;
 
   return (
     <div
@@ -164,11 +258,25 @@ export const NotebookBlockLinePreview: React.FC<NotebookBlockLinePreviewProps> =
     >
       {lineArray.map(lineNum => {
         const block = blockByLine.get(lineNum);
+        const rawLine = lines?.[lineNum - 1] ?? '';
         const subtotal = subtotalesPorBloque[lineNum];
         const err = errorByLine.get(lineNum);
         const isActive = lineNum === activeLine;
         const item = subtotal ? itemById.get(subtotal.itemId) : undefined;
-        const chips = block ? buildChipsForBlock(block, item, contexto) : [];
+
+        if (block) {
+          currentEnclosingBlock = block;
+          currentEnclosingItem = item;
+        } else if (rawLine.trim() === '' || (!/^\s/.test(rawLine) && !rawLine.trim().startsWith('//'))) {
+          currentEnclosingBlock = undefined;
+          currentEnclosingItem = undefined;
+        }
+
+        const sublinePreview = !block && /^\s+\S/.test(rawLine)
+          ? buildChipsForSubline(rawLine, currentEnclosingBlock, currentEnclosingItem, contexto)
+          : { chips: [] };
+
+        const chips = block ? buildChipsForBlock(block, item, contexto) : sublinePreview.chips;
 
         return (
           <div
@@ -204,8 +312,8 @@ export const NotebookBlockLinePreview: React.FC<NotebookBlockLinePreviewProps> =
               )}
             </div>
 
-            {/* Output de celda: subtotal en margen derecho o badge Sin valorizar */}
-            {subtotal && !err && (
+            {/* Output de celda: subtotal en margen derecho, costo de sublínea o badge Sin valorizar */}
+            {subtotal && !err ? (
               <div className="shrink-0 flex items-center gap-1.5">
                 {subtotal.estadoValorizacion === 'sin_valorizar' ? (
                   <button
@@ -230,6 +338,13 @@ export const NotebookBlockLinePreview: React.FC<NotebookBlockLinePreviewProps> =
                   </span>
                 )}
               </div>
+            ) : (
+              sublinePreview.sublineCost !== undefined &&
+              !err && (
+                <span className="shrink-0 font-mono text-[11px] text-on-surface-variant tabular-nums">
+                  {formatARS(sublinePreview.sublineCost)}
+                </span>
+              )
             )}
           </div>
         );

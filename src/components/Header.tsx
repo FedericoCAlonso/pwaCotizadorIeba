@@ -35,6 +35,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { AuthModal } from './AuthModal';
 import { SyncDetailsModal } from './header/SyncDetailsModal';
 import { MobileNavDrawer } from './header/MobileNavDrawer';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface HeaderProps {
   activeTab: string;
@@ -77,6 +78,9 @@ export const Header: React.FC<HeaderProps> = ({
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showMobileDrawer, setShowMobileDrawer] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false);
+
+  useEscapeKey(showUserMenu, () => setShowUserMenu(false), { pushHistory: false });
+  useEscapeKey(showUtilsMenu, () => setShowUtilsMenu(false), { pushHistory: false });
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);

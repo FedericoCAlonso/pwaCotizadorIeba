@@ -185,7 +185,7 @@ describe('NotebookDesktopView', () => {
     expect(screen.getByTestId('notebook-ghost-text').textContent).toContain('leado-completo');
 
     fireEvent.keyDown(textarea, { key: 'Tab' });
-    expect(textarea.value).toBe('/tt recableado-completo  sup=60  bocas=12');
+    expect(textarea.value).toBe('/tt recableado-completo\n  sup = 60\n  bocas = 12');
 
     // Ctrl+K abre paleta de comandos y permite insertar un bloque con click
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
@@ -279,5 +279,55 @@ describe('NotebookDesktopView', () => {
 
     // Regla 7: nota interna NUNCA sale en el documento al cliente
     expect(dialog.textContent).not.toContain('Margen mínimo secreto');
+  });
+
+  it('navega sugerencias con ArrowDown sin resetear en keyUp, cierra con Esc/× y soporta Ctrl+Z / Ctrl+Y', () => {
+    const onBack = vi.fn();
+    render(
+      <NotebookDesktopView
+        config={DEFAULT_APP_CONFIG}
+        catalogOverride={catalogOverride}
+        onBack={onBack}
+      />
+    );
+
+    const textarea = screen.getByLabelText('Editor notebook de cotización') as HTMLTextAreaElement;
+
+    // En línea vacía el popup NO debe abrirse invasivamente
+    expect(screen.queryByRole('listbox', { name: 'Sugerencias de autocompletado' })).toBeNull();
+
+    // Escribir `/` abre el menú de comandos
+    fireEvent.change(textarea, { target: { value: '/', selectionStart: 1 } });
+    fireEvent.keyUp(textarea, { key: '/' });
+    expect(screen.getByRole('listbox', { name: 'Sugerencias de autocompletado' })).toBeTruthy();
+
+    // ArrowDown mueve la selección al segundo ítem y keyUp posterior NO debe resetearla a 0
+    fireEvent.keyDown(textarea, { key: 'ArrowDown' });
+    fireEvent.keyUp(textarea, { key: 'ArrowDown' });
+    const options = screen.getAllByRole('option');
+    expect(options[1]?.getAttribute('aria-selected')).toBe('true');
+
+    // Esc cierra el popup sin salir de la vista
+    fireEvent.keyDown(textarea, { key: 'Escape' });
+    fireEvent.keyUp(textarea, { key: 'Escape' });
+    expect(screen.queryByRole('listbox', { name: 'Sugerencias de autocompletado' })).toBeNull();
+    expect(onBack).not.toHaveBeenCalled();
+
+    // Ctrl+Space vuelve a abrir las sugerencias y el botón × permite cerrarlas
+    fireEvent.keyDown(textarea, { key: ' ', code: 'Space', ctrlKey: true });
+    expect(screen.getByRole('listbox', { name: 'Sugerencias de autocompletado' })).toBeTruthy();
+    fireEvent.mouseDown(screen.getByLabelText('Cerrar sugerencias'));
+    expect(screen.queryByRole('listbox', { name: 'Sugerencias de autocompletado' })).toBeNull();
+
+    // Ctrl+Z deshace y Ctrl+Y rehace
+    fireEvent.change(textarea, { target: { value: 'primero', selectionStart: 7 } });
+    fireEvent.change(textarea, { target: { value: 'segundo bloque', selectionStart: 14 } });
+    expect(textarea.value).toBe('segundo bloque');
+
+    fireEvent.keyDown(textarea, { key: 'z', ctrlKey: true });
+    expect(textarea.value).toBe('primero');
+
+    fireEvent.keyDown(textarea, { key: 'y', ctrlKey: true });
+    expect(textarea.value).toBe('segundo bloque');
   });
 });

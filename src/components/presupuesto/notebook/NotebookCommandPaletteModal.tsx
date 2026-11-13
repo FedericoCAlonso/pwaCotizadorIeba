@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Command, CornerDownLeft, Search } from 'lucide-react';
 import { CommandPaletteState } from '../../../viewmodels/useNotebookDocumentViewModel';
 import { NotebookCommandPaletteItem } from '../../../core/notebookDocument';
+import { useEscapeKey } from '../../../hooks/useEscapeKey';
 
 export interface NotebookCommandPaletteModalProps {
   palette: CommandPaletteState;
@@ -29,6 +30,8 @@ export const NotebookCommandPaletteModal: React.FC<NotebookCommandPaletteModalPr
   onClose
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEscapeKey(palette.isOpen, onClose);
 
   useEffect(() => {
     if (palette.isOpen) {

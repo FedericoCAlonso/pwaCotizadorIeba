@@ -24,6 +24,7 @@ import { ListaMaterialesModal } from './presupuesto/ListaMaterialesModal';
 import { usePresupuestoDetailViewModel } from '../viewmodels/usePresupuestoDetailViewModel';
 import { exportPresupuestoToXLSX } from '../core/exportUtils';
 import { exportPresupuestoToPDF, getPresupuestoPDFBlob } from '../core/pdfExportUtils';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface PresupuestoDetailProps {
   presupuestoId: string;
@@ -59,6 +60,7 @@ export const PresupuestoDetail: React.FC<PresupuestoDetailProps> = ({
   });
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  useEscapeKey(showMoreMenu, () => setShowMoreMenu(false), { pushHistory: false });
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [showListaMaterialesModal, setShowListaMaterialesModal] = useState(false);
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);

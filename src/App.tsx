@@ -272,7 +272,10 @@ export function App() {
                       setSelectedPresupuestoId(undefined);
                       setViewMode('list');
                     }}
-                    onSaved={handleSavedPresupuesto}
+                    onSaved={(id) => {
+                      setSelectedPresupuestoId(id);
+                      setActiveEditingPresupuestoId(id);
+                    }}
                   />
                 ) : (
                   <MobileEjecutarView
