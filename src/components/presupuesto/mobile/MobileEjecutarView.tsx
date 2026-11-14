@@ -7,6 +7,7 @@ import {
   ReceiptText,
   Save,
   Share2,
+  SlidersHorizontal,
   Trash2,
   Wrench
 } from 'lucide-react';
@@ -19,6 +20,7 @@ import {
 import { AppConfig, ItemPresupuesto, Presupuesto, TareaTipo } from '../../../core/types';
 import { useNotebookDocumentViewModel } from '../../../viewmodels/useNotebookDocumentViewModel';
 import { NotebookClientPreviewDrawer } from '../notebook/NotebookClientPreviewDrawer';
+import { MobileGastosIndirectosSheet } from './MobileGastosIndirectosSheet';
 import { MobileQuickFreeItemModal } from './MobileQuickFreeItemModal';
 import { MobileSchemaParameterField } from './MobileSchemaParameterField';
 import { MobileShareExportSheet } from './MobileShareExportSheet';
@@ -57,6 +59,21 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [freeItemOpen, setFreeItemOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [gastosOpen, setGastosOpen] = useState(false);
+
+  const activeGastosCount = useMemo(
+    () => vm.gastosEfectivos.filter(g => g.aplica).length,
+    [vm.gastosEfectivos]
+  );
+
+  const totalGastosAplicados = useMemo(
+    () =>
+      vm.totales.gastosDesglosados.reduce(
+        (acc, gd) => acc + (gd.aplica ? gd.montoCalculado : 0),
+        0
+      ),
+    [vm.totales.gastosDesglosados]
+  );
 
   const tareaById = useMemo(() => {
     const map = new Map<string, TareaTipo>();
@@ -192,23 +209,41 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
         </button>
       </header>
 
-      <div className="shrink-0 grid grid-cols-2 gap-2.5 border-b border-outline-variant/40 bg-surface px-3.5 py-2.5">
-        <button
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          className="flex min-h-[46px] min-w-0 items-center justify-center gap-2 rounded-2xl bg-primary px-3 py-2 text-sm font-semibold text-on-primary shadow-sm active:scale-[0.99]"
-        >
-          <Wrench className="h-4 w-4 shrink-0" />
-          <span className="truncate">+ {TERMINOLOGY.trabajoTipoSingular}</span>
-        </button>
+      <div className="shrink-0 space-y-2 border-b border-outline-variant/40 bg-surface px-3.5 py-2.5">
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="flex min-h-[46px] min-w-0 items-center justify-center gap-2 rounded-2xl bg-primary px-3 py-2 text-sm font-semibold text-on-primary shadow-sm active:scale-[0.99]"
+          >
+            <Wrench className="h-4 w-4 shrink-0" />
+            <span className="truncate">+ {TERMINOLOGY.trabajoTipoSingular}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFreeItemOpen(true)}
+            className="flex min-h-[46px] min-w-0 items-center justify-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-low px-3 py-2 text-sm font-semibold text-on-surface active:scale-[0.99]"
+          >
+            <Plus className="h-4 w-4 shrink-0 text-primary" />
+            <span className="truncate">{TERMINOLOGY.elementoLibre}</span>
+          </button>
+        </div>
 
         <button
           type="button"
-          onClick={() => setFreeItemOpen(true)}
-          className="flex min-h-[46px] min-w-0 items-center justify-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-low px-3 py-2 text-sm font-semibold text-on-surface active:scale-[0.99]"
+          onClick={() => setGastosOpen(true)}
+          aria-label="Configurar gastos indirectos y márgenes"
+          className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl border border-outline-variant/60 bg-surface-container-low px-3 py-1.5 text-xs text-on-surface hover:bg-surface-container"
         >
-          <Plus className="h-4 w-4 shrink-0 text-primary" />
-          <span className="truncate">{TERMINOLOGY.elementoLibre}</span>
+          <span className="flex min-w-0 items-center gap-2 truncate">
+            <SlidersHorizontal className="h-4 w-4 shrink-0 text-primary" />
+            <span className="truncate font-medium">
+              Indirectos ({activeGastosCount}): {formatARS(totalGastosAplicados)} · Margen{' '}
+              {vm.totales.beneficioPorcentaje}%
+            </span>
+          </span>
+          <span className="shrink-0 font-semibold text-primary">Ajustar</span>
         </button>
       </div>
 
@@ -286,6 +321,20 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
         isOpen={freeItemOpen}
         onClose={() => setFreeItemOpen(false)}
         onAdd={vm.agregarItemLibreRapido}
+      />
+
+      <MobileGastosIndirectosSheet
+        isOpen={gastosOpen}
+        onClose={() => setGastosOpen(false)}
+        gastos={vm.gastosEfectivos}
+        totales={vm.totales}
+        presupuesto={vm.presupuesto}
+        onToggleGasto={vm.toggleGastoIndirecto}
+        onUpdateValorGasto={vm.actualizarValorGastoIndirecto}
+        onUpdateParametroGasto={vm.actualizarParametroGastoIndirecto}
+        onAddGastoPuntual={vm.agregarGastoIndirectoPuntual}
+        onDeleteGastoPuntual={vm.eliminarGastoIndirectoPuntual}
+        onUpdateMetadata={vm.actualizarMetadataPresupuesto}
       />
 
       <MobileShareExportSheet

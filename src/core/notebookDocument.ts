@@ -4,6 +4,7 @@ import {
   CapituloPresupuesto,
   CategoriaManoDeObra,
   CostoIndirecto,
+  DestinoGasto,
   EstadoValorizacion,
   GastoPresupuestoConfig,
   ImpuestoItem,
@@ -12,6 +13,7 @@ import {
   ItemPresupuesto,
   ManoObraSnapshot,
   Material,
+  ModalidadGasto,
   NotaInterna,
   Oferta,
   ParametroItem,
@@ -2891,5 +2893,154 @@ export function eliminarBloqueEnLinea(texto: string, startLinea1Based: number): 
   }
   lines.splice(startIdx, endIdx - startIdx);
   return lines.join('\n').replace(/^\n+|\n+$/g, '');
+}
+
+function catalogItemToGastoConfig(c: CostoIndirecto, aplica: boolean): GastoPresupuestoConfig {
+  const modalidad: ModalidadGasto =
+    c.modalidad || (c.tipo === 'porcentual_sobre_costo' ? 'porcentual' : 'monto_fijo');
+  return {
+    id: c.id,
+    costoIndirectoId: c.id,
+    nombre: c.nombre,
+    destino: c.destino || 'costo_indirecto',
+    modalidad,
+    valor: Math.max(0, safeNum(c.valor)),
+    ...(c.formula !== undefined ? { formula: c.formula } : {}),
+    ...(c.parametros ? { parametros: c.parametros } : {}),
+    ...(c.valoresParametrosDefault ? { valoresParametros: { ...c.valoresParametrosDefault } } : {}),
+    ...(c.tipo ? { tipo: c.tipo } : {}),
+    incluirPorDefecto: c.incluirPorDefecto,
+    aplica
+  };
+}
+
+/**
+ * Materializa la lista efectiva de gastos indirectos/directos configurables por cotización,
+ * combinando los overrides del presupuesto con el catálogo maestro sin mutar el catálogo.
+ */
+export function resolverGastosEfectivosPresupuesto(
+  presupuesto: Partial<Presupuesto>,
+  catalog: CostoIndirecto[]
+): GastoPresupuestoConfig[] {
+  const existing =
+    presupuesto.gastosConfig && presupuesto.gastosConfig.length > 0
+      ? presupuesto.gastosConfig
+      : presupuesto.costosIndirectosConfig && presupuesto.costosIndirectosConfig.length > 0
+        ? presupuesto.costosIndirectosConfig
+        : [];
+
+  const activeCatalog = catalog.filter(c => !c.deleted);
+  if (existing.length === 0) {
+    return activeCatalog.map(c => catalogItemToGastoConfig(c, c.incluirPorDefecto !== false));
+  }
+
+  const catalogById = new Map(activeCatalog.map(c => [c.id, c]));
+  const seenIds = new Set<string>();
+  const merged: GastoPresupuestoConfig[] = existing.map(g => {
+    const cat = catalogById.get(g.costoIndirectoId || g.id);
+    if (cat) seenIds.add(cat.id);
+    seenIds.add(g.id);
+    return {
+      ...g,
+      parametros: g.parametros ?? cat?.parametros,
+      formula: g.formula ?? cat?.formula,
+      destino: g.destino ?? cat?.destino ?? 'costo_indirecto',
+      modalidad:
+        g.modalidad ??
+        cat?.modalidad ??
+        (g.tipo === 'porcentual_sobre_costo' || cat?.tipo === 'porcentual_sobre_costo'
+          ? 'porcentual'
+          : 'monto_fijo'),
+      valor: Math.max(0, safeNum(g.valor))
+    };
+  });
+
+  for (const cat of activeCatalog) {
+    if (!seenIds.has(cat.id)) {
+      merged.push(catalogItemToGastoConfig(cat, false));
+    }
+  }
+
+  return merged;
+}
+
+export function alternarGastoEnPresupuesto(
+  presupuesto: Partial<Presupuesto>,
+  catalog: CostoIndirecto[],
+  gastoId: string
+): GastoPresupuestoConfig[] {
+  return resolverGastosEfectivosPresupuesto(presupuesto, catalog).map(g =>
+    g.id === gastoId ? { ...g, aplica: !g.aplica } : g
+  );
+}
+
+export function actualizarValorGastoEnPresupuesto(
+  presupuesto: Partial<Presupuesto>,
+  catalog: CostoIndirecto[],
+  gastoId: string,
+  valor: number
+): GastoPresupuestoConfig[] {
+  const nextVal = Math.max(0, safeNum(valor));
+  return resolverGastosEfectivosPresupuesto(presupuesto, catalog).map(g =>
+    g.id === gastoId ? { ...g, valor: nextVal, aplica: true } : g
+  );
+}
+
+export function actualizarParametroGastoEnPresupuesto(
+  presupuesto: Partial<Presupuesto>,
+  catalog: CostoIndirecto[],
+  gastoId: string,
+  paramId: string,
+  valor: number
+): GastoPresupuestoConfig[] {
+  const nextVal = safeNum(valor);
+  return resolverGastosEfectivosPresupuesto(presupuesto, catalog).map(g =>
+    g.id === gastoId
+      ? {
+          ...g,
+          aplica: true,
+          valoresParametros: { ...(g.valoresParametros ?? {}), [paramId]: nextVal }
+        }
+      : g
+  );
+}
+
+export function agregarGastoPuntualEnPresupuesto(
+  presupuesto: Partial<Presupuesto>,
+  catalog: CostoIndirecto[],
+  nombre: string,
+  modalidad: Extract<ModalidadGasto, 'monto_fijo' | 'porcentual'>,
+  valor: number,
+  destino: DestinoGasto = 'costo_indirecto'
+): GastoPresupuestoConfig[] {
+  const cleanName = nombre.trim().replace(/\s+/g, ' ');
+  const base = resolverGastosEfectivosPresupuesto(presupuesto, catalog);
+  if (!cleanName) return base;
+
+  const nuevo: GastoPresupuestoConfig = {
+    id: `gasto-obra-${Date.now()}-${slugifyIdentificador(cleanName) || base.length + 1}`,
+    nombre: cleanName,
+    destino,
+    modalidad,
+    valor: Math.max(0, safeNum(valor)),
+    aplica: true
+  };
+  return [...base, nuevo];
+}
+
+export function eliminarGastoPuntualEnPresupuesto(
+  presupuesto: Partial<Presupuesto>,
+  catalog: CostoIndirecto[],
+  gastoId: string
+): GastoPresupuestoConfig[] {
+  const catalogIds = new Set(catalog.filter(c => !c.deleted).map(c => c.id));
+  const current = resolverGastosEfectivosPresupuesto(presupuesto, catalog);
+  return current.flatMap(g => {
+    if (g.id !== gastoId) return [g];
+    if (g.costoIndirectoId || catalogIds.has(g.id)) {
+      return [{ ...g, aplica: false }];
+    }
+    return [];
+  });
 }
 

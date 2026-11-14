@@ -7,9 +7,12 @@ import {
   CategoriaManoDeObra,
   Contacto,
   CostoIndirecto,
+  DestinoGasto,
+  GastoPresupuestoConfig,
   Insumo,
   ItemPresupuesto,
   Material,
+  ModalidadGasto,
   Oferta,
   Presupuesto,
   Producto,
@@ -19,6 +22,10 @@ import { ResultadoAlcanceYAdvertencias } from '../core/notebookDomain';
 import { safeNum, TotalesPresupuestoResultado } from '../core/calculations';
 import {
   actualizarParametroEnBloque,
+  actualizarParametroGastoEnPresupuesto,
+  actualizarValorGastoEnPresupuesto,
+  agregarGastoPuntualEnPresupuesto,
+  alternarGastoEnPresupuesto,
   applyNotebookBlocksToPresupuesto,
   buildNotebookCommandPalette,
   buildParseContext,
@@ -26,6 +33,7 @@ import {
   construirLineaTareaTipoDesdeEsquema,
   construirTareaTipoDesdeItemLibre,
   eliminarBloqueEnLinea,
+  eliminarGastoPuntualEnPresupuesto,
   evaluateNotebookText,
   filterNotebookCommandPalette,
   findNextParameterSlotInDocument,
@@ -38,6 +46,7 @@ import {
   NotebookErrorDocumento,
   ordenarTareasTipoParaMovil,
   presupuestoToNotebookBlocks,
+  resolverGastosEfectivosPresupuesto,
   SubtotalBloqueInfo,
   SugerenciaConversionTareaTipo,
   TabJumpResult
@@ -1302,6 +1311,68 @@ export function useNotebookDocumentViewModel({
     [subtotalesPorBloque, commitEdit]
   );
 
+  // ─── Gastos Indirectos y Configurables por Cotización ─────────────────────
+  const catalogGastos = contexto.costosIndirectosCatalog ?? [];
+
+  const gastosEfectivos = useMemo<GastoPresupuestoConfig[]>(
+    () => resolverGastosEfectivosPresupuesto(presupuesto, catalogGastos),
+    [presupuesto, catalogGastos]
+  );
+
+  const commitGastosList = useCallback(
+    (nextList: GastoPresupuestoConfig[]) => {
+      actualizarMetadataPresupuesto({
+        gastosConfig: nextList,
+        costosIndirectosConfig: nextList
+      });
+    },
+    [actualizarMetadataPresupuesto]
+  );
+
+  const toggleGastoIndirecto = useCallback(
+    (gastoId: string) => {
+      commitGastosList(alternarGastoEnPresupuesto(presupuesto, catalogGastos, gastoId));
+    },
+    [presupuesto, catalogGastos, commitGastosList]
+  );
+
+  const actualizarValorGastoIndirecto = useCallback(
+    (gastoId: string, valor: number) => {
+      commitGastosList(actualizarValorGastoEnPresupuesto(presupuesto, catalogGastos, gastoId, valor));
+    },
+    [presupuesto, catalogGastos, commitGastosList]
+  );
+
+  const actualizarParametroGastoIndirecto = useCallback(
+    (gastoId: string, paramId: string, valor: number) => {
+      commitGastosList(
+        actualizarParametroGastoEnPresupuesto(presupuesto, catalogGastos, gastoId, paramId, valor)
+      );
+    },
+    [presupuesto, catalogGastos, commitGastosList]
+  );
+
+  const agregarGastoIndirectoPuntual = useCallback(
+    (
+      nombre: string,
+      modalidad: Extract<ModalidadGasto, 'monto_fijo' | 'porcentual'>,
+      valor: number,
+      destino: DestinoGasto = 'costo_indirecto'
+    ) => {
+      commitGastosList(
+        agregarGastoPuntualEnPresupuesto(presupuesto, catalogGastos, nombre, modalidad, valor, destino)
+      );
+    },
+    [presupuesto, catalogGastos, commitGastosList]
+  );
+
+  const eliminarGastoIndirectoPuntual = useCallback(
+    (gastoId: string) => {
+      commitGastosList(eliminarGastoPuntualEnPresupuesto(presupuesto, catalogGastos, gastoId));
+    },
+    [presupuesto, catalogGastos, commitGastosList]
+  );
+
   return {
     // Modelo & Proyección
     presupuesto,
@@ -1386,6 +1457,14 @@ export function useNotebookDocumentViewModel({
     actualizarParametroDeItem,
     agregarItemLibreRapido,
     eliminarItemPorId,
+
+    // Gastos Indirectos por Cotización
+    gastosEfectivos,
+    toggleGastoIndirecto,
+    actualizarValorGastoIndirecto,
+    actualizarParametroGastoIndirecto,
+    agregarGastoIndirectoPuntual,
+    eliminarGastoIndirectoPuntual,
 
     // Errores y Lints
     errores,

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { ToastProvider } from '../../../contexts/ToastContext';
 import { DEFAULT_APP_CONFIG } from '../../../core/sampleData';
-import { CategoriaManoDeObra, TareaTipo } from '../../../core/types';
+import { CategoriaManoDeObra, CostoIndirecto, TareaTipo } from '../../../core/types';
 import { MobileEjecutarView } from './MobileEjecutarView';
 
 const {
@@ -220,5 +220,103 @@ describe('MobileEjecutarView - Vista móvil orientada a esquemas', () => {
     await waitFor(() => {
       expect(mockExportXLSX).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('permite activar, editar y agregar gastos indirectos puntuales y márgenes por cotización desde móvil', async () => {
+    const gastosCatalog: CostoIndirecto[] = [
+      {
+        id: 'ci-viaticos',
+        nombre: 'Viáticos y movilidad',
+        destino: 'costo_indirecto',
+        modalidad: 'monto_fijo',
+        valor: 10000,
+        incluirPorDefecto: true
+      },
+      {
+        id: 'ci-seguro',
+        nombre: 'Seguro ART obra',
+        destino: 'costo_indirecto',
+        modalidad: 'porcentual',
+        valor: 5,
+        incluirPorDefecto: false
+      }
+    ];
+
+    render(
+      <ToastProvider>
+        <MobileEjecutarView
+          config={DEFAULT_APP_CONFIG}
+          catalogOverride={{
+            tareasTipo: [tareaBocas],
+            manoObra,
+            costosIndirectosCatalog: gastosCatalog
+          }}
+          onBack={() => {}}
+        />
+      </ToastProvider>
+    );
+
+    // Agregar 1 tarea base
+    fireEvent.click(screen.getByRole('button', { name: /\+ trabajo tipo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /agregar rápido/i }));
+
+    const totalConViaticosDefault = screen.getByTestId('mobile-live-total').textContent || '';
+
+    // Abrir sheet de gastos indirectos y márgenes
+    fireEvent.click(screen.getByRole('button', { name: /configurar gastos indirectos y márgenes/i }));
+    const sheet = screen.getByRole('dialog', { name: /configurar gastos indirectos y márgenes/i });
+
+    // Editar monto de Viáticos solo para esta cotización (10.000 -> 25.000)
+    fireEvent.change(within(sheet).getByLabelText('Valor de Viáticos y movilidad'), {
+      target: { value: '25000' }
+    });
+
+    // Activar Seguro ART obra (estaba inactivo por defecto)
+    fireEvent.click(within(sheet).getByRole('switch', { name: 'Aplicar Seguro ART obra' }));
+    expect(
+      within(sheet).getByRole('switch', { name: 'Aplicar Seguro ART obra' }).getAttribute('aria-checked')
+    ).toBe('true');
+
+    // Agregar gasto puntual específico de esta obra
+    fireEvent.click(within(sheet).getByRole('button', { name: /gasto puntual/i }));
+    fireEvent.change(within(sheet).getByLabelText('Descripción del gasto puntual'), {
+      target: { value: 'Alquiler de andamio' }
+    });
+    fireEvent.change(within(sheet).getByLabelText('Valor del gasto puntual'), {
+      target: { value: '40000' }
+    });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Agregar' }));
+
+    expect(within(sheet).getByText('Alquiler de andamio')).toBeTruthy();
+
+    // Ajustar Beneficio %
+    fireEvent.change(within(sheet).getByLabelText('Beneficio porcentual'), {
+      target: { value: '30' }
+    });
+
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Listo' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    const totalActualizado = screen.getByTestId('mobile-live-total').textContent || '';
+    expect(totalActualizado).not.toBe(totalConViaticosDefault);
+
+    // Guardar y confirmar persistencia en Dexie de gastosConfig y beneficioPorcentaje
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cotización' }));
+    await waitFor(() => {
+      expect(mockPutPresupuesto).toHaveBeenCalledTimes(1);
+    });
+    const savedPresupuesto = mockPutPresupuesto.mock.calls[0][0];
+    expect(savedPresupuesto.beneficioPorcentaje).toBe(30);
+    expect(savedPresupuesto.gastosConfig).toHaveLength(3);
+    expect(savedPresupuesto.gastosConfig).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'ci-viaticos', valor: 25000, aplica: true }),
+        expect.objectContaining({ id: 'ci-seguro', valor: 5, aplica: true }),
+        expect.objectContaining({ nombre: 'Alquiler de andamio', valor: 40000, aplica: true })
+      ])
+    );
   });
 });
