@@ -18,6 +18,7 @@ const KIND_LABELS: Record<NotebookAutocompleteSuggestion['kind'], string> = {
   comando: 'Cmd',
   tarea_tipo: 'Trabajo',
   parametro: 'Parám',
+  opcion_parametro: 'Opción',
   ajuste_quitar: 'Quitar',
   ajuste_agregar: 'Agregar',
   material: 'Material',
@@ -25,7 +26,8 @@ const KIND_LABELS: Record<NotebookAutocompleteSuggestion['kind'], string> = {
   mano_obra: 'M.O.',
   supuesto_clave: 'Supuesto',
   supuesto_estado: 'Estado',
-  variable: 'Var'
+  variable: 'Var',
+  funcion: 'ƒ(x)'
 };
 
 /**

@@ -26,8 +26,8 @@
       },
       {
         "id": "presupuestos",
-        "title": "Planilla de Árbol & Emisión",
-        "description": "Estructura la obra en rubros e ítems, ajusta rendimientos con el panel lateral y exporta en PDF o Excel.",
+        "title": "Editor Notebook & Emisión",
+        "description": "Cotiza con variables, unidades, fórmulas y trabajos tipo (/tt) en escritorio o modo móvil, y emite en PDF o Excel.",
         "targetTab": "presupuestos",
         "actionText": "Crear Cotización"
       }
@@ -169,64 +169,57 @@
       },
       {
         "id": "cotizacion",
-        "title": "Planilla de Árbol & Cotizaciones",
+        "title": "Editor Notebook & Cotizaciones",
         "iconName": "FileText",
-        "summary": "Estructura jerárquica de obra, edición ágil de rubros, cálculo paramétrico y emisión de presupuestos.",
+        "summary": "Cotización paramétrica tipo cuaderno de cálculo con variables, unidades, trabajos tipo (/tt), vista previa en vivo y emisión.",
         "sections": [
           {
-            "heading": "Planilla de Árbol Jerárquica (TreeSheet)",
-            "content": "La grilla principal organiza el presupuesto de forma visual y ordenada por Rubros e Ítems de obra:",
+            "heading": "Cuaderno de Cotización (Notebook en Escritorio)",
+            "content": "El editor principal funciona como un cuaderno de ingeniería vivo: escribes medidas, variables y bloques de obra y ves los resultados evaluados y subtotales en el margen derecho al instante:",
             "bullets": [
-              "Organización por Rubros (Nivel 1): El botón superior '+ Rubro' permite crear secciones para estructurar etapas de obra (ej. Acometida, Canalizaciones, Circuitos) con subtotales automáticos por rubro.",
-              "Inserción de Ítems (Nivel 2): Dentro de cada rubro puedes crear ítems libres ('+ Ítem') con el diálogo modal de alta rápida (nombre, unidad de medida y cantidad inicial) o incorporar tareas completas del catálogo oficial ('+ Catálogo') asignadas directamente al rubro.",
-              "Invariante Estricta de Rubro: Todo ítem pertenece obligatoriamente a un rubro; si comienzas una cotización vacía o insertas desde el catálogo, el sistema garantiza automáticamente la creación y asignación del rubro correspondiente, sin partidas huérfanas.",
-              "Modal de Alta Rápida de Ítem: Al presionar '+ Ítem' en cualquier rubro (o en la barra inferior móvil o Ctrl+K), se abre un diálogo enfocado donde ingresas de inmediato el nombre del ítem, su unidad de medida sugerida en chips rápidos (u, m, ml, m², boca, gl, hs, kg, etc.) y la cantidad inicial, validando que no queden ítems sin nombre.",
-              "Edición Integral de Ítems con 1 Clic: Cada renglón cuenta con botón visible de lápiz (o doble clic / F2) para editar la descripción con botones directos de guardado [✓] y cancelación [✕], selector de unidades y chips interactivos de componentes.",
-              "Asignación Directa de Materiales, Mano de Obra y Servicios: Si un ítem no tiene componentes, el botón '+ Despiece' abre directamente la pestaña de materiales; si ya tiene componentes, los chips de Materiales (📦), Mano de Obra (⚡) y Servicios (🚚) abren en un clic la sección exacta para agregar o ajustar recursos.",
-              "Botonera Ergonómica Agrupada: En el extremo derecho de cada renglón dispones de accesos agrupados para alternar Despiece APU, Configurar Parámetros/Variables, Duplicar ítem (copia idéntica con todos sus componentes), Mover arriba/abajo, Guardar en Catálogo y Eliminar.",
-              "Experiencia Móvil ('Un Ojo, Una Mano'): Tarjetas táctiles con chips de componentes, stepper rápido de cantidad y Action Sheet completo con renombrado instantáneo, cambio de unidad, duplicación y accesos directos por pestaña."
+              "Capítulos y Notas: Usa `# Nombre` para organizar rubros/etapas, `supuesto: texto` para aclaraciones que salen en el presupuesto al cliente, y `nota interna: texto` para apuntes privados que nunca se imprimen.",
+              "Trabajos Tipo (`/tt`): Escribe `/tt` para insertar módulos del catálogo con sus parámetros indentados (`sup = 60`, `bocas = 24`) y navega entre valores con `Tab` / `Shift+Tab`.",
+              "Tareas con Despiece Propio (`tarea:`): Arma una tarea a medida con materiales (`mat:`), marcas (`marca =`), mano de obra (`mo:`) y servicios (`serv:`). Puedes declarar parámetros locales dentro del bloque que se encadenan hacia abajo.",
+              "Ítems Libres (`item:`): Carga rápidamente conceptos puntuales con `cantidad =` y `precio =` (admite fórmulas y variables).",
+              "Barra Interactiva y Guía Rápida (`?`): La barra superior de variables te permite crear variables con `+ Variable`, hacer clic en cualquier chip para insertarla en el cursor, insertar funciones desde `ƒ(x)` o consultar la guía de sintaxis y ejemplos con el botón `?`."
             ]
           },
           {
-            "heading": "Modo Foco y Canvas de Alta Densidad",
-            "content": "Maximiza el área de trabajo en pantalla para presupuestar sin distracciones:",
+            "heading": "Variables, Fórmulas y Álgebra Pragmática de Unidades",
+            "content": "Declara las medidas generales de la obra una sola vez arriba del documento y reutilízalas en cualquier parámetro, cantidad, hora o costo sin paréntesis obligatorios:",
             "bullets": [
-              "Modo Foco (Alt + F): Oculta completamente el encabezado global para dedicar más del 92% del alto de la pantalla a la planilla de cotización.",
-              "Ocultamiento Automático de Barras: Al ingresar al editor se pliegan las pestañas de navegación superiores y la barra inferior móvil para una experiencia limpia y despejada.",
-              "LiveTotalsBar Compacta: Cascada comercial ultra-compacta en una sola fila con acceso rápido a parámetros económicos."
+              "Variables Globales: Escribe `largo = 12 m`, `ancho = 5 m`, `bocas = ceil(sup * 0.3)` en cualquier línea raíz. Las dependencias se resuelven automáticamente sin importar el orden.",
+              "Unidades Opcionales e Inferencia: Si incluyes unidades compatibles (`mm`, `cm`, `m`, `km`, `m²`, `min`, `h`, `litro`, `m³`), el motor infiere geometría básica (`largo * ancho` → `m²`), suma con conversión (`10 m + 80 cm` → `10,8 m`; `2 h + 45 min` → `2,75 h`) y convierte automáticamente al recurso destino (`150 cm` → `1,5 m` con nota `← 150 cm`).",
+              "Advertencias Suaves (No Bloqueantes): Si mezclas familias incompatibles en una suma (`10 m + 3 hs`), se muestra un aviso ámbar informativo sin trabar el cálculo ni impedir fórmulas empíricas.",
+              "Funciones y Condicionales: Dispones de `ceil(x)`, `floor(x)`, `round(x)`, `min(a, b)`, `max(a, b)`, `abs(x)`, `sqrt(x)` y condicionales `si(condición, valorSi, valorNo)` con operadores `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, `not`.",
+              "Validación Estricta con Sugerencias: Si escribes una variable inexistente o con error tipográfico (ej. `boca` en lugar de `bocas`), el editor subraya la referencia exacta y sugiere el identificador más cercano."
             ]
           },
           {
-            "heading": "Panel Lateral y Drawer Móvil de Edición",
-            "content": "Al hacer clic sobre cualquier ítem se despliega el panel de edición (columna derecha en escritorio, Bottom Sheet en pantallas móviles):",
+            "heading": "Autocompletado Contextual, Paleta (Ctrl+K) y Dos Pasadas",
+            "content": "Acelera la carga sin memorizar nombres exactos de materiales ni comandos:",
             "bullets": [
-              "Parámetros de Tarea In-Situ: Modifica variables dinámicas (bocas, metros, dificultad) recalculando los rendimientos en tiempo real incluso una vez insertado el ítem.",
-              "Búsqueda Predictiva de Materiales: Incorpora insumos buscando por nombre o código en vivo sin diálogos bloqueantes.",
-              "Mano de Obra y Servicios: Añade categorías UOCRA u horas adicionales y servicios de terceros de manera directa.",
-              "Notas Técnicas: Agrega descripciones y observaciones específicas por ítem."
+              "Autocompletado Inteligente: Al escribir después de `=` o dentro de una expresión (`ceil(su`, `bocas * `), sugiere variables globales con su valor actual, variables locales del bloque, funciones matemáticas y opciones válidas para parámetros de tipo lista o sí/no.",
+              "Búsqueda Natural de Insumos: Dentro de una `tarea:`, escribe palabras clave y cantidad (ej. `celeste 2.5 25m`) para insertar directamente el material y su cantidad.",
+              "Paleta Universal (`Ctrl + K` o `/`): Abre comandos rápidos para declarar variables, insertar trabajos tipo, tareas, ítems o saltar al siguiente ítem sin valorizar (`F8`).",
+              "Flujo en Dos Pasadas: Trabaja primero en **Pasada 1 (Esqueleto)** para relevar cantidades sin distracciones comerciales y cambia a **Pasada 2 (Valorización)** para asignar marcas, precios y revisar márgenes."
             ]
           },
           {
-            "heading": "Paleta de Comandos Rápida (Ctrl + K)",
-            "content": "Presiona el botón de comando en la barra superior o el atajo Ctrl+K para abrir el buscador universal de Tareas Tipo del catálogo e insertar ítems precalculados en segundos."
-          },
-          {
-            "heading": "Composición de Precios y Totales en Vivo",
-            "content": "La barra inferior en vivo (LiveTotalsBar) refleja al instante la estructura comercial calculada en cascada:",
+            "heading": "Experiencia Móvil (Modo Ejecutar)",
+            "content": "En pantallas táctiles y relevamientos de obra, la aplicación adapta automáticamente el editor a tarjetas y formularios rápidos:",
             "bullets": [
-              "Costo Directo Base: Insumos + Mano de Obra + Servicios Subcontratados.",
-              "Coeficientes Globales: Modificador por condición de obra (Normal, Dificultosa, Favorable), margen de ganancia y gastos generales.",
-              "Logística e Indirectos: Integración directa de traslados, viáticos y combustible.",
-              "Precio Final: Desglose neto e IVA para emisión comercial transparente."
+              "Inserción Guiada por Esquemas: Agrega Trabajos Tipo buscando los más recientes y completando sus parámetros con controles táctiles grandes.",
+              "Alta Rápida de Ítems Libres y Vista Previa: Suma partidas puntuales y consulta el desglose comercial del cliente en un toque sin perder compatibilidad con el documento Notebook de escritorio."
             ]
           },
           {
-            "heading": "Emisión de Documentos y PDF / Excel",
-            "content": "Genera el comprobante profesional listo para compartir con el cliente:",
+            "heading": "Composición de Precios, Totales en Vivo y Emisión PDF / Excel",
+            "content": "La barra comercial inferior refleja al instante la estructura económica calculada en cascada y permite emitir el presupuesto final:",
             "bullets": [
-              "Congelamiento de Precios: Al emitir, se crea un snapshot inmutable de costos para proteger la rentabilidad de la obra.",
-              "Personalización: Incluye datos de la empresa, validez de la oferta, plazos de ejecución y condiciones de pago.",
-              "Exportación PDF y Excel: Generación limpia en PDF para imprimir o compartir, y exportación tabular detallada en formato .xlsx."
+              "Estructura de Costos: Costo Directo (Materiales + Mano de Obra + Servicios) + Logística/Indirectos + Coeficiente de obra, Gastos Generales, Margen e IVA.",
+              "Congelamiento de Precios: Al emitir, se guarda un snapshot inmutable de costos y precios para resguardar la rentabilidad frente a futuras variaciones del catálogo.",
+              "Exportación Profesional: Genera el comprobante limpio en PDF (ocultando automáticamente las `nota interna:`) o exporta la planilla detallada en Excel (`.xlsx`)."
             ]
           }
         ]

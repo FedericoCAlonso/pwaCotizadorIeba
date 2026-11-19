@@ -330,4 +330,112 @@ describe('NotebookDesktopView', () => {
     fireEvent.keyDown(textarea, { key: 'y', ctrlKey: true });
     expect(textarea.value).toBe('segundo bloque');
   });
+
+  it('muestra valores evaluados en margen derecho, cinta interactiva de variables, funciones y resaltado de sintaxis', () => {
+    render(
+      <NotebookDesktopView
+        config={DEFAULT_APP_CONFIG}
+        catalogOverride={catalogOverride}
+        onBack={vi.fn()}
+      />
+    );
+
+    const textarea = screen.getByLabelText('Editor notebook de cotización') as HTMLTextAreaElement;
+
+    // 1. Declarar variable desde el botón + Variable de la cinta
+    fireEvent.click(screen.getByRole('button', { name: 'Variable' }));
+    const dialog = screen.getByRole('dialog', { name: 'Nueva variable' });
+    fireEvent.change(screen.getByLabelText(/Nombre \(identificador\)/i), { target: { value: 'sup' } });
+    fireEvent.change(screen.getByLabelText(/Valor o fórmula/i), { target: { value: '80' } });
+    fireEvent.click(screen.getByRole('button', { name: 'm²' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
+    expect(dialog).toBeTruthy();
+
+    expect(textarea.value).toContain('sup = 80 m²');
+    expect(screen.getByTestId('margin-line-1').textContent).toContain('= 80 m²');
+    expect(screen.getByTestId('notebook-syntax-overlay')).toBeTruthy();
+
+    // 2. Escribir variable derivada y sub-línea con fórmula -> el margen muestra resultados reales
+    fireEvent.change(textarea, {
+      target: {
+        value: [
+          'sup = 80 m²',
+          'bocas = ceil(sup * 0.3)',
+          '/tt recableado-completo',
+          '  sup = sup',
+          '  bocas = bocas'
+        ].join('\n'),
+        selectionStart: 1
+      }
+    });
+
+    expect(screen.getByTestId('margin-line-1').textContent).toContain('= 80 m²');
+    expect(screen.getByTestId('margin-line-2').textContent).toContain('= 24');
+    expect(screen.getByTestId('margin-line-4').textContent).toContain('= 80');
+    expect(screen.getByTestId('margin-line-5').textContent).toContain('= 24');
+
+    // 3. Insertar función desde menú ƒ(x) en el cursor
+    fireEvent.click(screen.getByLabelText('Insertar función matemática'));
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: /ceil\(x\)/i }));
+    expect(textarea.value).toContain('ceil()');
+
+    // 4. Álgebra pragmática de unidades visible en el margen derecho (m², cm->m con nota)
+    fireEvent.change(textarea, {
+      target: {
+        value: [
+          'largo = 12 m',
+          'ancho = 5 m',
+          'sup = largo * ancho',
+          'bajada = 150 cm',
+          'tarea: Bajada tablero',
+          '  mat: Cable 2.5mm Celeste',
+          '    cantidad = bajada'
+        ].join('\n'),
+        selectionStart: 1
+      }
+    });
+
+    expect(screen.getByTestId('margin-line-3').textContent).toContain('= 60 m²');
+    expect(screen.getByTestId('margin-line-7').textContent).toContain('1,5 m');
+    expect(screen.getByTestId('margin-line-7').textContent).toContain('← 150 cm');
+  });
+
+  it('abre la guía rápida (?) con pestañas Sintaxis y Fórmulas / Atajos y permite insertar un ejemplo en el editor', () => {
+    render(
+      <NotebookDesktopView
+        config={DEFAULT_APP_CONFIG}
+        catalogOverride={catalogOverride}
+        onBack={vi.fn()}
+      />
+    );
+
+    const textarea = screen.getByLabelText('Editor notebook de cotización') as HTMLTextAreaElement;
+
+    // Abrir modal ?
+    fireEvent.click(screen.getByLabelText(/Atajos de teclado/i));
+    const dialog = screen.getByRole('dialog', { name: 'Atajos de teclado del notebook' });
+    expect(dialog).toBeTruthy();
+
+    // Pestaña inicial: Sintaxis y Fórmulas
+    const tabSintaxis = screen.getByRole('tab', { name: /Sintaxis y Fórmulas/i });
+    const tabAtajos = screen.getByRole('tab', { name: /Atajos/i });
+    expect(tabSintaxis.getAttribute('aria-selected')).toBe('true');
+    expect(dialog.textContent).toContain('Variables globales y unidades');
+    expect(dialog.textContent).toContain('Operadores y funciones matemáticas');
+
+    // Cambiar a pestaña Atajos y verificar contenido
+    fireEvent.click(tabAtajos);
+    expect(tabAtajos.getAttribute('aria-selected')).toBe('true');
+    expect(dialog.textContent).toContain('Abrir paleta de comandos');
+
+    // Volver a Sintaxis e insertar el primer ejemplo
+    fireEvent.click(tabSintaxis);
+    const insertButtons = screen.getAllByRole('button', { name: /Insertar ejemplo/i });
+    expect(insertButtons.length).toBeGreaterThan(0);
+    fireEvent.click(insertButtons[0]);
+
+    // El modal se cierra y el ejemplo queda insertado en el textarea
+    expect(screen.queryByRole('dialog', { name: 'Atajos de teclado del notebook' })).toBeNull();
+    expect(textarea.value).toContain('largo = 12 m');
+  });
 });

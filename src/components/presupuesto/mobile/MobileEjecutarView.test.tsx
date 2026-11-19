@@ -319,4 +319,107 @@ describe('MobileEjecutarView - Vista móvil orientada a esquemas', () => {
       ])
     );
   });
+
+  it('preserva fórmulas de escritorio sin degradar a NaN, evalúa visibilidad condicional con fórmulas y permite gestionar Variables de obra + MathInput en móvil', async () => {
+    render(
+      <ToastProvider>
+        <MobileEjecutarView
+          config={DEFAULT_APP_CONFIG}
+          initialPresupuesto={{
+            id: 'pres-desktop-formulas',
+            numero: 'IEBA-FX1',
+            variablesCotizacion: [
+              { id: 'sup', expresion: '80', valorEvaluado: 80, unidad: 'm²' }
+            ],
+            items: [
+              {
+                id: 'item-tab-1',
+                descripcion: 'Armado de Tablero',
+                cantidad: 8,
+                unidad: 'u',
+                tareaTipoId: 'tt-tablero',
+                overridesParametros: {
+                  circuitos: 'ceil(sup * 0.1)',
+                  incluye_jabalina: 'sup > 50 ? 1 : 0'
+                },
+                valoresParametros: {
+                  circuitos: 8,
+                  tipo_embutido: 1,
+                  incluye_jabalina: 1,
+                  profundidad_jabalina: 1.5
+                },
+                insumosSnapshot: [],
+                manoObraSnapshot: [],
+                costoInsumos: 0,
+                costoManoObra: 50000,
+                costoDirectoTotal: 50000,
+                precioVentaUnitario: 50000,
+                precioVentaTotal: 50000
+              }
+            ]
+          }}
+          catalogOverride={{ tareasTipo: [tareaTablero, tareaBocas], manoObra }}
+          onBack={() => {}}
+        />
+      </ToastProvider>
+    );
+
+    // 1. El campo Circuitos muestra el valor real evaluado (8, NO valorDefault 4) y el indicador de fórmula
+    const circuitosInput = screen.getByLabelText('Circuitos') as HTMLInputElement;
+    expect(circuitosInput.value).toBe('8');
+    expect(screen.getByText(/ƒx = ceil\(sup \* 0\.1\)/)).toBeTruthy();
+
+    // 2. La condición `incluye_jabalina == 1` (derivada de fórmula) habilita Profundidad jabalina
+    expect(screen.getByLabelText('Profundidad jabalina')).toBeTruthy();
+
+    // 3. Editar la fórmula en MathInput (sup / 4 -> 20) recalcula y conserva la fórmula
+    fireEvent.focus(circuitosInput);
+    expect(circuitosInput.value).toBe('ceil(sup * 0.1)');
+    fireEvent.change(circuitosInput, { target: { value: 'sup / 4' } });
+    fireEvent.blur(circuitosInput);
+
+    await waitFor(() => {
+      expect((screen.getByLabelText('Circuitos') as HTMLInputElement).value).toBe('20');
+      expect(screen.getByText(/ƒx = sup \/ 4/)).toBeTruthy();
+    });
+
+    // 4. Abrir hoja de Variables de obra y crear una variable derivada con álgebra de unidades
+    fireEvent.click(screen.getByRole('button', { name: /configurar variables de obra/i }));
+    const varsSheet = screen.getByRole('dialog', { name: 'Variables de obra' });
+    expect(within(varsSheet).getAllByText('sup').length).toBeGreaterThanOrEqual(1);
+
+    fireEvent.change(within(varsSheet).getByLabelText(/nombre \(identificador\)/i), {
+      target: { value: 'bocas' }
+    });
+    fireEvent.change(within(varsSheet).getByLabelText(/valor o fórmula/i), {
+      target: { value: 'sup / 4' }
+    });
+    expect(within(varsSheet).getByText(/Vista previa:/)).toBeTruthy();
+    fireEvent.click(within(varsSheet).getByRole('button', { name: /agregar variable/i }));
+
+    expect(within(varsSheet).getAllByText('bocas').length).toBeGreaterThanOrEqual(1);
+    fireEvent.click(within(varsSheet).getByLabelText('Cerrar variables de obra'));
+
+    // 5. Agregar ítem libre rápido usando expresiones con variables en MathInput
+    fireEvent.click(screen.getByRole('button', { name: /ítem libre/i }));
+    fireEvent.change(screen.getByLabelText('Descripción'), {
+      target: { value: 'Canalización extra' }
+    });
+    const qtyInput = screen.getByLabelText('Cantidad');
+    fireEvent.focus(qtyInput);
+    fireEvent.change(qtyInput, { target: { value: 'bocas / 2' } });
+    fireEvent.blur(qtyInput);
+
+    const priceInput = screen.getByLabelText(/precio unitario/i);
+    fireEvent.focus(priceInput);
+    fireEvent.change(priceInput, { target: { value: '2000 * 3' } });
+    fireEvent.blur(priceInput);
+
+    fireEvent.click(screen.getByRole('button', { name: /agregar ítem libre/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Canalización extra')).toBeTruthy();
+      expect(screen.getByText(/ƒx bocas \/ 2/)).toBeTruthy();
+    });
+  });
 });

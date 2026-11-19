@@ -3,17 +3,18 @@
  * para el Notebook de Cotizaciones.
  *
  * Gramática determinista:
- * - Variable:        <ident> = <expresión>
+ * - Variable:        <ident> = <expresión> [<unidad>]
  * - Supuesto:        supuesto: <clave> = <valor>
  * - Nota interna:    nota: <texto>
  * - Capítulo:        # <nombre>
- * - Trabajo tipo:    /tt <ref> [cantidad=<n>] [param=valor ...] [-quitado ...] [+matRef <cant><unidad> ...]
- * - Tarea contenedor: tarea: <descripción> [<cant><unidad>] [param=valor ...]
- * - Ítem libre:      item: <descripción>  <cant><unidad>  [<precio>] [param=valor ...]
+ * - Trabajo tipo:    /tt <ref> [cantidad=<n_o_expr>] [param=valor ...] [-quitado ...] [+matRef <cant><unidad> ...]
+ * - Tarea contenedor: tarea: <descripción>  (acepta sub-líneas indentadas: cantidad, parámetros, mat:, mo:, serv:)
+ * - Ítem libre:      item: <descripción>  [<cant><unidad>] [<precio>] [param=valor ...]
  * - Sub-líneas dentro de un ítem (/tt, tarea:, item:):
- *   - Material:      [mat:] <ref_material> [[Marca/Producto]]  <cant_o_formula><unidad>
- *   - Mano de obra:  mo: <ref_categoria>  <horas_o_formula>h
- *   - Servicio:      serv: <descripción>  <cant_o_formula> <unidad>  <costo_o_formula>
+ *   - Material:      [mat:] <ref_material> [[Marca/Producto]]  [<cant_o_formula><unidad>]
+ *   - Mano de obra:  mo: <ref_categoria>  [<horas_o_formula>h]
+ *   - Servicio:      serv: <descripción>  [<cant_o_formula> <unidad>  <costo_o_formula>]
+ *   - Atributos indentados: cantidad = <expr> [<unidad>], horas = <expr> [h|hs], precio/costo = <expr>, <param> = <expr>
  */
 
 import {
@@ -22,7 +23,8 @@ import {
   Producto,
   TareaTipo,
 } from './types';
-import { evaluateMathExpression, RESERVED_KEYWORDS } from './mathEvaluator';
+import { RESERVED_KEYWORDS } from './mathEvaluator';
+import { evaluateUnitExpression, isKnownUnitToken } from './unitAlgebra';
 import {
   extraerDependenciasExpresion,
   slugifyIdentificador,
@@ -30,6 +32,9 @@ import {
 
 export const UNIDADES_CONOCIDAS_DEFAULT = [
   'm',
+  'mm',
+  'cm',
+  'km',
   'u',
   'gl',
   'kg',
@@ -42,12 +47,19 @@ export const UNIDADES_CONOCIDAS_DEFAULT = [
   'tramo',
   'h',
   'hs',
+  'min',
   'boca',
   'bocas',
   'circuito',
   'circuitos',
+  'cm2',
+  'cm²',
   'm2',
   'm²',
+  'm3',
+  'm³',
+  'kw',
+  'kva',
   'servicio',
 ] as const;
 
@@ -125,6 +137,7 @@ export interface NotebookVariableBlock {
   tipo: 'variable';
   id: string;
   expresion: string;
+  unidad?: string;
 }
 
 export interface NotebookSupuestoBlock {
@@ -148,6 +161,7 @@ export interface NotebookTareaTipoBlock {
   referencia: string;
   tareaTipoId?: string;
   cantidad?: number;
+  formulaCantidad?: string;
   overridesParametros: Record<string, number | string>;
   quitados: string[];
   agregados: NotebookAjusteAgregado[];
@@ -252,7 +266,7 @@ function validateMathSyntax(expr: string): { valid: boolean; error?: string } {
   for (const d of deps) {
     dummyScope[d] = 1.137;
   }
-  const res = evaluateMathExpression(trimmed, dummyScope);
+  const res = evaluateUnitExpression(trimmed, dummyScope);
   if (res.isValid) {
     return { valid: true };
   }
@@ -260,6 +274,23 @@ function validateMathSyntax(expr: string): { valid: boolean; error?: string } {
     return { valid: true };
   }
   return { valid: false, error: res.error || 'Sintaxis matemática inválida.' };
+}
+
+/**
+ * Detecta si una expresión ya contiene literales numéricos con unidad inline (ej: `10 m + 80`, `2 h + 45`, `12m * 5`).
+ * Evita separar la última unidad de una operación dimensional como si fuera sufijo de toda la expresión.
+ */
+function containsInlineUnitLiteral(expr: string): boolean {
+  const regex = /\d+(?:[.,]\d+)?\s*((?:mm|cm|m)[23]|[a-zA-Z²³_]+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(expr)) !== null) {
+    const unitCand = m[1];
+    const lower = unitCand.toLowerCase();
+    if (lower !== 'and' && lower !== 'or' && lower !== 'not' && isKnownUnitToken(unitCand)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 interface ParsedQuantityUnit {
@@ -317,8 +348,12 @@ function parseQuantityUnitPair(
   };
 }
 
+const ATTACHED_UNIT_PATTERN = '(?:(?:mm|cm|m)[23]|[a-zA-Z²³_]+)';
+const ATTACHED_NUM_UNIT_REGEX = new RegExp(`^(-?\\d+(?:[.,]\\d+)?)(${ATTACHED_UNIT_PATTERN})$`);
+const PURE_UNIT_TOKEN_REGEX = new RegExp(`^${ATTACHED_UNIT_PATTERN}$`);
+
 function splitAttachedQuantityUnit(token: string): { qty: string; unit: string } | null {
-  const mNum = token.match(/^(-?\d+(?:[.,]\d+)?)([a-zA-Z²_]+)$/);
+  const mNum = token.match(ATTACHED_NUM_UNIT_REGEX);
   if (mNum) {
     return { qty: mNum[1], unit: mNum[2] };
   }
@@ -331,7 +366,7 @@ function splitAttachedQuantityUnit(token: string): { qty: string; unit: string }
         if (depth === 0) {
           const qty = token.slice(0, i + 1);
           const unit = token.slice(i + 1);
-          if (/^[a-zA-Z²_]+$/.test(unit)) {
+          if (PURE_UNIT_TOKEN_REGEX.test(unit)) {
             return { qty, unit };
           }
           return null;
@@ -340,6 +375,252 @@ function splitAttachedQuantityUnit(token: string): { qty: string; unit: string }
     }
   }
   return null;
+}
+
+/**
+ * Desenvuelve paréntesis externos redundantes únicamente si el '(' inicial cierra al final.
+ * Ej: '(bocas * 2)' -> 'bocas * 2', pero '(a + b) * (c + d)' se mantiene intacto.
+ */
+function unwrapOuterParens(expr: string): string {
+  let current = expr.trim();
+  while (current.startsWith('(') && current.endsWith(')')) {
+    let depth = 0;
+    let wrapsEntire = true;
+    for (let i = 0; i < current.length; i++) {
+      if (current[i] === '(') depth++;
+      else if (current[i] === ')') {
+        depth--;
+        if (depth === 0 && i < current.length - 1) {
+          wrapsEntire = false;
+          break;
+        }
+      }
+    }
+    if (!wrapsEntire || depth !== 0) break;
+    current = current.slice(1, -1).trim();
+  }
+  return current;
+}
+
+function endsWithMathOperator(head: string): boolean {
+  const t = head.trimEnd();
+  if (!t) return true;
+  if (/[+\-*/^%?:<>=!&|,;(]$/.test(t)) return true;
+  if (/\b(?:and|or|not)$/i.test(t)) return true;
+  return false;
+}
+
+/**
+ * Divide una cadena en (prefijo, último token) en el último espacio fuera de paréntesis.
+ */
+function splitTrailingTopLevelToken(input: string): { head: string; tail: string } | null {
+  const trimmed = input.trim();
+  let depth = 0;
+  let lastSpaceIdx = -1;
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (ch === '(') depth++;
+    else if (ch === ')' && depth > 0) depth--;
+    else if (/\s/.test(ch) && depth === 0) {
+      lastSpaceIdx = i;
+    }
+  }
+  if (lastSpaceIdx < 0) return null;
+  const head = trimmed.slice(0, lastSpaceIdx).trim();
+  const tail = trimmed.slice(lastSpaceIdx + 1).trim();
+  if (!head || !tail) return null;
+  return { head, tail };
+}
+
+/**
+ * Parsea una asignación flexible de cantidad/horas con soporte de expresiones naturales
+ * sin paréntesis obligatorios (`bocas`, `bocas * 2 m`, `ceil(sup * 0.4) u`, `120m`, `(bocas * 2)m`, `=bocas * 2`).
+ */
+function parseFlexibleQuantityExpression(
+  rawVal: string,
+  defaultUnit: string,
+  validUnits: Map<string, string>
+): { ok: true; value: ParsedQuantityUnit } | { ok: false; codigo: NotebookErrorCode; mensaje: string } {
+  let working = (rawVal || '').trim();
+  if (!working) {
+    return {
+      ok: false,
+      codigo: 'cantidad_invalida',
+      mensaje: 'Falta valor numérico o fórmula.',
+    };
+  }
+
+  const hadLeadingEq = working.startsWith('=');
+  if (hadLeadingEq) {
+    working = working.slice(1).trim();
+    if (!working) {
+      return {
+        ok: false,
+        codigo: 'expresion_invalida',
+        mensaje: "Expresión vacía después de '='.",
+      };
+    }
+  }
+
+  // 1. Caso pegado sin espacios en nivel 0 (ej: `120m`, `(bocas * 2)m`, `120metros_raros`)
+  const attached = splitAttachedQuantityUnit(working);
+  if (attached) {
+    return parseQuantityUnitPair(attached.qty, attached.unit, validUnits);
+  }
+
+  // 2. Caso expresión + posible unidad separada por espacio al final (ej: `bocas * 2 m`, `120 m`)
+  // Si la expresión ya incluye unidades inline (ej. `10 m + 80 cm`, `2 h + 45 min`), no arrancamos la unidad final.
+  let exprPart = working;
+  let unit = defaultUnit;
+  const split = splitTrailingTopLevelToken(working);
+  if (
+    split &&
+    !containsInlineUnitLiteral(split.head) &&
+    !endsWithMathOperator(split.head) &&
+    PURE_UNIT_TOKEN_REGEX.test(split.tail)
+  ) {
+    const canonicalUnit = validUnits.get(normalizeText(split.tail));
+    if (canonicalUnit) {
+      exprPart = split.head;
+      unit = canonicalUnit;
+    } else {
+      const wholeIsMath = validateMathSyntax(working).valid;
+      if (!wholeIsMath) {
+        const headClean = unwrapOuterParens(split.head);
+        const headIsNumOrMath =
+          /^-?\d+(?:[.,]\d+)?$/.test(headClean) || validateMathSyntax(headClean).valid;
+        if (headIsNumOrMath) {
+          return {
+            ok: false,
+            codigo: 'unidad_desconocida',
+            mensaje: `Unidad desconocida '${split.tail}'.`,
+          };
+        }
+      }
+    }
+  }
+
+  const cleanExpr = unwrapOuterParens(exprPart);
+  if (!cleanExpr) {
+    return {
+      ok: false,
+      codigo: 'expresion_invalida',
+      mensaje: `Expresión vacía en '${rawVal}'.`,
+    };
+  }
+
+  // 3. Literal numérico puro (sin prefijo `=` ni fórmula)
+  if (!hadLeadingEq && /^-?\d+(?:[.,]\d+)?$/.test(cleanExpr)) {
+    const num = Number(cleanExpr.replace(',', '.'));
+    if (!Number.isFinite(num) || num <= 0) {
+      return {
+        ok: false,
+        codigo: 'cantidad_invalida',
+        mensaje: `Cantidad inválida '${rawVal}': debe ser mayor a cero.`,
+      };
+    }
+    return { ok: true, value: { cantidad: num, unidad: unit } };
+  }
+
+  // 4. Fórmula matemática o variable (sin paréntesis obligatorios)
+  const syntax = validateMathSyntax(cleanExpr);
+  if (!syntax.valid) {
+    return {
+      ok: false,
+      codigo: 'expresion_invalida',
+      mensaje: `Fórmula inválida '${rawVal}': ${syntax.error}`,
+    };
+  }
+
+  return { ok: true, value: { formulaCantidad: cleanExpr, unidad: unit } };
+}
+
+/**
+ * Parsea una asignación flexible de precio o costo (`precio = tarifa * 1.2`, `costo = 15000`, `precio = (base + 500)`).
+ */
+function parseFlexibleScalarOrFormula(raw: string): {
+  num?: number;
+  formula?: string;
+  valid: boolean;
+  error?: string;
+} {
+  let working = (raw || '').trim();
+  if (!working) {
+    return { valid: false, error: 'Falta valor numérico o fórmula.' };
+  }
+  const hadLeadingEq = working.startsWith('=');
+  if (hadLeadingEq) {
+    working = working.slice(1).trim();
+  }
+  const clean = unwrapOuterParens(working);
+  if (!clean) {
+    return { valid: false, error: `Expresión vacía en '${raw}'.` };
+  }
+  if (!hadLeadingEq && /^-?\d+(?:[.,]\d+)?$/.test(clean)) {
+    const num = Number(clean.replace(',', '.'));
+    if (!Number.isFinite(num) || num < 0) {
+      return { valid: false, error: `Valor numérico inválido '${raw}'.` };
+    }
+    return { num, valid: true };
+  }
+  const syntax = validateMathSyntax(clean);
+  if (!syntax.valid) {
+    return { valid: false, error: syntax.error || `Expresión inválida '${raw}'.` };
+  }
+  return { formula: clean, valid: true };
+}
+
+/**
+ * Parsea la expresión de una variable global admitiendo una unidad opcional al final
+ * (ej: `largo = 12 m`, `largo = 12m`, `sup = largo * ancho m2`, `bocas = ceil(sup * 0.4) u`).
+ */
+function parseVariableExpressionWithOptionalUnit(
+  rawExpr: string,
+  validUnits: Map<string, string>
+): { valid: true; expresion: string; unidad?: string } | { valid: false; error: string } {
+  const trimmed = (rawExpr || '').trim();
+  if (!trimmed) {
+    return { valid: false, error: 'Expresión vacía.' };
+  }
+
+  // 1. Caso pegado: `12m`, `60m2`, `(a * b)m` si la unidad es reconocida
+  const attached = splitAttachedQuantityUnit(trimmed);
+  if (attached) {
+    const canonical = validUnits.get(normalizeText(attached.unit));
+    if (canonical) {
+      const cleanExpr = unwrapOuterParens(attached.qty);
+      const syntax = validateMathSyntax(cleanExpr);
+      if (syntax.valid) {
+        return { valid: true, expresion: cleanExpr, unidad: canonical };
+      }
+    }
+  }
+
+  // 2. Caso expresión + unidad separada por espacio: `largo * ancho m2`, `12 m`, `ceil(sup * 0.4) u`
+  // Si `head` ya contiene unidades inline (ej. `10 m + 80 cm`, `2 h + 45 min`), se conserva como expresión dimensional completa.
+  const split = splitTrailingTopLevelToken(trimmed);
+  if (
+    split &&
+    !containsInlineUnitLiteral(split.head) &&
+    !endsWithMathOperator(split.head) &&
+    PURE_UNIT_TOKEN_REGEX.test(split.tail)
+  ) {
+    const canonical = validUnits.get(normalizeText(split.tail));
+    if (canonical) {
+      const headClean = unwrapOuterParens(split.head);
+      const headSyntax = validateMathSyntax(headClean);
+      if (headSyntax.valid) {
+        return { valid: true, expresion: headClean, unidad: canonical };
+      }
+    }
+  }
+
+  // 3. Expresión matemática pura sin unidad
+  const syntax = validateMathSyntax(trimmed);
+  if (!syntax.valid) {
+    return { valid: false, error: syntax.error || 'Sintaxis matemática inválida.' };
+  }
+  return { valid: true, expresion: trimmed };
 }
 
 type LookupResult<T> =
@@ -1032,6 +1313,7 @@ function parseTrabajoTipoLine(
   const quitados: string[] = [];
   const agregados: NotebookAjusteAgregado[] = [];
   let cantidad: number | undefined;
+  let formulaCantidad: string | undefined;
 
   let i = 2;
   while (i < tokens.length) {
@@ -1176,18 +1458,37 @@ function parseTrabajoTipoLine(
       }
 
       if (key === 'cantidad') {
-        const num = Number(rawVal.replace(',', '.'));
-        if (!Number.isFinite(num) || num <= 0) {
-          errores.push({
-            linea: lineNum,
-            columna: col,
-            longitud: tok.text.length,
-            codigo: 'cantidad_invalida',
-            mensaje: `Cantidad inválida '${rawVal}' en trabajo tipo.`,
-            textoLinea: rawLine,
-          });
+        const cleanRaw = unwrapOuterParens(rawVal.startsWith('=') ? rawVal.slice(1).trim() : rawVal);
+        if (!rawVal.startsWith('=') && /^-?\d+(?:[.,]\d+)?$/.test(cleanRaw)) {
+          const num = Number(cleanRaw.replace(',', '.'));
+          if (!Number.isFinite(num) || num <= 0) {
+            errores.push({
+              linea: lineNum,
+              columna: col,
+              longitud: tok.text.length,
+              codigo: 'cantidad_invalida',
+              mensaje: `Cantidad inválida '${rawVal}' en trabajo tipo.`,
+              textoLinea: rawLine,
+            });
+          } else {
+            cantidad = num;
+            formulaCantidad = undefined;
+          }
         } else {
-          cantidad = num;
+          const syntax = validateMathSyntax(cleanRaw);
+          if (!syntax.valid) {
+            errores.push({
+              linea: lineNum,
+              columna: col,
+              longitud: tok.text.length,
+              codigo: 'cantidad_invalida',
+              mensaje: `Cantidad inválida '${rawVal}' en trabajo tipo: ${syntax.error}`,
+              textoLinea: rawLine,
+            });
+          } else {
+            formulaCantidad = cleanRaw;
+            cantidad = undefined;
+          }
         }
         i++;
         continue;
@@ -1245,6 +1546,7 @@ function parseTrabajoTipoLine(
       referencia: tareaTipo.slug || slugifyIdentificador(tareaTipo.nombre) || tareaTipo.id,
       tareaTipoId: tareaTipo.id,
       ...(cantidad !== undefined ? { cantidad } : {}),
+      ...(formulaCantidad !== undefined ? { formulaCantidad } : {}),
       overridesParametros,
       quitados,
       agregados,
@@ -1441,7 +1743,7 @@ function assignParameterValue(
   targetOverrides: Record<string, number | string>,
   errores: NotebookParseError[],
   declaredParams?: Set<string>
-): { isCantidad?: number } {
+): { isCantidad?: number; isFormulaCantidad?: string } {
   if (!rawVal) {
     errores.push({
       linea: lineNum,
@@ -1455,19 +1757,35 @@ function assignParameterValue(
   }
 
   if (key === 'cantidad' && declaredParams !== undefined) {
-    const num = Number(rawVal.replace(',', '.'));
-    if (!Number.isFinite(num) || num <= 0) {
+    const cleanRaw = unwrapOuterParens(rawVal.startsWith('=') ? rawVal.slice(1).trim() : rawVal);
+    if (!rawVal.startsWith('=') && /^-?\d+(?:[.,]\d+)?$/.test(cleanRaw)) {
+      const num = Number(cleanRaw.replace(',', '.'));
+      if (!Number.isFinite(num) || num <= 0) {
+        errores.push({
+          linea: lineNum,
+          columna: col,
+          longitud: tokLen,
+          codigo: 'cantidad_invalida',
+          mensaje: `Cantidad inválida '${rawVal}' en trabajo tipo.`,
+          textoLinea: rawLine,
+        });
+        return {};
+      }
+      return { isCantidad: num };
+    }
+    const syntax = validateMathSyntax(cleanRaw);
+    if (!syntax.valid) {
       errores.push({
         linea: lineNum,
         columna: col,
         longitud: tokLen,
         codigo: 'cantidad_invalida',
-        mensaje: `Cantidad inválida '${rawVal}' en trabajo tipo.`,
+        mensaje: `Cantidad inválida '${rawVal}' en trabajo tipo: ${syntax.error}`,
         textoLinea: rawLine,
       });
       return {};
     }
-    return { isCantidad: num };
+    return { isFormulaCantidad: cleanRaw };
   }
 
   if (declaredParams && declaredParams.size > 0 && !declaredParams.has(key)) {
@@ -1485,7 +1803,8 @@ function assignParameterValue(
   if (/^-?\d+(?:[.,]\d+)?$/.test(rawVal)) {
     targetOverrides[key] = Number(rawVal.replace(',', '.'));
   } else {
-    const syntax = validateMathSyntax(rawVal);
+    const cleanExpr = unwrapOuterParens(rawVal.startsWith('=') ? rawVal.slice(1).trim() : rawVal);
+    const syntax = validateMathSyntax(cleanExpr);
     if (!syntax.valid) {
       errores.push({
         linea: lineNum,
@@ -1496,7 +1815,7 @@ function assignParameterValue(
         textoLinea: rawLine,
       });
     } else {
-      targetOverrides[key] = rawVal;
+      targetOverrides[key] = cleanExpr;
     }
   }
   return {};
@@ -1514,61 +1833,13 @@ function parseValueWithOptionalUnit(
   col: number,
   rawLine: string
 ): { value?: ParsedQuantityUnit; error?: NotebookParseError } {
-  const tokens = tokenizeLineWithPos(rawVal, 0);
-  if (tokens.length === 0) {
-    return {
-      error: {
-        linea: lineNum,
-        columna: col,
-        longitud: 1,
-        codigo: 'cantidad_invalida',
-        mensaje: 'Falta valor numérico o fórmula.',
-        textoLinea: rawLine,
-      },
-    };
-  }
-
-  if (tokens.length === 1) {
-    const attached = splitAttachedQuantityUnit(tokens[0].text);
-    if (attached) {
-      const res = parseQuantityUnitPair(attached.qty, attached.unit, validUnits);
-      if (!res.ok) {
-        return {
-          error: {
-            linea: lineNum,
-            columna: col,
-            longitud: tokens[0].text.length,
-            codigo: res.codigo,
-            mensaje: res.mensaje,
-            textoLinea: rawLine,
-          },
-        };
-      }
-      return { value: res.value };
-    }
-    const res = parseQuantityUnitPair(tokens[0].text, defaultUnit, validUnits);
-    if (!res.ok) {
-      return {
-        error: {
-          linea: lineNum,
-          columna: col,
-          longitud: tokens[0].text.length,
-          codigo: res.codigo,
-          mensaje: res.mensaje,
-          textoLinea: rawLine,
-        },
-      };
-    }
-    return { value: res.value };
-  }
-
-  const res = parseQuantityUnitPair(tokens[0].text, tokens[tokens.length - 1].text, validUnits);
+  const res = parseFlexibleQuantityExpression(rawVal, defaultUnit, validUnits);
   if (!res.ok) {
     return {
       error: {
         linea: lineNum,
         columna: col,
-        longitud: rawVal.length,
+        longitud: Math.max(1, rawVal.length),
         codigo: res.codigo,
         mensaje: res.mensaje,
         textoLinea: rawLine,
@@ -1682,7 +1953,7 @@ function parseChildSubItemLine(
       return true;
     }
     if (key === 'costo' || key === 'precio') {
-      const scalar = parseScalarOrFormula(rawVal);
+      const scalar = parseFlexibleScalarOrFormula(rawVal);
       if (!scalar.valid) {
         errores.push({
           linea: lineNum,
@@ -1799,51 +2070,53 @@ function parseIndentedAdjustmentOrParam(
       );
       if (res.isCantidad !== undefined) {
         currentItem.cantidad = res.isCantidad;
+        delete currentItem.formulaCantidad;
+      } else if (res.isFormulaCantidad !== undefined) {
+        currentItem.formulaCantidad = res.isFormulaCantidad;
+        delete currentItem.cantidad;
       }
       return { handled: true };
     }
 
-    if (currentItem.modo === 'item') {
-      const lowerKey = key.toLowerCase();
-      if (lowerKey === 'cantidad') {
-        const parsed = parseValueWithOptionalUnit(
-          rawVal,
-          currentItem.unidad || 'u',
-          validUnits,
-          lineNum,
-          colStart,
-          rawLine
-        );
-        if (parsed.error) {
-          errores.push(parsed.error);
-        } else if (parsed.value) {
-          delete currentItem.cantidad;
-          delete currentItem.formulaCantidad;
-          if (parsed.value.cantidad !== undefined) currentItem.cantidad = parsed.value.cantidad;
-          if (parsed.value.formulaCantidad !== undefined) currentItem.formulaCantidad = parsed.value.formulaCantidad;
-          currentItem.unidad = parsed.value.unidad;
-        }
-        return { handled: true };
+    const lowerKey = key.toLowerCase();
+    if (lowerKey === 'cantidad') {
+      const parsed = parseValueWithOptionalUnit(
+        rawVal,
+        currentItem.unidad || (currentItem.modo === 'item' ? 'u' : 'gl'),
+        validUnits,
+        lineNum,
+        colStart,
+        rawLine
+      );
+      if (parsed.error) {
+        errores.push(parsed.error);
+      } else if (parsed.value) {
+        delete currentItem.cantidad;
+        delete currentItem.formulaCantidad;
+        if (parsed.value.cantidad !== undefined) currentItem.cantidad = parsed.value.cantidad;
+        if (parsed.value.formulaCantidad !== undefined) currentItem.formulaCantidad = parsed.value.formulaCantidad;
+        currentItem.unidad = parsed.value.unidad;
       }
-      if (lowerKey === 'precio' || lowerKey === 'costo') {
-        const scalar = parseScalarOrFormula(rawVal);
-        if (!scalar.valid) {
-          errores.push({
-            linea: lineNum,
-            columna: colStart,
-            longitud: trimmed.length,
-            codigo: 'cantidad_invalida',
-            mensaje: scalar.error || `Precio inválido '${rawVal}'.`,
-            textoLinea: rawLine,
-          });
-        } else {
-          delete currentItem.precioUnitario;
-          delete currentItem.formulaPrecio;
-          if (scalar.num !== undefined) currentItem.precioUnitario = scalar.num;
-          if (scalar.formula !== undefined) currentItem.formulaPrecio = scalar.formula;
-        }
-        return { handled: true };
+      return { handled: true };
+    }
+    if (currentItem.modo === 'item' && (lowerKey === 'precio' || lowerKey === 'costo')) {
+      const scalar = parseFlexibleScalarOrFormula(rawVal);
+      if (!scalar.valid) {
+        errores.push({
+          linea: lineNum,
+          columna: colStart,
+          longitud: trimmed.length,
+          codigo: 'cantidad_invalida',
+          mensaje: scalar.error || `Precio inválido '${rawVal}'.`,
+          textoLinea: rawLine,
+        });
+      } else {
+        delete currentItem.precioUnitario;
+        delete currentItem.formulaPrecio;
+        if (scalar.num !== undefined) currentItem.precioUnitario = scalar.num;
+        if (scalar.formula !== undefined) currentItem.formulaPrecio = scalar.formula;
       }
+      return { handled: true };
     }
 
     assignParameterValue(
@@ -2109,20 +2382,25 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
         continue;
       }
 
-      const syntax = validateMathSyntax(expr);
-      if (!syntax.valid) {
+      const varParsed = parseVariableExpressionWithOptionalUnit(expr, validUnits);
+      if (!varParsed.valid) {
         errores.push({
           linea: lineNum,
           columna: rawLine.indexOf('=') + 2,
           longitud: expr.length,
           codigo: 'expresion_invalida',
-          mensaje: `Expresión inválida en variable '${id}': ${syntax.error}`,
+          mensaje: `Expresión inválida en variable '${id}': ${varParsed.error}`,
           textoLinea: rawLine,
         });
         continue;
       }
 
-      bloques.push({ tipo: 'variable', id, expresion: expr });
+      bloques.push({
+        tipo: 'variable',
+        id,
+        expresion: varParsed.expresion,
+        ...(varParsed.unidad ? { unidad: varParsed.unidad } : {}),
+      });
       continue;
     }
 
@@ -2207,8 +2485,10 @@ export function parse(texto: string, contexto: NotebookParseContext): NotebookPa
 }
 
 function formatQtyUnit(cantidad?: number, formula?: string, unidad?: string): string {
-  const qtyStr = formula !== undefined ? `(${formula})` : String(cantidad ?? 1);
-  return `${qtyStr}${unidad ?? ''}`;
+  if (formula !== undefined) {
+    return unidad ? `${formula} ${unidad}` : formula;
+  }
+  return `${String(cantidad ?? 1)}${unidad ?? ''}`;
 }
 
 function serializeLinea(
@@ -2230,14 +2510,17 @@ function serializeLinea(
   }
   if (linea.tipo === 'mano_obra') {
     const moNombre = (linea.categoriaId && manoObraById.get(linea.categoriaId)?.nombre) || linea.referencia;
-    const qtyStr = linea.formulaHoras !== undefined ? `(${linea.formulaHoras})` : String(linea.horas ?? 1);
-    return [`  mo: ${moNombre}`, `    horas = ${qtyStr}${linea.unidad}`];
+    const qtyStr =
+      linea.formulaHoras !== undefined
+        ? `${linea.formulaHoras} ${linea.unidad}`
+        : `${String(linea.horas ?? 1)}${linea.unidad}`;
+    return [`  mo: ${moNombre}`, `    horas = ${qtyStr}`];
   }
-  const qtyStr = linea.formulaCantidad !== undefined ? `(${linea.formulaCantidad})` : String(linea.cantidad ?? 1);
-  const costStr = linea.formulaCosto !== undefined ? `(${linea.formulaCosto})` : String(linea.costoUnitario ?? 0);
+  const qtyStr = formatQtyUnit(linea.cantidad, linea.formulaCantidad, linea.unidad);
+  const costStr = linea.formulaCosto !== undefined ? linea.formulaCosto : String(linea.costoUnitario ?? 0);
   return [
     `  serv: ${linea.descripcion}`,
-    `    cantidad = ${qtyStr}${linea.unidad}`,
+    `    cantidad = ${qtyStr}`,
     `    costo = ${costStr}`,
   ];
 }
@@ -2261,7 +2544,7 @@ export function serialize(
     const b = bloques[i];
 
     if (b.tipo === 'variable') {
-      lines.push(`${b.id} = ${b.expresion}`);
+      lines.push(b.unidad ? `${b.id} = ${b.expresion} ${b.unidad}` : `${b.id} = ${b.expresion}`);
       continue;
     }
 
@@ -2288,7 +2571,9 @@ export function serialize(
       const ref = tt?.slug || (tt ? slugifyIdentificador(tt.nombre) : '') || b.referencia;
       lines.push(`/tt ${ref}`);
 
-      if (b.cantidad !== undefined && b.cantidad !== 1) {
+      if (b.formulaCantidad !== undefined) {
+        lines.push(`  cantidad = ${b.formulaCantidad}`);
+      } else if (b.cantidad !== undefined && b.cantidad !== 1) {
         lines.push(`  cantidad = ${b.cantidad}`);
       }
       for (const [k, v] of Object.entries(b.overridesParametros)) {
@@ -2316,12 +2601,14 @@ export function serialize(
     if (b.tipo === 'item_libre') {
       if (b.modo === 'tarea') {
         lines.push(`tarea: ${b.descripcion}`);
+        if (b.formulaCantidad !== undefined || (b.cantidad !== undefined && b.cantidad !== 1) || b.unidad !== undefined) {
+          lines.push(`  cantidad = ${formatQtyUnit(b.cantidad, b.formulaCantidad, b.unidad ?? 'gl')}`);
+        }
       } else {
         lines.push(`item: ${b.descripcion}`);
-        const qtyStr = b.formulaCantidad !== undefined ? `(${b.formulaCantidad})` : String(b.cantidad ?? 1);
-        lines.push(`  cantidad = ${qtyStr}${b.unidad ?? 'u'}`);
+        lines.push(`  cantidad = ${formatQtyUnit(b.cantidad, b.formulaCantidad, b.unidad ?? 'u')}`);
         if (b.formulaPrecio !== undefined) {
-          lines.push(`  precio = (${b.formulaPrecio})`);
+          lines.push(`  precio = ${b.formulaPrecio}`);
         } else if (b.precioUnitario !== undefined) {
           lines.push(`  precio = ${b.precioUnitario}`);
         }

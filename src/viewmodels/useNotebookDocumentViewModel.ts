@@ -16,7 +16,8 @@ import {
   Oferta,
   Presupuesto,
   Producto,
-  TareaTipo
+  TareaTipo,
+  VariableCotizacion
 } from '../core/types';
 import { ResultadoAlcanceYAdvertencias } from '../core/notebookDomain';
 import { safeNum, TotalesPresupuestoResultado } from '../core/calculations';
@@ -445,6 +446,7 @@ export function useNotebookDocumentViewModel({
     alcanceYAdvertencias,
     erroresVariables,
     erroresComposicion,
+    notasUnidadesPorLinea,
     subtotalesPorBloque,
     subtotalesPorItemId,
     blockLineNumbers,
@@ -501,9 +503,24 @@ export function useNotebookDocumentViewModel({
   const activeItemId = activeSubtotalInfo?.itemId ?? null;
 
   // ─── Autocompletado contextual y Ghost Text ────────────────────────────────
-  const variableNames = useMemo(
-    () => (presupuesto.variablesCotizacion || []).map(v => v.id),
+  const variablesCotizacion = useMemo<VariableCotizacion[]>(
+    () => presupuesto.variablesCotizacion || [],
     [presupuesto.variablesCotizacion]
+  );
+
+  const scopeVariables = useMemo<Record<string, number>>(() => {
+    const map: Record<string, number> = {};
+    for (const v of variablesCotizacion) {
+      if (v.valorEvaluado !== undefined && Number.isFinite(v.valorEvaluado)) {
+        map[v.id] = v.valorEvaluado;
+      }
+    }
+    return map;
+  }, [variablesCotizacion]);
+
+  const variableNames = useMemo(
+    () => variablesCotizacion.map(v => v.id),
+    [variablesCotizacion]
   );
 
   const currentLineKey = useMemo(() => {
@@ -511,6 +528,17 @@ export function useNotebookDocumentViewModel({
     const lineText = lines[Math.max(0, Math.min(cursor.linea - 1, lines.length - 1))] ?? '';
     return `${cursor.linea}:${lineText}`;
   }, [texto, cursor.linea]);
+
+  const variableDetails = useMemo(() => {
+    const out: Record<string, { value?: number; unit?: string }> = {};
+    for (const v of variablesCotizacion) {
+      out[v.id] = {
+        ...(v.valorEvaluado !== undefined ? { value: v.valorEvaluado } : {}),
+        ...(v.unidad ? { unit: v.unidad } : {})
+      };
+    }
+    return out;
+  }, [variablesCotizacion]);
 
   const rawAutocomplete = useMemo<NotebookAutocompleteResult>(
     () =>
@@ -520,9 +548,9 @@ export function useNotebookDocumentViewModel({
         cursor.columna,
         contexto,
         variableNames,
-        { forceOpen: forceAutocompleteOpen }
+        { forceOpen: forceAutocompleteOpen, variableDetails }
       ),
-    [texto, cursor.linea, cursor.columna, contexto, variableNames, forceAutocompleteOpen]
+    [texto, cursor.linea, cursor.columna, contexto, variableNames, forceAutocompleteOpen, variableDetails]
   );
 
   const autocomplete = useMemo<NotebookAutocompleteResult>(() => {
@@ -986,6 +1014,133 @@ export function useNotebookDocumentViewModel({
     return true;
   }, [commitEdit]);
 
+  // ─── Gestión interactiva de Variables, Funciones y Bloques rápidos ─────────
+  const insertTextAtCursor = useCallback(
+    (snippet: string, cursorOffsetInsideSnippet?: number) => {
+      const { linea, columna } = latestCursorRef.current;
+      const offset = cursorOffsetInsideSnippet ?? snippet.length;
+      const { nextTexto, nextCursor } = replaceSpanInLine(
+        latestTextoRef.current,
+        linea,
+        columna,
+        columna,
+        snippet,
+        offset,
+        offset
+      );
+      commitEdit(nextTexto, nextCursor, { coalesce: false });
+    },
+    [commitEdit]
+  );
+
+  const upsertVariable = useCallback(
+    (id: string, expresion: string, unidad?: string, previousId?: string): boolean => {
+      const cleanId = id
+        .trim()
+        .replace(/[^a-zA-Z0-9_]/g, '_')
+        .replace(/^(\d)/, '_$1');
+      const cleanExpr = expresion.trim();
+      const cleanUnit = (unidad ?? '').trim();
+      if (!cleanId || !cleanExpr) return false;
+
+      const newLine = cleanUnit ? `${cleanId} = ${cleanExpr} ${cleanUnit}` : `${cleanId} = ${cleanExpr}`;
+      const rawText = latestTextoRef.current;
+      const lines = rawText ? rawText.split(/\r?\n/) : [];
+      const targetKey = (previousId || cleanId).trim();
+      const targetRegex = new RegExp(
+        `^${targetKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=\\s*`
+      );
+      const existingIdx = lines.findIndex(l => targetRegex.test(l));
+
+      if (existingIdx >= 0) {
+        lines[existingIdx] = newLine;
+        commitEdit(
+          lines.join('\n'),
+          { linea: existingIdx + 1, columna: newLine.length + 1 },
+          { coalesce: false }
+        );
+        return true;
+      }
+
+      // Insertar al final del bloque superior de variables globales
+      let insertIdx = 0;
+      while (insertIdx < lines.length) {
+        const trimmed = lines[insertIdx].trim();
+        if (
+          /^[a-zA-Z_]\w*\s*=/.test(trimmed) &&
+          !/^[ \t]+/.test(lines[insertIdx])
+        ) {
+          insertIdx++;
+        } else {
+          break;
+        }
+      }
+
+      if (lines.length === 0 || (lines.length === 1 && lines[0].trim() === '')) {
+        commitEdit(newLine, { linea: 1, columna: newLine.length + 1 }, { coalesce: false });
+        return true;
+      }
+
+      const nextLineAfter = lines[insertIdx] ?? '';
+      const needsBlankSeparator =
+        insertIdx === 0 && nextLineAfter.trim() !== '' && !/^[a-zA-Z_]\w*\s*=/.test(nextLineAfter.trim());
+
+      if (needsBlankSeparator) {
+        lines.splice(insertIdx, 0, newLine, '');
+      } else {
+        lines.splice(insertIdx, 0, newLine);
+      }
+
+      commitEdit(
+        lines.join('\n'),
+        { linea: insertIdx + 1, columna: newLine.length + 1 },
+        { coalesce: false }
+      );
+      return true;
+    },
+    [commitEdit]
+  );
+
+  const deleteVariable = useCallback(
+    (id: string): boolean => {
+      const targetKey = id.trim();
+      if (!targetKey) return false;
+      const lines = latestTextoRef.current.split(/\r?\n/);
+      const targetRegex = new RegExp(
+        `^${targetKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=\\s*`
+      );
+      const idx = lines.findIndex(l => targetRegex.test(l));
+      if (idx < 0) return false;
+      lines.splice(idx, 1);
+      const nextLinea = Math.max(1, Math.min(idx + 1, Math.max(1, lines.length)));
+      commitEdit(lines.join('\n'), { linea: nextLinea, columna: 1 }, { coalesce: false });
+      return true;
+    },
+    [commitEdit]
+  );
+
+  const insertQuickBlock = useCallback(
+    (kind: 'tt' | 'tarea' | 'item' | 'capitulo') => {
+      const prefixMap: Record<'tt' | 'tarea' | 'item' | 'capitulo', string> = {
+        tt: '/tt ',
+        tarea: 'tarea: ',
+        item: 'item: ',
+        capitulo: '# '
+      };
+      const { nextTexto, nextCursor } = insertLineAtCursor(
+        latestTextoRef.current,
+        latestCursorRef.current.linea,
+        prefixMap[kind]
+      );
+      commitEdit(nextTexto, nextCursor, { coalesce: false });
+      if (kind === 'tt') {
+        setAutocompleteDismissedLineKey(null);
+        setForceAutocompleteOpen(true);
+      }
+    },
+    [commitEdit]
+  );
+
   // ─── Acciones de Flujo 2 Pasadas y Metadata ────────────────────────────────
   const irASiguienteSinValorizar = useCallback((): SiguienteSinValorizarInfo | null => {
     if (!siguienteSinValorizar) return null;
@@ -1232,7 +1387,7 @@ export function useNotebookDocumentViewModel({
   const agregarTareaTipoDesdeEsquema = useCallback(
     async (
       tareaTipoId: string,
-      valoresParametros?: Record<string, number>
+      valoresParametros?: Record<string, number | string>
     ): Promise<void> => {
       const tarea = contexto.tareasTipo.find(t => t.id === tareaTipoId);
       if (!tarea) return;
@@ -1267,7 +1422,7 @@ export function useNotebookDocumentViewModel({
   );
 
   const actualizarParametroDeItem = useCallback(
-    (itemId: string, paramId: string, valor: number) => {
+    (itemId: string, paramId: string, valor: number | string) => {
       const entry = Object.entries(subtotalesPorBloque).find(
         ([, info]) => info.itemId === itemId
       );
@@ -1287,7 +1442,7 @@ export function useNotebookDocumentViewModel({
   );
 
   const agregarItemLibreRapido = useCallback(
-    (descripcion: string, cantidad: number, precioUnitario: number) => {
+    (descripcion: string, cantidad: number | string, precioUnitario: number | string) => {
       if (!descripcion.trim()) return;
       const newLine = construirLineaItemLibreRapido(descripcion, cantidad, precioUnitario);
       const base = texto.trimEnd();
@@ -1384,6 +1539,8 @@ export function useNotebookDocumentViewModel({
     reserializeFromPresupuesto,
     actualizarMetadataPresupuesto,
     bloques: parseResult.bloques,
+    variablesCotizacion,
+    scopeVariables,
     totales: totales as TotalesPresupuestoResultado,
     alcanceYAdvertencias: alcanceYAdvertencias as ResultadoAlcanceYAdvertencias,
     subtotalesPorBloque,
@@ -1404,6 +1561,10 @@ export function useNotebookDocumentViewModel({
     duplicateCurrentLine,
     deleteCurrentLine,
     toggleCommentCurrentLine,
+    insertTextAtCursor,
+    upsertVariable,
+    deleteVariable,
+    insertQuickBlock,
 
     // Cursor y Bloque activo
     cursor,
@@ -1469,6 +1630,7 @@ export function useNotebookDocumentViewModel({
     // Errores y Lints
     errores,
     erroresParser: parseResult.errores,
+    notasUnidadesPorLinea,
     esValido: parseResult.valido && errores.length === 0
   };
 }

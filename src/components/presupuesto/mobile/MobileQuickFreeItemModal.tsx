@@ -1,41 +1,63 @@
 import React, { useEffect, useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { TERMINOLOGY } from '../../../config/terminology';
+import { MathInput } from '../../common/MathInput';
 
 interface MobileQuickFreeItemModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (descripcion: string, cantidad: number, precioUnitario: number) => void;
+  scope?: Record<string, number>;
+  onAdd: (
+    descripcion: string,
+    cantidad: number | string,
+    precioUnitario: number | string
+  ) => void;
 }
 
 /**
  * Atajo móvil de 3 campos exactos (descripción, cantidad, precio) para agregar un ítem libre.
+ * Soporta expresiones matemáticas y variables globales vía MathInput.
  */
 export const MobileQuickFreeItemModal: React.FC<MobileQuickFreeItemModalProps> = ({
   isOpen,
   onClose,
+  scope,
   onAdd
 }) => {
   const [descripcion, setDescripcion] = useState('');
-  const [cantidad, setCantidad] = useState('1');
-  const [precio, setPrecio] = useState('');
+  const [cantidad, setCantidad] = useState<number | null>(1);
+  const [cantidadFormula, setCantidadFormula] = useState<string | undefined>(undefined);
+  const [precio, setPrecio] = useState<number | null>(null);
+  const [precioFormula, setPrecioFormula] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!isOpen) {
       setDescripcion('');
-      setCantidad('1');
-      setPrecio('');
+      setCantidad(1);
+      setCantidadFormula(undefined);
+      setPrecio(null);
+      setPrecioFormula(undefined);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const canSubmit = descripcion.trim().length > 0 && Number(cantidad) > 0 && Number(precio) >= 0;
+  const hasScopeVars = Boolean(scope && Object.keys(scope).length > 0);
+  const canSubmit =
+    descripcion.trim().length > 0 &&
+    cantidad !== null &&
+    cantidad > 0 &&
+    precio !== null &&
+    precio >= 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
-    onAdd(descripcion.trim(), Number(cantidad) || 1, Number(precio) || 0);
+    onAdd(
+      descripcion.trim(),
+      cantidadFormula || (cantidad ?? 1),
+      precioFormula || (precio ?? 0)
+    );
     onClose();
   };
 
@@ -92,16 +114,21 @@ export const MobileQuickFreeItemModal: React.FC<MobileQuickFreeItemModalProps> =
               >
                 Cantidad
               </label>
-              <input
+              <MathInput
                 id="quick-item-qty"
-                type="number"
-                inputMode="decimal"
-                min="0.01"
-                step="any"
-                required
+                ariaLabel="Cantidad"
                 value={cantidad}
-                onChange={e => setCantidad(e.target.value)}
-                className="h-11 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface focus:border-primary focus:outline-none"
+                formula={cantidadFormula}
+                allowFormula
+                scope={scope}
+                inputMode={hasScopeVars ? 'text' : 'decimal'}
+                min={0.01}
+                placeholder="1"
+                onChange={(val, fx) => {
+                  setCantidad(val);
+                  setCantidadFormula(fx);
+                }}
+                className="h-11 bg-surface-container-lowest text-sm font-medium"
               />
             </div>
             <div>
@@ -111,20 +138,30 @@ export const MobileQuickFreeItemModal: React.FC<MobileQuickFreeItemModalProps> =
               >
                 Precio unitario ($)
               </label>
-              <input
+              <MathInput
                 id="quick-item-price"
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="any"
-                required
+                ariaLabel="Precio unitario ($)"
                 value={precio}
-                onChange={e => setPrecio(e.target.value)}
+                formula={precioFormula}
+                allowFormula
+                scope={scope}
+                inputMode={hasScopeVars ? 'text' : 'decimal'}
+                min={0}
                 placeholder="0"
-                className="h-11 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface focus:border-primary focus:outline-none"
+                onChange={(val, fx) => {
+                  setPrecio(val);
+                  setPrecioFormula(fx);
+                }}
+                className="h-11 bg-surface-container-lowest text-sm font-medium"
               />
             </div>
           </div>
+
+          <p className="text-[11px] text-on-surface-variant">
+            {hasScopeVars
+              ? `Podés escribir operaciones o variables (${Object.keys(scope!).slice(0, 4).join(', ')}).`
+              : 'Podés escribir operaciones rápidas (ej. 12 + 4 o 15000 * 1.2).'}
+          </p>
         </div>
 
         <button

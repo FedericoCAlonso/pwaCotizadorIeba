@@ -474,4 +474,271 @@ describe('notebookDocument', () => {
     expect(back.linea).toBe(2);
     expect(back.paramId).toBe('sup');
   });
+
+  it('valida variables no definidas sin fallos silenciosos, encadena parámetros locales y preserva fórmulas en round-trip', () => {
+    // 1. Errores visibles con línea exacta y sugerencia de typo en fórmulas de sub-líneas y parámetros
+    const textoConTypos = [
+      'bocas = 12',
+      'tarifa = 5000',
+      '/tt recableado-completo',
+      '  sup = 60',
+      '  bocas = boca * 2',
+      'tarea: Circuito tomas',
+      '  mat: Cable 2.5mm Celeste',
+      '    cantidad = boca * 3 m',
+      'item: Canalización extra',
+      '  cantidad = 2 m',
+      '  precio = tarfa * 1.2'
+    ].join('\n');
+
+    const resErr = evaluateNotebookText(textoConTypos, {}, contexto);
+    expect(resErr.parseResult.valido).toBe(true);
+    expect(resErr.aplicacion.erroresVariables).toHaveLength(3);
+    expect(resErr.aplicacion.erroresVariables.map(e => ({ linea: e.linea, codigo: e.codigo }))).toEqual([
+      { linea: 5, codigo: 'variable_no_definida' },
+      { linea: 8, codigo: 'variable_no_definida' },
+      { linea: 11, codigo: 'variable_no_definida' }
+    ]);
+    expect(resErr.aplicacion.erroresVariables[0].mensaje).toContain("¿Quisiste decir 'bocas'?");
+    expect(resErr.aplicacion.erroresVariables[2].mensaje).toContain("¿Quisiste decir 'tarifa'?");
+
+    // 2. Encadenamiento de parámetros locales + fórmulas naturales + round-trip sin pérdida de fórmulas
+    const textoFiel = [
+      'largo = 10 m',
+      'tarifa = 4000',
+      '/tt boca-basica',
+      '  cantidad = largo / 2',
+      'tarea: Circuito principal',
+      '  bocas_local = 6',
+      '  metros_local = bocas_local * 5',
+      '  mat: Cable 2.5mm Celeste',
+      '    cantidad = metros_local * 1.1 m',
+      '  mo: Oficial Electricista',
+      '    horas = bocas_local * 0.5 hs',
+      '  serv: Flete materiales',
+      '    cantidad = 1 gl',
+      '    costo = tarifa * 2'
+    ].join('\n');
+
+    const eval1 = evaluateNotebookText(textoFiel, {}, contexto, { modoPasada: 'valorizacion' });
+    expect(eval1.parseResult.errores).toEqual([]);
+    expect(eval1.aplicacion.erroresVariables).toEqual([]);
+
+    const ttItem = eval1.aplicacion.presupuesto.items[0];
+    expect(ttItem.cantidad).toBe(5);
+    expect(ttItem.formulaCantidad).toBe('largo / 2');
+
+    const tareaItem = eval1.aplicacion.presupuesto.items[1];
+    expect(tareaItem.insumosSnapshot[0].cantidadTotal).toBeCloseTo(33, 5);
+    expect(tareaItem.insumosSnapshot[0].formulaCantidad).toBe('metros_local * 1.1');
+    expect(tareaItem.manoObraSnapshot[0].horasTotales).toBe(3);
+    expect(tareaItem.manoObraSnapshot[0].formulaHoras).toBe('bocas_local * 0.5');
+    expect(tareaItem.costoServiciosTercerizados).toBe(8000);
+    expect(tareaItem.serviciosTercerizados?.[0]).toMatchObject({
+      descripcion: 'Flete materiales',
+      unidad: 'gl',
+      formulaCosto: 'tarifa * 2'
+    });
+
+    // Round-trip: Presupuesto -> NotebookBlock -> serialize -> parse -> Presupuesto
+    const blocks = presupuestoToNotebookBlocks(eval1.aplicacion.presupuesto, contexto);
+    const serialized = serialize(blocks, {
+      tareasTipo: contexto.tareasTipo,
+      materiales: contexto.materiales,
+      productos: contexto.productos,
+      manoObra: contexto.manoObra
+    });
+    expect(serialized).toContain('largo = 10 m');
+    expect(serialized).toContain('cantidad = largo / 2');
+    expect(serialized).toContain('metros_local = bocas_local * 5');
+    expect(serialized).toContain('cantidad = metros_local * 1.1 m');
+    expect(serialized).toContain('horas = bocas_local * 0.5 hs');
+    expect(serialized).toContain('costo = tarifa * 2');
+
+    const eval2 = evaluateNotebookText(serialized, {}, contexto, { modoPasada: 'valorizacion' });
+    expect(eval2.parseResult.errores).toEqual([]);
+    expect(eval2.aplicacion.erroresVariables).toEqual([]);
+    expect(eval2.aplicacion.totales.precioFinalGlobal).toBe(eval1.aplicacion.totales.precioFinalGlobal);
+
+    // 3. Tab en cantidad con fórmula + unidad separada por espacio selecciona solo la fórmula
+    const tabFormulaDoc = 'tarea: Circuito\n  mat: Cable 2.5mm Celeste\n    cantidad = bocas * 2 m';
+    const jump = findNextParameterSlotInDocument(tabFormulaDoc, 2, 5, 1);
+    expect(jump.handled).toBe(true);
+    expect(jump.linea).toBe(3);
+    expect(
+      tabFormulaDoc
+        .split('\n')[2]
+        .slice((jump.selectionStartCol ?? 1) - 1, (jump.selectionEndCol ?? 1) - 1)
+    ).toBe('bocas * 2');
+  });
+
+  it('aplica álgebra pragmática de unidades: inferencia m², conversiones cm->m / min->h y advertencias suaves no bloqueantes', () => {
+    const texto = [
+      'largo = 12 m',
+      'ancho = 5 m',
+      'sup = largo * ancho',
+      'tramo = 10 m + 80 cm',
+      'tiempo = 2 h + 45 min',
+      'bajada = 150 cm',
+      'mezcla = 10 m + 3 hs',
+      'tarea: Tendido de línea',
+      '  mat: Cable 2.5mm Celeste',
+      '    cantidad = bajada',
+      '  mo: Oficial Electricista',
+      '    horas = tiempo'
+    ].join('\n');
+
+    const { parseResult, aplicacion } = evaluateNotebookText(texto, {}, contexto, {
+      modoPasada: 'valorizacion'
+    });
+
+    expect(parseResult.errores).toEqual([]);
+    expect(aplicacion.erroresVariables).toEqual([]);
+
+    const varsById = new Map((aplicacion.presupuesto.variablesCotizacion || []).map(v => [v.id, v]));
+    expect(varsById.get('sup')).toMatchObject({ valorEvaluado: 60, unidad: 'm²' });
+    expect(varsById.get('tramo')).toMatchObject({ valorEvaluado: 10.8, unidad: 'm' });
+    expect(varsById.get('tiempo')).toMatchObject({ valorEvaluado: 2.75, unidad: 'h' });
+    expect(varsById.get('mezcla')?.valorEvaluado).toBe(13);
+    expect(varsById.get('mezcla')?.advertencia).toContain('incompatibles');
+    expect(aplicacion.notasUnidadesPorLinea[7]?.advertencia).toContain('incompatibles');
+
+    // bajada (150 cm) se convierte automáticamente a 1.5 m en Cable 2.5mm (unidadVenta: m)
+    const tareaItem = aplicacion.presupuesto.items[0];
+    expect(tareaItem.insumosSnapshot[0].cantidadTotal).toBeCloseTo(1.5, 5);
+    expect(aplicacion.notasUnidadesPorLinea[10]?.nota).toBe('← 150 cm');
+    expect(tareaItem.manoObraSnapshot[0].horasTotales).toBeCloseTo(2.75, 5);
+  });
+
+  it('ofrece autocompletado expression-aware: preserva prefijo tras operadores, incluye variables locales/globales con valor, funciones matemáticas, opciones select/boolean y comando de variable', () => {
+    const ttConOpciones: TareaTipo = {
+      ...tareaRecableado,
+      id: 'tt-tablero',
+      nombre: 'Tablero Seccional',
+      slug: 'tablero-seccional',
+      parametros: [
+        {
+          id: 'tipo_montaje',
+          nombre: 'Tipo de montaje',
+          tipo: 'select',
+          valorDefault: 1,
+          opciones: [
+            { id: 'embutido', label: 'Embutido', valor: 1 },
+            { id: 'exterior', label: 'Exterior', valor: 2 }
+          ]
+        },
+        {
+          id: 'con_tierra',
+          nombre: 'Incluye puesta a tierra',
+          tipo: 'boolean',
+          valorDefault: 1
+        }
+      ]
+    };
+    const ctxExt: NotebookDocumentContext = {
+      ...contexto,
+      tareasTipo: [...contexto.tareasTipo, ttConOpciones]
+    };
+    const variableDetails = {
+      superficie: { value: 80, unit: 'm²' },
+      bocas: { value: 24 },
+      tarifa: { value: 5000 }
+    };
+
+    // 1. Dentro de expresión después de `(`: reemplaza solo el identificador parcial (`su`) y muestra valor de variable
+    const docExpr = 'superficie = 80 m²\nbocas = ceil(su';
+    const acExpr = getContextualAutocompleteSuggestions(
+      docExpr,
+      2,
+      16,
+      ctxExt,
+      ['superficie', 'bocas', 'tarifa'],
+      { variableDetails }
+    );
+    expect(acExpr.isOpen).toBe(true);
+    expect(acExpr.suggestions[0]).toMatchObject({
+      kind: 'variable',
+      label: 'superficie',
+      insertText: 'superficie',
+      replaceStartCol: 14,
+      replaceEndCol: 16
+    });
+    expect(acExpr.suggestions[0].detail).toContain('80');
+    expect(acExpr.suggestions[0].detail).toContain('m²');
+    // Excluye la propia variable `bocas` en su propia declaración para evitar ciclos
+    expect(acExpr.suggestions.some(s => s.label === 'bocas')).toBe(false);
+
+    // 2. Funciones matemáticas en expresión con cursor dentro de los paréntesis
+    const acFn = getContextualAutocompleteSuggestions(
+      'superficie = 80\nbocas = ce',
+      2,
+      11,
+      ctxExt,
+      ['superficie', 'bocas'],
+      { variableDetails }
+    );
+    expect(acFn.isOpen).toBe(true);
+    const ceilSugg = acFn.suggestions.find(s => s.kind === 'funcion' && s.label.startsWith('ceil('));
+    expect(ceilSugg).toBeTruthy();
+    expect(ceilSugg?.insertText).toBe('ceil()');
+    expect(ceilSugg?.selectionStartOffset).toBe(5);
+    expect(ceilSugg?.selectionEndOffset).toBe(5);
+
+    // 3. Variables locales declaradas en el mismo bloque `tarea:` + preservación del texto previo en `cantidad = bocas + `
+    const docLocal = [
+      'bocas = 24',
+      'tarea: Circuito cocina',
+      '  bocas_cocina = 6',
+      '  mat: Cable 2.5mm Celeste',
+      '    cantidad = bocas + boc'
+    ].join('\n');
+    const acLocal = getContextualAutocompleteSuggestions(
+      docLocal,
+      5,
+      27,
+      ctxExt,
+      ['bocas'],
+      { variableDetails }
+    );
+    expect(acLocal.isOpen).toBe(true);
+    const localSugg = acLocal.suggestions.find(s => s.label === 'bocas_cocina');
+    expect(localSugg).toBeTruthy();
+    expect(localSugg?.detail).toContain('local');
+    expect(localSugg?.replaceStartCol).toBe(24);
+    expect(localSugg?.replaceEndCol).toBe(27);
+    expect(acLocal.suggestions.some(s => s.label === 'bocas')).toBe(true);
+
+    // 4. Opciones de parámetro `select` y `boolean` en bloque `/tt`
+    const docSelect = '/tt tablero-seccional\n  tipo_montaje = ';
+    const acSelect = getContextualAutocompleteSuggestions(
+      docSelect,
+      2,
+      18,
+      ctxExt,
+      ['bocas'],
+      { forceOpen: true, variableDetails }
+    );
+    expect(acSelect.isOpen).toBe(true);
+    expect(acSelect.suggestions.filter(s => s.kind === 'opcion_parametro').map(s => s.insertText)).toEqual(['1', '2']);
+
+    const docBool = '/tt tablero-seccional\n  con_tierra = ';
+    const acBool = getContextualAutocompleteSuggestions(
+      docBool,
+      2,
+      16,
+      ctxExt,
+      ['bocas'],
+      { forceOpen: true, variableDetails }
+    );
+    expect(acBool.suggestions.filter(s => s.kind === 'opcion_parametro').map(s => s.label)).toEqual(['1 · Sí', '0 · No']);
+
+    // 5. Comando `variable =` en menú `/` y `cmd-new-variable` en paleta Ctrl+K
+    const acSlash = getContextualAutocompleteSuggestions('/', 1, 2, ctxExt);
+    expect(acSlash.suggestions.some(s => s.id === 'cmd-var' && s.insertText === 'nombre = 1')).toBe(true);
+
+    const palette = buildNotebookCommandPalette(ctxExt);
+    const varCmd = filterNotebookCommandPalette(palette, 'variable')[0];
+    expect(varCmd?.id).toBe('cmd-new-variable');
+    expect(varCmd?.insertLine).toBe('medida = 1');
+  });
 });

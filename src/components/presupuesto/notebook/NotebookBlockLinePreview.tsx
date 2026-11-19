@@ -5,10 +5,17 @@ import { TERMINOLOGY } from '../../../config/terminology';
 import {
   NotebookDocumentContext,
   NotebookErrorDocumento,
+  NotebookUnitNote,
   SubtotalBloqueInfo
 } from '../../../core/notebookDocument';
 import { NotebookBlock } from '../../../core/notebookParser';
-import { ItemPresupuesto } from '../../../core/types';
+import { ItemPresupuesto, VariableCotizacion } from '../../../core/types';
+import {
+  buildChipsForBlock,
+  buildChipsForSubline,
+  CHIP_TONE_CLASSES,
+  formatComputedValue
+} from './notebookPreviewHelpers';
 
 export interface NotebookBlockLinePreviewProps {
   lines?: string[];
@@ -18,225 +25,12 @@ export interface NotebookBlockLinePreviewProps {
   blockLineNumbers: number[];
   subtotalesPorBloque: Record<number, SubtotalBloqueInfo>;
   items: ItemPresupuesto[];
+  variablesCotizacion?: VariableCotizacion[];
+  notasUnidadesPorLinea?: Record<number, NotebookUnitNote>;
   contexto: NotebookDocumentContext;
   errores: NotebookErrorDocumento[];
   onSelectLine: (linea: number) => void;
   onValorizarItem: (itemId: string) => void;
-}
-
-interface ResolvedChip {
-  key: string;
-  label: string;
-  tone: 'material' | 'marca' | 'unidad' | 'param' | 'ajuste' | 'variable' | 'nota';
-  icon?: 'package' | 'wrench' | 'lock';
-}
-
-const CHIP_TONE_CLASSES: Record<ResolvedChip['tone'], string> = {
-  material: 'bg-primary-container/70 text-on-primary-container border-primary/20',
-  marca: 'bg-secondary-container/80 text-on-secondary-container border-secondary/20',
-  unidad: 'bg-surface-container-high text-on-surface-variant border-outline-variant/60',
-  param: 'bg-tertiary-container/60 text-on-tertiary-container border-tertiary/20',
-  ajuste: 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30',
-  variable: 'bg-surface-container-highest text-on-surface border-outline-variant/60',
-  nota: 'bg-surface-container-high text-on-surface-variant border-outline-variant/50 italic'
-};
-
-function buildChipsForBlock(
-  block: NotebookBlock,
-  item: ItemPresupuesto | undefined,
-  contexto: NotebookDocumentContext
-): ResolvedChip[] {
-  const chips: ResolvedChip[] = [];
-
-  if (block.tipo === 'variable') {
-    chips.push({ key: `var-${block.id}`, label: `var ${block.id}`, tone: 'variable' });
-    return chips;
-  }
-
-  if (block.tipo === 'supuesto') {
-    chips.push({ key: `sup-${block.clave}`, label: `${TERMINOLOGY.supuestoSingular}: ${block.clave} = ${block.valor}`, tone: 'param' });
-    return chips;
-  }
-
-  if (block.tipo === 'nota_interna') {
-    chips.push({ key: 'nota-priv', label: `${TERMINOLOGY.notaInterna} (oculta al cliente)`, tone: 'nota', icon: 'lock' });
-    return chips;
-  }
-
-  if (block.tipo === 'capitulo') {
-    chips.push({ key: `cap-${block.nombre}`, label: `${TERMINOLOGY.agrupadorSingular}: ${block.nombre}`, tone: 'variable' });
-    return chips;
-  }
-
-  if (item) {
-    for (const ins of item.insumosSnapshot.slice(0, 3)) {
-      chips.push({
-        key: `ins-${ins.insumoId}-${chips.length}`,
-        label: ins.nombre,
-        tone: 'material',
-        icon: 'package'
-      });
-      if (ins.marca) {
-        chips.push({
-          key: `mrc-${ins.insumoId}-${chips.length}`,
-          label: ins.marca,
-          tone: 'marca'
-        });
-      }
-      chips.push({
-        key: `uni-${ins.insumoId}-${chips.length}`,
-        label: `${ins.cantidadTotal}${ins.unidad}`,
-        tone: 'unidad'
-      });
-    }
-    if (item.insumosSnapshot.length > 3) {
-      chips.push({
-        key: 'more-ins',
-        label: `+${item.insumosSnapshot.length - 3} materiales`,
-        tone: 'unidad'
-      });
-    }
-    for (const mo of item.manoObraSnapshot.slice(0, 1)) {
-      chips.push({
-        key: `mo-${mo.categoriaId}`,
-        label: `${mo.nombreCategoria} ${mo.horasTotales}hs`,
-        tone: 'param',
-        icon: 'wrench'
-      });
-    }
-  }
-
-  if (block.tipo === 'tarea_tipo') {
-    const tt = contexto.tareasTipo.find(t => t.id === block.tareaTipoId);
-    if (tt && chips.length === 0) {
-      chips.push({ key: `tt-u-${tt.id}`, label: tt.unidad || 'u', tone: 'unidad' });
-    }
-    for (const [k, v] of Object.entries(block.overridesParametros)) {
-      chips.push({ key: `ov-${k}`, label: `${k}=${v}`, tone: 'param' });
-    }
-    for (const q of block.quitados) {
-      chips.push({ key: `q-${q}`, label: `-${q}`, tone: 'ajuste' });
-    }
-    for (const ag of block.agregados) {
-      chips.push({ key: `ag-${ag.referencia}`, label: `+${ag.referencia}`, tone: 'ajuste' });
-    }
-  }
-
-  return chips;
-}
-
-function buildChipsForSubline(
-  rawLine: string,
-  enclosingBlock: NotebookBlock | undefined,
-  enclosingItem: ItemPresupuesto | undefined,
-  contexto: NotebookDocumentContext
-): { chips: ResolvedChip[]; sublineCost?: number } {
-  const trimmed = rawLine.trim();
-  if (!trimmed || trimmed.startsWith('//') || !enclosingBlock) {
-    return { chips: [] };
-  }
-
-  const paramMatch = trimmed.match(/^([a-zA-Z_][\w-]*)\s*=\s*(.+)$/);
-  if (paramMatch) {
-    const paramKey = paramMatch[1];
-    const paramKeyLower = paramKey.toLowerCase();
-    const paramVal = paramMatch[2].trim();
-
-    if (paramKeyLower === 'marca' || paramKeyLower === 'producto') {
-      return {
-        chips: [{ key: `submk-${paramKey}`, label: paramVal, tone: 'marca' }]
-      };
-    }
-    if (paramKeyLower === 'cantidad') {
-      return {
-        chips: [{ key: `subqty-${paramKey}`, label: paramVal, tone: 'unidad' }]
-      };
-    }
-    if (paramKeyLower === 'horas') {
-      return {
-        chips: [{ key: `subhrs-${paramKey}`, label: paramVal, tone: 'param', icon: 'wrench' }]
-      };
-    }
-    if (paramKeyLower === 'costo' || paramKeyLower === 'precio') {
-      return {
-        chips: [{ key: `subcost-${paramKey}`, label: `${paramKey}: ${paramVal}`, tone: 'param' }]
-      };
-    }
-
-    if (enclosingBlock.tipo === 'tarea_tipo') {
-      const tt = contexto.tareasTipo.find(t => t.id === enclosingBlock.tareaTipoId);
-      const paramDef = tt?.parametros?.find(
-        p => p.id === paramKey || p.nombre.toLowerCase() === paramKeyLower
-      );
-      if (paramDef) {
-        return {
-          chips: [
-            {
-              key: `subp-${paramKey}`,
-              label: paramDef.unidad ? `${paramDef.nombre} (${paramDef.unidad})` : paramDef.nombre,
-              tone: 'param'
-            }
-          ]
-        };
-      }
-    }
-    return {
-      chips: [{ key: `subp-${paramKey}`, label: paramKey, tone: 'param' }]
-    };
-  }
-
-  if (trimmed.startsWith('-')) {
-    return {
-      chips: [{ key: `subq-${trimmed}`, label: trimmed, tone: 'ajuste' }]
-    };
-  }
-
-  if (trimmed.startsWith('+') || enclosingBlock.tipo === 'item_libre' || enclosingBlock.tipo === 'tarea_tipo') {
-    const lower = trimmed.replace(/^(?:mat:|\+)\s*/i, '').toLowerCase();
-    const matMatch = enclosingItem?.insumosSnapshot.find(ins =>
-      lower.includes(ins.nombre.toLowerCase().slice(0, Math.min(8, ins.nombre.length)))
-    );
-    if (matMatch) {
-      const chips: ResolvedChip[] = [
-        {
-          key: `subm-${matMatch.insumoId}`,
-          label: matMatch.nombre,
-          tone: 'material',
-          icon: 'package'
-        }
-      ];
-      if (matMatch.marca) {
-        chips.push({ key: `submk-${matMatch.insumoId}`, label: matMatch.marca, tone: 'marca' });
-      }
-      chips.push({
-        key: `subu-${matMatch.insumoId}`,
-        label: `${matMatch.cantidadTotal}${matMatch.unidad}`,
-        tone: 'unidad'
-      });
-      return { chips, sublineCost: matMatch.subtotalInsumoFinal ?? matMatch.subtotalInsumo };
-    }
-
-    if (lower.startsWith('mo:') || lower.startsWith('mano:') || lower.startsWith('mano_obra:')) {
-      const moMatch = enclosingItem?.manoObraSnapshot.find(mo =>
-        lower.includes(mo.nombreCategoria.toLowerCase().slice(0, Math.min(6, mo.nombreCategoria.length)))
-      );
-      if (moMatch) {
-        return {
-          chips: [
-            {
-              key: `submo-${moMatch.categoriaId}`,
-              label: `${moMatch.nombreCategoria} ${moMatch.horasTotales}hs`,
-              tone: 'param',
-              icon: 'wrench'
-            }
-          ],
-          sublineCost: moMatch.subtotalManoObra
-        };
-      }
-    }
-  }
-
-  return { chips: [] };
 }
 
 /**
@@ -251,6 +45,8 @@ export const NotebookBlockLinePreview: React.FC<NotebookBlockLinePreviewProps> =
   blockLineNumbers,
   subtotalesPorBloque,
   items,
+  variablesCotizacion = [],
+  notasUnidadesPorLinea = {},
   contexto,
   errores,
   onSelectLine,
@@ -271,9 +67,14 @@ export const NotebookBlockLinePreview: React.FC<NotebookBlockLinePreviewProps> =
   const itemById = new Map<string, ItemPresupuesto>();
   for (const it of items) itemById.set(it.id, it);
 
+  const varById = new Map<string, VariableCotizacion>();
+  for (const v of variablesCotizacion) varById.set(v.id, v);
+
   const lineArray = Array.from({ length: Math.max(linesCount, 1) }, (_, idx) => idx + 1);
   let currentEnclosingBlock: NotebookBlock | undefined;
   let currentEnclosingItem: ItemPresupuesto | undefined;
+  let currentSubHeader: string | undefined;
+  let currentSubIndent = 0;
 
   return (
     <div
@@ -287,20 +88,50 @@ export const NotebookBlockLinePreview: React.FC<NotebookBlockLinePreviewProps> =
         const err = errorByLine.get(lineNum);
         const isActive = lineNum === activeLine;
         const item = subtotal ? itemById.get(subtotal.itemId) : undefined;
+        const indentLen = rawLine.length - rawLine.trimStart().length;
+        const trimmedLine = rawLine.trim();
 
         if (block) {
           currentEnclosingBlock = block;
           currentEnclosingItem = item;
-        } else if (rawLine.trim() === '' || (!/^\s/.test(rawLine) && !rawLine.trim().startsWith('//'))) {
+          currentSubHeader = undefined;
+          currentSubIndent = 0;
+        } else if (trimmedLine === '' || (!/^\s/.test(rawLine) && !trimmedLine.startsWith('//'))) {
           currentEnclosingBlock = undefined;
           currentEnclosingItem = undefined;
+          currentSubHeader = undefined;
+          currentSubIndent = 0;
+        } else if (indentLen > 0) {
+          if (/^(?:mat:|mo:|serv:|\+)/i.test(trimmedLine)) {
+            currentSubHeader = trimmedLine;
+            currentSubIndent = indentLen;
+          } else if (currentSubHeader && indentLen <= currentSubIndent) {
+            currentSubHeader = undefined;
+            currentSubIndent = 0;
+          }
         }
 
+        const varInfo = block?.tipo === 'variable' ? varById.get(block.id) : undefined;
+        const variableEvalOutput =
+          block?.tipo === 'variable' && !err && varInfo && !varInfo.error && varInfo.valorEvaluado !== undefined
+            ? `= ${formatComputedValue(varInfo.valorEvaluado)}${varInfo.unidad ? ` ${varInfo.unidad}` : ''}`
+            : undefined;
+
         const sublinePreview = !block && /^\s+\S/.test(rawLine)
-          ? buildChipsForSubline(rawLine, currentEnclosingBlock, currentEnclosingItem, contexto)
+          ? buildChipsForSubline(
+              rawLine,
+              currentEnclosingBlock,
+              currentEnclosingItem,
+              indentLen > currentSubIndent ? currentSubHeader : undefined,
+              contexto
+            )
           : { chips: [] };
 
-        const chips = block ? buildChipsForBlock(block, item, contexto) : sublinePreview.chips;
+        const chips = block ? buildChipsForBlock(block, item, contexto, varInfo) : sublinePreview.chips;
+        const evalOutput = variableEvalOutput ?? sublinePreview.evalOutput;
+        const unitNote = notasUnidadesPorLinea[lineNum];
+        const unitWarning = unitNote?.advertencia ?? varInfo?.advertencia;
+        const unitConvNote = unitNote?.nota;
 
         return (
           <div
@@ -330,13 +161,13 @@ export const NotebookBlockLinePreview: React.FC<NotebookBlockLinePreviewProps> =
                     {chip.icon === 'package' && <Package className="w-2.5 h-2.5 shrink-0" />}
                     {chip.icon === 'wrench' && <Wrench className="w-2.5 h-2.5 shrink-0" />}
                     {chip.icon === 'lock' && <Lock className="w-2.5 h-2.5 shrink-0" />}
-                    <span className="truncate max-w-[96px]">{chip.label}</span>
+                    <span className="truncate max-w-[120px]">{chip.label}</span>
                   </span>
                 ))
               )}
             </div>
 
-            {/* Output de celda: subtotal en margen derecho, costo de sublínea o badge Sin valorizar */}
+            {/* Output de celda: subtotal en margen derecho, valor evaluado de variable/fórmula o costo de sublínea */}
             {subtotal && !err ? (
               <div className="shrink-0 flex items-center gap-1.5">
                 {subtotal.estadoValorizacion === 'sin_valorizar' ? (
@@ -362,6 +193,27 @@ export const NotebookBlockLinePreview: React.FC<NotebookBlockLinePreviewProps> =
                   </span>
                 )}
               </div>
+            ) : evalOutput && !err ? (
+              <span
+                className="shrink-0 inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-primary tabular-nums max-w-[190px]"
+                title={
+                  unitWarning
+                    ? `${evalOutput} · ${unitWarning}`
+                    : unitConvNote
+                      ? `${evalOutput} (${unitConvNote})`
+                      : evalOutput
+                }
+              >
+                {unitWarning && (
+                  <AlertTriangle className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                )}
+                <span className="truncate">{evalOutput}</span>
+                {unitConvNote && (
+                  <span className="text-[10px] font-normal text-on-surface-variant shrink-0">
+                    {unitConvNote}
+                  </span>
+                )}
+              </span>
             ) : (
               sublinePreview.sublineCost !== undefined &&
               !err && (

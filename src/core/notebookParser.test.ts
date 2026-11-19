@@ -511,5 +511,107 @@ describe('notebookParser (Fase 2)', () => {
         '  precio = 15000',
       ].join('\n'));
     });
+
+    it('soporta sintaxis natural sin paréntesis, unidades opcionales en variables y cantidad con fórmula en /tt y tarea:', () => {
+      const textoNatural = [
+        'largo = 12 m',
+        'ancho = 5m',
+        'sup = largo * ancho m2',
+        'bocas = ceil(sup * 0.3) u',
+        'tarifa = 4500',
+        '/tt recableado-completo',
+        '  cantidad = 2 + 1',
+        '  sup = largo * ancho',
+        '  bocas = bocas + 2',
+        'tarea: Tablero seccional',
+        '  cantidad = 2 u',
+        '  circuitos = 8',
+        '  metros = circuitos * 5',
+        '  mat: Cable Unipolar 2.5mm² Celeste',
+        '    cantidad = metros * 1.1 m',
+        '  mo: Oficial Electricista',
+        '    horas = circuitos * 0.5 hs',
+        '  serv: Ensayo de aislación',
+        '    cantidad = circuitos u',
+        '    costo = tarifa * 1.2',
+        'item: Canalización extra',
+        '  cantidad = largo * 2 m',
+        '  precio = tarifa * 1.15',
+      ].join('\n');
+
+      const parsed = parse(textoNatural, ctx);
+      expect(parsed.errores).toEqual([]);
+      expect(parsed.valido).toBe(true);
+
+      expect(parsed.bloques[0]).toEqual({ tipo: 'variable', id: 'largo', expresion: '12', unidad: 'm' });
+      expect(parsed.bloques[1]).toEqual({ tipo: 'variable', id: 'ancho', expresion: '5', unidad: 'm' });
+      expect(parsed.bloques[2]).toEqual({ tipo: 'variable', id: 'sup', expresion: 'largo * ancho', unidad: 'm2' });
+      expect(parsed.bloques[3]).toEqual({ tipo: 'variable', id: 'bocas', expresion: 'ceil(sup * 0.3)', unidad: 'u' });
+
+      expect(parsed.bloques[5]).toMatchObject({
+        tipo: 'tarea_tipo',
+        formulaCantidad: '2 + 1',
+        overridesParametros: { sup: 'largo * ancho', bocas: 'bocas + 2' },
+      });
+
+      expect(parsed.bloques[6]).toMatchObject({
+        tipo: 'item_libre',
+        modo: 'tarea',
+        cantidad: 2,
+        unidad: 'u',
+        parametros: { circuitos: 8, metros: 'circuitos * 5' },
+        lineas: [
+          expect.objectContaining({ tipo: 'material', formulaCantidad: 'metros * 1.1', unidad: 'm' }),
+          expect.objectContaining({ tipo: 'mano_obra', formulaHoras: 'circuitos * 0.5', unidad: 'hs' }),
+          expect.objectContaining({ tipo: 'servicio', formulaCantidad: 'circuitos', unidad: 'u', formulaCosto: 'tarifa * 1.2' }),
+        ],
+      });
+
+      expect(parsed.bloques[7]).toMatchObject({
+        tipo: 'item_libre',
+        modo: 'item',
+        formulaCantidad: 'largo * 2',
+        unidad: 'm',
+        formulaPrecio: 'tarifa * 1.15',
+      });
+
+      // Round-trip determinista
+      const reserialized = serialize(parsed.bloques, ctx);
+      const reparsed = parse(reserialized, ctx);
+      expect(reparsed.errores).toEqual([]);
+      expect(reparsed.bloques).toEqual(parsed.bloques);
+    });
+
+    it('no confunde identificadores tras operadores (bocas + m) con unidades y reporta unidades inválidas en fórmulas', () => {
+      const okText = [
+        'm = 4',
+        'bocas = 10',
+        'tarea: Prueba operadores',
+        '  mat: Cable Unipolar 2.5mm² Celeste',
+        '    cantidad = bocas + m',
+      ].join('\n');
+      const okRes = parse(okText, ctx);
+      expect(okRes.errores).toEqual([]);
+      const tarea = okRes.bloques[2];
+      expect(tarea.tipo).toBe('item_libre');
+      if (tarea.tipo === 'item_libre') {
+        expect(tarea.lineas[0]).toMatchObject({
+          formulaCantidad: 'bocas + m',
+          unidad: 'm',
+        });
+      }
+
+      const badUnitText = [
+        'tarea: Prueba unidad invalida',
+        '  mat: Cable Unipolar 2.5mm² Celeste',
+        '    cantidad = bocas * 2 metros_raros',
+      ].join('\n');
+      const badRes = parse(badUnitText, ctx);
+      expect(badRes.valido).toBe(false);
+      expect(badRes.errores[0]).toMatchObject({
+        linea: 3,
+        codigo: 'unidad_desconocida',
+      });
+    });
   });
 });

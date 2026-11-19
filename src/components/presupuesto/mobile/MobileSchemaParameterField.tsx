@@ -1,11 +1,14 @@
 import React from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { ParametroTrabajoTipo } from '../../../core/types';
+import { MathInput } from '../../common/MathInput';
 
 interface MobileSchemaParameterFieldProps {
   param: ParametroTrabajoTipo;
   value: number;
-  onChange: (nextVal: number) => void;
+  formula?: string;
+  scope?: Record<string, number>;
+  onChange: (nextVal: number, nextFormula?: string) => void;
   idPrefix?: string;
 }
 
@@ -18,11 +21,13 @@ function clampParamValue(param: ParametroTrabajoTipo, raw: number): number {
 
 /**
  * Campo auto-generado a partir del esquema `ParametroTrabajoTipo` para modo Ejecutar móvil.
- * Soporta stepper numérico, selector de opciones (`select`) e interruptor booleano (`boolean`).
+ * Soporta stepper numérico + MathInput (fórmulas/variables), selector (`select`) e interruptor (`boolean`).
  */
 export const MobileSchemaParameterField: React.FC<MobileSchemaParameterFieldProps> = ({
   param,
   value,
+  formula,
+  scope,
   onChange,
   idPrefix = 'mobile-param'
 }) => {
@@ -96,6 +101,7 @@ export const MobileSchemaParameterField: React.FC<MobileSchemaParameterFieldProp
   }
 
   const step = param.step && param.step > 0 ? param.step : 1;
+  const hasScopeVars = Boolean(scope && Object.keys(scope).length > 0);
 
   return (
     <div className="space-y-1.5 rounded-xl border border-outline-variant/60 bg-surface px-3 py-2.5">
@@ -114,41 +120,51 @@ export const MobileSchemaParameterField: React.FC<MobileSchemaParameterFieldProp
         <button
           type="button"
           aria-label={`Disminuir ${param.nombre}`}
-          onClick={() => onChange(clampParamValue(param, value - step))}
+          onClick={() => onChange(clampParamValue(param, value - step), undefined)}
           disabled={param.min !== undefined && value <= param.min}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-high text-on-surface active:scale-95 disabled:opacity-40"
         >
           <Minus className="h-4 w-4" />
         </button>
 
-        <input
-          id={inputId}
-          type="number"
-          inputMode="decimal"
-          min={param.min}
-          max={param.max}
-          step={step}
-          value={value}
-          aria-label={param.nombre}
-          onChange={e => {
-            const parsed = Number(e.target.value);
-            if (Number.isFinite(parsed)) {
-              onChange(clampParamValue(param, parsed));
-            }
-          }}
-          className="h-11 min-w-0 flex-1 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-center text-base font-semibold text-on-surface focus:border-primary focus:outline-none"
-        />
+        <div className="min-w-0 flex-1">
+          <MathInput
+            id={inputId}
+            value={value}
+            formula={formula}
+            allowFormula
+            scope={scope}
+            inputMode={hasScopeVars || Boolean(formula) ? 'text' : 'decimal'}
+            min={param.min}
+            max={param.max}
+            step={step}
+            decimals={3}
+            fallbackOnBlur={value}
+            ariaLabel={param.nombre}
+            onChange={(nextVal, nextFormula) => {
+              if (nextVal !== null && Number.isFinite(nextVal)) {
+                onChange(clampParamValue(param, nextVal), nextFormula);
+              }
+            }}
+            className="h-11 bg-surface-container-lowest text-center text-base font-semibold"
+          />
+        </div>
 
         <button
           type="button"
           aria-label={`Aumentar ${param.nombre}`}
-          onClick={() => onChange(clampParamValue(param, value + step))}
+          onClick={() => onChange(clampParamValue(param, value + step), undefined)}
           disabled={param.max !== undefined && value >= param.max}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-high text-on-surface active:scale-95 disabled:opacity-40"
         >
           <Plus className="h-4 w-4" />
         </button>
       </div>
+      {formula && (
+        <p className="text-[11px] font-mono text-primary truncate" title={`Fórmula: ${formula}`}>
+          ƒx = {formula}
+        </p>
+      )}
     </div>
   );
 };

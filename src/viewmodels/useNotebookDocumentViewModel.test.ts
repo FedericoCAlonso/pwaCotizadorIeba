@@ -371,4 +371,68 @@ describe('useNotebookDocumentViewModel', () => {
     });
     expect(result.current.autocomplete.isOpen).toBe(true);
   });
+
+  it('permite declarar, editar, eliminar e insertar variables y bloques rápidos desde la cinta interactiva', () => {
+    const { result } = renderHook(() =>
+      useNotebookDocumentViewModel({
+        config: DEFAULT_APP_CONFIG,
+        catalogOverride: baseCatalog
+      })
+    );
+
+    act(() => {
+      result.current.setTexto('/tt recableado-completo\n  sup = 60\n  bocas = 10');
+    });
+
+    // Declarar nueva variable la ubica arriba con separador y la evalúa en scopeVariables
+    act(() => {
+      expect(result.current.upsertVariable('largo', '12', 'm')).toBe(true);
+    });
+    expect(result.current.texto.startsWith('largo = 12 m\n\n/tt recableado-completo')).toBe(true);
+    expect(result.current.scopeVariables.largo).toBe(12);
+    expect(result.current.variablesCotizacion[0]).toMatchObject({
+      id: 'largo',
+      valorEvaluado: 12,
+      unidad: 'm'
+    });
+
+    // Segunda variable derivada queda agrupada junto a la primera
+    act(() => {
+      expect(result.current.upsertVariable('doble', 'largo * 2', 'm')).toBe(true);
+    });
+    expect(result.current.scopeVariables.doble).toBe(24);
+
+    // Editar variable existente en su lugar
+    act(() => {
+      expect(result.current.upsertVariable('largo', '15', 'm', 'largo')).toBe(true);
+    });
+    expect(result.current.scopeVariables.largo).toBe(15);
+    expect(result.current.scopeVariables.doble).toBe(30);
+
+    // Insertar texto/función en el cursor con posicionamiento dentro de ()
+    act(() => {
+      result.current.setCursor(2, 19);
+    });
+    act(() => {
+      result.current.insertTextAtCursor('ceil()', 5);
+    });
+    expect(result.current.texto).toContain('ceil()');
+
+    // Eliminar variable
+    act(() => {
+      expect(result.current.deleteVariable('doble')).toBe(true);
+    });
+    expect(result.current.variablesCotizacion.map(v => v.id)).toEqual(['largo']);
+
+    // Bloque rápido /tt abre autocompletado de trabajos tipo
+    act(() => {
+      result.current.setTexto('');
+      result.current.setCursor(1, 1);
+    });
+    act(() => {
+      result.current.insertQuickBlock('tt');
+    });
+    expect(result.current.texto).toBe('/tt ');
+    expect(result.current.autocomplete.isOpen).toBe(true);
+  });
 });

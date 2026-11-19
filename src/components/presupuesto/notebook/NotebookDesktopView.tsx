@@ -13,6 +13,8 @@ import { NotebookCommandPaletteModal } from './NotebookCommandPaletteModal';
 import { NotebookDesktopStatusBar } from './NotebookDesktopStatusBar';
 import { NotebookDesktopToolbar } from './NotebookDesktopToolbar';
 import { NotebookShortcutsModal } from './NotebookShortcutsModal';
+import { NotebookSyntaxOverlay } from './NotebookSyntaxOverlay';
+import { NotebookVariablesBar } from './NotebookVariablesBar';
 
 export interface NotebookDesktopViewProps {
   config: AppConfig;
@@ -167,6 +169,21 @@ export const NotebookDesktopView: React.FC<NotebookDesktopViewProps> = ({
         onToggleHelp={vm.toggleAyudaAtajos}
       />
 
+      <NotebookVariablesBar
+        variables={vm.variablesCotizacion}
+        scopeVariables={vm.scopeVariables}
+        onInsertText={(snippet, offset) => {
+          vm.insertTextAtCursor(snippet, offset);
+          textareaRef.current?.focus();
+        }}
+        onUpsertVariable={vm.upsertVariable}
+        onDeleteVariable={vm.deleteVariable}
+        onInsertQuickBlock={(kind) => {
+          vm.insertQuickBlock(kind);
+          textareaRef.current?.focus();
+        }}
+      />
+
       {vm.sugerenciasConversion.length > 0 && (
         <div className="px-4 py-2 bg-tertiary-container/40 border-b border-tertiary/30 flex items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 text-on-tertiary-container">
@@ -217,6 +234,16 @@ export const NotebookDesktopView: React.FC<NotebookDesktopViewProps> = ({
         </div>
 
         <div ref={editorColumnRef} className="relative flex-1 min-w-0 py-3">
+          {vm.texto.length > 0 && (
+            <NotebookSyntaxOverlay
+              lines={lines}
+              activeLine={vm.cursor.linea}
+              variableNames={vm.variablesCotizacion.map(v => v.id)}
+              errores={vm.errores}
+              scrollLeft={scrollMetrics.scrollLeft}
+            />
+          )}
+
           {vm.autocomplete.ghostText && vm.texto.length > 0 && (
             <div
               aria-hidden="true"
@@ -243,9 +270,9 @@ export const NotebookDesktopView: React.FC<NotebookDesktopViewProps> = ({
             onBlur={vm.dismissAutocomplete}
             spellCheck={false}
             aria-label="Editor notebook de cotización"
-            placeholder="Escribí /tt para insertar un trabajo tipo, # para un capítulo o Ctrl+Space para sugerencias..."
+            placeholder="Escribí variables (ej. sup = 60), /tt para trabajo tipo, tarea: / item: o Ctrl+Space..."
             rows={Math.max(lines.length + 2, 18)}
-            className="relative z-10 w-full h-full min-h-[420px] px-4 bg-transparent text-on-surface placeholder:text-on-surface-variant/45 font-mono text-sm leading-7 whitespace-pre overflow-x-auto resize-none focus:outline-none caret-primary"
+            className="relative z-10 w-full h-full min-h-[420px] px-4 py-0 border-0 bg-transparent text-transparent selection:bg-primary/25 placeholder:text-on-surface-variant/45 font-mono text-sm leading-7 whitespace-pre overflow-x-auto resize-none focus:outline-none caret-primary"
           />
 
           <NotebookAutocompletePopup
@@ -270,6 +297,8 @@ export const NotebookDesktopView: React.FC<NotebookDesktopViewProps> = ({
             blockLineNumbers={vm.blockLineNumbers}
             subtotalesPorBloque={vm.subtotalesPorBloque}
             items={vm.presupuesto.items}
+            variablesCotizacion={vm.variablesCotizacion}
+            notasUnidadesPorLinea={vm.notasUnidadesPorLinea}
             contexto={vm.contexto}
             errores={vm.errores}
             onSelectLine={handleJumpToLine}
@@ -309,6 +338,12 @@ export const NotebookDesktopView: React.FC<NotebookDesktopViewProps> = ({
       <NotebookShortcutsModal
         isOpen={vm.mostrarAyudaAtajos}
         onClose={vm.toggleAyudaAtajos}
+        onInsertExample={(snippet) => {
+          const base = vm.texto.trimEnd();
+          const next = base ? `${base}\n\n${snippet}` : snippet;
+          vm.setTexto(next);
+          textareaRef.current?.focus();
+        }}
       />
     </div>
   );

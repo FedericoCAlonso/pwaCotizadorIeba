@@ -1,4 +1,5 @@
 import {
+  AjusteItemAgregado,
   AjustesInstanciaTrabajoTipo,
   AppConfig,
   CapituloPresupuesto,
@@ -20,6 +21,7 @@ import {
   ParametroTrabajoTipo,
   Presupuesto,
   Producto,
+  ServicioTercerizado,
   TareaTipo,
   TipoFactura,
   VariableCotizacion
@@ -32,6 +34,12 @@ import {
   TotalesPresupuestoResultado
 } from './calculations';
 import { evaluateCondition, evaluateMathExpression } from './mathEvaluator';
+import {
+  convertUnitValue,
+  evaluateUnitExpression,
+  lookupUnitDef,
+  UnitScopedValue
+} from './unitAlgebra';
 import { buildInsumosMap } from './materialMatching';
 import {
   detectarCiclosComposicionTareaTipo,
@@ -39,7 +47,8 @@ import {
   evaluarVariablesCotizacion,
   PRESUPUESTO_MAXIMO_ADVERTENCIAS_VISIBLES,
   ResultadoAlcanceYAdvertencias,
-  slugifyIdentificador
+  slugifyIdentificador,
+  validarReferenciasEnScope
 } from './notebookDomain';
 import {
   NotebookBlock,
@@ -77,7 +86,12 @@ export interface NotebookErrorDocumento {
   linea: number;
   columna: number;
   longitud: number;
-  codigo: NotebookErrorCode | 'ciclo_variable' | 'ciclo_composicion' | 'exceso_advertencias';
+  codigo:
+    | NotebookErrorCode
+    | 'ciclo_variable'
+    | 'variable_no_definida'
+    | 'ciclo_composicion'
+    | 'exceso_advertencias';
   mensaje: string;
   textoLinea?: string;
   candidatos?: string[];
@@ -98,12 +112,19 @@ export interface SugerenciaConversionTareaTipo {
   slugSugerido: string;
 }
 
+export interface NotebookUnitNote {
+  linea: number;
+  nota?: string;
+  advertencia?: string;
+}
+
 export interface ResultadoAplicacionNotebook {
   presupuesto: Presupuesto;
   totales: TotalesPresupuestoResultado;
   alcanceYAdvertencias: ResultadoAlcanceYAdvertencias;
   erroresVariables: NotebookErrorDocumento[];
   erroresComposicion: NotebookErrorDocumento[];
+  notasUnidadesPorLinea: Record<number, NotebookUnitNote>;
   subtotalesPorBloque: Record<number, SubtotalBloqueInfo>;
   subtotalesPorItemId: Record<string, SubtotalBloqueInfo>;
   blockLineNumbers: number[];
@@ -117,12 +138,14 @@ export interface ApplyNotebookOptions {
   valorizarItemIds?: string[];
   forzarValorizarTodos?: boolean;
   blockLineNumbers?: number[];
+  rawLines?: string[];
 }
 
 export type AutocompleteKind =
   | 'comando'
   | 'tarea_tipo'
   | 'parametro'
+  | 'opcion_parametro'
   | 'ajuste_quitar'
   | 'ajuste_agregar'
   | 'material'
@@ -130,7 +153,8 @@ export type AutocompleteKind =
   | 'mano_obra'
   | 'supuesto_clave'
   | 'supuesto_estado'
-  | 'variable';
+  | 'variable'
+  | 'funcion';
 
 export interface NotebookAutocompleteSuggestion {
   id: string;
@@ -150,8 +174,14 @@ export interface NotebookAutocompleteSuggestion {
   score: number;
 }
 
+export interface AutocompleteVariableInfo {
+  value?: number;
+  unit?: string;
+}
+
 export interface AutocompleteOptions {
   forceOpen?: boolean;
+  variableDetails?: Record<string, AutocompleteVariableInfo>;
 }
 
 export interface NotebookAutocompleteResult {
@@ -470,16 +500,172 @@ function combinarConsumosTareaCompuesta(
   };
 }
 
+interface FormulaValidationTarget {
+  errores: NotebookErrorDocumento[];
+  erroresItem: Record<string, string>;
+  notasUnidades: Record<number, NotebookUnitNote>;
+  rawLines?: string[];
+  blockStartLine: number;
+}
+
+function findSublineLocation(
+  rawLines: string[] | undefined,
+  blockStartLine: number,
+  needle: string,
+  keyHint?: string
+): { linea: number; columna: number; longitud: number; textoLinea?: string } {
+  const fallback = { linea: blockStartLine, columna: 1, longitud: Math.max(1, needle.length) };
+  if (!rawLines || rawLines.length === 0) return fallback;
+
+  const startIdx = Math.max(0, blockStartLine - 1);
+  // 1. Buscar dentro de las líneas indentadas del bloque (priorizando coincidencia de keyHint + needle)
+  const blockIndices: number[] = [startIdx];
+  for (let i = startIdx + 1; i < rawLines.length; i++) {
+    const raw = rawLines[i];
+    if (!raw.trim()) break;
+    if (!/^[ \t]+/.test(raw) && !raw.trim().startsWith('//')) break;
+    blockIndices.push(i);
+  }
+
+  const keyRegex = keyHint
+    ? new RegExp(`^\\s*${keyHint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=`, 'i')
+    : null;
+  const wordRegex = new RegExp(`(?<![a-zA-Z0-9_])${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-zA-Z0-9_])`, 'i');
+
+  if (keyRegex) {
+    for (const idx of blockIndices) {
+      const line = rawLines[idx] ?? '';
+      if (keyRegex.test(line)) {
+        const eqIdx = line.indexOf('=');
+        const afterEq = eqIdx >= 0 ? line.slice(eqIdx + 1) : line;
+        const m = wordRegex.exec(afterEq);
+        const col = m && eqIdx >= 0 ? eqIdx + 2 + m.index : line.search(/\S/) + 1;
+        return {
+          linea: idx + 1,
+          columna: Math.max(1, col),
+          longitud: Math.max(1, needle.length),
+          textoLinea: line
+        };
+      }
+    }
+  }
+
+  for (const idx of blockIndices) {
+    const line = rawLines[idx] ?? '';
+    const m = wordRegex.exec(line);
+    if (m) {
+      return {
+        linea: idx + 1,
+        columna: m.index + 1,
+        longitud: Math.max(1, needle.length),
+        textoLinea: line
+      };
+    }
+  }
+
+  return fallback;
+}
+
+function registrarErroresReferenciasEnFormula(
+  formula: string | undefined,
+  scope: Record<string, number>,
+  claveCampo: string,
+  etiquetaContexto: string,
+  target?: FormulaValidationTarget,
+  keyHint?: string
+): boolean {
+  if (!formula || !formula.trim()) return false;
+  const faltantes = validarReferenciasEnScope(formula, scope, etiquetaContexto);
+  if (faltantes.length === 0) return false;
+  if (target) {
+    for (const f of faltantes) {
+      const loc = findSublineLocation(target.rawLines, target.blockStartLine, f.identificador, keyHint);
+      target.errores.push({
+        linea: loc.linea,
+        columna: loc.columna,
+        longitud: loc.longitud,
+        codigo: 'variable_no_definida',
+        mensaje: f.mensaje,
+        textoLinea: loc.textoLinea,
+        ...(f.sugerencia ? { candidatos: [f.sugerencia] } : {})
+      });
+      if (!target.erroresItem[claveCampo]) {
+        target.erroresItem[claveCampo] = f.mensaje;
+      }
+    }
+  }
+  return true;
+}
+
+function isPhysicalUnit(unit?: string): boolean {
+  const def = lookupUnitDef(unit);
+  if (!def || def.dim.custom) return false;
+  return def.dim.length !== 0 || def.dim.time !== 0 || def.dim.mass !== 0 || def.dim.power !== 0;
+}
+
+function recordUnitNote(
+  target: FormulaValidationTarget | undefined,
+  needle: string,
+  keyHint: string | undefined,
+  nota?: string,
+  advertencia?: string
+) {
+  if (!target || (!nota && !advertencia)) return;
+  const loc = findSublineLocation(target.rawLines, target.blockStartLine, needle, keyHint);
+  const existing = target.notasUnidades[loc.linea];
+  target.notasUnidades[loc.linea] = {
+    linea: loc.linea,
+    ...(existing?.nota || nota ? { nota: nota ?? existing?.nota } : {}),
+    ...(existing?.advertencia || advertencia
+      ? { advertencia: advertencia ?? existing?.advertencia }
+      : {})
+  };
+}
+
 function evalScalarOrFormula(
   num: number | undefined,
   formula: string | undefined,
   scope: Record<string, number>,
-  fallback = 1
+  fallback = 1,
+  unitOptions?: {
+    unitScope?: Record<string, UnitScopedValue>;
+    targetUnit?: string;
+    validationTarget?: FormulaValidationTarget;
+    keyHint?: string;
+  }
 ): number {
   if (formula && formula.trim()) {
-    const res = evaluateMathExpression(formula, scope);
+    const evalScope: Record<string, number | UnitScopedValue> = unitOptions?.unitScope
+      ? { ...scope, ...unitOptions.unitScope }
+      : scope;
+    const res = evaluateUnitExpression(formula, evalScope);
     if (res.isValid && res.value !== null && Number.isFinite(res.value)) {
-      return Math.max(0, res.value);
+      let finalVal = res.value;
+      let nota: string | undefined;
+      let advertencia: string | undefined = res.warning;
+
+      if (res.unit && unitOptions?.targetUnit) {
+        const conv = convertUnitValue(finalVal, res.unit, unitOptions.targetUnit);
+        if (conv.converted) {
+          finalVal = conv.value;
+          nota = conv.note;
+        } else if (
+          conv.incompatible &&
+          isPhysicalUnit(res.unit) &&
+          isPhysicalUnit(unitOptions.targetUnit)
+        ) {
+          advertencia = advertencia ?? conv.warning;
+        }
+      }
+
+      recordUnitNote(
+        unitOptions?.validationTarget,
+        formula.trim().split(/\s+/)[0] || formula,
+        unitOptions?.keyHint,
+        nota,
+        advertencia
+      );
+      return Math.max(0, finalVal);
     }
   }
   return num !== undefined ? Math.max(0, safeNum(num)) : fallback;
@@ -491,26 +677,47 @@ function construirSnapshotsDesdeItemLineas(
   insumosMap: Map<string, Insumo>,
   manoObraMap: Map<string, CategoriaManoDeObra>,
   tipoFactura: TipoFactura | undefined,
-  aliDefault: number
+  aliDefault: number,
+  validationTarget?: FormulaValidationTarget,
+  unitScope?: Record<string, UnitScopedValue>
 ): {
   insumosSnapshot: InsumoSnapshot[];
   manoObraSnapshot: ManoObraSnapshot[];
+  serviciosTercerizados: ServicioTercerizado[];
   costoServiciosTotal: number;
 } {
   const isFacturaC_or_X =
     !tipoFactura || tipoFactura === 'Factura C' || tipoFactura === 'Presupuesto X (Sin Factura)';
   const insumosSnapshot: InsumoSnapshot[] = [];
   const manoObraSnapshot: ManoObraSnapshot[] = [];
+  const serviciosTercerizados: ServicioTercerizado[] = [];
   let costoServiciosTotal = 0;
 
-  for (const line of lineas) {
+  for (let lineIdx = 0; lineIdx < lineas.length; lineIdx++) {
+    const line = lineas[lineIdx];
     if (line.tipo === 'material') {
       const mat = line.materialId ? insumosMap.get(line.materialId) : undefined;
       const ali = mat?.alicuotaIVA ?? aliDefault;
       const precioNeto = roundMoney(safeNum(mat?.precioActual));
       const precioFinal = roundMoney(precioNeto * (1 + ali / 100));
       const unitComputable = isFacturaC_or_X ? precioFinal : precioNeto;
-      const cant = evalScalarOrFormula(line.cantidad, line.formulaCantidad, scope, 1);
+      const matUnit = line.unidad || mat?.unidad || 'u';
+      if (line.formulaCantidad) {
+        registrarErroresReferenciasEnFormula(
+          line.formulaCantidad,
+          scope,
+          `mat:${line.referencia}`,
+          `cantidad de '${mat?.nombre || line.referencia}'`,
+          validationTarget,
+          'cantidad'
+        );
+      }
+      const cant = evalScalarOrFormula(line.cantidad, line.formulaCantidad, scope, 1, {
+        unitScope,
+        targetUnit: matUnit,
+        validationTarget,
+        keyHint: 'cantidad'
+      });
       const subtotal = roundMoney(unitComputable * cant);
       insumosSnapshot.push({
         materialId: line.materialId || mat?.id,
@@ -518,7 +725,7 @@ function construirSnapshotsDesdeItemLineas(
         nombre: mat?.nombre || line.referencia,
         marca: mat?.marca,
         productoId: line.productoId || mat?.productoId,
-        unidad: line.unidad || mat?.unidad || 'u',
+        unidad: matUnit,
         cantidadUnitaria: cant,
         cantidadTotal: cant,
         precioUnitarioCongelado: precioNeto,
@@ -527,28 +734,85 @@ function construirSnapshotsDesdeItemLineas(
         subtotalInsumo: subtotal,
         subtotalInsumoFinal: roundMoney(precioFinal * cant),
         esAdHoc: !line.materialId,
-        requiereCotizacionDirecta: mat?.requiereCotizacionDirecta ?? false
+        requiereCotizacionDirecta: mat?.requiereCotizacionDirecta ?? false,
+        ...(line.formulaCantidad ? { formulaCantidad: line.formulaCantidad } : {})
       });
     } else if (line.tipo === 'mano_obra') {
       const cat = line.categoriaId ? manoObraMap.get(line.categoriaId) : undefined;
       const costoHora = roundMoney(safeNum(cat?.costoHora));
-      const horas = evalScalarOrFormula(line.horas, line.formulaHoras, scope, 1);
+      if (line.formulaHoras) {
+        registrarErroresReferenciasEnFormula(
+          line.formulaHoras,
+          scope,
+          `mo:${line.referencia}`,
+          `horas de '${cat?.nombre || line.referencia}'`,
+          validationTarget,
+          'horas'
+        );
+      }
+      const horas = evalScalarOrFormula(line.horas, line.formulaHoras, scope, 1, {
+        unitScope,
+        targetUnit: line.unidad || 'hs',
+        validationTarget,
+        keyHint: 'horas'
+      });
       manoObraSnapshot.push({
         categoriaId: line.categoriaId || cat?.id || slugifyIdentificador(line.referencia),
         nombreCategoria: cat?.nombre || line.referencia,
         horasUnitarias: horas,
         horasTotales: horas,
         costoHoraCongelado: costoHora,
-        subtotalManoObra: roundMoney(costoHora * horas)
+        subtotalManoObra: roundMoney(costoHora * horas),
+        ...(line.formulaHoras ? { formulaHoras: line.formulaHoras } : {})
       });
     } else if (line.tipo === 'servicio') {
-      const cant = evalScalarOrFormula(line.cantidad, line.formulaCantidad, scope, 1);
-      const unitPrecio = roundMoney(evalScalarOrFormula(line.costoUnitario, line.formulaCosto, scope, 0));
+      if (line.formulaCantidad) {
+        registrarErroresReferenciasEnFormula(
+          line.formulaCantidad,
+          scope,
+          `serv-cant:${line.descripcion}`,
+          `cantidad de servicio '${line.descripcion}'`,
+          validationTarget,
+          'cantidad'
+        );
+      }
+      if (line.formulaCosto) {
+        registrarErroresReferenciasEnFormula(
+          line.formulaCosto,
+          scope,
+          `serv-costo:${line.descripcion}`,
+          `costo de servicio '${line.descripcion}'`,
+          validationTarget,
+          'costo'
+        );
+      }
+      const cant = evalScalarOrFormula(line.cantidad, line.formulaCantidad, scope, 1, {
+        unitScope,
+        targetUnit: line.unidad || 'gl',
+        validationTarget,
+        keyHint: 'cantidad'
+      });
+      const unitPrecio = roundMoney(
+        evalScalarOrFormula(line.costoUnitario, line.formulaCosto, scope, 0, {
+          unitScope,
+          validationTarget,
+          keyHint: 'costo'
+        })
+      );
       costoServiciosTotal = roundMoney(costoServiciosTotal + unitPrecio * cant);
+      serviciosTercerizados.push({
+        id: `serv-${lineIdx + 1}-${slugifyIdentificador(line.descripcion) || lineIdx + 1}`,
+        descripcion: line.descripcion,
+        cantidad: cant,
+        unidad: line.unidad || 'gl',
+        costo: unitPrecio,
+        ...(line.formulaCantidad ? { formulaCantidad: line.formulaCantidad } : {}),
+        ...(line.formulaCosto ? { formulaCosto: line.formulaCosto } : {})
+      });
     }
   }
 
-  return { insumosSnapshot, manoObraSnapshot, costoServiciosTotal };
+  return { insumosSnapshot, manoObraSnapshot, serviciosTercerizados, costoServiciosTotal };
 }
 
 function aplicarAjustesYLineasInstancia(
@@ -558,15 +822,19 @@ function aplicarAjustesYLineasInstancia(
   insumosMap: Map<string, Insumo>,
   manoObraMap: Map<string, CategoriaManoDeObra>,
   tipoFactura: TipoFactura | undefined,
-  aliDefault: number
+  aliDefault: number,
+  validationTarget?: FormulaValidationTarget,
+  unitScope?: Record<string, UnitScopedValue>
 ): {
   insumosSnapshot: InsumoSnapshot[];
   manoObraSnapshot: ManoObraSnapshot[];
+  serviciosTercerizados: ServicioTercerizado[];
   costoServiciosTotal: number;
   ajustesInstancia?: AjustesInstanciaTrabajoTipo;
 } {
   let insumosSnapshot = [...consumo.insumosSnapshot];
   let manoObraSnapshot = [...consumo.manoObraSnapshot];
+  let serviciosTercerizados: ServicioTercerizado[] = [];
   let costoServiciosTotal = consumo.costoServiciosTotal;
 
   const quitadosSet = new Set(block.quitados.map(q => slugifyIdentificador(q)));
@@ -604,33 +872,119 @@ function aplicarAjustesYLineasInstancia(
       insumosMap,
       manoObraMap,
       tipoFactura,
-      aliDefault
+      aliDefault,
+      validationTarget,
+      unitScope
     );
     insumosSnapshot = [...insumosSnapshot, ...extra.insumosSnapshot];
     manoObraSnapshot = [...manoObraSnapshot, ...extra.manoObraSnapshot];
+    serviciosTercerizados = extra.serviciosTercerizados;
     costoServiciosTotal = roundMoney(costoServiciosTotal + extra.costoServiciosTotal);
   }
 
+  const lineasExtraPersisted: AjusteItemAgregado[] = block.lineas.map((l, idx) => {
+    if (l.tipo === 'material') {
+      return {
+        id: `ext-mat-${idx + 1}-${slugifyIdentificador(l.referencia)}`,
+        tipo: 'material',
+        referenciaId: l.materialId,
+        productoId: l.productoId,
+        productoReferencia: l.productoReferencia,
+        descripcion: l.referencia,
+        cantidad: evalScalarOrFormula(l.cantidad, l.formulaCantidad, scope, 1),
+        ...(l.formulaCantidad ? { formulaCantidad: l.formulaCantidad } : {}),
+        unidad: l.unidad
+      };
+    }
+    if (l.tipo === 'mano_obra') {
+      return {
+        id: `ext-mo-${idx + 1}-${slugifyIdentificador(l.referencia)}`,
+        tipo: 'mano_obra',
+        referenciaId: l.categoriaId,
+        descripcion: l.referencia,
+        cantidad: evalScalarOrFormula(l.horas, l.formulaHoras, scope, 1),
+        ...(l.formulaHoras ? { formulaCantidad: l.formulaHoras } : {}),
+        unidad: l.unidad
+      };
+    }
+    return {
+      id: `ext-serv-${idx + 1}-${slugifyIdentificador(l.descripcion)}`,
+      tipo: 'servicio',
+      descripcion: l.descripcion,
+      cantidad: evalScalarOrFormula(l.cantidad, l.formulaCantidad, scope, 1),
+      ...(l.formulaCantidad ? { formulaCantidad: l.formulaCantidad } : {}),
+      unidad: l.unidad,
+      precioUnitario: roundMoney(evalScalarOrFormula(l.costoUnitario, l.formulaCosto, scope, 0)),
+      ...(l.formulaCosto ? { formulaPrecio: l.formulaCosto } : {})
+    };
+  });
+
   const ajustesInstancia: AjustesInstanciaTrabajoTipo | undefined =
-    block.quitados.length > 0 || block.agregados.length > 0
+    block.quitados.length > 0 || block.agregados.length > 0 || lineasExtraPersisted.length > 0
       ? {
           quitados: [...block.quitados],
           agregados: block.agregados.map((ag, idx) => ({
             id: `aj-${idx + 1}-${slugifyIdentificador(ag.referencia)}`,
             tipo: 'material',
             referenciaId: ag.materialId,
+            ...(ag.productoId ? { productoId: ag.productoId } : {}),
+            ...(ag.productoReferencia ? { productoReferencia: ag.productoReferencia } : {}),
             descripcion: ag.referencia,
             cantidad: evalScalarOrFormula(ag.cantidad, ag.formulaCantidad, scope, 1),
-            formulaCantidad: ag.formulaCantidad,
+            ...(ag.formulaCantidad ? { formulaCantidad: ag.formulaCantidad } : {}),
             unidad: ag.unidad
-          }))
+          })),
+          ...(lineasExtraPersisted.length > 0 ? { lineasExtra: lineasExtraPersisted } : {})
         }
       : undefined;
 
-  return { insumosSnapshot, manoObraSnapshot, costoServiciosTotal, ajustesInstancia };
+  return {
+    insumosSnapshot,
+    manoObraSnapshot,
+    serviciosTercerizados,
+    costoServiciosTotal,
+    ajustesInstancia
+  };
 }
 
 // ─── Proyección Presupuesto -> Bloques de Notebook ────────────────────────────
+
+function ajusteToNotebookLinea(
+  aj: AjusteItemAgregado,
+  insumosMap: Map<string, Insumo>,
+  manoObraMap: Map<string, CategoriaManoDeObra>
+): NotebookItemLinea | null {
+  if (aj.tipo === 'material') {
+    return {
+      tipo: 'material',
+      materialId: aj.referenciaId,
+      ...(aj.productoId ? { productoId: aj.productoId } : {}),
+      ...(aj.productoReferencia ? { productoReferencia: aj.productoReferencia } : {}),
+      referencia: aj.referenciaId ? resolveMaterialName(insumosMap, aj.referenciaId) : aj.descripcion,
+      ...(aj.formulaCantidad ? { formulaCantidad: aj.formulaCantidad } : { cantidad: safeNum(aj.cantidad || 1) }),
+      unidad: aj.unidad || 'u'
+    };
+  }
+  if (aj.tipo === 'mano_obra') {
+    return {
+      tipo: 'mano_obra',
+      categoriaId: aj.referenciaId,
+      referencia: aj.referenciaId ? resolveManoObraName(manoObraMap, aj.referenciaId) : aj.descripcion,
+      ...(aj.formulaCantidad ? { formulaHoras: aj.formulaCantidad } : { horas: safeNum(aj.cantidad || 1) }),
+      unidad: aj.unidad === 'h' ? 'h' : 'hs'
+    };
+  }
+  if (aj.tipo === 'servicio') {
+    return {
+      tipo: 'servicio',
+      descripcion: aj.descripcion,
+      ...(aj.formulaCantidad ? { formulaCantidad: aj.formulaCantidad } : { cantidad: safeNum(aj.cantidad || 1) }),
+      unidad: aj.unidad || 'gl',
+      ...(aj.formulaPrecio ? { formulaCosto: aj.formulaPrecio } : { costoUnitario: roundMoney(safeNum(aj.precioUnitario)) })
+    };
+  }
+  return null;
+}
 
 function itemPresupuestoToNotebookBlock(
   item: ItemPresupuesto,
@@ -655,21 +1009,30 @@ function itemPresupuestoToNotebookBlock(
       }
     }
 
+    const extraLineas: NotebookItemLinea[] = (item.ajustesInstancia?.lineasExtra || [])
+      .map(aj => ajusteToNotebookLinea(aj, insumosMap, manoObraMap))
+      .filter((x): x is NotebookItemLinea => x !== null);
+
     const block: NotebookTareaTipoBlock = {
       tipo: 'tarea_tipo',
       referencia: tarea.slug || slugifyIdentificador(tarea.nombre),
       tareaTipoId: tarea.id,
-      cantidad: safeNum(item.cantidad) > 1 && overrides['cantidad'] === undefined ? item.cantidad : undefined,
+      ...(item.formulaCantidad
+        ? { formulaCantidad: item.formulaCantidad }
+        : safeNum(item.cantidad) > 1 && overrides['cantidad'] === undefined
+          ? { cantidad: item.cantidad }
+          : {}),
       overridesParametros: overrides,
       quitados: [...(item.ajustesInstancia?.quitados || [])],
       agregados: (item.ajustesInstancia?.agregados || []).map(ag => ({
         referencia: ag.descripcion,
         materialId: ag.referenciaId,
-        cantidad: ag.cantidad,
-        formulaCantidad: ag.formulaCantidad,
+        ...(ag.productoId ? { productoId: ag.productoId } : {}),
+        ...(ag.productoReferencia ? { productoReferencia: ag.productoReferencia } : {}),
+        ...(ag.formulaCantidad ? { formulaCantidad: ag.formulaCantidad } : { cantidad: ag.cantidad }),
         unidad: ag.unidad
       })),
-      lineas: []
+      lineas: extraLineas
     };
     return block;
   }
@@ -681,7 +1044,9 @@ function itemPresupuestoToNotebookBlock(
       materialId: ins.materialId || ins.insumoId,
       productoId: ins.productoId,
       referencia: ins.materialId ? resolveMaterialName(insumosMap, ins.materialId) : ins.nombre,
-      cantidad: safeNum(ins.cantidadTotal || ins.cantidadUnitaria || 1),
+      ...(ins.formulaCantidad
+        ? { formulaCantidad: ins.formulaCantidad }
+        : { cantidad: safeNum(ins.cantidadTotal || ins.cantidadUnitaria || 1) }),
       unidad: ins.unidad || 'u'
     });
   }
@@ -690,11 +1055,27 @@ function itemPresupuestoToNotebookBlock(
       tipo: 'mano_obra',
       categoriaId: mo.categoriaId,
       referencia: mo.categoriaId ? resolveManoObraName(manoObraMap, mo.categoriaId) : mo.nombreCategoria,
-      horas: safeNum(mo.horasTotales || mo.horasUnitarias || 1),
+      ...(mo.formulaHoras
+        ? { formulaHoras: mo.formulaHoras }
+        : { horas: safeNum(mo.horasTotales || mo.horasUnitarias || 1) }),
       unidad: 'hs'
     });
   }
-  if (safeNum(item.costoServiciosTercerizados) > 0) {
+  if (item.serviciosTercerizados && item.serviciosTercerizados.length > 0) {
+    for (const srv of item.serviciosTercerizados) {
+      lineas.push({
+        tipo: 'servicio',
+        descripcion: srv.descripcion,
+        ...(srv.formulaCantidad
+          ? { formulaCantidad: srv.formulaCantidad }
+          : { cantidad: safeNum(srv.cantidad ?? 1) }),
+        unidad: srv.unidad || 'gl',
+        ...(srv.formulaCosto
+          ? { formulaCosto: srv.formulaCosto }
+          : { costoUnitario: roundMoney(safeNum(srv.costo)) })
+      });
+    }
+  } else if (safeNum(item.costoServiciosTercerizados) > 0) {
     lineas.push({
       tipo: 'servicio',
       descripcion: 'Servicio técnico',
@@ -707,20 +1088,38 @@ function itemPresupuestoToNotebookBlock(
   const esCompacto = lineas.length === 0;
   const parametros: Record<string, number | string> = {};
   for (const p of item.parametros || []) {
-    if (p.id !== 'cantidad') parametros[p.id] = p.valor;
+    if (p.id !== 'cantidad') {
+      parametros[p.id] = p.formula !== undefined ? p.formula : p.valor;
+    }
   }
+
+  const tieneCantidadExplicitaEnTarea =
+    Boolean(item.formulaCantidad) ||
+    (safeNum(item.cantidad) > 0 && safeNum(item.cantidad) !== 1) ||
+    Boolean(item.unidad && item.unidad !== 'gl');
 
   const block: NotebookItemLibreBlock = {
     tipo: 'item_libre',
     modo: esCompacto ? 'item' : 'tarea',
     descripcion: item.descripcion,
-    cantidad: safeNum(item.cantidad) > 0 ? item.cantidad : 1,
-    formulaCantidad: item.formulaCantidad,
-    unidad: item.unidad || 'gl',
-    precioUnitario: esCompacto
-      ? roundMoney(item.precioManual ?? item.costoDirectoTotal ?? 0)
-      : undefined,
-    formulaPrecio: item.formulaPrecio,
+    ...(esCompacto
+      ? {
+          ...(item.formulaCantidad
+            ? { formulaCantidad: item.formulaCantidad }
+            : { cantidad: safeNum(item.cantidad) > 0 ? item.cantidad : 1 }),
+          unidad: item.unidad || 'gl',
+          ...(item.formulaPrecio
+            ? { formulaPrecio: item.formulaPrecio }
+            : { precioUnitario: roundMoney(item.precioManual ?? item.costoDirectoTotal ?? 0) })
+        }
+      : tieneCantidadExplicitaEnTarea
+        ? {
+            ...(item.formulaCantidad
+              ? { formulaCantidad: item.formulaCantidad }
+              : { cantidad: safeNum(item.cantidad) > 0 ? item.cantidad : 1 }),
+            unidad: item.unidad || 'gl'
+          }
+        : {}),
     parametros,
     lineas
   };
@@ -752,7 +1151,8 @@ export function presupuestoToNotebookBlocks(
     const vb: NotebookVariableBlock = {
       tipo: 'variable',
       id: v.id,
-      expresion: v.expresion
+      expresion: v.expresion,
+      ...(v.unidad ? { unidad: v.unidad } : {})
     };
     blocks.push(vb);
   }
@@ -822,9 +1222,9 @@ function itemSignature(item: ItemPresupuesto, capituloNombre?: string): string {
     const agregados = (item.ajustesInstancia?.agregados || [])
       .map(a => `${a.descripcion}:${a.cantidad ?? a.formulaCantidad ?? 1}${a.unidad}`)
       .join(',');
-    return `tt:${item.tareaTipoId}:${capituloNombre || ''}:${params}:${quitados}:${agregados}`;
+    return `tt:${item.tareaTipoId}:${capituloNombre || ''}:${item.formulaCantidad ?? item.cantidad ?? ''}:${params}:${quitados}:${agregados}`;
   }
-  return `lib:${capituloNombre || ''}:${normalizeSearch(item.descripcion)}:${item.cantidad}:${item.unidad}:${item.precioManual ?? item.formulaPrecio ?? ''}`;
+  return `lib:${capituloNombre || ''}:${normalizeSearch(item.descripcion)}:${item.formulaCantidad ?? item.cantidad}:${item.unidad}:${item.precioManual ?? item.formulaPrecio ?? ''}`;
 }
 
 function findMatchingExistingItem(
@@ -861,23 +1261,57 @@ function signatureForBlock(
     const agregados = block.agregados
       .map(a => `${a.referencia}:${a.cantidad ?? a.formulaCantidad ?? 1}${a.unidad}`)
       .join(',');
-    return `tt:${block.tareaTipoId || block.referencia}:${capituloNombre || ''}:${params}:${quitados}:${agregados}`;
+    return `tt:${block.tareaTipoId || block.referencia}:${capituloNombre || ''}:${block.formulaCantidad ?? block.cantidad ?? ''}:${params}:${quitados}:${agregados}`;
   }
-  return `lib:${capituloNombre || ''}:${normalizeSearch(block.descripcion)}:${block.cantidad ?? block.formulaCantidad ?? 1}:${block.unidad || 'gl'}:${block.precioUnitario ?? block.formulaPrecio ?? ''}`;
+  return `lib:${capituloNombre || ''}:${normalizeSearch(block.descripcion)}:${block.formulaCantidad ?? block.cantidad ?? 1}:${block.unidad || 'gl'}:${block.precioUnitario ?? block.formulaPrecio ?? ''}`;
 }
 
 function evaluateOverridesAgainstScope(
   overrides: Record<string, number | string>,
-  scopeVariables: Record<string, number>
+  scopeVariables: Record<string, number>,
+  validationTarget?: FormulaValidationTarget,
+  unitScope?: Record<string, UnitScopedValue>,
+  paramDefs?: ParametroTrabajoTipo[]
 ): Record<string, number> {
   const resolved: Record<string, number> = {};
+  const paramUnits = new Map<string, string>();
+  for (const p of paramDefs || []) {
+    if (p.unidad) paramUnits.set(p.id, p.unidad);
+  }
+  const evalScope: Record<string, number | UnitScopedValue> = unitScope
+    ? { ...scopeVariables, ...unitScope }
+    : scopeVariables;
+
   for (const [k, rawVal] of Object.entries(overrides)) {
     if (typeof rawVal === 'number') {
       resolved[k] = rawVal;
     } else {
-      const exprRes = evaluateMathExpression(String(rawVal), scopeVariables);
+      const exprStr = String(rawVal);
+      registrarErroresReferenciasEnFormula(
+        exprStr,
+        scopeVariables,
+        `param:${k}`,
+        `parámetro '${k}'`,
+        validationTarget,
+        k
+      );
+      const exprRes = evaluateUnitExpression(exprStr, evalScope);
       if (exprRes.isValid && exprRes.value !== null && Number.isFinite(exprRes.value)) {
-        resolved[k] = exprRes.value;
+        let finalVal = exprRes.value;
+        let nota: string | undefined;
+        let advertencia = exprRes.warning;
+        const targetUnit = paramUnits.get(k);
+        if (exprRes.unit && targetUnit) {
+          const conv = convertUnitValue(finalVal, exprRes.unit, targetUnit);
+          if (conv.converted) {
+            finalVal = conv.value;
+            nota = conv.note;
+          } else if (conv.incompatible && isPhysicalUnit(exprRes.unit) && isPhysicalUnit(targetUnit)) {
+            advertencia = advertencia ?? conv.warning;
+          }
+        }
+        recordUnitNote(validationTarget, k, k, nota, advertencia);
+        resolved[k] = finalVal;
       }
     }
   }
@@ -1063,21 +1497,29 @@ export function applyNotebookBlocksToPresupuesto(
   const variablesRaw: VariableCotizacion[] = varEntries.map((v, idx) => ({
     id: v.block.id,
     expresion: v.block.expresion,
+    ...(v.block.unidad ? { unidad: v.block.unidad } : {}),
     orden: idx + 1
   }));
   const evalVars = evaluarVariablesCotizacion(variablesRaw);
 
   const erroresVariables: NotebookErrorDocumento[] = [];
+  const notasUnidadesPorLinea: Record<number, NotebookUnitNote> = {};
   for (const v of evalVars.variables) {
+    const entry = varEntries.find(e => e.block.id === v.id);
     if (v.error) {
-      const entry = varEntries.find(e => e.block.id === v.id);
+      const isUndef = v.error.startsWith('Variable no definida');
       erroresVariables.push({
         linea: entry?.linea ?? 1,
         columna: 1,
         longitud: v.id.length,
-        codigo: 'ciclo_variable',
+        codigo: isUndef ? 'variable_no_definida' : 'ciclo_variable',
         mensaje: v.error
       });
+    } else if (v.advertencia && entry) {
+      notasUnidadesPorLinea[entry.linea] = {
+        linea: entry.linea,
+        advertencia: v.advertencia
+      };
     }
   }
 
@@ -1193,19 +1635,54 @@ export function applyNotebookBlocksToPresupuesto(
         estadoValorizacion = modoPasada === 'esqueleto' ? 'sin_valorizar' : 'valorizada';
       }
 
+      const erroresFormulasItem: Record<string, string> = {};
+      const validationTarget: FormulaValidationTarget = {
+        errores: erroresVariables,
+        erroresItem: erroresFormulasItem,
+        notasUnidades: notasUnidadesPorLinea,
+        rawLines: options.rawLines,
+        blockStartLine: lineaNum
+      };
+
       const overridesEvaluados = evaluateOverridesAgainstScope(
         b.overridesParametros,
-        evalVars.scope
+        evalVars.scope,
+        validationTarget,
+        evalVars.unitScope,
+        tarea.parametros
       );
-      if (b.cantidad !== undefined && overridesEvaluados['cantidad'] === undefined) {
-        overridesEvaluados['cantidad'] = b.cantidad;
+
+      let cantidadEvaluadaTt: number | undefined = b.cantidad;
+      if (b.formulaCantidad !== undefined) {
+        registrarErroresReferenciasEnFormula(
+          b.formulaCantidad,
+          evalVars.scope,
+          'cantidad',
+          `cantidad de '${tarea.nombre}'`,
+          validationTarget,
+          'cantidad'
+        );
+        cantidadEvaluadaTt = Math.max(
+          0,
+          evalScalarOrFormula(undefined, b.formulaCantidad, evalVars.scope, 1, {
+            unitScope: evalVars.unitScope,
+            targetUnit: tarea.unidad,
+            validationTarget,
+            keyHint: 'cantidad'
+          })
+        );
+      }
+
+      if (cantidadEvaluadaTt !== undefined && overridesEvaluados['cantidad'] === undefined) {
+        overridesEvaluados['cantidad'] = cantidadEvaluadaTt;
       }
 
       let insumosSnapshot: InsumoSnapshot[] = [];
       let manoObraSnapshot: ManoObraSnapshot[] = [];
+      let serviciosTercerizados: ServicioTercerizado[] = [];
       let costoServiciosTotal = 0;
       let costoFijo = 0;
-      let cantidadPrincipal = Math.max(1, safeNum(b.cantidad ?? 1));
+      let cantidadPrincipal = Math.max(1, safeNum(cantidadEvaluadaTt ?? 1));
       let valoresParametros: Record<string, number> = { ...overridesEvaluados };
       let clausulaExclusiones = tarea.clausulaExclusiones || tarea.clausulaTecnicaDefault;
       let ajustesInstancia: AjustesInstanciaTrabajoTipo | undefined;
@@ -1221,6 +1698,11 @@ export function applyNotebookBlocksToPresupuesto(
           { tipoFactura: base.tipoFactura, alicuotaIVADefault: aliDefault }
         );
         const scopeItem = { ...evalVars.scope, ...consumoBase.valoresParametros };
+        const unitScopeItem: Record<string, UnitScopedValue> = { ...evalVars.unitScope };
+        for (const [k, val] of Object.entries(consumoBase.valoresParametros)) {
+          const pDef = tarea.parametros?.find(p => p.id === k);
+          unitScopeItem[k] = { value: val, ...(pDef?.unidad ? { unit: pDef.unidad } : {}) };
+        }
         const ajustado = aplicarAjustesYLineasInstancia(
           consumoBase,
           b,
@@ -1228,10 +1710,13 @@ export function applyNotebookBlocksToPresupuesto(
           insumosMap,
           manoObraMap,
           base.tipoFactura,
-          aliDefault
+          aliDefault,
+          validationTarget,
+          unitScopeItem
         );
         insumosSnapshot = ajustado.insumosSnapshot;
         manoObraSnapshot = ajustado.manoObraSnapshot;
+        serviciosTercerizados = ajustado.serviciosTercerizados;
         costoServiciosTotal = ajustado.costoServiciosTotal;
         ajustesInstancia = ajustado.ajustesInstancia;
         costoFijo = consumoBase.costoFijoOperativo;
@@ -1239,15 +1724,15 @@ export function applyNotebookBlocksToPresupuesto(
         clausulaExclusiones = consumoBase.clausulaExclusiones;
 
         const primerParam = tarea.parametros?.[0];
-        if (b.cantidad !== undefined) {
-          cantidadPrincipal = Math.max(1, safeNum(b.cantidad));
+        if (cantidadEvaluadaTt !== undefined) {
+          cantidadPrincipal = Math.max(1, safeNum(cantidadEvaluadaTt));
         } else if (primerParam && valoresParametros[primerParam.id] !== undefined) {
           cantidadPrincipal = Math.max(1, safeNum(valoresParametros[primerParam.id]));
         }
       } else {
         const primerParam = tarea.parametros?.[0];
         const rawCant =
-          b.cantidad ??
+          cantidadEvaluadaTt ??
           (primerParam && overridesEvaluados[primerParam.id] !== undefined
             ? overridesEvaluados[primerParam.id]
             : primerParam?.valorDefault ?? 1);
@@ -1265,6 +1750,9 @@ export function applyNotebookBlocksToPresupuesto(
         id,
         nombre: id,
         valor: val,
+        ...(typeof b.overridesParametros[id] === 'string'
+          ? { formula: String(b.overridesParametros[id]) }
+          : {}),
         origen: 'propio'
       }));
 
@@ -1277,13 +1765,16 @@ export function applyNotebookBlocksToPresupuesto(
         descripcion: tarea.nombre,
         unidad: tarea.unidad || 'u',
         cantidad: cantidadPrincipal,
+        ...(b.formulaCantidad !== undefined ? { formulaCantidad: b.formulaCantidad } : {}),
         valoresParametros,
         parametros: parametrosItem,
         overridesParametros: { ...b.overridesParametros },
         ajustesInstancia,
+        ...(Object.keys(erroresFormulasItem).length > 0 ? { erroresFormulas: erroresFormulasItem } : {}),
         estadoValorizacion,
         insumosSnapshot,
         manoObraSnapshot,
+        ...(serviciosTercerizados.length > 0 ? { serviciosTercerizados } : {}),
         costoInsumos: estadoValorizacion === 'valorizada' ? costoInsumos : 0,
         costoManoObra: estadoValorizacion === 'valorizada' ? costoManoObra : 0,
         costoServiciosTercerizados: estadoValorizacion === 'valorizada' ? costoServiciosTotal : 0,
@@ -1309,13 +1800,83 @@ export function applyNotebookBlocksToPresupuesto(
       usedIds.add(itemId);
       blockLineaPorItemId.set(itemId, lineaNum);
 
-      const itemParamsEvaluados = evaluateOverridesAgainstScope(b.parametros, evalVars.scope);
-      const scopeItem = { ...evalVars.scope, ...itemParamsEvaluados };
+      const erroresFormulasItem: Record<string, string> = {};
+      const validationTarget: FormulaValidationTarget = {
+        errores: erroresVariables,
+        erroresItem: erroresFormulasItem,
+        notasUnidades: notasUnidadesPorLinea,
+        rawLines: options.rawLines,
+        blockStartLine: lineaNum
+      };
+
+      // Evaluación en cascada de parámetros locales del ítem heredando variables globales (y sus unidades)
+      const localVarsInput: VariableCotizacion[] = Object.entries(b.parametros).map(
+        ([id, rawVal], pIdx) => ({
+          id,
+          expresion: String(rawVal),
+          orden: pIdx + 1
+        })
+      );
+      const localEval = evaluarVariablesCotizacion(
+        localVarsInput,
+        evalVars.scope,
+        evalVars.unitScope
+      );
+      for (const lv of localEval.variables) {
+        if (lv.error) {
+          const loc = findSublineLocation(options.rawLines, lineaNum, lv.id, lv.id);
+          const isUndef = lv.error.startsWith('Variable no definida');
+          erroresVariables.push({
+            linea: loc.linea,
+            columna: loc.columna,
+            longitud: lv.id.length,
+            codigo: isUndef ? 'variable_no_definida' : 'ciclo_variable',
+            mensaje: lv.error,
+            textoLinea: loc.textoLinea
+          });
+          erroresFormulasItem[`param:${lv.id}`] = lv.error;
+        } else if (lv.advertencia) {
+          recordUnitNote(validationTarget, lv.id, lv.id, undefined, lv.advertencia);
+        }
+      }
+
+      const scopeItem = localEval.scope;
+      const unitScopeItem = localEval.unitScope;
+      if (b.formulaCantidad) {
+        registrarErroresReferenciasEnFormula(
+          b.formulaCantidad,
+          scopeItem,
+          'cantidad',
+          `cantidad de '${b.descripcion}'`,
+          validationTarget,
+          'cantidad'
+        );
+      }
+      if (b.formulaPrecio) {
+        registrarErroresReferenciasEnFormula(
+          b.formulaPrecio,
+          scopeItem,
+          'precio',
+          `precio de '${b.descripcion}'`,
+          validationTarget,
+          'precio'
+        );
+      }
+
       const cantidad = Math.max(
         0,
-        evalScalarOrFormula(b.cantidad, b.formulaCantidad, scopeItem, 1)
+        evalScalarOrFormula(b.cantidad, b.formulaCantidad, scopeItem, 1, {
+          unitScope: unitScopeItem,
+          targetUnit: b.unidad || 'gl',
+          validationTarget,
+          keyHint: 'cantidad'
+        })
       );
-      const precioEval = evalScalarOrFormula(b.precioUnitario, b.formulaPrecio, scopeItem, 0);
+      const precioEval = evalScalarOrFormula(b.precioUnitario, b.formulaPrecio, scopeItem, 0, {
+        unitScope: unitScopeItem,
+        validationTarget,
+        keyHint: 'precio'
+      });
 
       const tieneDatosEconomicos = precioEval > 0 || b.lineas.length > 0;
 
@@ -1332,8 +1893,13 @@ export function applyNotebookBlocksToPresupuesto(
 
       let insumosSnapshot: InsumoSnapshot[] = [];
       let manoObraSnapshot: ManoObraSnapshot[] = [];
+      let serviciosTercerizados: ServicioTercerizado[] = [];
       let costoServiciosTotal = 0;
       let costoFijo = 0;
+      const unitScopeWithCantidad: Record<string, UnitScopedValue> = {
+        ...unitScopeItem,
+        cantidad: { value: cantidad, ...(b.unidad ? { unit: b.unidad } : {}) }
+      };
 
       if (estadoValorizacion === 'valorizada') {
         if (b.lineas.length > 0) {
@@ -1343,14 +1909,29 @@ export function applyNotebookBlocksToPresupuesto(
             insumosMap,
             manoObraMap,
             base.tipoFactura,
-            aliDefault
+            aliDefault,
+            validationTarget,
+            unitScopeWithCantidad
           );
           insumosSnapshot = snap.insumosSnapshot;
           manoObraSnapshot = snap.manoObraSnapshot;
+          serviciosTercerizados = snap.serviciosTercerizados;
           costoServiciosTotal = snap.costoServiciosTotal;
         } else if (precioEval > 0) {
           costoFijo = roundMoney(precioEval * (cantidad > 0 ? cantidad : 1));
         }
+      } else if (b.lineas.length > 0) {
+        // Incluso en Pasada 1 (esqueleto), validar referencias en fórmulas de sub-líneas
+        construirSnapshotsDesdeItemLineas(
+          b.lineas,
+          { ...scopeItem, cantidad },
+          insumosMap,
+          manoObraMap,
+          base.tipoFactura,
+          aliDefault,
+          validationTarget,
+          unitScopeWithCantidad
+        );
       }
 
       const { costoInsumos, costoManoObra, costoDirectoTotal } = calcularCostoDirectoPorSnapshots(
@@ -1360,10 +1941,12 @@ export function applyNotebookBlocksToPresupuesto(
         costoFijo
       );
 
-      const parametros: ParametroItem[] = Object.entries(itemParamsEvaluados).map(([id, valor]) => ({
+      const parametros: ParametroItem[] = Object.entries(b.parametros).map(([id, rawVal]) => ({
         id,
         nombre: id,
-        valor,
+        valor: localEval.scope[id] ?? (typeof rawVal === 'number' ? rawVal : 0),
+        ...(localEval.unitScope[id]?.unit ? { unidad: localEval.unitScope[id].unit } : {}),
+        ...(typeof rawVal === 'string' ? { formula: rawVal } : {}),
         origen: 'propio'
       }));
 
@@ -1378,9 +1961,11 @@ export function applyNotebookBlocksToPresupuesto(
         precioManual: b.precioUnitario !== undefined ? b.precioUnitario : precioEval > 0 ? precioEval : undefined,
         formulaPrecio: b.formulaPrecio,
         parametros,
+        ...(Object.keys(erroresFormulasItem).length > 0 ? { erroresFormulas: erroresFormulasItem } : {}),
         estadoValorizacion,
         insumosSnapshot,
         manoObraSnapshot,
+        ...(serviciosTercerizados.length > 0 ? { serviciosTercerizados } : {}),
         costoInsumos: estadoValorizacion === 'valorizada' ? costoInsumos : 0,
         costoManoObra: estadoValorizacion === 'valorizada' ? costoManoObra : 0,
         costoServiciosTercerizados: estadoValorizacion === 'valorizada' ? costoServiciosTotal : 0,
@@ -1482,6 +2067,7 @@ export function applyNotebookBlocksToPresupuesto(
     alcanceYAdvertencias,
     erroresVariables,
     erroresComposicion,
+    notasUnidadesPorLinea,
     subtotalesPorBloque,
     subtotalesPorItemId,
     blockLineNumbers,
@@ -1674,18 +2260,259 @@ function buildSmartMaterialSuggestions(
   return out;
 }
 
+const BUILTIN_EXPR_FUNCTIONS: Array<{
+  id: string;
+  label: string;
+  detail: string;
+  insertText: string;
+  cursorOffset: number;
+}> = [
+  { id: 'ceil', label: 'ceil(x)', detail: 'Redondea hacia arriba', insertText: 'ceil()', cursorOffset: 5 },
+  { id: 'floor', label: 'floor(x)', detail: 'Redondea hacia abajo', insertText: 'floor()', cursorOffset: 6 },
+  { id: 'round', label: 'round(x, 2)', detail: 'Redondea decimales', insertText: 'round(, 2)', cursorOffset: 6 },
+  { id: 'min', label: 'min(a, b)', detail: 'Mínimo entre valores', insertText: 'min(, )', cursorOffset: 4 },
+  { id: 'max', label: 'max(a, b)', detail: 'Máximo entre valores', insertText: 'max(, )', cursorOffset: 4 },
+  { id: 'si', label: 'si(cond, a, b)', detail: 'Condicional tipo Excel', insertText: 'si(, , )', cursorOffset: 3 },
+  { id: 'abs', label: 'abs(x)', detail: 'Valor absoluto', insertText: 'abs()', cursorOffset: 4 },
+  { id: 'sqrt', label: 'sqrt(x)', detail: 'Raíz cuadrada', insertText: 'sqrt()', cursorOffset: 5 }
+];
+
+const RESERVED_LOCAL_ATTRS = new Set([
+  'cantidad',
+  'precio',
+  'costo',
+  'horas',
+  'marca',
+  'producto'
+]);
+
+function formatAutocompleteVarValue(info?: AutocompleteVariableInfo): string {
+  if (!info || info.value === undefined || !Number.isFinite(info.value)) {
+    return 'Variable de cotización';
+  }
+  const rounded = Math.round(info.value * 100) / 100;
+  const numStr = Number.isInteger(rounded)
+    ? rounded.toLocaleString('es-AR')
+    : rounded.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return info.unit ? `= ${numStr} ${info.unit}` : `= ${numStr}`;
+}
+
+/**
+ * Extrae el identificador parcial inmediatamente antes del cursor dentro de una expresión matemática,
+ * delimitando por espacios, paréntesis y operadores (`ceil(su|` -> word='su', sin borrar `ceil(`).
+ */
+function resolveExpressionWordAtCursor(
+  beforeCursor: string,
+  exprStartIdx: number
+): { word: string; wordStartIdx: number; rhsAfterEq: string; needsLeadingSpace: boolean } {
+  const rhsAfterEq = beforeCursor.slice(exprStartIdx);
+  const match = rhsAfterEq.match(/[a-zA-Z0-9_]*$/);
+  const word = match ? match[0] : '';
+  const wordStartIdx = beforeCursor.length - word.length;
+  const needsLeadingSpace =
+    word.length === 0 &&
+    rhsAfterEq.length === 0 &&
+    exprStartIdx > 0 &&
+    beforeCursor[exprStartIdx - 1] === '=';
+  return { word, wordStartIdx, rhsAfterEq, needsLeadingSpace };
+}
+
+function collectLocalVariablesInBlock(
+  lines: string[],
+  blockStartIdx: number,
+  currentLineIdx: number
+): string[] {
+  const locals = new Set<string>();
+  for (let i = blockStartIdx + 1; i < lines.length; i++) {
+    const raw = lines[i];
+    if (!raw.trim() || !/^[ \t]+/.test(raw)) break;
+    if (i === currentLineIdx) continue;
+    const m = raw.trim().match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=/);
+    if (m && !RESERVED_LOCAL_ATTRS.has(m[1].toLowerCase())) {
+      locals.add(m[1]);
+    }
+  }
+  return Array.from(locals);
+}
+
+function buildExpressionSuggestions(params: {
+  beforeCursor: string;
+  eqIdx: number;
+  safeCol: number;
+  variablesExistentes: string[];
+  localVariables?: string[];
+  excludeVarId?: string;
+  variableDetails?: Record<string, AutocompleteVariableInfo>;
+  paramDef?: ParametroTrabajoTipo;
+  forceOpen: boolean;
+  idPrefix: string;
+}): NotebookAutocompleteSuggestion[] {
+  const {
+    beforeCursor,
+    eqIdx,
+    safeCol,
+    variablesExistentes,
+    localVariables = [],
+    excludeVarId,
+    variableDetails,
+    paramDef,
+    forceOpen,
+    idPrefix
+  } = params;
+
+  const { word, wordStartIdx, rhsAfterEq, needsLeadingSpace } = resolveExpressionWordAtCursor(
+    beforeCursor,
+    eqIdx + 1
+  );
+  const trimmedRhs = rhsAfterEq.trim();
+  const hasOperators = /[+\-*/^%()?:<>&|,]/.test(trimmedRhs);
+  const spacePrefix = needsLeadingSpace ? ' ' : '';
+
+  // En asignaciones sin `forceOpen`, abrir si ya escribió parte de un identificador o si es un parámetro select/boolean vacío
+  const isDiscreteParam = Boolean(
+    paramDef && (paramDef.tipo === 'boolean' || (paramDef.tipo === 'select' && (paramDef.opciones?.length ?? 0) > 0))
+  );
+  if (word.length === 0 && !forceOpen && !(isDiscreteParam && trimmedRhs === '')) {
+    return [];
+  }
+
+  const out: NotebookAutocompleteSuggestion[] = [];
+  const excludeLower = excludeVarId?.trim().toLowerCase();
+
+  // 1. Opciones dedicadas para parámetros `select` o `boolean` de /tt
+  if (paramDef && !hasOperators) {
+    if (paramDef.tipo === 'boolean') {
+      const boolOpts = [
+        { val: '1', label: '1 · Sí', detail: `${paramDef.nombre}: Activado` },
+        { val: '0', label: '0 · No', detail: `${paramDef.nombre}: Desactivado` }
+      ];
+      for (const opt of boolOpts) {
+        const sc = fuzzyMatchScore(word, opt.label) ?? fuzzyMatchScore(word, opt.val);
+        if (sc === null) continue;
+        out.push({
+          id: `${idPrefix}-bool-${opt.val}`,
+          kind: 'opcion_parametro',
+          label: opt.label,
+          detail: opt.detail,
+          insertText: `${spacePrefix}${opt.val}`,
+          replaceStartCol: wordStartIdx + 1,
+          replaceEndCol: safeCol + 1,
+          frecuenciaUso: 12,
+          score: sc + 260
+        });
+      }
+    } else if (paramDef.tipo === 'select' && paramDef.opciones?.length) {
+      for (const opt of paramDef.opciones) {
+        const valStr = String(opt.valor);
+        const sc = fuzzyMatchScore(word, `${valStr} ${opt.label}`) ?? fuzzyMatchScore(word, opt.label);
+        if (sc === null) continue;
+        out.push({
+          id: `${idPrefix}-opt-${opt.id || valStr}`,
+          kind: 'opcion_parametro',
+          label: `${valStr} · ${opt.label}`,
+          detail: paramDef.nombre,
+          insertText: `${spacePrefix}${valStr}`,
+          replaceStartCol: wordStartIdx + 1,
+          replaceEndCol: safeCol + 1,
+          frecuenciaUso: 12,
+          score: sc + 260
+        });
+      }
+    }
+  }
+
+  // 2. Parámetros locales del bloque actual
+  const seenLower = new Set<string>();
+  for (const lv of localVariables) {
+    const lvLower = lv.toLowerCase();
+    if (lvLower === excludeLower || seenLower.has(lvLower)) continue;
+    const sc = fuzzyMatchScore(word, lv);
+    if (sc === null) continue;
+    seenLower.add(lvLower);
+    out.push({
+      id: `${idPrefix}-loc-${lv}`,
+      kind: 'variable',
+      label: lv,
+      detail: 'Parámetro local del bloque',
+      insertText: `${spacePrefix}${lv}`,
+      replaceStartCol: wordStartIdx + 1,
+      replaceEndCol: safeCol + 1,
+      ghostText: word.length > 0 && lv.startsWith(word) ? lv.slice(word.length) : undefined,
+      frecuenciaUso: 8,
+      score: sc + 90
+    });
+  }
+
+  // 3. Variables globales de cotización (con valor evaluado real)
+  for (const v of variablesExistentes) {
+    const vLower = v.toLowerCase();
+    if (vLower === excludeLower || seenLower.has(vLower)) continue;
+    const sc = fuzzyMatchScore(word, v);
+    if (sc === null) continue;
+    seenLower.add(vLower);
+    const info = variableDetails?.[v];
+    out.push({
+      id: `${idPrefix}-var-${v}`,
+      kind: 'variable',
+      label: v,
+      detail: formatAutocompleteVarValue(info),
+      insertText: `${spacePrefix}${v}`,
+      replaceStartCol: wordStartIdx + 1,
+      replaceEndCol: safeCol + 1,
+      ghostText: word.length > 0 && v.startsWith(word) ? v.slice(word.length) : undefined,
+      frecuenciaUso: 6,
+      score: sc + 60
+    });
+  }
+
+  // 4. Funciones matemáticas (ceil, floor, round, min, max, si, abs, sqrt)
+  if (word.length > 0 || forceOpen) {
+    for (const fn of BUILTIN_EXPR_FUNCTIONS) {
+      const sc = fuzzyMatchScore(word, fn.id);
+      if (sc === null) continue;
+      const ins = `${spacePrefix}${fn.insertText}`;
+      const cursorPos = spacePrefix.length + fn.cursorOffset;
+      out.push({
+        id: `${idPrefix}-fn-${fn.id}`,
+        kind: 'funcion',
+        label: fn.label,
+        detail: fn.detail,
+        insertText: ins,
+        replaceStartCol: wordStartIdx + 1,
+        replaceEndCol: safeCol + 1,
+        selectionStartOffset: cursorPos,
+        selectionEndOffset: cursorPos,
+        ghostText: word.length > 0 && fn.id.startsWith(word.toLowerCase()) ? fn.insertText.slice(word.length) : undefined,
+        frecuenciaUso: 3,
+        score: sc + 20
+      });
+    }
+  }
+
+  return out;
+}
+
 function buildTopLevelSuggestions(
   query: string,
   tokenStart: number,
   safeCol: number
 ): NotebookAutocompleteSuggestion[] {
-  const comandos = [
-    { id: 'cmd-tt', label: '/tt ', detail: 'Insertar trabajo tipo parametrizado', freq: 100 },
-    { id: 'cmd-cap', label: '# ', detail: `Nuevo ${TERMINOLOGY.agrupadorSingular}`, freq: 90 },
-    { id: 'cmd-tarea', label: 'tarea: ', detail: 'Nueva tarea libre compuesta', freq: 80 },
-    { id: 'cmd-item', label: 'item: ', detail: 'Nuevo ítem libre compacto', freq: 75 },
-    { id: 'cmd-supuesto', label: 'supuesto: ', detail: 'Declarar supuesto técnico', freq: 60 },
-    { id: 'cmd-nota', label: 'nota: ', detail: 'Nota interna (no visible al cliente)', freq: 50 }
+  const comandos: Array<{
+    id: string;
+    label: string;
+    insertText: string;
+    detail: string;
+    freq: number;
+    selStart?: number;
+    selEnd?: number;
+  }> = [
+    { id: 'cmd-tt', label: '/tt', insertText: '/tt ', detail: 'Insertar trabajo tipo parametrizado', freq: 100 },
+    { id: 'cmd-var', label: 'variable =', insertText: 'nombre = 1', detail: 'Declarar variable o medida reutilizable (ej. sup = 60 m²)', freq: 95, selStart: 0, selEnd: 6 },
+    { id: 'cmd-cap', label: '#', insertText: '# ', detail: `Nuevo ${TERMINOLOGY.agrupadorSingular}`, freq: 90 },
+    { id: 'cmd-tarea', label: 'tarea:', insertText: 'tarea: ', detail: 'Nueva tarea libre compuesta', freq: 80 },
+    { id: 'cmd-item', label: 'item:', insertText: 'item: ', detail: 'Nuevo ítem libre compacto', freq: 75 },
+    { id: 'cmd-supuesto', label: 'supuesto:', insertText: 'supuesto: ', detail: 'Declarar supuesto técnico', freq: 60 },
+    { id: 'cmd-nota', label: 'nota:', insertText: 'nota: ', detail: 'Nota interna (no visible al cliente)', freq: 50 }
   ];
   const out: NotebookAutocompleteSuggestion[] = [];
   const effectiveQuery =
@@ -1703,14 +2530,15 @@ function buildTopLevelSuggestions(
       out.push({
         id: c.id,
         kind: 'comando',
-        label: c.label.trim(),
+        label: c.label,
         detail: c.detail,
-        insertText: c.label,
+        insertText: c.insertText,
         replaceStartCol: tokenStart + 1,
         replaceEndCol: safeCol + 1,
-        ghostText: c.label.startsWith(query) ? c.label.slice(query.length) : undefined,
+        ...(c.selStart !== undefined ? { selectionStartOffset: c.selStart, selectionEndOffset: c.selEnd } : {}),
+        ghostText: c.insertText.startsWith(query) ? c.insertText.slice(query.length) : undefined,
         frecuenciaUso: c.freq,
-        score: sc + c.freq + (query === '/' && c.label.startsWith('/') ? 50 : 0)
+        score: sc + c.freq + (query === '/' && c.insertText.startsWith('/') ? 50 : 0)
       });
     }
   }
@@ -1857,26 +2685,17 @@ export function getContextualAutocompleteSuggestions(
           .filter((x): x is NonNullable<typeof x> => x !== null);
       } else if (/^[a-zA-Z_][\w-]*\s*=\s*/.test(trimmedBefore)) {
         const eqIdx = beforeCursor.indexOf('=');
-        const valQuery = beforeCursor.slice(eqIdx + 1).trimStart();
-        const valStart = beforeCursor.length - valQuery.length;
-        suggestions = variablesExistentes
-          .map(v => {
-            const sc = fuzzyMatchScore(valQuery, v);
-            if (sc === null) return null;
-            return {
-              id: `var-child-${v}`,
-              kind: 'variable' as AutocompleteKind,
-              label: v,
-              detail: 'Variable de cotización',
-              insertText: valQuery ? v : ` ${v}`,
-              replaceStartCol: valQuery ? valStart + 1 : safeCol + 1,
-              replaceEndCol: safeCol + 1,
-              ghostText: v.startsWith(valQuery) ? v.slice(valQuery.length) : undefined,
-              frecuenciaUso: 5,
-              score: sc
-            };
-          })
-          .filter((x): x is NonNullable<typeof x> => x !== null);
+        const localVariables = collectLocalVariablesInBlock(lines, enclosingBlock.startIdx, lineIdx);
+        suggestions = buildExpressionSuggestions({
+          beforeCursor,
+          eqIdx,
+          safeCol,
+          variablesExistentes,
+          localVariables,
+          variableDetails: options.variableDetails,
+          forceOpen,
+          idPrefix: 'child'
+        });
       } else if (trimmedBefore.length >= 1 || forceOpen) {
         const matHeaderClean = enclosingSub.headerLine
           .replace(/^(?:mat:|\+)\s*/i, '')
@@ -1948,26 +2767,23 @@ export function getContextualAutocompleteSuggestions(
         .filter((x): x is NonNullable<typeof x> => x !== null);
     } else if (/^[a-zA-Z_][\w-]*\s*=\s*/.test(trimmedBefore)) {
       const eqIdx = beforeCursor.indexOf('=');
-      const valQuery = beforeCursor.slice(eqIdx + 1).trimStart();
-      const valStart = beforeCursor.length - valQuery.length;
-      suggestions = variablesExistentes
-        .map(v => {
-          const sc = fuzzyMatchScore(valQuery, v);
-          if (sc === null) return null;
-          return {
-            id: `var-sub-${v}`,
-            kind: 'variable' as AutocompleteKind,
-            label: v,
-            detail: 'Variable de cotización',
-            insertText: v,
-            replaceStartCol: valStart + 1,
-            replaceEndCol: safeCol + 1,
-            ghostText: v.startsWith(valQuery) ? v.slice(valQuery.length) : undefined,
-            frecuenciaUso: 5,
-            score: sc
-          };
-        })
-        .filter((x): x is NonNullable<typeof x> => x !== null);
+      const keyName = trimmedBefore.slice(0, trimmedBefore.indexOf('=')).trim();
+      const paramDef = tareaEnclosing?.parametros?.find(
+        p => p.id.toLowerCase() === keyName.toLowerCase()
+      );
+      const localVariables = collectLocalVariablesInBlock(lines, enclosingBlock.startIdx, lineIdx);
+      suggestions = buildExpressionSuggestions({
+        beforeCursor,
+        eqIdx,
+        safeCol,
+        variablesExistentes,
+        localVariables,
+        excludeVarId: keyName,
+        variableDetails: options.variableDetails,
+        paramDef,
+        forceOpen,
+        idPrefix: 'sub'
+      });
     } else if (trimmedBefore.includes('[') && !trimmedBefore.slice(trimmedBefore.lastIndexOf('[')).includes(']')) {
       // Autocompletado de [Marca Modelo] para un material ya escrito
       const openBracketCol = beforeCursor.lastIndexOf('[');
@@ -2227,26 +3043,21 @@ export function getContextualAutocompleteSuggestions(
           insertOnNewIndentedLine: true
         });
       } else if (currentToken.includes('=')) {
-        const eqIdx = currentToken.indexOf('=');
-        const valQuery = currentToken.slice(eqIdx + 1);
-        suggestions = variablesExistentes
-          .map(v => {
-            const sc = fuzzyMatchScore(valQuery, v);
-            if (sc === null) return null;
-            return {
-              id: `var-${v}`,
-              kind: 'variable' as AutocompleteKind,
-              label: v,
-              detail: 'Variable de cotización',
-              insertText: v,
-              replaceStartCol: tokenStart + eqIdx + 2,
-              replaceEndCol: safeCol + 1,
-              ghostText: v.startsWith(valQuery) ? v.slice(valQuery.length) : undefined,
-              frecuenciaUso: 5,
-              score: sc
-            };
-          })
-          .filter((x): x is NonNullable<typeof x> => x !== null);
+        const eqIdx = beforeCursor.lastIndexOf('=');
+        const keyName = currentToken.slice(0, currentToken.indexOf('=')).trim();
+        const paramDef = tarea?.parametros?.find(
+          p => p.id.toLowerCase() === keyName.toLowerCase()
+        );
+        suggestions = buildExpressionSuggestions({
+          beforeCursor,
+          eqIdx,
+          safeCol,
+          variablesExistentes,
+          variableDetails: options.variableDetails,
+          paramDef,
+          forceOpen: true,
+          idPrefix: 'ttinline'
+        });
       } else if (tarea && (currentToken.length > 0 || forceOpen)) {
         const yaPresentes = collectPresentKeysInBlock(lines, lineIdx);
         suggestions = (tarea.parametros || [])
@@ -2335,27 +3146,18 @@ export function getContextualAutocompleteSuggestions(
         .filter((x): x is NonNullable<typeof x> => x !== null);
     }
   } else if (/^[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*/.test(trimmedBefore)) {
-    const rhsToken = currentToken.replace(/^=/, '');
-    if (variablesExistentes.length > 0 && (rhsToken.length > 0 || forceOpen)) {
-      suggestions = variablesExistentes
-        .map(v => {
-          const sc = fuzzyMatchScore(rhsToken, v);
-          if (sc === null) return null;
-          return {
-            id: `var-rhs-${v}`,
-            kind: 'variable' as AutocompleteKind,
-            label: v,
-            detail: 'Variable existente',
-            insertText: v,
-            replaceStartCol: tokenStart + 1,
-            replaceEndCol: safeCol + 1,
-            ghostText: v.startsWith(rhsToken) ? v.slice(rhsToken.length) : undefined,
-            frecuenciaUso: 5,
-            score: sc
-          };
-        })
-        .filter((x): x is NonNullable<typeof x> => x !== null);
-    }
+    const eqIdx = beforeCursor.indexOf('=');
+    const definedVarId = trimmedBefore.slice(0, trimmedBefore.indexOf('=')).trim();
+    suggestions = buildExpressionSuggestions({
+      beforeCursor,
+      eqIdx,
+      safeCol,
+      variablesExistentes,
+      excludeVarId: definedVarId,
+      variableDetails: options.variableDetails,
+      forceOpen,
+      idPrefix: 'rhs'
+    });
   } else if (/^\/[^\s]*$/.test(trimmedBefore) || forceOpen) {
     // Solo abrir menú de comandos al escribir `/` o con Ctrl+Space explícito (no en línea vacía)
     suggestions = buildTopLevelSuggestions(trimmedBefore, indentLen, safeCol);
@@ -2413,9 +3215,14 @@ function collectBlockEditableSlots(lines: string[], rootIdx: number, endIdx: num
         const rawVal = paramMatch[2];
         let valStr = rawVal;
         if (keyLower === 'cantidad' || keyLower === 'horas') {
-          const numUnit = rawVal.match(/^(\d+(?:[.,]\d+)?|\([^)]+\))([a-zA-Z²]+)$/);
+          const numUnit = rawVal.match(/^(\d+(?:[.,]\d+)?|\([^)]+\))([a-zA-Z²³_][a-zA-Z0-9²³_]*)$/);
           if (numUnit) {
             valStr = numUnit[1];
+          } else {
+            const spacedUnit = rawVal.match(/^(.+?)\s+([a-zA-Z²³_][a-zA-Z0-9²³_]*)$/);
+            if (spacedUnit && !/[+\-*/^%?:<>=!&|,;(]$/.test(spacedUnit[1].trimEnd())) {
+              valStr = spacedUnit[1].trimEnd();
+            }
           }
         }
         const eqPos = line.indexOf('=');
@@ -2569,6 +3376,15 @@ export function buildNotebookCommandPalette(
       category: 'flujo',
       keywords: ['pasada', 'esqueleto', 'modo'],
       actionType: 'toggle_pass_mode'
+    },
+    {
+      id: 'cmd-new-variable',
+      label: 'Declarar variable o medida',
+      description: 'Inserta una variable reutilizable (ej. superficie = 80 m²)',
+      category: 'estructura',
+      keywords: ['variable', 'parametro', 'medida', 'formula', 'calculo', '='],
+      insertLine: 'medida = 1',
+      actionType: 'insert_line'
     },
     {
       id: 'cmd-new-capitulo',
@@ -2726,11 +3542,12 @@ export function evaluateNotebookText(
 } {
   const parseResult = parse(texto, buildParseContext(ctx));
   const blockLineNumbers = computeBlockStartLines(texto, parseResult.bloques, parseResult.errores);
+  const rawLines = texto.split(/\r?\n/);
   const aplicacion = applyNotebookBlocksToPresupuesto(
     presupuestoBase,
     parseResult.bloques,
     ctx,
-    { ...options, blockLineNumbers }
+    { ...options, blockLineNumbers, rawLines }
   );
   return { parseResult, aplicacion };
 }
@@ -2793,19 +3610,30 @@ export function evaluarVisibilidadParametroEnEsquema(
 
 /**
  * Construye un bloque canónico `/tt` multilínea indentado desde un `TareaTipo` y valores iniciales opcionales.
+ * Acepta tanto valores numéricos como expresiones/fórmulas (`string`).
  */
 export function construirLineaTareaTipoDesdeEsquema(
   tarea: TareaTipo,
-  valoresParametros?: Record<string, number>
+  valoresParametros?: Record<string, number | string>
 ): string {
   const slug = tarea.slug || slugifyIdentificador(tarea.nombre);
   const params = tarea.parametros || [];
   if (params.length === 0) {
     const cant = valoresParametros?.cantidad;
+    if (typeof cant === 'string') {
+      const cleanCant = cant.trim();
+      return cleanCant && cleanCant !== '1' ? `/tt ${slug}\n  cantidad = ${cleanCant}` : `/tt ${slug}`;
+    }
     return cant !== undefined && cant !== 1 ? `/tt ${slug}\n  cantidad = ${cant}` : `/tt ${slug}`;
   }
   const paramLines = params.map(p => {
-    const val = valoresParametros?.[p.id] ?? p.valorDefault ?? 1;
+    const raw = valoresParametros?.[p.id];
+    const val =
+      typeof raw === 'string' && raw.trim() !== ''
+        ? raw.trim()
+        : raw !== undefined && raw !== ''
+          ? raw
+          : p.valorDefault ?? 1;
     return `  ${p.id} = ${val}`;
   });
   return `/tt ${slug}\n${paramLines.join('\n')}`;
@@ -2813,17 +3641,25 @@ export function construirLineaTareaTipoDesdeEsquema(
 
 /**
  * Construye una línea canónica de ítem libre rápido desde el atajo móvil de 3 campos
- * (descripción, cantidad, precio unitario).
+ * (descripción, cantidad, precio unitario). Soporta valores numéricos o fórmulas.
  */
 export function construirLineaItemLibreRapido(
   descripcion: string,
-  cantidad: number,
-  precioUnitario: number
+  cantidad: number | string,
+  precioUnitario: number | string
 ): string {
   const descLimpia = descripcion.trim().replace(/\s+/g, ' ');
-  const cantVal = Math.max(0.01, safeNum(cantidad) || 1);
-  const precioVal = Math.max(0, safeNum(precioUnitario));
-  return `item: ${descLimpia}\n  cantidad = ${cantVal}u\n  precio = ${precioVal}`;
+  const cantExpr = typeof cantidad === 'string' ? cantidad.trim() : '';
+  const cantLine =
+    cantExpr && isNaN(Number(cantExpr))
+      ? `${cantExpr} u`
+      : `${Math.max(0.01, safeNum(cantidad) || 1)}u`;
+  const precioExpr = typeof precioUnitario === 'string' ? precioUnitario.trim() : '';
+  const precioLine =
+    precioExpr && isNaN(Number(precioExpr))
+      ? precioExpr
+      : `${Math.max(0, safeNum(precioUnitario))}`;
+  return `item: ${descLimpia}\n  cantidad = ${cantLine}\n  precio = ${precioLine}`;
 }
 
 /**
@@ -2832,28 +3668,33 @@ export function construirLineaItemLibreRapido(
 export function actualizarParametroEnLineaTt(
   line: string,
   paramId: string,
-  valor: number
+  valor: number | string
 ): string {
+  const formatted = typeof valor === 'string' ? valor.trim() : String(valor);
   const escaped = paramId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const paramRegex = new RegExp(`(^|\\s)${escaped}\\s*=\\s*[^\\s]+`);
   if (paramRegex.test(line)) {
-    return line.replace(paramRegex, `$1${paramId}=${valor}`);
+    return line.replace(paramRegex, `$1${paramId}=${formatted}`);
   }
-  return `${line.trimEnd()}  ${paramId}=${valor}`;
+  return `${line.trimEnd()}  ${paramId}=${formatted}`;
 }
 
 /**
  * Actualiza o inserta `  paramId = valor` dentro de un bloque `/tt` multilínea indentado.
+ * Acepta valores numéricos o fórmulas (`string`) preservando el resto de sub-líneas.
  */
 export function actualizarParametroEnBloque(
   texto: string,
   startLinea1Based: number,
   paramId: string,
-  valor: number
+  valor: number | string
 ): string {
   const lines = texto.split(/\r?\n/);
   const startIdx = startLinea1Based - 1;
   if (startIdx < 0 || startIdx >= lines.length) return texto;
+
+  const formatted = typeof valor === 'string' ? valor.trim() : String(valor);
+  if (!formatted) return texto;
 
   const escaped = paramId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const subRegex = new RegExp(`^([ \\t]+)${escaped}\\s*=\\s*.*$`);
@@ -2863,7 +3704,7 @@ export function actualizarParametroEnBloque(
     if (!lines[i].trim() || !/^[ \t]+/.test(lines[i])) break;
     endIdx = i;
     if (subRegex.test(lines[i])) {
-      lines[i] = lines[i].replace(subRegex, `$1${paramId} = ${valor}`);
+      lines[i] = lines[i].replace(subRegex, `$1${paramId} = ${formatted}`);
       return lines.join('\n');
     }
   }
@@ -2871,11 +3712,17 @@ export function actualizarParametroEnBloque(
   // Fallback si estaba inline en la línea raíz /tt
   const inlineRegex = new RegExp(`(^|\\s)${escaped}\\s*=\\s*[^\\s]+`);
   if (inlineRegex.test(lines[startIdx])) {
-    lines[startIdx] = lines[startIdx].replace(inlineRegex, `$1${paramId}=${valor}`);
+    if (/\s/.test(formatted)) {
+      // Si la fórmula tiene espacios, promoverla limpiamente a sub-línea indentada
+      lines[startIdx] = lines[startIdx].replace(inlineRegex, '').replace(/\s{2,}$/, '').trimEnd();
+      lines.splice(endIdx + 1, 0, `  ${paramId} = ${formatted}`);
+      return lines.join('\n');
+    }
+    lines[startIdx] = lines[startIdx].replace(inlineRegex, `$1${paramId}=${formatted}`);
     return lines.join('\n');
   }
 
-  lines.splice(endIdx + 1, 0, `  ${paramId} = ${valor}`);
+  lines.splice(endIdx + 1, 0, `  ${paramId} = ${formatted}`);
   return lines.join('\n');
 }
 

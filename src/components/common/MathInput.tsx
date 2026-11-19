@@ -51,7 +51,8 @@ export const MathInput: React.FC<MathInputProps> = ({
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [currentText, setCurrentText] = useState<string>(() => {
-    return formula || (value !== undefined && value !== null ? String(value) : '');
+    if (value !== undefined && value !== null) return String(value);
+    return formula || '';
   });
   const [lastSavedFormula, setLastSavedFormula] = useState<string | undefined>(formula);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -63,7 +64,7 @@ export const MathInput: React.FC<MathInputProps> = ({
     if (formula !== prevPropFormulaRef.current) {
       prevPropFormulaRef.current = formula;
       setLastSavedFormula(formula);
-      if (!isFocused && formula) {
+      if (!isFocused && (value === undefined || value === null) && formula) {
         setCurrentText(formula);
       }
     }

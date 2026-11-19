@@ -9,6 +9,7 @@ import {
   Share2,
   SlidersHorizontal,
   Trash2,
+  Variable,
   Wrench
 } from 'lucide-react';
 import { TERMINOLOGY } from '../../../config/terminology';
@@ -25,6 +26,7 @@ import { MobileQuickFreeItemModal } from './MobileQuickFreeItemModal';
 import { MobileSchemaParameterField } from './MobileSchemaParameterField';
 import { MobileShareExportSheet } from './MobileShareExportSheet';
 import { MobileTareaTipoPickerSheet } from './MobileTareaTipoPickerSheet';
+import { MobileVariablesSheet } from './MobileVariablesSheet';
 
 interface MobileEjecutarViewProps {
   presupuestoId?: string;
@@ -60,6 +62,7 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
   const [freeItemOpen, setFreeItemOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [gastosOpen, setGastosOpen] = useState(false);
+  const [variablesOpen, setVariablesOpen] = useState(false);
 
   const activeGastosCount = useMemo(
     () => vm.gastosEfectivos.filter(g => g.aplica).length,
@@ -88,11 +91,35 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
       item.precioVentaTotal ??
       item.precioVentaUnitario * item.cantidad;
     const tareaTipo = item.tareaTipoId ? tareaById.get(item.tareaTipoId) : undefined;
-    const rawOverrides = item.overridesParametros ?? item.valoresVariables ?? {};
+    const rawOverrides = item.overridesParametros ?? {};
+    const evaluatedSource = item.valoresParametros ?? item.valoresVariables ?? {};
     const numericOverrides: Record<string, number> = {};
-    for (const [k, v] of Object.entries(rawOverrides)) {
+    const formulaOverrides: Record<string, string> = {};
+
+    for (const [k, v] of Object.entries(evaluatedSource)) {
       const n = Number(v);
       if (Number.isFinite(n)) numericOverrides[k] = n;
+    }
+    for (const [k, v] of Object.entries(rawOverrides)) {
+      if (typeof v === 'string') {
+        const trimmed = v.trim();
+        const asNum = Number(trimmed);
+        if (trimmed && !Number.isFinite(asNum)) {
+          formulaOverrides[k] = trimmed;
+        } else if (Number.isFinite(asNum) && numericOverrides[k] === undefined) {
+          numericOverrides[k] = asNum;
+        }
+      } else if (typeof v === 'number' && Number.isFinite(v) && numericOverrides[k] === undefined) {
+        numericOverrides[k] = v;
+      }
+    }
+    for (const p of item.parametros ?? []) {
+      if (p.formula && !formulaOverrides[p.id]) {
+        formulaOverrides[p.id] = p.formula;
+      }
+      if (numericOverrides[p.id] === undefined && Number.isFinite(p.valor)) {
+        numericOverrides[p.id] = p.valor;
+      }
     }
 
     const paramsEsquema = tareaTipo?.parametros ?? [];
@@ -134,7 +161,7 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
         {tareaTipo && paramsEsquema.length > 0 ? (
           <div className="space-y-2">
             {paramsEsquema
-              .filter(p => evaluarVisibilidadParametroEnEsquema(p, numericOverrides))
+              .filter(p => evaluarVisibilidadParametroEnEsquema(p, numericOverrides, vm.scopeVariables))
               .map(param => {
                 const rawVal =
                   numericOverrides[param.id] ??
@@ -145,22 +172,36 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
                     param={param}
                     idPrefix={`item-${item.id}`}
                     value={rawVal}
-                    onChange={nextVal => vm.actualizarParametroDeItem(item.id, param.id, nextVal)}
+                    formula={formulaOverrides[param.id]}
+                    scope={vm.scopeVariables}
+                    onChange={(nextVal, nextFormula) =>
+                      vm.actualizarParametroDeItem(item.id, param.id, nextFormula ?? nextVal)
+                    }
                   />
                 );
               })}
           </div>
         ) : (
-          <div className="flex items-center justify-between rounded-xl bg-surface-container-low px-3 py-2 text-xs text-on-surface-variant">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-container-low px-3 py-2 text-xs text-on-surface-variant">
             <span>
               Cantidad: <strong className="text-on-surface">{item.cantidad}</strong>{' '}
               {item.unidad || 'u'}
+              {item.formulaCantidad && (
+                <span className="ml-1 font-mono text-[11px] text-primary">
+                  (ƒx {item.formulaCantidad})
+                </span>
+              )}
             </span>
             <span>
               Unitario:{' '}
               <strong className="text-on-surface">
                 {formatARS(item.precioManual ?? item.precioVentaUnitario)}
               </strong>
+              {item.formulaPrecio && (
+                <span className="ml-1 font-mono text-[11px] text-primary">
+                  (ƒx {item.formulaPrecio})
+                </span>
+              )}
             </span>
           </div>
         )}
@@ -230,21 +271,46 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setGastosOpen(true)}
-          aria-label="Configurar gastos indirectos y márgenes"
-          className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl border border-outline-variant/60 bg-surface-container-low px-3 py-1.5 text-xs text-on-surface hover:bg-surface-container"
-        >
-          <span className="flex min-w-0 items-center gap-2 truncate">
-            <SlidersHorizontal className="h-4 w-4 shrink-0 text-primary" />
-            <span className="truncate font-medium">
-              Indirectos ({activeGastosCount}): {formatARS(totalGastosAplicados)} · Margen{' '}
-              {vm.totales.beneficioPorcentaje}%
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setVariablesOpen(true)}
+            aria-label="Configurar variables de obra"
+            className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl border border-outline-variant/60 bg-surface-container-low px-3 py-1.5 text-xs text-on-surface hover:bg-surface-container"
+          >
+            <span className="flex min-w-0 items-center gap-2 truncate">
+              <Variable className="h-4 w-4 shrink-0 text-primary" />
+              <span className="truncate font-medium">
+                Variables ({vm.variablesCotizacion.length})
+                {vm.variablesCotizacion.length > 0
+                  ? `: ${vm.variablesCotizacion
+                      .slice(0, 2)
+                      .map(v => `${v.id}=${v.valorEvaluado ?? '?'}${v.unidad ? ` ${v.unidad}` : ''}`)
+                      .join(' · ')}`
+                  : ' · Medidas globales'}
+              </span>
             </span>
-          </span>
-          <span className="shrink-0 font-semibold text-primary">Ajustar</span>
-        </button>
+            <span className="shrink-0 font-semibold text-primary">
+              {vm.variablesCotizacion.length > 0 ? 'Editar' : '+ Crear'}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setGastosOpen(true)}
+            aria-label="Configurar gastos indirectos y márgenes"
+            className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl border border-outline-variant/60 bg-surface-container-low px-3 py-1.5 text-xs text-on-surface hover:bg-surface-container"
+          >
+            <span className="flex min-w-0 items-center gap-2 truncate">
+              <SlidersHorizontal className="h-4 w-4 shrink-0 text-primary" />
+              <span className="truncate font-medium">
+                Indirectos ({activeGastosCount}): {formatARS(totalGastosAplicados)} · Margen{' '}
+                {vm.totales.beneficioPorcentaje}%
+              </span>
+            </span>
+            <span className="shrink-0 font-semibold text-primary">Ajustar</span>
+          </button>
+        </div>
       </div>
 
       <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-3 p-3.5 sm:p-4">
@@ -314,13 +380,23 @@ export const MobileEjecutarView: React.FC<MobileEjecutarViewProps> = ({
         isOpen={pickerOpen}
         onClose={() => setPickerOpen(false)}
         buscarTareasTipo={vm.buscarTareasTipoMovil}
+        scope={vm.scopeVariables}
         onSelectAndAdd={vm.agregarTareaTipoDesdeEsquema}
       />
 
       <MobileQuickFreeItemModal
         isOpen={freeItemOpen}
         onClose={() => setFreeItemOpen(false)}
+        scope={vm.scopeVariables}
         onAdd={vm.agregarItemLibreRapido}
+      />
+
+      <MobileVariablesSheet
+        isOpen={variablesOpen}
+        onClose={() => setVariablesOpen(false)}
+        variables={vm.variablesCotizacion}
+        onUpsertVariable={vm.upsertVariable}
+        onDeleteVariable={vm.deleteVariable}
       />
 
       <MobileGastosIndirectosSheet

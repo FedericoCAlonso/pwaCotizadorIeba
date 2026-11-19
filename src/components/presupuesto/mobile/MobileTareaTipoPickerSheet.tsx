@@ -9,9 +9,10 @@ interface MobileTareaTipoPickerSheetProps {
   isOpen: boolean;
   onClose: () => void;
   buscarTareasTipo: (query: string) => TareaTipo[];
+  scope?: Record<string, number>;
   onSelectAndAdd: (
     tareaTipoId: string,
-    valoresParametros?: Record<string, number>
+    valoresParametros?: Record<string, number | string>
   ) => Promise<void> | void;
 }
 
@@ -33,11 +34,13 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
   isOpen,
   onClose,
   buscarTareasTipo,
+  scope,
   onSelectAndAdd
 }) => {
   const [query, setQuery] = useState('');
   const [selectedTarea, setSelectedTarea] = useState<TareaTipo | null>(null);
   const [paramValues, setParamValues] = useState<Record<string, number>>({});
+  const [paramFormulas, setParamFormulas] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -45,6 +48,7 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
       setQuery('');
       setSelectedTarea(null);
       setParamValues({});
+      setParamFormulas({});
       setSubmitting(false);
     }
   }, [isOpen]);
@@ -85,6 +89,7 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
     }
     setSelectedTarea(tarea);
     setParamValues(initDefaultParams(tarea));
+    setParamFormulas({});
   };
 
   const handleConfirmConfigured = async (e: React.FormEvent) => {
@@ -92,7 +97,11 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
     if (!selectedTarea || submitting) return;
     setSubmitting(true);
     try {
-      await onSelectAndAdd(selectedTarea.id, paramValues);
+      const payload: Record<string, number | string> = { ...paramValues };
+      for (const [k, fx] of Object.entries(paramFormulas)) {
+        if (fx.trim()) payload[k] = fx.trim();
+      }
+      await onSelectAndAdd(selectedTarea.id, payload);
       onClose();
     } finally {
       setSubmitting(false);
@@ -189,14 +198,27 @@ export const MobileTareaTipoPickerSheet: React.FC<MobileTareaTipoPickerSheetProp
               )}
             </div>
             {(selectedTarea.parametros || [])
-              .filter(p => evaluarVisibilidadParametroEnEsquema(p, paramValues))
+              .filter(p => evaluarVisibilidadParametroEnEsquema(p, paramValues, scope))
               .map(param => (
                 <MobileSchemaParameterField
                   key={param.id}
                   param={param}
                   idPrefix="picker-param"
                   value={paramValues[param.id] ?? Number(param.valorDefault) ?? 0}
-                  onChange={nextVal => setParamValues(prev => ({ ...prev, [param.id]: nextVal }))}
+                  formula={paramFormulas[param.id]}
+                  scope={scope}
+                  onChange={(nextVal, nextFormula) => {
+                    setParamValues(prev => ({ ...prev, [param.id]: nextVal }));
+                    setParamFormulas(prev => {
+                      const next = { ...prev };
+                      if (nextFormula && nextFormula.trim()) {
+                        next[param.id] = nextFormula.trim();
+                      } else {
+                        delete next[param.id];
+                      }
+                      return next;
+                    });
+                  }}
                 />
               ))}
           </div>

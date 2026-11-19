@@ -623,6 +623,7 @@ export interface ServicioTercerizado {
   descripcion: string;
   costo: number;
   cantidad?: number;
+  unidad?: string;
   formulaCosto?: string;
   formulaCantidad?: string;
   margenPropio?: number;
@@ -689,16 +690,19 @@ export interface AjusteItemAgregado {
   tipo: 'material' | 'mano_obra' | 'servicio' | 'item_libre' | 'tarea_tipo';
   referenciaId?: string; // materialId, categoriaManoObraId o tareaTipoId
   productoId?: string;
+  productoReferencia?: string;
   descripcion: string;
   cantidad: number;
   formulaCantidad?: string;
   unidad: string;
   precioUnitario?: number;
+  formulaPrecio?: string;
 }
 
 export interface AjustesInstanciaTrabajoTipo {
   quitados: string[]; // Claves/IDs quitados de la instancia (ej: 'puesta-a-tierra')
   agregados: AjusteItemAgregado[]; // Elementos agregados sobre la definición base (ej: '+canaleta 20m')
+  lineasExtra?: AjusteItemAgregado[]; // Sub-líneas adicionales (mat:, mo:, serv:) dentro del bloque /tt
 }
 
 export interface ItemPresupuesto {
@@ -876,6 +880,7 @@ export interface VariableCotizacion {
   unidad?: string;
   dependencias?: string[];
   error?: string;
+  advertencia?: string;
   orden?: number;
 }
 

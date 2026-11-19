@@ -4,6 +4,8 @@ import {
   evaluarAlcanceYAdvertencias,
   evaluarVariablesCotizacion,
   slugifyIdentificador,
+  sugerirIdentificadorCercano,
+  validarReferenciasEnScope,
 } from './notebookDomain';
 import { Presupuesto, TareaTipo } from './types';
 
@@ -88,13 +90,41 @@ describe('notebookDomain (Fase 1)', () => {
       expect(res.scope.ok).toBe(10);
     });
 
-    it('reporta variables no definidas sin lanzar excepción', () => {
+    it('reporta variables no definidas sin lanzar excepción y sugiere identificadores cercanos', () => {
       const res = evaluarVariablesCotizacion([
-        { id: 'total', expresion: 'inexistente * 2' },
+        { id: 'superficie', expresion: '80' },
+        { id: 'total', expresion: 'superfice * 2' },
       ]);
 
       expect(res.tieneErrores).toBe(true);
-      expect(res.variables[0].error).toContain("Variable no definida 'inexistente'");
+      expect(res.variables[1].error).toContain("Variable no definida 'superfice'");
+      expect(res.variables[1].error).toContain("¿Quisiste decir 'superficie'?");
+    });
+
+    it('evalúa parámetros locales en cascada heredando un baseScope global', () => {
+      const res = evaluarVariablesCotizacion(
+        [
+          { id: 'bocas', expresion: 'ceil(sup * 0.3)' },
+          { id: 'metros', expresion: 'bocas * 4' },
+        ],
+        { sup: 80 }
+      );
+
+      expect(res.tieneErrores).toBe(false);
+      expect(res.scope).toEqual({ sup: 80, bocas: 24, metros: 96 });
+    });
+
+    it('valida referencias de una expresión contra el scope y sugiere typos', () => {
+      expect(sugerirIdentificadorCercano('boca', ['sup', 'bocas', 'circuitos'])).toBe('bocas');
+      expect(sugerirIdentificadorCercano('xyz_nada', ['sup', 'bocas'])).toBeUndefined();
+
+      const faltantes = validarReferenciasEnScope('boca * 2 + sup', { sup: 60, bocas: 12 }, 'cantidad');
+      expect(faltantes).toHaveLength(1);
+      expect(faltantes[0]).toMatchObject({
+        identificador: 'boca',
+        sugerencia: 'bocas',
+      });
+      expect(faltantes[0].mensaje).toContain("¿Quisiste decir 'bocas'?");
     });
   });
 
